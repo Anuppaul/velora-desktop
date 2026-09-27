@@ -6,6 +6,7 @@ import org.json.JSONObject
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
+import tech.wonderer.velora.model.HostedWidget
 import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
@@ -106,6 +107,53 @@ class LayoutStore(context: Context) {
         prefs.edit().putString(KEY_WIDGETS, array.toString()).apply()
     }
 
+    fun loadHostedWidgets(): List<HostedWidget> {
+        val raw = prefs.getString(KEY_HOSTED_WIDGETS, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val obj = array.getJSONObject(index)
+                    add(
+                        HostedWidget(
+                            id = obj.getString("id"),
+                            appWidgetId = obj.getInt("appWidgetId"),
+                            provider = obj.getString("provider"),
+                            label = obj.optString("label", "Android Widget"),
+                            x = obj.optDouble("x", 0.10).toFloat(),
+                            y = obj.optDouble("y", 0.16).toFloat(),
+                            widthDp = obj.optDouble("widthDp", 220.0).toFloat(),
+                            heightDp = obj.optDouble("heightDp", 140.0).toFloat(),
+                            scale = obj.optDouble("scale", 1.0).toFloat(),
+                            zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                        ),
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveHostedWidgets(widgets: List<HostedWidget>) {
+        val array = JSONArray()
+        widgets.forEach { widget ->
+            array.put(
+                JSONObject().apply {
+                    put("id", widget.id)
+                    put("appWidgetId", widget.appWidgetId)
+                    put("provider", widget.provider)
+                    put("label", widget.label)
+                    put("x", widget.x)
+                    put("y", widget.y)
+                    put("widthDp", widget.widthDp)
+                    put("heightDp", widget.heightDp)
+                    put("scale", widget.scale)
+                    put("zIndex", widget.zIndex)
+                },
+            )
+        }
+        prefs.edit().putString(KEY_HOSTED_WIDGETS, array.toString()).apply()
+    }
+
     fun loadGlobalIconScale(): Float = prefs.getFloat(KEY_GLOBAL_SCALE, 1f)
 
     fun saveGlobalIconScale(scale: Float) {
@@ -158,6 +206,7 @@ class LayoutStore(context: Context) {
     private companion object {
         const val KEY_LAYOUT = "home_layout_v1"
         const val KEY_WIDGETS = "home_widgets_v1"
+        const val KEY_HOSTED_WIDGETS = "hosted_widgets_v1"
         const val KEY_GLOBAL_SCALE = "global_icon_scale"
         const val KEY_ICON_STYLE = "icon_style"
         const val KEY_ICON_SHAPE = "icon_shape"

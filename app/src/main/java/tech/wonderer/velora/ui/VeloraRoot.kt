@@ -1,8 +1,12 @@
 package tech.wonderer.velora.ui
 
+import android.app.Activity
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import tech.wonderer.velora.data.AndroidWidgetHostController
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
@@ -46,6 +52,14 @@ import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.VeloraAmbientProvider
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 
+private data class PendingHostedWidget(
+    val appWidgetId: Int,
+    val provider: String,
+    val label: String,
+    val widthDp: Float,
+    val heightDp: Float,
+)
+
 private enum class Overlay {
     NONE,
     DRAWER,
@@ -53,6 +67,7 @@ private enum class Overlay {
     CONTROL_CENTER,
     SETTINGS,
     WIDGET_PICKER,
+    ANDROID_WIDGET_PICKER,
     HIDDEN_APPS,
 }
 
@@ -65,12 +80,100 @@ fun VeloraRoot(
     var groupId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
     var editingWidgetId by remember { mutableStateOf<String?>(null) }
+    var editingHostedWidgetId by remember { mutableStateOf<String?>(null) }
     var homeEditMode by remember { mutableStateOf(false) }
+    var pendingHostedWidget by remember { mutableStateOf<PendingHostedWidget?>(null) }
+
+    val androidWidgetHost = remember(context) {
+        AndroidWidgetHostController(context.applicationContext)
+    }
+
+    DisposableEffect(androidWidgetHost) {
+        androidWidgetHost.startListening()
+        onDispose {
+            androidWidgetHost.stopListening()
+        }
+    }
+
+    fun cancelPendingHostedWidget() {
+        pendingHostedWidget?.let { androidWidgetHost.deleteId(it.appWidgetId) }
+        pendingHostedWidget = null
+    }
+
+    fun finishPendingHostedWidget() {
+        val pending = pendingHostedWidget ?: return
+        launcher.addHostedWidget(
+            appWidgetId = pending.appWidgetId,
+            provider = pending.provider,
+            label = pending.label,
+            widthDp = pending.widthDp,
+            heightDp = pending.heightDp,
+        )
+        pendingHostedWidget = null
+        overlay = Overlay.NONE
+        homeEditMode = true
+    }
+
+    val configureWidgetLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            finishPendingHostedWidget()
+        } else {
+            cancelPendingHostedWidget()
+        }
+    }
+
+    val bindWidgetLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val pending = pendingHostedWidget
+        if (result.resultCode != Activity.RESULT_OK || pending == null) {
+            cancelPendingHostedWidget()
+        } else {
+            val info = androidWidgetHost.info(pending.appWidgetId)
+            val configureIntent = info?.let {
+                androidWidgetHost.configureIntent(pending.appWidgetId, it)
+            }
+            if (configureIntent != null) {
+                configureWidgetLauncher.launch(configureIntent)
+            } else {
+                finishPendingHostedWidget()
+            }
+        }
+    }
+
+    fun requestAndroidWidget(info: AppWidgetProviderInfo) {
+        cancelPendingHostedWidget()
+        val appWidgetId = androidWidgetHost.allocateId()
+        val size = androidWidgetHost.suggestedSize(info)
+        pendingHostedWidget = PendingHostedWidget(
+            appWidgetId = appWidgetId,
+            provider = info.provider.flattenToString(),
+            label = androidWidgetHost.widgetLabel(info),
+            widthDp = size.first,
+            heightDp = size.second,
+        )
+
+        if (androidWidgetHost.bindIfAllowed(appWidgetId, info.provider)) {
+            val configureIntent = androidWidgetHost.configureIntent(appWidgetId, info)
+            if (configureIntent != null) {
+                configureWidgetLauncher.launch(configureIntent)
+            } else {
+                finishPendingHostedWidget()
+            }
+        } else {
+            bindWidgetLauncher.launch(
+                androidWidgetHost.bindIntent(appWidgetId, info.provider),
+            )
+        }
+    }
 
     val closeTopLayer = {
         when {
             editingItemId != null -> editingItemId = null
             editingWidgetId != null -> editingWidgetId = null
+            editingHostedWidgetId != null -> editingHostedWidgetId = null
             groupId != null -> groupId = null
             overlay != Overlay.NONE -> overlay = Overlay.NONE
             homeEditMode -> homeEditMode = false
@@ -81,6 +184,7 @@ fun VeloraRoot(
     BackHandler(
         enabled = editingItemId != null ||
             editingWidgetId != null ||
+            editingHostedWidgetId != null ||
             groupId != null ||
             overlay != Overlay.NONE ||
             homeEditMode,
@@ -123,11 +227,23 @@ fun VeloraRoot(
                     onHomeLongPress = { homeEditMode = true },
                 )
 
+                AndroidWidgetLayer(
+                    widgets = launcher.hostedWidgets,
+                    controller = androidWidgetHost,
+                    editMode = homeEditMode,
+                    onMoveCommitted = launcher::commitHostedWidgetMove,
+                    onEdit = {
+                        homeEditMode = true
+                        editingHostedWidgetId = it
+                    },
+                )
+
                 val modalVisible =
                     overlay != Overlay.NONE ||
                         groupId != null ||
                         editingItemId != null ||
                         editingWidgetId != null ||
+                        editingHostedWidgetId != null ||
                         !launcher.onboardingComplete
 
                 if (modalVisible) {
@@ -168,7 +284,17 @@ fun VeloraRoot(
 
                     Overlay.WIDGET_PICKER -> WidgetPicker(
                         onAdd = launcher::addWidget,
+                        onAndroidWidgets = { overlay = Overlay.ANDROID_WIDGET_PICKER },
                         onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.ANDROID_WIDGET_PICKER -> AndroidWidgetPicker(
+                        controller = androidWidgetHost,
+                        onSelect = ::requestAndroidWidget,
+                        onClose = {
+                            cancelPendingHostedWidget()
+                            overlay = Overlay.NONE
+                        },
                     )
 
                     Overlay.HIDDEN_APPS -> HiddenAppsPanel(
@@ -226,13 +352,31 @@ fun VeloraRoot(
                         )
                     }
 
+                editingHostedWidgetId
+                    ?.let { id -> launcher.hostedWidgets.firstOrNull { it.id == id } }
+                    ?.let { widget ->
+                        HostedWidgetEditSheet(
+                            widget = widget,
+                            onScaleChanged = {
+                                launcher.setHostedWidgetScale(widget.id, it)
+                            },
+                            onRemove = {
+                                androidWidgetHost.deleteId(widget.appWidgetId)
+                                launcher.removeHostedWidget(widget.id)
+                                editingHostedWidgetId = null
+                            },
+                            onClose = { editingHostedWidgetId = null },
+                        )
+                    }
+
                 AnimatedVisibility(
                     visible = launcher.onboardingComplete &&
                         homeEditMode &&
                         overlay == Overlay.NONE &&
                         groupId == null &&
                         editingItemId == null &&
-                        editingWidgetId == null,
+                        editingWidgetId == null &&
+                        editingHostedWidgetId == null,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .zIndex(90f)
@@ -266,12 +410,14 @@ fun VeloraRoot(
                         groupId = null
                         editingItemId = null
                         editingWidgetId = null
+                        editingHostedWidgetId = null
                         homeEditMode = false
                     },
                     onBack = {
                         if (
                             editingItemId != null ||
                             editingWidgetId != null ||
+                            editingHostedWidgetId != null ||
                             groupId != null ||
                             overlay != Overlay.NONE
                         ) {

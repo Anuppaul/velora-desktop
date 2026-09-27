@@ -225,6 +225,7 @@ fun WidgetEditSheet(
 @Composable
 fun WidgetPicker(
     onAdd: (PremiumWidgetType) -> Unit,
+    onAndroidWidgets: (() -> Unit)? = null,
     onClose: () -> Unit,
 ) {
     GlassPanel(
@@ -246,6 +247,31 @@ fun WidgetPicker(
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(14.dp))
+
+            if (onAndroidWidgets != null) {
+                GlassPanel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAndroidWidgets),
+                    shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                ) {
+                    Column {
+                        Text(
+                            text = "Android app widgets",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Add widgets from installed apps",
+                            color = Color.White.copy(alpha = 0.54f),
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {

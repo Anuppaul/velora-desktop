@@ -308,6 +308,7 @@ fun VeloraSimulationRoot(
                                 zIndex = nextZ(),
                             )
                         },
+                        onAndroidWidgets = null,
                         onClose = { overlay = SimulationOverlay.NONE },
                     )
 

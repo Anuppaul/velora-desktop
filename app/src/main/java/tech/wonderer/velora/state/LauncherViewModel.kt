@@ -18,6 +18,7 @@ import tech.wonderer.velora.data.LayoutStore
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
+import tech.wonderer.velora.model.HostedWidget
 import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
@@ -34,6 +35,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     var homeWidgets by mutableStateOf<List<HomeWidget>>(emptyList())
+        private set
+
+    var hostedWidgets by mutableStateOf<List<HostedWidget>>(emptyList())
         private set
 
     var globalIconScale by mutableFloatStateOf(store.loadGlobalIconScale())
@@ -66,6 +70,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             } else {
                 seedWidgets().also(store::saveHomeWidgets)
             }
+
+            hostedWidgets = store.loadHostedWidgets()
         }
     }
 
@@ -285,6 +291,55 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persistWidgets()
     }
 
+    fun addHostedWidget(
+        appWidgetId: Int,
+        provider: String,
+        label: String,
+        widthDp: Float,
+        heightDp: Float,
+    ) {
+        hostedWidgets = hostedWidgets + HostedWidget(
+            id = "android-widget-" + appWidgetId,
+            appWidgetId = appWidgetId,
+            provider = provider,
+            label = label,
+            x = 0.12f,
+            y = 0.18f,
+            widthDp = widthDp,
+            heightDp = heightDp,
+            zIndex = nextZ(),
+        )
+        persistHostedWidgets()
+    }
+
+    fun commitHostedWidgetMove(widgetId: String, x: Float, y: Float) {
+        val raisedZ = nextZ()
+        hostedWidgets = hostedWidgets.map {
+            if (it.id == widgetId) {
+                it.copy(
+                    x = x.coerceIn(0f, 1f),
+                    y = y.coerceIn(0f, 1f),
+                    zIndex = raisedZ,
+                )
+            } else {
+                it
+            }
+        }
+        persistHostedWidgets()
+    }
+
+    fun setHostedWidgetScale(widgetId: String, scale: Float) {
+        hostedWidgets = hostedWidgets.map {
+            if (it.id == widgetId) it.copy(scale = scale.coerceIn(0.70f, 1.80f)) else it
+        }
+        persistHostedWidgets()
+    }
+
+    fun removeHostedWidget(widgetId: String) {
+        hostedWidgets = hostedWidgets.filterNot { it.id == widgetId }
+        persistHostedWidgets()
+    }
+
     fun removeWidget(widgetId: String) {
         homeWidgets = homeWidgets.filterNot { it.id == widgetId }
         persistWidgets()
@@ -373,6 +428,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("y", widget.y)
                             put("scale", widget.scale)
                             put("zIndex", widget.zIndex)
+                        },
+                    )
+                }
+            },
+        )
+        root.put(
+            "hostedWidgetProviders",
+            JSONArray().apply {
+                hostedWidgets.forEach { widget ->
+                    put(
+                        JSONObject().apply {
+                            put("provider", widget.provider)
+                            put("label", widget.label)
+                            put("x", widget.x)
+                            put("y", widget.y)
+                            put("widthDp", widget.widthDp)
+                            put("heightDp", widget.heightDp)
+                            put("scale", widget.scale)
                         },
                     )
                 }
@@ -518,7 +591,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private fun nextZ(): Float {
         val itemMax = homeItems.maxOfOrNull { it.zIndex } ?: 0f
         val widgetMax = homeWidgets.maxOfOrNull { it.zIndex } ?: 0f
-        return maxOf(itemMax, widgetMax) + 1f
+        val hostedMax = hostedWidgets.maxOfOrNull { it.zIndex } ?: 0f
+        return maxOf(itemMax, widgetMax, hostedMax) + 1f
     }
 
     private fun persist() {
@@ -527,6 +601,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun persistWidgets() {
         store.saveHomeWidgets(homeWidgets)
+    }
+
+    private fun persistHostedWidgets() {
+        store.saveHostedWidgets(hostedWidgets)
     }
 
     private fun persistIconAppearance() {
