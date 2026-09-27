@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -78,62 +79,68 @@ fun ControlCenter(
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
     ) {
-        Column(
+        LazyColumn(
             verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column {
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column {
+                        Text(
+                            text = "Control Center",
+                            color = Color.White,
+                            fontSize = 29.sp,
+                            fontWeight = FontWeight.Light,
+                        )
+                        Text(
+                            text = SimpleDateFormat("h:mm · EEE, d MMM", Locale.getDefault())
+                                .format(now),
+                            color = Color.White.copy(alpha = 0.58f),
+                            fontSize = 12.sp,
+                        )
+                    }
                     Text(
-                        text = "Control Center",
-                        color = Color.White,
-                        fontSize = 29.sp,
-                        fontWeight = FontWeight.Light,
-                    )
-                    Text(
-                        text = SimpleDateFormat("h:mm · EEE, d MMM", Locale.getDefault())
-                            .format(now),
-                        color = Color.White.copy(alpha = 0.58f),
-                        fontSize = 12.sp,
+                        text = battery?.let { it.toString() + "%" } ?: "Velora",
+                        color = Color.White.copy(alpha = 0.82f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
+            }
+
+            item { QuickControls() }
+            item { SystemSliders() }
+
+            item {
+                when {
+                    media != null -> MediaCard(media!!)
+                    !mediaAccess -> MediaAccessCard()
+                    else -> EmptyMediaCard()
+                }
+            }
+
+            item {
                 Text(
-                    text = battery?.let { it.toString() + "%" } ?: "Velora",
-                    color = Color.White.copy(alpha = 0.82f),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Top-left ↓ Notifications · Top-right ↓ Controls",
+                    color = Color.White.copy(alpha = 0.42f),
+                    fontSize = 11.sp,
                 )
             }
 
-            QuickControls()
-
-            SystemSliders()
-
-            when {
-                media != null -> MediaCard(media!!)
-                !mediaAccess -> MediaAccessCard()
-                else -> EmptyMediaCard()
+            item {
+                Text(
+                    text = "Close",
+                    color = Color.White.copy(alpha = 0.68f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onClose)
+                        .padding(vertical = 12.dp),
+                )
             }
-
-            Spacer(Modifier.weight(1f))
-
-            Text(
-                text = "Swipe from the top-left for notifications",
-                color = Color.White.copy(alpha = 0.42f),
-                fontSize = 11.sp,
-            )
-
-            Text(
-                text = "Close",
-                color = Color.White.copy(alpha = 0.68f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClose)
-                    .padding(vertical = 12.dp),
-            )
         }
     }
 }
@@ -155,7 +162,7 @@ private fun QuickControls() {
                 detail = "Network",
                 modifier = Modifier.weight(1f),
             ) {
-                context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
             }
             QuickControl(
                 symbol = "ᛒ",
@@ -163,7 +170,7 @@ private fun QuickControls() {
                 detail = "Devices",
                 modifier = Modifier.weight(1f),
             ) {
-                context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                openSystemScreen(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
             }
         }
 
@@ -177,7 +184,10 @@ private fun QuickControls() {
                 detail = "Do Not Disturb",
                 modifier = Modifier.weight(1f),
             ) {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                openSystemScreen(
+                    context,
+                    Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+                )
             }
             QuickControl(
                 symbol = "↻",
@@ -185,7 +195,7 @@ private fun QuickControls() {
                 detail = "Rotation & screen",
                 modifier = Modifier.weight(1f),
             ) {
-                context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
             }
         }
     }
@@ -259,7 +269,8 @@ private fun SystemSliders() {
                     null
                 } else {
                     {
-                        context.startActivity(
+                        openSystemScreen(
+                            context,
                             Intent(
                                 Settings.ACTION_MANAGE_WRITE_SETTINGS,
                                 Uri.parse("package:" + context.packageName),
@@ -383,7 +394,10 @@ private fun MediaAccessCard() {
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                openSystemScreen(
+                    context,
+                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                )
             },
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(16.dp),
@@ -510,5 +524,22 @@ private fun writeBrightness(
             Settings.System.SCREEN_BRIGHTNESS,
             (value.coerceIn(0f, 1f) * 255f).toInt(),
         )
+    }
+}
+
+
+private fun openSystemScreen(
+    context: Context,
+    intent: Intent,
+) {
+    val opened = runCatching {
+        context.startActivity(intent)
+        true
+    }.getOrDefault(false)
+
+    if (!opened) {
+        runCatching {
+            context.startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
     }
 }

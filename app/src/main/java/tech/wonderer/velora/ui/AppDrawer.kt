@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.ModalBackdrop
 
 @Composable
 fun AppDrawer(
@@ -108,10 +109,17 @@ fun AppDrawer(
                                 onClose()
                             },
                             onLongPress = { selectedApp = app },
+                            onMenu = { selectedApp = app },
                         )
                     }
                 }
             }
+        }
+
+        if (selectedApp != null) {
+            ModalBackdrop(
+                modifier = Modifier.zIndex(50f),
+            )
         }
 
         selectedApp?.let { app ->
@@ -144,6 +152,7 @@ private fun DrawerApp(
     app: InstalledApp,
     onLaunch: () -> Unit,
     onLongPress: () -> Unit,
+    onMenu: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -166,6 +175,14 @@ private fun DrawerApp(
             maxLines = 1,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = "⋯",
+            color = Color.White.copy(alpha = 0.58f),
+            fontSize = 16.sp,
+            modifier = Modifier
+                .clickable(onClick = onMenu)
+                .padding(horizontal = 12.dp, vertical = 2.dp),
         )
     }
 }

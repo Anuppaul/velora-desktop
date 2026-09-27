@@ -430,7 +430,13 @@ fun VeloraSimulationRoot(
                         homeEditMode = false
                     },
                     onBack = { closeTopLayer() },
-                    onSettings = { overlay = SimulationOverlay.SETTINGS },
+                    onSettings = {
+                        if (overlay == SimulationOverlay.NONE) {
+                            homeEditMode = true
+                        } else {
+                            overlay = SimulationOverlay.SETTINGS
+                        }
+                    },
                 )
             }
         }

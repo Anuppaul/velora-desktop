@@ -340,6 +340,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persistHostedWidgets()
     }
 
+    fun pruneHostedWidgets(validAppWidgetIds: Set<Int>) {
+        val cleaned = hostedWidgets.filter { it.appWidgetId in validAppWidgetIds }
+        if (cleaned.size != hostedWidgets.size) {
+            hostedWidgets = cleaned
+            persistHostedWidgets()
+        }
+    }
+
     fun removeWidget(widgetId: String) {
         homeWidgets = homeWidgets.filterNot { it.id == widgetId }
         persistWidgets()
@@ -385,7 +393,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun createBackupJson(): String {
         val root = JSONObject()
         root.put("format", "velora-backup")
-        root.put("version", 2)
+        root.put("version", 3)
         root.put("globalIconScale", globalIconScale)
         root.put(
             "iconAppearance",

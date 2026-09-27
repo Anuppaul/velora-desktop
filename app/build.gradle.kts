@@ -4,6 +4,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystorePath = providers.environmentVariable("VELORA_KEYSTORE").orNull
+val releaseStorePassword = providers.environmentVariable("VELORA_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("VELORA_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("VELORA_KEY_PASSWORD").orNull
+val releaseSigningReady = listOf(
+    releaseKeystorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "tech.wonderer.velora"
     compileSdk = 35
@@ -12,14 +23,33 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.1.0-alpha12"
+        versionCode = 14
+        versionName = "0.1.0-alpha14"
+    }
+
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            isDebuggable = true
+        }
+
         release {
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -58,6 +88,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

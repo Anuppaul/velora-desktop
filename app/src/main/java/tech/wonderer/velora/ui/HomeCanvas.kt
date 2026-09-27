@@ -4,6 +4,7 @@ import android.os.BatteryManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -109,10 +110,11 @@ fun HomeCanvas(
                     },
                 )
             }
-            .combinedClickable(
-                onClick = {},
-                onLongClick = onHomeLongPress,
-            ),
+            .pointerInput(onHomeLongPress) {
+                detectTapGestures(
+                    onLongPress = { onHomeLongPress() },
+                )
+            },
     ) {
         StatusRow(
             modifier = Modifier

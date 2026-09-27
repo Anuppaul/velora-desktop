@@ -32,6 +32,9 @@ class AndroidWidgetHostController(
 
     fun allocateId(): Int = host.allocateAppWidgetId()
 
+    fun hostedIds(): Set<Int> =
+        runCatching { host.appWidgetIds.toSet() }.getOrDefault(emptySet())
+
     fun deleteId(appWidgetId: Int) {
         runCatching { host.deleteAppWidgetId(appWidgetId) }
     }

@@ -1,14 +1,23 @@
 package tech.wonderer.velora.ui.components
 
 import android.app.WallpaperManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 data class VeloraPalette(
     val accent: Color = Color(0xFFB7A7FF),
@@ -25,7 +34,26 @@ fun VeloraAmbientProvider(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val palette = remember {
+    var wallpaperRevision by remember { mutableIntStateOf(0) }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                wallpaperRevision += 1
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(Intent.ACTION_WALLPAPER_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+
+    val palette = remember(wallpaperRevision) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             runCatching {
                 val colors = WallpaperManager.getInstance(context)

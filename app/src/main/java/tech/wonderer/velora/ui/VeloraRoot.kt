@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,9 +73,14 @@ private enum class Overlay {
 
 @Composable
 fun VeloraRoot(
+    androidWidgetHost: AndroidWidgetHostController,
     launcher: LauncherViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+
+    LaunchedEffect(androidWidgetHost) {
+        launcher.pruneHostedWidgets(androidWidgetHost.hostedIds())
+    }
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var groupId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
@@ -83,17 +88,6 @@ fun VeloraRoot(
     var editingHostedWidgetId by remember { mutableStateOf<String?>(null) }
     var homeEditMode by remember { mutableStateOf(false) }
     var pendingHostedWidget by remember { mutableStateOf<PendingHostedWidget?>(null) }
-
-    val androidWidgetHost = remember(context) {
-        AndroidWidgetHostController(context.applicationContext)
-    }
-
-    DisposableEffect(androidWidgetHost) {
-        androidWidgetHost.startListening()
-        onDispose {
-            androidWidgetHost.stopListening()
-        }
-    }
 
     fun cancelPendingHostedWidget() {
         pendingHostedWidget?.let { androidWidgetHost.deleteId(it.appWidgetId) }

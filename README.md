@@ -35,7 +35,7 @@ See `docs/COLAB_BUILD.md`.
 
 ## Current milestone
 
-The requested first main product concept is implemented in source. The next milestone is the first real Colab compilation and target-device validation; source-complete does not mean build-verified.
+Velora has passed an earlier full debug APK build. Current source has moved beyond that build with Android app-widget hosting, hardened Home/App actions, split Notifications/Control Center, and release tooling. The current source still requires one consolidated build and physical-device/OEM validation before release.
 
 See `docs/MAIN_CONCEPT_STATUS.md` for the exact implementation checklist and Android platform boundaries.
 
@@ -74,3 +74,23 @@ Long-press an empty area of Home to enter Edit Mode. The edit bar provides direc
 ## App actions
 
 Long-press an app in Apps to open its action sheet. Real launcher builds provide Pin to Home, Hide, App info and Uninstall actions.
+
+
+## Android app widgets
+
+Velora can host standard Android widgets from installed apps. Open Home Edit Mode → Widgets → Android app widgets. Binding always follows Android's user-consent flow; providers with configuration screens are configured before being added. Hosted widgets are freeform, movable, resizable and removable.
+
+Bound Android widget IDs are device-local. Backup exports provider/layout metadata for reference but never reuses another device's widget IDs without Android binding consent.
+
+## Release signing
+
+Release signing is environment-based. No keystore or password belongs in this repository.
+
+Required environment variables:
+
+- `VELORA_KEYSTORE`
+- `VELORA_STORE_PASSWORD`
+- `VELORA_KEY_ALIAS`
+- `VELORA_KEY_PASSWORD`
+
+The Colab notebook includes an optional signed-release section that can generate a signed release APK and AAB after the debug build is stable.

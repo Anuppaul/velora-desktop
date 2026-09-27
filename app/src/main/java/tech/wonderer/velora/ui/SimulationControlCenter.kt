@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -40,72 +41,80 @@ fun SimulationControlCenter(
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
     ) {
-        Column(
+        LazyColumn(
             verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column {
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column {
+                        Text(
+                            text = "Control Center",
+                            color = Color.White,
+                            fontSize = 29.sp,
+                            fontWeight = FontWeight.Light,
+                        )
+                        Text(
+                            text = "2:14 · Sun, 27 Sep",
+                            color = Color.White.copy(alpha = 0.58f),
+                            fontSize = 12.sp,
+                        )
+                    }
                     Text(
-                        text = "Control Center",
-                        color = Color.White,
-                        fontSize = 29.sp,
-                        fontWeight = FontWeight.Light,
-                    )
-                    Text(
-                        text = "2:14 · Sun, 27 Sep",
-                        color = Color.White.copy(alpha = 0.58f),
-                        fontSize = 12.sp,
+                        text = "87%",
+                        color = Color.White.copy(alpha = 0.82f),
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
+            }
+
+            item { SimQuickGrid() }
+
+            item {
+                GlassPanel(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    Column {
+                        SimSlider(
+                            label = "Brightness",
+                            value = brightness,
+                            onValueChange = { brightness = it },
+                        )
+                        SimSlider(
+                            label = "Volume",
+                            value = volume,
+                            onValueChange = { volume = it },
+                        )
+                    }
+                }
+            }
+
+            item { SimMediaCard() }
+
+            item {
                 Text(
-                    text = "87%",
-                    color = Color.White.copy(alpha = 0.82f),
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Top-left ↓ Notifications · Top-right ↓ Controls",
+                    color = Color.White.copy(alpha = 0.42f),
+                    fontSize = 11.sp,
                 )
             }
 
-            SimQuickGrid()
-
-            GlassPanel(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-            ) {
-                Column {
-                    SimSlider(
-                        label = "Brightness",
-                        value = brightness,
-                        onValueChange = { brightness = it },
-                    )
-                    SimSlider(
-                        label = "Volume",
-                        value = volume,
-                        onValueChange = { volume = it },
-                    )
-                }
+            item {
+                Text(
+                    text = "Close",
+                    color = Color.White.copy(alpha = 0.68f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onClose)
+                        .padding(vertical = 12.dp),
+                )
             }
-
-            SimMediaCard()
-
-            Spacer(Modifier.weight(1f))
-
-            Text(
-                text = "Swipe from the top-left for notifications",
-                color = Color.White.copy(alpha = 0.42f),
-                fontSize = 11.sp,
-            )
-            Text(
-                text = "Close",
-                color = Color.White.copy(alpha = 0.68f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClose)
-                    .padding(vertical = 12.dp),
-            )
         }
     }
 }

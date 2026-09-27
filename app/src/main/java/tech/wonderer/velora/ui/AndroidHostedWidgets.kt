@@ -106,37 +106,12 @@ private fun HostedWidgetView(
     val xPx = localX.coerceIn(0f, 1f) * (canvasWidthPx - widthPx).coerceAtLeast(1f)
     val yPx = localY.coerceIn(0f, 1f) * (canvasHeightPx - heightPx).coerceAtLeast(1f)
 
-    val editModifier = if (editMode) {
-        Modifier
-            .pointerInput(widget.id, canvasWidthPx, canvasHeightPx) {
-                detectDragGestures(
-                    onDrag = { change, amount ->
-                        change.consume()
-                        localX = (localX + amount.x / canvasWidthPx.coerceAtLeast(1f))
-                            .coerceIn(0f, 1f)
-                        localY = (localY + amount.y / canvasHeightPx.coerceAtLeast(1f))
-                            .coerceIn(0f, 1f)
-                    },
-                    onDragEnd = {
-                        onMoveCommitted(widget.id, localX, localY)
-                    },
-                )
-            }
-            .combinedClickable(
-                onClick = { onEdit(widget.id) },
-                onLongClick = { onEdit(widget.id) },
-            )
-    } else {
-        Modifier
-    }
-
     Box(
         modifier = Modifier
             .zIndex(widget.zIndex)
             .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
             .size(width, height)
-            .clip(RoundedCornerShape(24.dp))
-            .then(editModifier),
+            .clip(RoundedCornerShape(24.dp)),
     ) {
         AndroidView(
             factory = { context ->
@@ -152,6 +127,31 @@ private fun HostedWidgetView(
         )
 
         if (editMode) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .pointerInput(widget.id, canvasWidthPx, canvasHeightPx) {
+                        detectDragGestures(
+                            onDrag = { change, amount ->
+                                change.consume()
+                                localX = (
+                                    localX + amount.x / canvasWidthPx.coerceAtLeast(1f)
+                                ).coerceIn(0f, 1f)
+                                localY = (
+                                    localY + amount.y / canvasHeightPx.coerceAtLeast(1f)
+                                ).coerceIn(0f, 1f)
+                            },
+                            onDragEnd = {
+                                onMoveCommitted(widget.id, localX, localY)
+                            },
+                        )
+                    }
+                    .combinedClickable(
+                        onClick = { onEdit(widget.id) },
+                        onLongClick = { onEdit(widget.id) },
+                    ),
+            )
+
             GlassPanel(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
