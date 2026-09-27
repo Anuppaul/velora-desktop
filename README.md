@@ -153,3 +153,12 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - Colab signed-release build is password-only: no JKS upload.
 - First signed build creates `/MyDrive/VeloraSigning/velora-release.jks`; future builds reuse it automatically after the same password is entered.
 - Signed `Velora-release.apk`, `Velora-release.aab` and APK SHA-256 are downloaded automatically.
+
+
+## Beta 02 simple phone-test release
+
+- Google Drive signing is removed.
+- No JKS upload is required.
+- Colab asks only for a release password, creates a temporary JKS inside the runtime, builds and verifies Velora-release.apk, then downloads it.
+- A fresh Colab runtime creates a new signature. Uninstall any older Velora build before installing a newly generated release APK.
+- This flow is intended for direct phone testing, not long-term Play Store/update signing.
