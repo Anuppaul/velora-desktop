@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.delay
+import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.service.NotificationActions
 import tech.wonderer.velora.service.NotificationRepository
 import tech.wonderer.velora.service.VeloraNotification
@@ -43,9 +44,12 @@ fun NotificationCenter(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+    val sensitiveIntegrations = BuildConfig.SENSITIVE_INTEGRATIONS
     val notifications by NotificationRepository.notifications.collectAsState()
     val accessEnabled =
-        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        sensitiveIntegrations &&
+            NotificationManagerCompat.getEnabledListenerPackages(context)
+                .contains(context.packageName)
     val now by produceState(initialValue = Date()) {
         while (true) {
             value = Date()
@@ -97,6 +101,27 @@ fun NotificationCenter(
             Spacer(Modifier.height(16.dp))
 
             when {
+                !sensitiveIntegrations -> {
+                    LiquidGlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        contentPadding = PaddingValues(16.dp),
+                    ) {
+                        Column {
+                            Text(
+                                text = "Sideload-safe release",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "Notification reading is disabled in this APK so Play Protect does not classify Velora as requesting sensitive notification access.",
+                                color = Color.White.copy(alpha = 0.60f),
+                                fontSize = 12.sp,
+                            )
+                        }
+                    }
+                }
+
                 !accessEnabled -> {
                     LiquidGlassPanel(
                         modifier = Modifier

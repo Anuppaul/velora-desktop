@@ -173,3 +173,16 @@ The uploaded beta01 APK was structurally intact and its APK Signature Scheme v2 
 - Release minification and resource shrinking disabled for phone-test builds.
 - Legacy JNI packaging enabled so native libraries are extracted by the device installer.
 - Colab is release-only: repository ZIP + password -> verified Velora-release.apk.
+
+
+## Beta 04 sideload-safe release
+
+Play Protect blocking was traced to special-access capabilities in the sideloaded release manifest, not APK corruption. The phone-test release now removes sensitive special-access declarations:
+
+- No NotificationListenerService in release.
+- No AccessibilityService in release.
+- No WRITE_SETTINGS permission in release.
+- Debug/dev builds retain those integrations for development.
+- Release brightness uses local window brightness instead of WRITE_SETTINGS.
+- Notification reading, cross-app media-session access and global Recents/Accessibility navigation are intentionally disabled in the sideload-safe APK.
+- The release manifest therefore no longer advertises the sensitive services that caused the Play Protect financial-fraud warning.

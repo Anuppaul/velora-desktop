@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.data.AndroidWidgetHostController
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
@@ -453,13 +454,21 @@ fun VeloraRoot(
                             .zIndex(100f)
                             .padding(horizontal = 16.dp, vertical = 16.dp),
                     onRecents = {
-                        if (!VeloraNavActions.recents()) {
+                        if (BuildConfig.SENSITIVE_INTEGRATIONS) {
+                            if (!VeloraNavActions.recents()) {
+                                Toast.makeText(
+                                    context,
+                                    "Enable Velora navigation controls for Recents",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }
+                        } else {
                             Toast.makeText(
                                 context,
-                                "Enable Velora navigation controls for Recents and Back",
+                                "Recents is disabled in the sideload-safe release",
                                 Toast.LENGTH_SHORT,
                             ).show()
-                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }
                     },
                     onHome = {
@@ -480,7 +489,10 @@ fun VeloraRoot(
                             overlay != Overlay.NONE
                         ) {
                             closeTopLayer()
-                        } else if (!VeloraNavActions.back()) {
+                        } else if (
+                            BuildConfig.SENSITIVE_INTEGRATIONS &&
+                            !VeloraNavActions.back()
+                        ) {
                             Toast.makeText(
                                 context,
                                 "Enable Velora navigation controls for Back",

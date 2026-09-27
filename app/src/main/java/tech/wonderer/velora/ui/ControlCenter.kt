@@ -1,7 +1,9 @@
 package tech.wonderer.velora.ui
 
 import android.content.ComponentName
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.media.AudioManager
 import android.media.MediaMetadata
@@ -41,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.delay
+import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.service.VeloraNotificationListener
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
@@ -69,8 +72,11 @@ fun ControlCenter(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+    val sensitiveIntegrations = BuildConfig.SENSITIVE_INTEGRATIONS
     val mediaAccess =
-        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        sensitiveIntegrations &&
+            NotificationManagerCompat.getEnabledListenerPackages(context)
+                .contains(context.packageName)
     val now by produceState(initialValue = Date()) {
         while (true) {
             value = Date()
@@ -146,6 +152,7 @@ fun ControlCenter(
 
                 item {
                     when {
+                        !sensitiveIntegrations -> SafeReleaseMediaCard()
                         media != null -> MediaCard(media!!)
                         !mediaAccess -> MediaAccessCard()
                         else -> EmptyMediaCard()
@@ -367,7 +374,8 @@ private fun SystemSliders() {
         )
     }
     var brightness by remember { mutableFloatStateOf(readBrightness(context)) }
-    val canWriteBrightness = Settings.System.canWrite(context)
+    val canWriteBrightness =
+        BuildConfig.SENSITIVE_INTEGRATIONS && Settings.System.canWrite(context)
 
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
@@ -379,14 +387,22 @@ private fun SystemSliders() {
                 label = "Brightness",
                 value = brightness,
                 trailing = ((brightness * 100).toInt()).toString() +
-                    if (canWriteBrightness) "%" else "% · Grant",
+                    if (BuildConfig.SENSITIVE_INTEGRATIONS) {
+                        if (canWriteBrightness) "%" else "% · Grant"
+                    } else {
+                        "% · Local"
+                    },
                 onValueChange = { value ->
                     brightness = value
-                    if (canWriteBrightness) writeBrightness(context, value)
+                    if (canWriteBrightness) {
+                        writeBrightness(context, value)
+                    } else {
+                        writeWindowBrightness(context, value)
+                    }
                 },
-                onTrailingClick = if (canWriteBrightness) {
-                    null
-                } else {
+                onTrailingClick = if (
+                    BuildConfig.SENSITIVE_INTEGRATIONS && !canWriteBrightness
+                ) {
                     {
                         openSystemScreen(
                             context,
@@ -396,6 +412,8 @@ private fun SystemSliders() {
                             ),
                         )
                     }
+                } else {
+                    null
                 },
             )
 
@@ -537,6 +555,28 @@ private fun MediaAccessCard() {
 }
 
 @Composable
+private fun SafeReleaseMediaCard() {
+    LiquidGlassPanel(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Column {
+            Text(
+                text = "Media",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Cross-app media session access is disabled in the sideload-safe release.",
+                color = Color.White.copy(alpha = 0.54f),
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptyMediaCard() {
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
@@ -620,6 +660,23 @@ private fun findActiveMedia(context: Context): VeloraMediaState? {
         isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING,
         controller = controller,
     )
+}
+
+private fun writeWindowBrightness(
+    context: Context,
+    value: Float,
+) {
+    context.findActivity()?.let { activity ->
+        val attributes = activity.window.attributes
+        attributes.screenBrightness = value.coerceIn(0.01f, 1f)
+        activity.window.attributes = attributes
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun readBrightness(context: Context): Float {

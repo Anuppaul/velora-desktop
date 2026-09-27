@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
@@ -472,11 +473,20 @@ fun SettingsPanel(
                 SettingButton("Choose default Home app") {
                     context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
                 }
-                SettingButton("Notification access") {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
-                SettingButton("Enable Velora navigation controls") {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                if (BuildConfig.SENSITIVE_INTEGRATIONS) {
+                    SettingButton("Notification access") {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                    SettingButton("Enable Velora navigation controls") {
+                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }
+                } else {
+                    Text(
+                        text = "Sideload-safe mode is active: notification reading and Accessibility navigation are not declared in this APK.",
+                        color = Color.White.copy(alpha = 0.54f),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
                 }
                 Spacer(Modifier.size(8.dp))
                 SettingButton("Close", onClose)
