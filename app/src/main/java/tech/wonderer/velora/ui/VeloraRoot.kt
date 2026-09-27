@@ -221,6 +221,7 @@ fun VeloraRoot(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun VeloraNavBar(
     modifier: Modifier = Modifier,

@@ -1,6 +1,6 @@
 package tech.wonderer.velora.ui
 
-import android.app.BatteryManager
+import android.os.BatteryManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
