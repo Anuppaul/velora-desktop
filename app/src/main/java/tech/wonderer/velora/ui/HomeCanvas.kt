@@ -71,6 +71,7 @@ fun HomeCanvas(
     onSwipeDownLeft: () -> Unit,
     onSwipeDownRight: () -> Unit,
     onHomeLongPress: () -> Unit,
+    editMode: Boolean = false,
 ) {
     var swipeDistance by remember { mutableFloatStateOf(0f) }
     var swipeStartX by remember { mutableFloatStateOf(0f) }
@@ -151,6 +152,7 @@ fun HomeCanvas(
                     onMoveCommitted = onMoveCommitted,
                     onGroupOpen = onGroupOpen,
                     onItemEdit = onItemEdit,
+                    editMode = editMode,
                 )
             }
         }
@@ -169,6 +171,7 @@ private fun FreeformHomeItem(
     onMoveCommitted: (String, Float, Float) -> Unit,
     onGroupOpen: (String) -> Unit,
     onItemEdit: (String) -> Unit,
+    editMode: Boolean,
 ) {
     val iconAppearance = LocalIconAppearance.current
     val haptics = LocalHapticFeedback.current
@@ -223,9 +226,13 @@ private fun FreeformHomeItem(
             }
             .combinedClickable(
                 onClick = {
-                    when (item.kind) {
-                        HomeItemKind.APP -> item.packageName?.let(onLaunch)
-                        HomeItemKind.GROUP -> onGroupOpen(item.id)
+                    if (editMode) {
+                        onItemEdit(item.id)
+                    } else {
+                        when (item.kind) {
+                            HomeItemKind.APP -> item.packageName?.let(onLaunch)
+                            HomeItemKind.GROUP -> onGroupOpen(item.id)
+                        }
                     }
                 },
                 onLongClick = {

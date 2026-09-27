@@ -73,6 +73,7 @@ fun VeloraSimulationRoot(
     var editingWidgetId by remember { mutableStateOf<String?>(null) }
     var homeEditMode by remember { mutableStateOf(false) }
     var wallpaperVariant by remember { mutableIntStateOf(0) }
+    var simulatedPackage by remember { mutableStateOf<String?>(null) }
 
     fun nextZ(): Float {
         val itemMax = items.maxOfOrNull { it.zIndex } ?: 0f
@@ -171,6 +172,7 @@ fun VeloraSimulationRoot(
 
     fun closeTopLayer() {
         when {
+            simulatedPackage != null -> simulatedPackage = null
             editingItemId != null -> editingItemId = null
             editingWidgetId != null -> editingWidgetId = null
             groupId != null -> groupId = null
@@ -180,7 +182,8 @@ fun VeloraSimulationRoot(
     }
 
     BackHandler(
-        enabled = editingItemId != null ||
+        enabled = simulatedPackage != null ||
+            editingItemId != null ||
             editingWidgetId != null ||
             groupId != null ||
             overlay != SimulationOverlay.NONE ||
@@ -213,7 +216,11 @@ fun VeloraSimulationRoot(
                     items = items,
                     widgets = widgets,
                     globalScale = globalScale,
-                    onLaunch = {},
+                    onLaunch = { packageName ->
+                        simulatedPackage = packageName
+                        overlay = SimulationOverlay.NONE
+                        homeEditMode = false
+                    },
                     onMoveCommitted = ::commitMove,
                     onWidgetMoveCommitted = ::commitWidgetMove,
                     onGroupOpen = { groupId = it },
@@ -238,10 +245,12 @@ fun VeloraSimulationRoot(
                         overlay = SimulationOverlay.CONTROL_CENTER
                     },
                     onHomeLongPress = { homeEditMode = true },
+                    editMode = homeEditMode,
                 )
 
                 if (
-                    overlay != SimulationOverlay.NONE ||
+                    overlay == SimulationOverlay.SETTINGS ||
+                    overlay == SimulationOverlay.WIDGET_PICKER ||
                     groupId != null ||
                     editingItemId != null ||
                     editingWidgetId != null
@@ -252,7 +261,9 @@ fun VeloraSimulationRoot(
                 when (overlay) {
                     SimulationOverlay.DRAWER -> AppDrawer(
                         apps = simulationApps(),
-                        onLaunch = {},
+                        onLaunch = { packageName ->
+                            simulatedPackage = packageName
+                        },
                         onPin = { app ->
                             if (items.none { it.packageName == app.packageName }) {
                                 items = items + HomeItem(
@@ -262,6 +273,19 @@ fun VeloraSimulationRoot(
                                     packageName = app.packageName,
                                     x = 0.12f,
                                     y = 0.72f,
+                                    zIndex = nextZ(),
+                                )
+                            }
+                        },
+                        onDropToHome = { app, x, y ->
+                            if (items.none { it.packageName == app.packageName }) {
+                                items = items + HomeItem(
+                                    id = "sim-" + app.packageName,
+                                    kind = HomeItemKind.APP,
+                                    label = app.label,
+                                    packageName = app.packageName,
+                                    x = x,
+                                    y = y,
                                     zIndex = nextZ(),
                                 )
                             }
@@ -327,7 +351,10 @@ fun VeloraSimulationRoot(
                                     ?.label
                                     ?: packageName.substringAfterLast('.')
                             },
-                            onLaunch = {},
+                            onLaunch = { packageName ->
+                                simulatedPackage = packageName
+                                groupId = null
+                            },
                             onClose = { groupId = null },
                         )
                     }
@@ -393,8 +420,20 @@ fun VeloraSimulationRoot(
                         )
                     }
 
+                simulatedPackage?.let { packageName ->
+                    val label = simulationApps()
+                        .firstOrNull { it.packageName == packageName }
+                        ?.label
+                        ?: packageName.substringAfterLast('.')
+                    SimulationAppPreview(
+                        packageName = packageName,
+                        label = label,
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = homeEditMode &&
+                        simulatedPackage == null &&
                         overlay == SimulationOverlay.NONE &&
                         groupId == null &&
                         editingItemId == null &&
@@ -427,6 +466,7 @@ fun VeloraSimulationRoot(
                         groupId = null
                         editingItemId = null
                         editingWidgetId = null
+                        simulatedPackage = null
                         homeEditMode = false
                     },
                     onBack = { closeTopLayer() },

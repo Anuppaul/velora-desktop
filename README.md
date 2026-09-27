@@ -105,3 +105,13 @@ Velora system surfaces no longer require a Close button:
 - Apps: swipe down from the top handle to dismiss toward the bottom.
 
 The sheet follows the drag, dismisses after the threshold, and springs back when the gesture is too short.
+
+
+## Alpha 17 interaction repair
+
+- GlassPanel now measures intrinsic content correctly, preventing zero-height action sheets and controls.
+- Home edit sheets expose size/remove and real app info/uninstall actions.
+- Native widget tap opens widget editing.
+- Apps can be long-pressed and dragged from Apps to a freeform Home position.
+- Full-screen Apps/Notifications/Control Center no longer rely on the global modal blackout.
+- Simulation app taps open a synthetic app preview instead of behaving like a no-op.

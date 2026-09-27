@@ -3,6 +3,7 @@ package tech.wonderer.velora.ui
 import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -219,6 +220,7 @@ fun VeloraRoot(
                         overlay = Overlay.CONTROL_CENTER
                     },
                     onHomeLongPress = { homeEditMode = true },
+                    editMode = homeEditMode,
                 )
 
                 AndroidWidgetLayer(
@@ -233,7 +235,10 @@ fun VeloraRoot(
                 )
 
                 val modalVisible =
-                    overlay != Overlay.NONE ||
+                    overlay == Overlay.SETTINGS ||
+                        overlay == Overlay.WIDGET_PICKER ||
+                        overlay == Overlay.ANDROID_WIDGET_PICKER ||
+                        overlay == Overlay.HIDDEN_APPS ||
                         groupId != null ||
                         editingItemId != null ||
                         editingWidgetId != null ||
@@ -249,6 +254,7 @@ fun VeloraRoot(
                         apps = launcher.visibleApps(),
                         onLaunch = launcher::launch,
                         onPin = launcher::pinToHome,
+                        onDropToHome = launcher::pinToHomeAt,
                         onHide = { app -> launcher.setPackageHidden(app.packageName, true) },
                         onClose = { overlay = Overlay.NONE },
                         systemActionsEnabled = true,
@@ -327,6 +333,32 @@ fun VeloraRoot(
                             onRemove = {
                                 launcher.removeFromHome(item.id)
                                 editingItemId = null
+                            },
+                            onAppInfo = item.packageName?.let { packageName ->
+                                {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                Uri.parse("package:" + packageName),
+                                            ),
+                                        )
+                                    }
+                                    editingItemId = null
+                                }
+                            },
+                            onUninstall = item.packageName?.let { packageName ->
+                                {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_DELETE,
+                                                Uri.parse("package:" + packageName),
+                                            ),
+                                        )
+                                    }
+                                    editingItemId = null
+                                }
                             },
                             onClose = { editingItemId = null },
                         )

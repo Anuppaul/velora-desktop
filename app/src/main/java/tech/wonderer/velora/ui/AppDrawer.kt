@@ -3,9 +3,8 @@ package tech.wonderer.velora.ui
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -25,16 +25,25 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -43,130 +52,218 @@ import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
+import kotlin.math.roundToInt
 
 @Composable
 fun AppDrawer(
     apps: List<InstalledApp>,
     onLaunch: (String) -> Unit,
     onPin: (InstalledApp) -> Unit,
+    onDropToHome: (InstalledApp, Float, Float) -> Unit,
     onHide: (InstalledApp) -> Unit,
     onClose: () -> Unit,
     systemActionsEnabled: Boolean = true,
 ) {
     var query by remember { mutableStateOf("") }
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
+    var draggingApp by remember { mutableStateOf<InstalledApp?>(null) }
+    var dragPosition by remember { mutableStateOf(Offset.Zero) }
+    var dragDistance by remember { mutableFloatStateOf(0f) }
+    var drawerSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val ghostHalfPx = with(density) { 36.dp.toPx() }
 
-    val filtered = remember(apps, query) {
-        if (query.isBlank()) {
-            apps
+    fun finishDrag() {
+        val app = draggingApp ?: return
+        if (dragDistance < with(density) { 28.dp.toPx() }) {
+            selectedApp = app
         } else {
-            apps.filter {
-                it.label.contains(query, ignoreCase = true) ||
-                    it.packageName.contains(query, ignoreCase = true)
-            }
+            val width = drawerSize.width.coerceAtLeast(1).toFloat()
+            val height = drawerSize.height.coerceAtLeast(1).toFloat()
+            val x = (dragPosition.x / width).coerceIn(0.02f, 0.88f)
+            val y = (dragPosition.y / height).coerceIn(0.08f, 0.86f)
+            onDropToHome(app, x, y)
+            onClose()
         }
+        draggingApp = null
+        dragDistance = 0f
     }
 
     SwipeDismissSurface(
         direction = SwipeDismissDirection.DOWN,
-        onDismiss = onClose,
+        onDismiss = {
+            draggingApp = null
+            selectedApp = null
+            onClose()
+        },
     ) {
-        Box(Modifier.fillMaxSize()) {
-            GlassPanel(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 26.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-            shape = RoundedCornerShape(34.dp),
-            contentPadding = PaddingValues(18.dp),
+                .onGloballyPositioned { drawerSize = it.size },
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Text(
-                    text = "Apps",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                )
-                Text(
-                    text = "Tap to open · Hold for app actions",
-                    color = Color.White.copy(alpha = 0.58f),
-                    fontSize = 12.sp,
-                )
-                Spacer(Modifier.height(14.dp))
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    placeholder = { Text("Search apps") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))
+            GlassPanel(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 26.dp, bottom = 82.dp, start = 10.dp, end = 10.dp)
+                    .graphicsLayer {
+                        alpha = if (draggingApp != null) 0.16f else 1f
+                    },
+                shape = RoundedCornerShape(34.dp),
+                contentPadding = PaddingValues(18.dp),
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    Text(
+                        text = "Apps",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                    )
+                    Text(
+                        text = "Tap to open · Hold and drag to Home · ⋯ for actions",
+                        color = Color.White.copy(alpha = 0.58f),
+                        fontSize = 12.sp,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        singleLine = true,
+                        placeholder = { Text("Search apps") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    contentPadding = PaddingValues(bottom = 18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        DrawerApp(
-                            app = app,
-                            onLaunch = {
-                                onLaunch(app.packageName)
-                                onClose()
-                            },
-                            onLongPress = { selectedApp = app },
-                            onMenu = { selectedApp = app },
-                        )
+                    val filtered = if (query.isBlank()) {
+                        apps
+                    } else {
+                        apps.filter {
+                            it.label.contains(query, ignoreCase = true) ||
+                                it.packageName.contains(query, ignoreCase = true)
+                        }
+                    }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        contentPadding = PaddingValues(bottom = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        items(filtered, key = { it.packageName }) { app ->
+                            DrawerApp(
+                                app = app,
+                                onLaunch = {
+                                    onLaunch(app.packageName)
+                                    onClose()
+                                },
+                                onMenu = { selectedApp = app },
+                                onDragStart = { absolute ->
+                                    selectedApp = null
+                                    draggingApp = app
+                                    dragPosition = absolute
+                                    dragDistance = 0f
+                                },
+                                onDrag = { amount ->
+                                    dragPosition += amount
+                                    dragDistance += amount.getDistance()
+                                },
+                                onDragEnd = ::finishDrag,
+                                onDragCancel = {
+                                    draggingApp = null
+                                    dragDistance = 0f
+                                },
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        if (selectedApp != null) {
-            ModalBackdrop(
-                modifier = Modifier.zIndex(50f),
-            )
-        }
+            if (selectedApp != null) {
+                ModalBackdrop(
+                    modifier = Modifier.zIndex(50f),
+                )
+            }
 
-        selectedApp?.let { app ->
-            AppActionSheet(
-                app = app,
-                systemActionsEnabled = systemActionsEnabled,
-                onPin = {
-                    onPin(app)
-                    selectedApp = null
-                    onClose()
-                },
-                onHide = {
-                    onHide(app)
-                    selectedApp = null
-                    onClose()
-                },
-                onClose = { selectedApp = null },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .zIndex(60f)
-                    .padding(horizontal = 16.dp, vertical = 94.dp),
-            )
+            selectedApp?.let { app ->
+                AppActionSheet(
+                    app = app,
+                    systemActionsEnabled = systemActionsEnabled,
+                    onPin = {
+                        onPin(app)
+                        selectedApp = null
+                        onClose()
+                    },
+                    onHide = {
+                        onHide(app)
+                        selectedApp = null
+                        onClose()
+                    },
+                    onClose = { selectedApp = null },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(60f)
+                        .padding(horizontal = 16.dp, vertical = 94.dp),
+                )
+            }
+
+            draggingApp?.let { app ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .zIndex(90f)
+                        .offset {
+                            IntOffset(
+                                (dragPosition.x - ghostHalfPx).roundToInt(),
+                                (dragPosition.y - ghostHalfPx).roundToInt(),
+                            )
+                        },
+                ) {
+                    PackageIcon(
+                        packageName = app.packageName,
+                        modifier = Modifier.size(72.dp),
+                    )
+                    Text(
+                        text = app.label,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
         }
-    }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DrawerApp(
     app: InstalledApp,
     onLaunch: () -> Unit,
-    onLongPress: () -> Unit,
     onMenu: () -> Unit,
+    onDragStart: (Offset) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
 ) {
+    var rootOrigin by remember(app.packageName) { mutableStateOf(Offset.Zero) }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.combinedClickable(
-            onClick = onLaunch,
-            onLongClick = onLongPress,
-        ),
+        modifier = Modifier
+            .onGloballyPositioned { rootOrigin = it.positionInRoot() }
+            .pointerInput(app.packageName) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { localOffset ->
+                        onDragStart(rootOrigin + localOffset)
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        onDrag(amount)
+                    },
+                    onDragEnd = onDragEnd,
+                    onDragCancel = onDragCancel,
+                )
+            }
+            .clickable(onClick = onLaunch),
     ) {
         PackageIcon(
             packageName = app.packageName,
@@ -185,11 +282,11 @@ private fun DrawerApp(
         )
         Text(
             text = "⋯",
-            color = Color.White.copy(alpha = 0.58f),
+            color = Color.White.copy(alpha = 0.64f),
             fontSize = 16.sp,
             modifier = Modifier
                 .clickable(onClick = onMenu)
-                .padding(horizontal = 12.dp, vertical = 2.dp),
+                .padding(horizontal = 14.dp, vertical = 2.dp),
         )
     }
 }

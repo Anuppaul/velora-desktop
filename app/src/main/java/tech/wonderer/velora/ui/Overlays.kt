@@ -111,6 +111,8 @@ fun ItemEditSheet(
     onRenameGroup: (String) -> Unit,
     onUngroup: () -> Unit,
     onRemove: () -> Unit,
+    onAppInfo: (() -> Unit)? = null,
+    onUninstall: (() -> Unit)? = null,
     onClose: () -> Unit,
 ) {
     var groupName by remember(item.id) { mutableStateOf(item.label) }
@@ -162,12 +164,29 @@ fun ItemEditSheet(
                 valueRange = 0.6f..1.8f,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 if (item.kind == HomeItemKind.GROUP) {
                     Button(onClick = onUngroup) {
                         Text("Ungroup")
                     }
+                } else {
+                    if (onAppInfo != null) {
+                        Button(onClick = onAppInfo) {
+                            Text("App info")
+                        }
+                    }
+                    if (onUninstall != null) {
+                        Button(onClick = onUninstall) {
+                            Text("Uninstall")
+                        }
+                    }
                 }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onRemove) {
                     Text("Remove")
                 }

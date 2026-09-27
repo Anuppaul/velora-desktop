@@ -69,9 +69,7 @@ fun GlassPanel(
         }
 
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .padding(contentPadding),
+            modifier = Modifier.padding(contentPadding),
             content = content,
         )
     }
@@ -107,9 +105,9 @@ fun ModalBackdrop(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xD9090A12),
-                        Color(0xE20A0B13),
-                        Color(0xEE07080E),
+                        Color(0xA8090A12),
+                        Color(0xB20A0B13),
+                        Color(0xC007080E),
                     ),
                 ),
             ),

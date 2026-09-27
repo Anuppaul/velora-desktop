@@ -100,7 +100,7 @@ fun FreeformPremiumWidget(
                 )
             }
             .combinedClickable(
-                onClick = {},
+                onClick = { onEdit(widget.id) },
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onEdit(widget.id)

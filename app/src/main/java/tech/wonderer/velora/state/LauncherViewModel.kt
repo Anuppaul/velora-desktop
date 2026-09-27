@@ -83,23 +83,30 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun pinToHome(app: InstalledApp) {
+        val index = homeItems.size
+        val x = (0.08f + ((index * 0.19f) % 0.76f)).coerceIn(0.02f, 0.88f)
+        val y = (0.22f + (((index / 4) * 0.17f) % 0.58f)).coerceIn(0.12f, 0.82f)
+        pinToHomeAt(app, x, y)
+    }
+
+    fun pinToHomeAt(
+        app: InstalledApp,
+        x: Float,
+        y: Float,
+    ) {
         if (app.packageName in hiddenPackages) return
         val alreadyPinned = homeItems.any {
             it.packageName == app.packageName || app.packageName in it.members
         }
         if (alreadyPinned) return
 
-        val index = homeItems.size
-        val x = (0.08f + ((index * 0.19f) % 0.76f)).coerceIn(0.02f, 0.88f)
-        val y = (0.22f + (((index / 4) * 0.17f) % 0.58f)).coerceIn(0.12f, 0.82f)
-
         homeItems = homeItems + HomeItem(
             id = "app-" + app.packageName,
             kind = HomeItemKind.APP,
             label = app.label,
             packageName = app.packageName,
-            x = x,
-            y = y,
+            x = x.coerceIn(0.02f, 0.88f),
+            y = y.coerceIn(0.08f, 0.86f),
             zIndex = nextZ(),
         )
         persist()
