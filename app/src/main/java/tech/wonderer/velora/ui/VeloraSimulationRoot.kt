@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
@@ -26,7 +28,9 @@ import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
-import tech.wonderer.velora.ui.components.VeloraAmbientProvider
+import tech.wonderer.velora.ui.components.LocalVeloraPalette
+import tech.wonderer.velora.ui.components.ModalBackdrop
+import tech.wonderer.velora.ui.components.VeloraPalette
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 import kotlin.math.sqrt
 
@@ -173,7 +177,15 @@ fun VeloraSimulationRoot(
         onBack = { closeTopLayer() },
     )
 
-    VeloraAmbientProvider {
+    CompositionLocalProvider(
+        LocalVeloraPalette provides VeloraPalette(
+            accent = Color(0xFFC7BAFF),
+            secondary = Color(0xFF8FE2FF),
+            glassTop = Color.White.copy(alpha = 0.22f),
+            glassMiddle = Color(0xFFB7A7FF).copy(alpha = 0.10f),
+            glassBottom = Color(0xFF080910).copy(alpha = 0.34f),
+        ),
+    ) {
         VeloraIconAppearanceProvider(appearance) {
             Box(
                 modifier = Modifier
@@ -203,6 +215,15 @@ fun VeloraSimulationRoot(
                     onSwipeUp = { overlay = SimulationOverlay.DRAWER },
                     onSwipeDown = { overlay = SimulationOverlay.CONTROL_CENTER },
                 )
+
+                if (
+                    overlay != SimulationOverlay.NONE ||
+                    groupId != null ||
+                    editingItemId != null ||
+                    editingWidgetId != null
+                ) {
+                    ModalBackdrop()
+                }
 
                 when (overlay) {
                     SimulationOverlay.DRAWER -> AppDrawer(
@@ -344,6 +365,7 @@ fun VeloraSimulationRoot(
                 VeloraNavBar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .zIndex(100f)
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     onRecents = {},
                     onHome = {
@@ -500,7 +522,7 @@ private fun simulationWidgets(): List<HomeWidget> = listOf(
         type = PremiumWidgetType.BATTERY,
         x = 0.55f,
         y = 0.24f,
-        scale = 0.86f,
+        scale = 0.96f,
         zIndex = 3f,
     ),
 )

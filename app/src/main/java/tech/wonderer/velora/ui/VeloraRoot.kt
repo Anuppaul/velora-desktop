@@ -31,11 +31,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.VeloraAmbientProvider
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 
@@ -94,6 +96,17 @@ fun VeloraRoot(
                     onSwipeUp = { overlay = Overlay.DRAWER },
                     onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
                 )
+
+                val modalVisible =
+                    overlay != Overlay.NONE ||
+                        groupId != null ||
+                        editingItemId != null ||
+                        editingWidgetId != null ||
+                        !launcher.onboardingComplete
+
+                if (modalVisible) {
+                    ModalBackdrop()
+                }
 
                 when (overlay) {
                     Overlay.DRAWER -> AppDrawer(
@@ -181,10 +194,12 @@ fun VeloraRoot(
                         )
                     }
 
-                VeloraNavBar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                if (launcher.onboardingComplete) {
+                    VeloraNavBar(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .zIndex(100f)
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
                     onRecents = {
                         if (!VeloraNavActions.recents()) {
                             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -208,8 +223,9 @@ fun VeloraRoot(
                             VeloraNavActions.back()
                         }
                     },
-                    onSettings = { overlay = Overlay.SETTINGS },
-                )
+                        onSettings = { overlay = Overlay.SETTINGS },
+                    )
+                }
 
                 if (!launcher.onboardingComplete) {
                     FirstRunSetup(

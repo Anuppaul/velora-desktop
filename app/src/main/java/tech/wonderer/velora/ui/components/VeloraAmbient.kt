@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 
 data class VeloraPalette(
@@ -31,12 +32,18 @@ fun VeloraAmbientProvider(
                     .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
                 val primary = colors?.primaryColor?.toArgb()?.let(::Color)
                 val secondary = colors?.secondaryColor?.toArgb()?.let(::Color)
+                val readablePrimary = primary
+                    ?.let { lerp(it, Color.White, 0.38f) }
+                    ?: Color(0xFFB7A7FF)
+                val readableSecondary = (secondary ?: primary)
+                    ?.let { lerp(it, Color.White, 0.42f) }
+                    ?: Color(0xFF78D9FF)
                 VeloraPalette(
-                    accent = primary ?: Color(0xFFB7A7FF),
-                    secondary = secondary ?: primary ?: Color(0xFF78D9FF),
+                    accent = readablePrimary,
+                    secondary = readableSecondary,
                     glassTop = Color.White.copy(alpha = 0.23f),
-                    glassMiddle = (primary ?: Color.White).copy(alpha = 0.11f),
-                    glassBottom = Color(0xFF080910).copy(alpha = 0.28f),
+                    glassMiddle = readablePrimary.copy(alpha = 0.10f),
+                    glassBottom = Color(0xFF080910).copy(alpha = 0.32f),
                 )
             }.getOrDefault(VeloraPalette())
         } else {

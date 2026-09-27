@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +30,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -63,6 +66,7 @@ fun VeloraAppIcon(
         }
     }
     val accent = remember(packageName) { accentFor(packageName) }
+    val fallbackGlyph = remember(packageName) { fallbackGlyphFor(packageName) }
     val shape = iconShape(appearance.shape)
 
     when (appearance.style) {
@@ -72,6 +76,7 @@ fun VeloraAppIcon(
                 modifier = modifier.clip(shape),
                 shape = shape,
                 accent = accent,
+                fallbackGlyph = fallbackGlyph,
             )
         }
 
@@ -81,6 +86,7 @@ fun VeloraAppIcon(
                 modifier = modifier,
                 shape = shape,
                 accent = accent,
+                fallbackGlyph = fallbackGlyph,
             )
         }
 
@@ -90,6 +96,7 @@ fun VeloraAppIcon(
                 modifier = modifier,
                 shape = shape,
                 accent = accent,
+                fallbackGlyph = fallbackGlyph,
             )
         }
     }
@@ -101,6 +108,7 @@ private fun GlassIconShell(
     modifier: Modifier,
     shape: Shape,
     accent: AccentPair,
+    fallbackGlyph: String,
 ) {
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
@@ -146,6 +154,7 @@ private fun GlassIconShell(
             modifier = Modifier.size(innerSize),
             shape = RoundedCornerShape(22),
             accent = accent,
+            fallbackGlyph = fallbackGlyph,
         )
     }
 }
@@ -156,6 +165,7 @@ private fun AuroraIconShell(
     modifier: Modifier,
     shape: Shape,
     accent: AccentPair,
+    fallbackGlyph: String,
 ) {
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
@@ -194,6 +204,7 @@ private fun AuroraIconShell(
             modifier = Modifier.size(innerSize),
             shape = RoundedCornerShape(22),
             accent = accent,
+            fallbackGlyph = fallbackGlyph,
         )
     }
 }
@@ -204,6 +215,7 @@ private fun IconImageOrFallback(
     modifier: Modifier,
     shape: Shape,
     accent: AccentPair,
+    fallbackGlyph: String,
 ) {
     if (bitmap != null) {
         Image(
@@ -226,18 +238,12 @@ private fun IconImageOrFallback(
                     ),
                 ),
         ) {
-            Canvas(Modifier.fillMaxSize()) {
-                val stroke = size.minDimension * 0.08f
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.88f),
-                    radius = size.minDimension * 0.24f,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
-                )
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.88f),
-                    radius = stroke * 0.52f,
-                )
-            }
+            Text(
+                text = fallbackGlyph,
+                color = Color.White.copy(alpha = 0.96f),
+                fontSize = if (fallbackGlyph.length > 1) 17.sp else 23.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }
@@ -264,4 +270,24 @@ private fun accentFor(packageName: String): AccentPair {
     )
     val index = (packageName.hashCode() and Int.MAX_VALUE) % palette.size
     return palette[index]
+}
+
+
+private fun fallbackGlyphFor(packageName: String): String {
+    val key = packageName.substringAfterLast('.').lowercase()
+    return when (key) {
+        "messages" -> "✦"
+        "camera" -> "●"
+        "maps" -> "⌖"
+        "music" -> "♪"
+        "files" -> "▤"
+        "notes" -> "≡"
+        "browser" -> "◎"
+        "calendar" -> "27"
+        "studio" -> "◆"
+        "mail" -> "✉"
+        "photos" -> "▣"
+        "tasks" -> "✓"
+        else -> key.take(1).uppercase().ifBlank { "V" }
+    }
 }

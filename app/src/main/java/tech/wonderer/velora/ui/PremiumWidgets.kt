@@ -160,7 +160,7 @@ private fun ClockWidget(modifier: Modifier) {
             )
             Text(
                 text = SimpleDateFormat("EEEE · d MMM", Locale.getDefault()).format(now),
-                color = palette.secondary.copy(alpha = 0.92f),
+                color = Color.White.copy(alpha = 0.68f),
                 fontSize = 12.sp,
             )
         }
@@ -376,7 +376,7 @@ private fun deviceStats(context: Context): Pair<String, String> {
 
 fun widgetBaseSize(type: PremiumWidgetType) = when (type) {
     PremiumWidgetType.CLOCK -> 220.dp to 104.dp
-    PremiumWidgetType.CALENDAR -> 190.dp to 104.dp
-    PremiumWidgetType.BATTERY -> 184.dp to 104.dp
-    PremiumWidgetType.DEVICE -> 200.dp to 104.dp
+    PremiumWidgetType.CALENDAR -> 194.dp to 104.dp
+    PremiumWidgetType.BATTERY -> 214.dp to 108.dp
+    PremiumWidgetType.DEVICE -> 214.dp to 108.dp
 }

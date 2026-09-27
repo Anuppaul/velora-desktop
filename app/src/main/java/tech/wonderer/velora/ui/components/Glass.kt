@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,5 +93,40 @@ fun GlassPill(
             fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.Center),
         )
+    }
+}
+
+
+@Composable
+fun ModalBackdrop(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xD9090A12),
+                        Color(0xE20A0B13),
+                        Color(0xEE07080E),
+                    ),
+                ),
+            ),
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.05f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.18f, size.height * 0.08f),
+                    radius = size.width * 0.80f,
+                ),
+                radius = size.width * 0.80f,
+                center = Offset(size.width * 0.18f, size.height * 0.08f),
+            )
+        }
     }
 }
