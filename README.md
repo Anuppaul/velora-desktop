@@ -94,3 +94,14 @@ Required environment variables:
 - `VELORA_KEY_PASSWORD`
 
 The Colab notebook includes an optional signed-release section that can generate a signed release APK and AAB after the debug build is stable.
+
+
+## Gesture-only sheet dismissal
+
+Velora system surfaces no longer require a Close button:
+
+- Notifications: swipe up from the bottom handle to dismiss toward the top.
+- Control Center: swipe up from the bottom handle to dismiss toward the top.
+- Apps: swipe down from the top handle to dismiss toward the bottom.
+
+The sheet follows the drag, dismisses after the threshold, and springs back when the gesture is too short.

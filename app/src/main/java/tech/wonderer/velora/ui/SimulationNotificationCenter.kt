@@ -20,15 +20,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.SwipeDismissDirection
+import tech.wonderer.velora.ui.components.SwipeDismissSurface
 
 @Composable
 fun SimulationNotificationCenter(
     onClose: () -> Unit,
 ) {
-    GlassPanel(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
+    SwipeDismissSurface(
+        direction = SwipeDismissDirection.UP,
+        onDismiss = onClose,
+    ) {
+        GlassPanel(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
     ) {
@@ -95,18 +101,8 @@ fun SimulationNotificationCenter(
                 )
             }
 
-            item {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Close",
-                    color = Color.White.copy(alpha = 0.66f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onClose)
-                        .padding(vertical = 12.dp),
-                )
-            }
         }
+    }
     }
 }
 

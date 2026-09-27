@@ -41,6 +41,8 @@ import androidx.compose.ui.zIndex
 import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.ModalBackdrop
+import tech.wonderer.velora.ui.components.SwipeDismissDirection
+import tech.wonderer.velora.ui.components.SwipeDismissSurface
 
 @Composable
 fun AppDrawer(
@@ -65,8 +67,12 @@ fun AppDrawer(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        GlassPanel(
+    SwipeDismissSurface(
+        direction = SwipeDismissDirection.DOWN,
+        onDismiss = onClose,
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            GlassPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 26.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
@@ -143,6 +149,7 @@ fun AppDrawer(
                     .padding(horizontal = 16.dp, vertical = 94.dp),
             )
         }
+    }
     }
 }
 

@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
+import tech.wonderer.velora.ui.components.SwipeDismissDirection
+import tech.wonderer.velora.ui.components.SwipeDismissSurface
 
 @Composable
 fun SimulationControlCenter(
@@ -34,10 +36,14 @@ fun SimulationControlCenter(
     var brightness by remember { mutableFloatStateOf(0.72f) }
     var volume by remember { mutableFloatStateOf(0.56f) }
 
-    GlassPanel(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
+    SwipeDismissSurface(
+        direction = SwipeDismissDirection.UP,
+        onDismiss = onClose,
+    ) {
+        GlassPanel(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
     ) {
@@ -97,25 +103,8 @@ fun SimulationControlCenter(
 
             item { SimMediaCard() }
 
-            item {
-                Text(
-                    text = "Top-left ↓ Notifications · Top-right ↓ Controls",
-                    color = Color.White.copy(alpha = 0.42f),
-                    fontSize = 11.sp,
-                )
-            }
-
-            item {
-                Text(
-                    text = "Close",
-                    color = Color.White.copy(alpha = 0.68f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onClose)
-                        .padding(vertical = 12.dp),
-                )
-            }
         }
+    }
     }
 }
 
