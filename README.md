@@ -202,3 +202,10 @@ Play Protect blocking was traced to special-access capabilities in the sideloade
 - Velora now draws its own top status surface (time/network/battery) while Android system bars remain hidden in the launcher.
 - Recents/Home/Back nav icons can be replaced from Settings with local PNG or SVG files and reset to defaults.
 - Home item/widget page assignments, transitions, softness and custom nav icon URIs are persisted and included in backup format v5.
+
+
+## Beta 06 build diagnostics
+
+- Colab release Gradle output now streams live instead of ending with only Python CalledProcessError.
+- On a Gradle failure, the notebook prints the final 220 compiler lines and writes/downloads `Velora-gradle-failure.txt`.
+- Source preflight now requires versionCode 27 so stale beta05 ZIPs cannot be confused with this diagnostic build.

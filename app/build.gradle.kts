@@ -23,8 +23,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.1.0-beta05"
+        versionCode = 27
+        versionName = "0.1.0-beta06"
     }
 
     signingConfigs {
