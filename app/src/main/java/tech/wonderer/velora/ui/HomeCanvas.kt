@@ -31,15 +31,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
@@ -149,6 +152,7 @@ private fun FreeformHomeItem(
     onItemEdit: (String) -> Unit,
 ) {
     val iconAppearance = LocalIconAppearance.current
+    val haptics = LocalHapticFeedback.current
     var localX by remember(item.id) { mutableFloatStateOf(item.x) }
     var localY by remember(item.id) { mutableFloatStateOf(item.y) }
     var dragging by remember(item.id) { mutableStateOf(false) }
@@ -169,11 +173,15 @@ private fun FreeformHomeItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .zIndex(item.zIndex)
             .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
             .width((size.value + 30f).dp)
             .pointerInput(item.id, canvasWidthPx, canvasHeightPx) {
                 detectDragGestures(
-                    onDragStart = { dragging = true },
+                    onDragStart = {
+                        dragging = true
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         localX = (
@@ -201,7 +209,10 @@ private fun FreeformHomeItem(
                         HomeItemKind.GROUP -> onGroupOpen(item.id)
                     }
                 },
-                onLongClick = { onItemEdit(item.id) },
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onItemEdit(item.id)
+                },
             ),
     ) {
         when (item.kind) {
@@ -303,7 +314,7 @@ private fun StatusRow(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = battery?.let { "$it%" } ?: "Velora",
+            text = battery?.let { it.toString() + "%" } ?: "Velora",
             color = Color.White.copy(alpha = 0.82f),
         )
     }

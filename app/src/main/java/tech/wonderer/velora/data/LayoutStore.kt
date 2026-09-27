@@ -37,6 +37,7 @@ class LayoutStore(context: Context) {
                             x = obj.optDouble("x", 0.1).toFloat(),
                             y = obj.optDouble("y", 0.2).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
+                            zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
                         ),
                     )
                 }
@@ -56,6 +57,7 @@ class LayoutStore(context: Context) {
                     put("x", item.x)
                     put("y", item.y)
                     put("scale", item.scale)
+                    put("zIndex", item.zIndex)
                     put("members", JSONArray(item.members))
                 },
             )
@@ -79,6 +81,7 @@ class LayoutStore(context: Context) {
                             x = obj.optDouble("x", 0.08).toFloat(),
                             y = obj.optDouble("y", 0.10).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
+                            zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
                         ),
                     )
                 }
@@ -96,6 +99,7 @@ class LayoutStore(context: Context) {
                     put("x", widget.x)
                     put("y", widget.y)
                     put("scale", widget.scale)
+                    put("zIndex", widget.zIndex)
                 },
             )
         }

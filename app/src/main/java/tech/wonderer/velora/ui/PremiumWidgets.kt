@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,14 +34,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.PremiumWidgetType
@@ -65,6 +67,7 @@ fun FreeformPremiumWidget(
     var localX by remember(widget.id, widget.x) { mutableFloatStateOf(widget.x) }
     var localY by remember(widget.id, widget.y) { mutableFloatStateOf(widget.y) }
     val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
     val base = widgetBaseSize(widget.type)
     val width = base.first * widget.scale
     val height = base.second * widget.scale
@@ -75,10 +78,14 @@ fun FreeformPremiumWidget(
 
     Box(
         modifier = Modifier
+            .zIndex(widget.zIndex)
             .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
             .size(width, height)
             .pointerInput(widget.id, canvasWidthPx, canvasHeightPx) {
                 detectDragGestures(
+                    onDragStart = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         localX = (
@@ -95,7 +102,10 @@ fun FreeformPremiumWidget(
             }
             .combinedClickable(
                 onClick = {},
-                onLongClick = { onEdit(widget.id) },
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onEdit(widget.id)
+                },
             ),
     ) {
         PremiumWidgetCard(
@@ -251,7 +261,7 @@ private fun BatteryWidget(modifier: Modifier) {
                     )
                 }
                 Text(
-                    text = battery?.let { "$it" } ?: "—",
+                    text = battery?.toString() ?: "—",
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -263,7 +273,7 @@ private fun BatteryWidget(modifier: Modifier) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = battery?.let { "$it% remaining" } ?: "Unavailable",
+                    text = battery?.let { it.toString() + "% remaining" } ?: "Unavailable",
                     color = Color.White.copy(alpha = 0.60f),
                     fontSize = 12.sp,
                 )
@@ -362,7 +372,7 @@ private fun deviceStats(context: Context): Pair<String, String> {
         0
     }
 
-    return "$usedPercent%" to "$memoryPercent%"
+    return usedPercent.toString() + "%" to memoryPercent.toString() + "%"
 }
 
 fun widgetBaseSize(type: PremiumWidgetType) = when (type) {

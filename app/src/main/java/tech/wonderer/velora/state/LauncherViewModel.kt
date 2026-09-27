@@ -94,13 +94,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             packageName = app.packageName,
             x = x,
             y = y,
+            zIndex = nextZ(),
         )
         persist()
     }
 
     fun commitMove(itemId: String, x: Float, y: Float) {
+        val raisedZ = nextZ()
         var updated = homeItems.map {
-            if (it.id == itemId) it.copy(x = x.coerceIn(0f, 1f), y = y.coerceIn(0f, 1f)) else it
+            if (it.id == itemId) {
+                it.copy(
+                    x = x.coerceIn(0f, 1f),
+                    y = y.coerceIn(0f, 1f),
+                    zIndex = raisedZ,
+                )
+            } else {
+                it
+            }
         }
 
         val dragged = updated.firstOrNull { it.id == itemId }
@@ -128,6 +138,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                                 x = target.x,
                                 y = target.y,
                                 scale = maxOf(target.scale, dragged.scale),
+                                zIndex = raisedZ,
                             )
                             updated.filterNot { it.id == dragged.id || it.id == target.id } + group
                         }
@@ -138,7 +149,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             .filterNot { it.id == dragged.id }
                             .map {
                                 if (it.id == target.id) {
-                                    it.copy(members = (it.members + dragged.packageName).distinct())
+                                    it.copy(
+                                        members = (it.members + dragged.packageName).distinct(),
+                                        zIndex = raisedZ,
+                                    )
                                 } else {
                                     it
                                 }
@@ -173,6 +187,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             0.05f to 0.05f,
             0f to 0.10f,
         )
+        val baseZ = nextZ()
         val restored = group.members.mapIndexed { index, packageName ->
             val offset = offsets[index % offsets.size]
             HomeItem(
@@ -183,6 +198,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 x = (group.x + offset.first).coerceIn(0f, 1f),
                 y = (group.y + offset.second).coerceIn(0f, 1f),
                 scale = group.scale.coerceAtMost(1.25f),
+                zIndex = baseZ + index * 0.01f,
             )
         }
 
@@ -220,6 +236,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                                         x = item.x,
                                         y = item.y,
                                         scale = item.scale,
+                                        zIndex = item.zIndex,
                                     )
                                 }
 
@@ -240,16 +257,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             type = type,
             x = (0.08f + ((index * 0.16f) % 0.55f)).coerceAtMost(0.72f),
             y = (0.08f + ((index * 0.15f) % 0.62f)).coerceAtMost(0.75f),
+            zIndex = nextZ(),
         )
         persistWidgets()
     }
 
     fun commitWidgetMove(widgetId: String, x: Float, y: Float) {
+        val raisedZ = nextZ()
         homeWidgets = homeWidgets.map {
             if (it.id == widgetId) {
                 it.copy(
                     x = x.coerceIn(0f, 1f),
                     y = y.coerceIn(0f, 1f),
+                    zIndex = raisedZ,
                 )
             } else {
                 it
@@ -310,7 +330,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun createBackupJson(): String {
         val root = JSONObject()
         root.put("format", "velora-backup")
-        root.put("version", 1)
+        root.put("version", 2)
         root.put("globalIconScale", globalIconScale)
         root.put(
             "iconAppearance",
@@ -335,6 +355,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("x", item.x)
                             put("y", item.y)
                             put("scale", item.scale)
+                            put("zIndex", item.zIndex)
                         },
                     )
                 }
@@ -351,6 +372,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("x", widget.x)
                             put("y", widget.y)
                             put("scale", widget.scale)
+                            put("zIndex", widget.zIndex)
                         },
                     )
                 }
@@ -384,6 +406,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             x = obj.optDouble("x", 0.1).toFloat(),
                             y = obj.optDouble("y", 0.2).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
+                            zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
                         ),
                     )
                 }
@@ -400,6 +423,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             x = obj.optDouble("x", 0.1).toFloat(),
                             y = obj.optDouble("y", 0.1).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
+                            zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
                         ),
                     )
                 }
@@ -467,6 +491,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     packageName = app.packageName,
                     x = x,
                     y = y,
+                    zIndex = 10f + index,
                 )
             }
     }
@@ -478,6 +503,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             x = 0.08f,
             y = 0.07f,
             scale = 1f,
+            zIndex = 1f,
         ),
         HomeWidget(
             id = "widget-battery-default",
@@ -485,8 +511,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             x = 0.54f,
             y = 0.24f,
             scale = 0.88f,
+            zIndex = 2f,
         ),
     )
+
+    private fun nextZ(): Float {
+        val itemMax = homeItems.maxOfOrNull { it.zIndex } ?: 0f
+        val widgetMax = homeWidgets.maxOfOrNull { it.zIndex } ?: 0f
+        return maxOf(itemMax, widgetMax) + 1f
+    }
 
     private fun persist() {
         store.saveHomeItems(homeItems)

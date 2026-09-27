@@ -1,10 +1,12 @@
 package tech.wonderer.velora.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -13,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -41,10 +45,36 @@ fun GlassPanel(
                     ),
                 ),
             )
-            .border(1.dp, Color.White.copy(alpha = 0.20f), shape)
-            .padding(contentPadding),
-        content = content,
-    )
+            .border(1.dp, Color.White.copy(alpha = 0.20f), shape),
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.28f, size.height * 0.08f),
+                    radius = size.minDimension * 0.92f,
+                ),
+                topLeft = Offset(-size.width * 0.10f, -size.height * 0.34f),
+                size = Size(size.width * 1.10f, size.height * 0.86f),
+            )
+
+            drawCircle(
+                color = palette.secondary.copy(alpha = 0.055f),
+                radius = size.minDimension * 0.46f,
+                center = Offset(size.width * 0.92f, size.height * 0.96f),
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(contentPadding),
+            content = content,
+        )
+    }
 }
 
 @Composable

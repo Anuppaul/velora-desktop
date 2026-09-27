@@ -14,4 +14,5 @@ data class HomeItem(
     val x: Float,
     val y: Float,
     val scale: Float = 1f,
+    val zIndex: Float = 0f,
 )

@@ -12,8 +12,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1.0-alpha05"
+        versionCode = 6
+        versionName = "0.1.0-alpha06"
     }
 
     buildTypes {
