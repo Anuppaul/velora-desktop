@@ -177,7 +177,7 @@ private fun QuickControls() {
                 detail = "Do Not Disturb",
                 modifier = Modifier.weight(1f),
             ) {
-                context.startActivity(Intent(Settings.ACTION_ZEN_MODE_SETTINGS))
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
             }
             QuickControl(
                 symbol = "↻",

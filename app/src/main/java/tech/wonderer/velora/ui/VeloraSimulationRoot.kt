@@ -401,7 +401,7 @@ fun VeloraSimulationRoot(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .zIndex(90f)
-                        .padding(horizontal = 16.dp, bottom = 88.dp),
+                        .padding(start = 16.dp, end = 16.dp, bottom = 88.dp),
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
                 ) {
