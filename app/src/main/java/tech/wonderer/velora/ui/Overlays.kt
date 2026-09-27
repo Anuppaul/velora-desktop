@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -22,13 +21,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.model.HomeItem
+import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.VeloraIconShape
+import tech.wonderer.velora.model.VeloraIconStyle
 import tech.wonderer.velora.ui.components.GlassPanel
 
 @Composable
@@ -74,9 +75,7 @@ fun GroupOverlay(
                     ) {
                         PackageIcon(
                             packageName = packageName,
-                            modifier = Modifier
-                                .size(62.dp)
-                                .clip(RoundedCornerShape(16.dp)),
+                            modifier = Modifier.size(62.dp),
                         )
                         Text(
                             text = labelForPackage(packageName),
@@ -137,7 +136,11 @@ fun ItemEditSheet(
 @Composable
 fun SettingsPanel(
     globalScale: Float,
+    iconAppearance: IconAppearance,
     onGlobalScaleChanged: (Float) -> Unit,
+    onIconStyleChanged: (VeloraIconStyle) -> Unit,
+    onIconShapeChanged: (VeloraIconShape) -> Unit,
+    onHomeLabelsChanged: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -145,7 +148,7 @@ fun SettingsPanel(
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 84.dp),
+            .padding(horizontal = 12.dp, vertical = 70.dp),
         shape = RoundedCornerShape(32.dp),
         contentPadding = PaddingValues(20.dp),
     ) {
@@ -161,6 +164,7 @@ fun SettingsPanel(
                 fontSize = 12.sp,
             )
             Spacer(Modifier.size(10.dp))
+
             Text(
                 text = "Global icon size",
                 color = Color.White,
@@ -170,6 +174,25 @@ fun SettingsPanel(
                 onValueChange = onGlobalScaleChanged,
                 valueRange = 0.72f..1.35f,
             )
+
+            SettingValueButton(
+                label = "Icon pack",
+                value = iconAppearance.style.displayName,
+            ) {
+                onIconStyleChanged(nextIconStyle(iconAppearance.style))
+            }
+            SettingValueButton(
+                label = "Icon shape",
+                value = iconAppearance.shape.displayName,
+            ) {
+                onIconShapeChanged(nextIconShape(iconAppearance.shape))
+            }
+            SettingValueButton(
+                label = "Home labels",
+                value = if (iconAppearance.showHomeLabels) "On" else "Off",
+            ) {
+                onHomeLabelsChanged(!iconAppearance.showHomeLabels)
+            }
 
             Spacer(Modifier.size(8.dp))
             SettingButton("Choose default Home app") {
@@ -183,6 +206,36 @@ fun SettingsPanel(
             }
             Spacer(Modifier.size(8.dp))
             SettingButton("Close") { onClose() }
+        }
+    }
+}
+
+@Composable
+private fun SettingValueButton(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    GlassPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 13.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = label,
+                color = Color.White,
+            )
+            Text(
+                text = value,
+                color = Color.White.copy(alpha = 0.62f),
+            )
         }
     }
 }
@@ -205,4 +258,16 @@ private fun SettingButton(
             color = Color.White,
         )
     }
+}
+
+private fun nextIconStyle(current: VeloraIconStyle): VeloraIconStyle = when (current) {
+    VeloraIconStyle.GLASS -> VeloraIconStyle.AURORA
+    VeloraIconStyle.AURORA -> VeloraIconStyle.ORIGINAL
+    VeloraIconStyle.ORIGINAL -> VeloraIconStyle.GLASS
+}
+
+private fun nextIconShape(current: VeloraIconShape): VeloraIconShape = when (current) {
+    VeloraIconShape.SQUIRCLE -> VeloraIconShape.CIRCLE
+    VeloraIconShape.CIRCLE -> VeloraIconShape.SOFT_SQUARE
+    VeloraIconShape.SOFT_SQUARE -> VeloraIconShape.SQUIRCLE
 }

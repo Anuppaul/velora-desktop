@@ -1,9 +1,7 @@
 package tech.wonderer.velora.ui
 
-import android.graphics.Bitmap
 import android.os.BatteryManager
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -32,9 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -44,14 +40,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import tech.wonderer.velora.data.AppCatalog
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.GlassPill
+import tech.wonderer.velora.ui.components.LocalIconAppearance
+import tech.wonderer.velora.ui.components.VeloraAppIcon
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -145,6 +140,7 @@ private fun FreeformHomeItem(
     onGroupOpen: (String) -> Unit,
     onItemEdit: (String) -> Unit,
 ) {
+    val iconAppearance = LocalIconAppearance.current
     var localX by remember(item.id) { mutableFloatStateOf(item.x) }
     var localY by remember(item.id) { mutableFloatStateOf(item.y) }
     var dragging by remember(item.id) { mutableStateOf(false) }
@@ -205,9 +201,7 @@ private fun FreeformHomeItem(
                 item.packageName?.let {
                     PackageIcon(
                         packageName = it,
-                        modifier = Modifier
-                            .size(size)
-                            .clip(RoundedCornerShape(size * 0.25f)),
+                        modifier = Modifier.size(size),
                     )
                 }
             }
@@ -220,14 +214,16 @@ private fun FreeformHomeItem(
             }
         }
 
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = item.label,
-            color = Color.White,
-            fontSize = 11.sp,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-        )
+        if (iconAppearance.showHomeLabels) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = item.label,
+                color = Color.White,
+                fontSize = 11.sp,
+                maxLines = 1,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -254,9 +250,7 @@ private fun GroupBubble(
                     row.forEach { packageName ->
                         PackageIcon(
                             packageName = packageName,
-                            modifier = Modifier
-                                .size((sizeDp * 0.30f).dp)
-                                .clip(RoundedCornerShape((sizeDp * 0.07f).dp)),
+                            modifier = Modifier.size((sizeDp * 0.30f).dp),
                         )
                     }
                 }
@@ -270,28 +264,10 @@ fun PackageIcon(
     packageName: String,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val bitmap by produceState<Bitmap?>(initialValue = null, packageName) {
-        value = withContext(Dispatchers.IO) {
-            AppCatalog.loadIcon(context, packageName)
-        }
-    }
-
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap!!.asImageBitmap(),
-            contentDescription = null,
-            modifier = modifier,
-        )
-    } else {
-        GlassPanel(modifier = modifier) {
-            Text(
-                text = "?",
-                color = Color.White,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-    }
+    VeloraAppIcon(
+        packageName = packageName,
+        modifier = modifier,
+    )
 }
 
 @Composable

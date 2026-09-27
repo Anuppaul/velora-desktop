@@ -4,7 +4,8 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +36,7 @@ import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 
 private enum class Overlay {
     NONE,
@@ -67,99 +68,96 @@ fun VeloraRoot(
         onBack = closeTopLayer,
     )
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    VeloraIconAppearanceProvider(launcher.iconAppearance) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                ) {},
-        )
-
-        HomeCanvas(
-            items = launcher.homeItems,
-            globalScale = launcher.globalIconScale,
-            onLaunch = launcher::launch,
-            onMoveCommitted = launcher::commitMove,
-            onGroupOpen = { groupId = it },
-            onItemEdit = { editingItemId = it },
-            onSwipeUp = { overlay = Overlay.DRAWER },
-            onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
-        )
-
-        when (overlay) {
-            Overlay.DRAWER -> AppDrawer(
-                apps = launcher.apps,
-                onLaunch = launcher::launch,
-                onPin = launcher::pinToHome,
-                onClose = { overlay = Overlay.NONE },
-            )
-
-            Overlay.CONTROL_CENTER -> ControlCenter(
-                onClose = { overlay = Overlay.NONE },
-            )
-
-            Overlay.SETTINGS -> SettingsPanel(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            HomeCanvas(
+                items = launcher.homeItems,
                 globalScale = launcher.globalIconScale,
-                onGlobalScaleChanged = launcher::setGlobalIconScale,
-                onClose = { overlay = Overlay.NONE },
+                onLaunch = launcher::launch,
+                onMoveCommitted = launcher::commitMove,
+                onGroupOpen = { groupId = it },
+                onItemEdit = { editingItemId = it },
+                onSwipeUp = { overlay = Overlay.DRAWER },
+                onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
             )
 
-            Overlay.NONE -> Unit
-        }
-
-        groupId
-            ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
-            ?.takeIf { it.kind == HomeItemKind.GROUP }
-            ?.let { group ->
-                GroupOverlay(
-                    item = group,
-                    labelForPackage = launcher::labelForPackage,
+            when (overlay) {
+                Overlay.DRAWER -> AppDrawer(
+                    apps = launcher.apps,
                     onLaunch = launcher::launch,
-                    onClose = { groupId = null },
+                    onPin = launcher::pinToHome,
+                    onClose = { overlay = Overlay.NONE },
                 )
+
+                Overlay.CONTROL_CENTER -> ControlCenter(
+                    onClose = { overlay = Overlay.NONE },
+                )
+
+                Overlay.SETTINGS -> SettingsPanel(
+                    globalScale = launcher.globalIconScale,
+                    iconAppearance = launcher.iconAppearance,
+                    onGlobalScaleChanged = launcher::setGlobalIconScale,
+                    onIconStyleChanged = launcher::setIconStyle,
+                    onIconShapeChanged = launcher::setIconShape,
+                    onHomeLabelsChanged = launcher::setHomeLabelsVisible,
+                    onClose = { overlay = Overlay.NONE },
+                )
+
+                Overlay.NONE -> Unit
             }
 
-        editingItemId
-            ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
-            ?.let { item ->
-                ItemEditSheet(
-                    item = item,
-                    onScaleChanged = { launcher.setItemScale(item.id, it) },
-                    onRemove = {
-                        launcher.removeFromHome(item.id)
-                        editingItemId = null
-                    },
-                    onClose = { editingItemId = null },
-                )
-            }
+            groupId
+                ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
+                ?.takeIf { it.kind == HomeItemKind.GROUP }
+                ?.let { group ->
+                    GroupOverlay(
+                        item = group,
+                        labelForPackage = launcher::labelForPackage,
+                        onLaunch = launcher::launch,
+                        onClose = { groupId = null },
+                    )
+                }
 
-        VeloraNavBar(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            onRecents = {
-                if (!VeloraNavActions.recents()) {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            editingItemId
+                ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
+                ?.let { item ->
+                    ItemEditSheet(
+                        item = item,
+                        onScaleChanged = { launcher.setItemScale(item.id, it) },
+                        onRemove = {
+                            launcher.removeFromHome(item.id)
+                            editingItemId = null
+                        },
+                        onClose = { editingItemId = null },
+                    )
                 }
-            },
-            onHome = {
-                overlay = Overlay.NONE
-                groupId = null
-                editingItemId = null
-            },
-            onBack = {
-                if (editingItemId != null || groupId != null || overlay != Overlay.NONE) {
-                    closeTopLayer()
-                } else {
-                    VeloraNavActions.back()
-                }
-            },
-            onSettings = { overlay = Overlay.SETTINGS },
-        )
+
+            VeloraNavBar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                onRecents = {
+                    if (!VeloraNavActions.recents()) {
+                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }
+                },
+                onHome = {
+                    overlay = Overlay.NONE
+                    groupId = null
+                    editingItemId = null
+                },
+                onBack = {
+                    if (editingItemId != null || groupId != null || overlay != Overlay.NONE) {
+                        closeTopLayer()
+                    } else {
+                        VeloraNavActions.back()
+                    }
+                },
+                onSettings = { overlay = Overlay.SETTINGS },
+            )
+        }
     }
 }
 
@@ -205,7 +203,10 @@ private fun VeloraNavBar(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(52.dp)
-                    .clickable(onClick = onHome),
+                    .combinedClickable(
+                        onClick = onHome,
+                        onLongClick = onSettings,
+                    ),
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     drawCircle(
@@ -230,10 +231,7 @@ private fun VeloraNavBar(
                 )
             }
 
-            NavGlyph(
-                onClick = onBack,
-                onLongClick = onSettings,
-            ) {
+            NavGlyph(onClick = onBack) {
                 Canvas(Modifier.size(28.dp)) {
                     drawLine(
                         color = Color.White,
@@ -255,6 +253,7 @@ private fun VeloraNavBar(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NavGlyph(
     onClick: () -> Unit,
@@ -265,7 +264,10 @@ private fun NavGlyph(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(48.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
     ) {
         content()
     }

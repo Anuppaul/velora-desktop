@@ -6,7 +6,7 @@ The goal is not to imitate a stock Android launcher. Velora treats the home scre
 
 ## Current foundation
 
-Implemented in the first runnable slice:
+Implemented:
 
 - Android HOME launcher role
 - Kotlin + Jetpack Compose
@@ -29,6 +29,24 @@ Implemented in the first runnable slice:
 - No analytics, account system, ads, Firebase, or always-on network dependency
 - No GitHub Actions CI
 
+## Velora premium icon system
+
+Velora includes an original dynamic icon system rather than shipping a finite collection of replacement logo files.
+
+Modes:
+
+- **Velora Glass** — translucent layered shell with deterministic app accents and a soft internal highlight.
+- **Velora Aurora** — richer luminous color treatment for a more expressive Home screen.
+- **Original** — preserves the installed app icon while keeping Velora's shape system.
+
+Shapes:
+
+- Squircle
+- Circle
+- Soft Square
+
+The accent palette is selected deterministically from each package name, so the same app keeps the same treatment without cloud assets or downloads. Home labels can also be hidden for a cleaner composition.
+
 ## Interaction model
 
 - Swipe up on Home: open Apps
@@ -38,13 +56,11 @@ Implemented in the first runnable slice:
 - Drop an app near an existing group: add it to that group
 - Long-press a Home item: resize or remove it
 - Long-press an app in Apps: pin it to Home
-- Hold the Back-side navigation control later becomes the entry point for deeper launcher controls; Settings is also available from the in-app settings path
+- Long-press the Velora Orb: open Velora Settings
 
 ## Build with Google Colab
 
 Download this repository as a ZIP, open colab/build_velora.ipynb in Google Colab, run all cells, upload the ZIP when asked, and download Velora-debug.apk at the end.
-
-The notebook installs JDK 17, Android SDK 35, Gradle 8.9, writes local.properties, builds :app:assembleDebug, locates the APK, and downloads it.
 
 See docs/COLAB_BUILD.md for the exact flow.
 

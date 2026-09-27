@@ -5,6 +5,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.VeloraIconShape
+import tech.wonderer.velora.model.VeloraIconStyle
 
 class LayoutStore(context: Context) {
     private val prefs = context.getSharedPreferences("velora_layout", Context.MODE_PRIVATE)
@@ -64,8 +67,41 @@ class LayoutStore(context: Context) {
         prefs.edit().putFloat(KEY_GLOBAL_SCALE, scale).apply()
     }
 
+    fun loadIconAppearance(): IconAppearance {
+        val style = runCatching {
+            VeloraIconStyle.valueOf(
+                prefs.getString(KEY_ICON_STYLE, VeloraIconStyle.GLASS.name)
+                    ?: VeloraIconStyle.GLASS.name,
+            )
+        }.getOrDefault(VeloraIconStyle.GLASS)
+
+        val shape = runCatching {
+            VeloraIconShape.valueOf(
+                prefs.getString(KEY_ICON_SHAPE, VeloraIconShape.SQUIRCLE.name)
+                    ?: VeloraIconShape.SQUIRCLE.name,
+            )
+        }.getOrDefault(VeloraIconShape.SQUIRCLE)
+
+        return IconAppearance(
+            style = style,
+            shape = shape,
+            showHomeLabels = prefs.getBoolean(KEY_HOME_LABELS, true),
+        )
+    }
+
+    fun saveIconAppearance(appearance: IconAppearance) {
+        prefs.edit()
+            .putString(KEY_ICON_STYLE, appearance.style.name)
+            .putString(KEY_ICON_SHAPE, appearance.shape.name)
+            .putBoolean(KEY_HOME_LABELS, appearance.showHomeLabels)
+            .apply()
+    }
+
     private companion object {
         const val KEY_LAYOUT = "home_layout_v1"
         const val KEY_GLOBAL_SCALE = "global_icon_scale"
+        const val KEY_ICON_STYLE = "icon_style"
+        const val KEY_ICON_SHAPE = "icon_shape"
+        const val KEY_HOME_LABELS = "home_labels"
     }
 }

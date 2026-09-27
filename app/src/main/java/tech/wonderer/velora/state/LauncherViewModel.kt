@@ -15,6 +15,9 @@ import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.data.LayoutStore
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.VeloraIconShape
+import tech.wonderer.velora.model.VeloraIconStyle
 import kotlin.math.sqrt
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -27,6 +30,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     var globalIconScale by mutableFloatStateOf(store.loadGlobalIconScale())
+        private set
+
+    var iconAppearance by mutableStateOf(store.loadIconAppearance())
         private set
 
     init {
@@ -135,6 +141,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         store.saveGlobalIconScale(globalIconScale)
     }
 
+    fun setIconStyle(style: VeloraIconStyle) {
+        iconAppearance = iconAppearance.copy(style = style)
+        persistIconAppearance()
+    }
+
+    fun setIconShape(shape: VeloraIconShape) {
+        iconAppearance = iconAppearance.copy(shape = shape)
+        persistIconAppearance()
+    }
+
+    fun setHomeLabelsVisible(visible: Boolean) {
+        iconAppearance = iconAppearance.copy(showHomeLabels = visible)
+        persistIconAppearance()
+    }
+
     fun removeFromHome(itemId: String) {
         homeItems = homeItems.filterNot { it.id == itemId }
         persist()
@@ -167,6 +188,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun persist() {
         store.saveHomeItems(homeItems)
+    }
+
+    private fun persistIconAppearance() {
+        store.saveIconAppearance(iconAppearance)
     }
 
     private fun distance(a: HomeItem, b: HomeItem): Float {
