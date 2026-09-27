@@ -34,9 +34,10 @@ fun SimulationNotificationCenter(
         LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
+                .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
+        intensity = 0.74f,
     ) {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),

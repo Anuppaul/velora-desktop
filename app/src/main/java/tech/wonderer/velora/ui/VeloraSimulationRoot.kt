@@ -1,11 +1,19 @@
 package tech.wonderer.velora.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -31,6 +39,7 @@ import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
+import tech.wonderer.velora.model.HomeTransitionMode
 import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
@@ -40,6 +49,8 @@ import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.VeloraPalette
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 import kotlin.math.sqrt
+
+private const val SIM_HOME_PAGE_COUNT = 3
 
 private enum class SimulationOverlay {
     NONE,
@@ -59,6 +70,9 @@ fun VeloraSimulationRoot(
     var widgets by remember { mutableStateOf(simulationWidgets()) }
     var globalScale by remember { mutableFloatStateOf(0.98f) }
     var wallpaperBlur by remember { mutableFloatStateOf(0.42f) }
+    var transitionMode by remember { mutableStateOf(HomeTransitionMode.JELLY) }
+    var transitionSoftness by remember { mutableFloatStateOf(0.62f) }
+    var currentHomePage by remember { mutableIntStateOf(0) }
     var appearance by remember {
         mutableStateOf(
             IconAppearance(
@@ -102,6 +116,43 @@ fun VeloraSimulationRoot(
         return maxOf(itemMax, widgetMax) + 1f
     }
 
+    fun setHomePage(page: Int) {
+        val next = page.coerceIn(0, SIM_HOME_PAGE_COUNT - 1)
+        if (next != currentHomePage) {
+            editingItemId = null
+            groupId = null
+            currentHomePage = next
+        }
+    }
+
+    fun ungroupItem(groupId: String) {
+        val group = items.firstOrNull {
+            it.id == groupId && it.kind == HomeItemKind.GROUP
+        } ?: return
+        val offsets = listOf(
+            -0.05f to -0.04f,
+            0.05f to -0.04f,
+            -0.05f to 0.05f,
+            0.05f to 0.05f,
+        )
+        val restored = group.members.mapIndexed { index, packageName ->
+            val app = simulationApps().firstOrNull { it.packageName == packageName }
+            val offset = offsets[index % offsets.size]
+            HomeItem(
+                id = "sim-" + packageName + "-" + System.nanoTime(),
+                kind = HomeItemKind.APP,
+                label = app?.label ?: packageName.substringAfterLast('.'),
+                packageName = packageName,
+                x = (group.x + offset.first).coerceIn(0f, 1f),
+                y = (group.y + offset.second).coerceIn(0f, 1f),
+                scale = group.scale,
+                zIndex = nextZ() + index,
+                page = group.page,
+            )
+        }
+        items = items.filterNot { it.id == groupId } + restored
+    }
+
     fun commitMove(
         itemId: String,
         x: Float,
@@ -123,7 +174,7 @@ fun VeloraSimulationRoot(
         val dragged = updated.firstOrNull { it.id == itemId }
         if (dragged?.kind == HomeItemKind.APP && dragged.packageName != null) {
             val target = updated
-                .filter { it.id != dragged.id }
+                .filter { it.id != dragged.id && it.page == dragged.page }
                 .map { it to simulationDistance(dragged, it) }
                 .filter { it.second < 0.105f }
                 .minByOrNull { it.second }
@@ -147,6 +198,7 @@ fun VeloraSimulationRoot(
                                 y = target.y,
                                 scale = maxOf(target.scale, dragged.scale),
                                 zIndex = raised,
+                                page = dragged.page,
                             )
                         }
                     }
@@ -199,6 +251,7 @@ fun VeloraSimulationRoot(
             groupId != null -> groupId = null
             overlay != SimulationOverlay.NONE -> overlay = SimulationOverlay.NONE
             homeEditMode -> homeEditMode = false
+            currentHomePage > 0 -> setHomePage(currentHomePage - 1)
         }
     }
 
@@ -208,7 +261,8 @@ fun VeloraSimulationRoot(
             editingWidgetId != null ||
             groupId != null ||
             overlay != SimulationOverlay.NONE ||
-            homeEditMode,
+            homeEditMode ||
+            currentHomePage > 0,
         onBack = { closeTopLayer() },
     )
 
@@ -251,41 +305,114 @@ fun VeloraSimulationRoot(
                         0.dp
                     }
 
-                Box(
+                AnimatedContent(
+                    targetState = currentHomePage,
+                    transitionSpec = {
+                        val forward = targetState > initialState
+                        when (transitionMode) {
+                            HomeTransitionMode.JELLY -> {
+                                val softness = transitionSoftness.coerceIn(0f, 1f)
+                                val damping = 0.54f + softness * 0.24f
+                                val stiffness = 560f - softness * 300f
+                                (
+                                    slideInHorizontally(
+                                        animationSpec = spring(
+                                            dampingRatio = damping,
+                                            stiffness = stiffness,
+                                        ),
+                                    ) { width -> if (forward) width else -width } +
+                                        fadeIn(animationSpec = tween(120))
+                                    ).togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec = spring(
+                                            dampingRatio = damping,
+                                            stiffness = stiffness,
+                                        ),
+                                    ) { width -> if (forward) -width else width } +
+                                        fadeOut(animationSpec = tween(110)),
+                                )
+                            }
+
+                            HomeTransitionMode.SMOOTH -> {
+                                (
+                                    slideInHorizontally(animationSpec = tween(260)) {
+                                        width -> if (forward) width else -width
+                                    } + fadeIn(animationSpec = tween(160))
+                                    ).togetherWith(
+                                    slideOutHorizontally(animationSpec = tween(260)) {
+                                        width -> if (forward) -width else width
+                                    } + fadeOut(animationSpec = tween(150)),
+                                )
+                            }
+
+                            HomeTransitionMode.FADE -> {
+                                fadeIn(animationSpec = tween(210))
+                                    .togetherWith(fadeOut(animationSpec = tween(180)))
+                            }
+
+                            HomeTransitionMode.OFF -> {
+                                EnterTransition.None.togetherWith(ExitTransition.None)
+                            }
+                        }
+                    },
+                    label = "simulation-home-page",
                     modifier = Modifier
                         .fillMaxSize()
                         .blur(sheetBackdropBlur),
-                ) {
+                ) { page ->
                     HomeCanvas(
-                    items = items,
-                    widgets = widgets,
-                    globalScale = globalScale,
-                    onLaunch = ::openSimulationApp,
-                    onMoveCommitted = ::commitMove,
-                    onWidgetMoveCommitted = ::commitWidgetMove,
-                    onGroupOpen = { groupId = it },
-                    onItemEdit = {
-                        homeEditMode = true
-                        editingItemId = it
-                    },
-                    onWidgetEdit = {
-                        homeEditMode = true
-                        editingWidgetId = it
-                    },
-                    onSwipeUp = {
-                        homeEditMode = false
-                        overlay = SimulationOverlay.DRAWER
-                    },
-                    onSwipeDownLeft = {
-                        homeEditMode = false
-                        overlay = SimulationOverlay.NOTIFICATIONS
-                    },
-                    onSwipeDownRight = {
-                        homeEditMode = false
-                        overlay = SimulationOverlay.CONTROL_CENTER
-                    },
-                    onHomeLongPress = { homeEditMode = true },
-                    editMode = homeEditMode,
+                        items = items.filter { it.page == page },
+                        widgets = widgets.filter { it.page == page },
+                        globalScale = globalScale,
+                        selectedItemId = editingItemId,
+                        onLaunch = ::openSimulationApp,
+                        onMoveCommitted = ::commitMove,
+                        onWidgetMoveCommitted = ::commitWidgetMove,
+                        onGroupOpen = { groupId = it },
+                        onItemSelect = { editingItemId = it },
+                        onDismissItemTools = { editingItemId = null },
+                        onItemScaleChanged = { id, scale ->
+                            items = items.map {
+                                if (it.id == id) it.copy(scale = scale.coerceIn(0.6f, 1.8f))
+                                else it
+                            }
+                        },
+                        onItemRemove = { id ->
+                            items = items.filterNot { it.id == id }
+                        },
+                        onAppInfo = {},
+                        onUninstall = {},
+                        onUngroup = ::ungroupItem,
+                        onWidgetEdit = {
+                            homeEditMode = true
+                            editingWidgetId = it
+                        },
+                        onSwipeUp = {
+                            homeEditMode = false
+                            editingItemId = null
+                            overlay = SimulationOverlay.DRAWER
+                        },
+                        onSwipeDownLeft = {
+                            homeEditMode = false
+                            editingItemId = null
+                            overlay = SimulationOverlay.NOTIFICATIONS
+                        },
+                        onSwipeDownRight = {
+                            homeEditMode = false
+                            editingItemId = null
+                            overlay = SimulationOverlay.CONTROL_CENTER
+                        },
+                        onSwipeLeft = {
+                            if (page < SIM_HOME_PAGE_COUNT - 1) setHomePage(page + 1)
+                        },
+                        onSwipeRight = {
+                            if (page > 0) setHomePage(page - 1)
+                        },
+                        onHomeLongPress = {
+                            editingItemId = null
+                            homeEditMode = true
+                        },
+                        editMode = homeEditMode,
                     )
                 }
 
@@ -293,7 +420,6 @@ fun VeloraSimulationRoot(
                     overlay == SimulationOverlay.SETTINGS ||
                     overlay == SimulationOverlay.WIDGET_PICKER ||
                     groupId != null ||
-                    editingItemId != null ||
                     editingWidgetId != null
                 ) {
                     ModalBackdrop()
@@ -313,6 +439,7 @@ fun VeloraSimulationRoot(
                                     x = 0.12f,
                                     y = 0.72f,
                                     zIndex = nextZ(),
+                                    page = currentHomePage,
                                 )
                             }
                         },
@@ -326,6 +453,7 @@ fun VeloraSimulationRoot(
                                     x = x,
                                     y = y,
                                     zIndex = nextZ(),
+                                    page = currentHomePage,
                                 )
                             }
                         },
@@ -345,9 +473,20 @@ fun VeloraSimulationRoot(
                     SimulationOverlay.SETTINGS -> SimulationSettingsPanel(
                         globalScale = globalScale,
                         wallpaperBlur = wallpaperBlur,
+                        transitionMode = transitionMode,
+                        transitionSoftness = transitionSoftness,
                         appearance = appearance,
                         onScale = { globalScale = it },
                         onWallpaperBlur = { wallpaperBlur = it },
+                        onTransitionMode = {
+                            transitionMode = when (transitionMode) {
+                                HomeTransitionMode.JELLY -> HomeTransitionMode.SMOOTH
+                                HomeTransitionMode.SMOOTH -> HomeTransitionMode.FADE
+                                HomeTransitionMode.FADE -> HomeTransitionMode.OFF
+                                HomeTransitionMode.OFF -> HomeTransitionMode.JELLY
+                            }
+                        },
+                        onTransitionSoftness = { transitionSoftness = it },
                         onStyle = {
                             appearance = appearance.copy(style = nextSimulationStyle(appearance.style))
                         },
@@ -383,6 +522,7 @@ fun VeloraSimulationRoot(
                                 x = 0.15f,
                                 y = 0.18f,
                                 zIndex = nextZ(),
+                                page = currentHomePage,
                             )
                         },
                         onAndroidWidgets = null,
@@ -412,49 +552,6 @@ fun VeloraSimulationRoot(
                         )
                     }
 
-                editingItemId
-                    ?.let { id -> items.firstOrNull { it.id == id } }
-                    ?.let { item ->
-                        ItemEditSheet(
-                            item = item,
-                            onScaleChanged = { scale ->
-                                items = items.map {
-                                    if (it.id == item.id) it.copy(scale = scale) else it
-                                }
-                            },
-                            onRenameGroup = { name ->
-                                items = items.map {
-                                    if (it.id == item.id) it.copy(label = name) else it
-                                }
-                            },
-                            onUngroup = {
-                                if (item.kind == HomeItemKind.GROUP) {
-                                    val restored = item.members.mapIndexed { index, packageName ->
-                                        HomeItem(
-                                            id = "sim-" + packageName,
-                                            kind = HomeItemKind.APP,
-                                            label = simulationApps()
-                                                .firstOrNull { it.packageName == packageName }
-                                                ?.label
-                                                ?: packageName.substringAfterLast('.'),
-                                            packageName = packageName,
-                                            x = (item.x + index * 0.07f).coerceIn(0f, 1f),
-                                            y = (item.y + index * 0.05f).coerceIn(0f, 1f),
-                                            zIndex = nextZ() + index,
-                                        )
-                                    }
-                                    items = items.filterNot { it.id == item.id } + restored
-                                }
-                                editingItemId = null
-                            },
-                            onRemove = {
-                                items = items.filterNot { it.id == item.id }
-                                editingItemId = null
-                            },
-                            onClose = { editingItemId = null },
-                        )
-                    }
-
                 editingWidgetId
                     ?.let { id -> widgets.firstOrNull { it.id == id } }
                     ?.let { widget ->
@@ -481,6 +578,30 @@ fun VeloraSimulationRoot(
                     SimulationAppPreview(
                         packageName = packageName,
                         label = label,
+                    )
+                }
+
+                VeloraStatusBar(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .zIndex(160f),
+                )
+
+                AnimatedVisibility(
+                    visible = overlay == SimulationOverlay.NONE &&
+                        !homeEditMode &&
+                        editingItemId == null &&
+                        groupId == null,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(80f)
+                        .padding(bottom = 98.dp),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    HomePageIndicator(
+                        currentPage = currentHomePage,
+                        pageCount = SIM_HOME_PAGE_COUNT,
                     )
                 }
 
@@ -516,6 +637,7 @@ fun VeloraSimulationRoot(
                     onRecents = {
                         simulatedPackage = null
                         homeEditMode = false
+                        setHomePage(0)
                         overlay = SimulationOverlay.RECENTS
                     },
                     onHome = {
@@ -585,9 +707,13 @@ private fun SimulationWallpaperGlow(variant: Int) {
 private fun SimulationSettingsPanel(
     globalScale: Float,
     wallpaperBlur: Float,
+    transitionMode: HomeTransitionMode,
+    transitionSoftness: Float,
     appearance: IconAppearance,
     onScale: (Float) -> Unit,
     onWallpaperBlur: (Float) -> Unit,
+    onTransitionMode: () -> Unit,
+    onTransitionSoftness: (Float) -> Unit,
     onStyle: () -> Unit,
     onShape: () -> Unit,
     onLabels: () -> Unit,
@@ -597,9 +723,13 @@ private fun SimulationSettingsPanel(
     GlassSimulationSettings(
         globalScale = globalScale,
         wallpaperBlur = wallpaperBlur,
+        transitionMode = transitionMode,
+        transitionSoftness = transitionSoftness,
         appearance = appearance,
         onScale = onScale,
         onWallpaperBlur = onWallpaperBlur,
+        onTransitionMode = onTransitionMode,
+        onTransitionSoftness = onTransitionSoftness,
         onStyle = onStyle,
         onShape = onShape,
         onLabels = onLabels,

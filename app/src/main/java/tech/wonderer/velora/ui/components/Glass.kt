@@ -5,8 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -95,7 +95,6 @@ fun GlassPill(
     }
 }
 
-
 @Composable
 fun ModalBackdrop(
     modifier: Modifier = Modifier,
@@ -130,32 +129,33 @@ fun ModalBackdrop(
     }
 }
 
-
 @Composable
 fun LiquidGlassPanel(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(28.dp),
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    intensity: Float = 1f,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val palette = LocalVeloraPalette.current
+    val glassIntensity = intensity.coerceIn(0.35f, 1f)
 
     Box(
         modifier = modifier
             .shadow(
-                elevation = 22.dp,
+                elevation = (14f + 8f * glassIntensity).dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.34f),
-                spotColor = palette.secondary.copy(alpha = 0.16f),
+                ambientColor = Color.Black.copy(alpha = 0.20f + 0.14f * glassIntensity),
+                spotColor = palette.secondary.copy(alpha = 0.10f * glassIntensity),
             )
             .clip(shape)
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.24f),
-                        palette.secondary.copy(alpha = 0.17f),
-                        palette.accent.copy(alpha = 0.12f),
-                        Color(0xFF122238).copy(alpha = 0.34f),
+                        Color.White.copy(alpha = 0.24f * glassIntensity),
+                        palette.secondary.copy(alpha = 0.17f * glassIntensity),
+                        palette.accent.copy(alpha = 0.12f * glassIntensity),
+                        Color(0xFF122238).copy(alpha = 0.34f * glassIntensity),
                     ),
                     start = Offset.Zero,
                     end = Offset.Infinite,
@@ -165,23 +165,23 @@ fun LiquidGlassPanel(
                 width = 1.dp,
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.82f),
-                        Color.White.copy(alpha = 0.24f),
-                        palette.secondary.copy(alpha = 0.52f),
-                        palette.accent.copy(alpha = 0.24f),
+                        Color.White.copy(alpha = 0.82f * glassIntensity),
+                        Color.White.copy(alpha = 0.24f * glassIntensity),
+                        palette.secondary.copy(alpha = 0.52f * glassIntensity),
+                        palette.accent.copy(alpha = 0.24f * glassIntensity),
                     ),
                 ),
                 shape = shape,
             ),
     ) {
         Canvas(Modifier.matchParentSize()) {
-            val edge = 1.4.dp.toPx()
+            val edge = 1.2.dp.toPx()
 
             drawOval(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.46f),
-                        Color.White.copy(alpha = 0.12f),
+                        Color.White.copy(alpha = 0.46f * glassIntensity),
+                        Color.White.copy(alpha = 0.12f * glassIntensity),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.20f, size.height * 0.06f),
@@ -194,8 +194,8 @@ fun LiquidGlassPanel(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.secondary.copy(alpha = 0.34f),
-                        palette.secondary.copy(alpha = 0.08f),
+                        palette.secondary.copy(alpha = 0.34f * glassIntensity),
+                        palette.secondary.copy(alpha = 0.08f * glassIntensity),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.96f, size.height * 0.96f),
@@ -208,7 +208,7 @@ fun LiquidGlassPanel(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.accent.copy(alpha = 0.26f),
+                        palette.accent.copy(alpha = 0.26f * glassIntensity),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.05f, size.height * 0.74f),
@@ -221,9 +221,9 @@ fun LiquidGlassPanel(
             drawRoundRect(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.56f),
-                        Color.White.copy(alpha = 0.08f),
-                        palette.secondary.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.48f * glassIntensity),
+                        Color.White.copy(alpha = 0.08f * glassIntensity),
+                        palette.secondary.copy(alpha = 0.20f * glassIntensity),
                     ),
                     start = Offset.Zero,
                     end = Offset(size.width, size.height),

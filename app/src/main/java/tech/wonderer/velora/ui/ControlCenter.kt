@@ -1,7 +1,7 @@
 package tech.wonderer.velora.ui
 
-import android.content.ComponentName
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -95,12 +95,13 @@ fun ControlCenter(
         LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
+                .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
             shape = RoundedCornerShape(34.dp),
             contentPadding = PaddingValues(18.dp),
+            intensity = 0.74f,
         ) {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 18.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
@@ -113,7 +114,7 @@ fun ControlCenter(
                             Text(
                                 text = "Control Center",
                                 color = Color.White,
-                                fontSize = 29.sp,
+                                fontSize = 28.sp,
                                 fontWeight = FontWeight.Light,
                             )
                             Text(
@@ -135,19 +136,17 @@ fun ControlCenter(
                 }
 
                 item {
-                    SectionTitle("Connectivity")
-                    Spacer(Modifier.height(8.dp))
-                    ConnectivityControls(context)
-                }
-
-                item {
-                    SectionTitle("System controls")
-                    Spacer(Modifier.height(8.dp))
-                    NativeSystemControls(context)
+                    CompactConnectivityRow(context)
                 }
 
                 item {
                     SystemSliders()
+                }
+
+                item {
+                    SectionTitle("System controls")
+                    Spacer(Modifier.height(7.dp))
+                    NativeSystemControls(context)
                 }
 
                 item {
@@ -164,81 +163,54 @@ fun ControlCenter(
 }
 
 @Composable
-private fun SectionTitle(title: String) {
-    Text(
-        text = title.uppercase(),
-        color = Color.White.copy(alpha = 0.55f),
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
+private fun CompactConnectivityRow(context: Context) {
+    val controls = listOf(
+        CompactControlSpec("◎", "Internet", "Panel") { openInternetPanel(context) },
+        CompactControlSpec("⌁", "Wi-Fi", "Network") {
+            openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
+        },
+        CompactControlSpec("ᛒ", "Bluetooth", "Devices") {
+            openSystemScreen(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+        },
+        CompactControlSpec("▥", "Mobile", "SIM") {
+            openSystemScreen(context, Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS))
+        },
     )
-}
 
-@Composable
-private fun ConnectivityControls(
-    context: Context,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            QuickControl(
-                symbol = "◎",
-                label = "Internet",
-                detail = "Network panel",
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        controls.forEach { spec ->
+            CompactControl(
+                spec = spec,
                 modifier = Modifier.weight(1f),
-            ) {
-                openInternetPanel(context)
-            }
-            QuickControl(
-                symbol = "⌁",
-                label = "Wi-Fi",
-                detail = "Networks",
-                modifier = Modifier.weight(1f),
-            ) {
-                openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
-            }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            QuickControl(
-                symbol = "ᛒ",
-                label = "Bluetooth",
-                detail = "Devices",
-                modifier = Modifier.weight(1f),
-            ) {
-                openSystemScreen(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
-            }
-            QuickControl(
-                symbol = "▥",
-                label = "Mobile",
-                detail = "SIM & network",
-                modifier = Modifier.weight(1f),
-            ) {
-                openSystemScreen(context, Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS))
-            }
+                intensity = 0.60f,
+            )
         }
     }
 }
 
 @Composable
-private fun NativeSystemControls(
-    context: Context,
-) {
+private fun SectionTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = Color.White.copy(alpha = 0.50f),
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+    )
+}
+
+@Composable
+private fun NativeSystemControls(context: Context) {
     val controls = listOf(
         CompactControlSpec("✈", "Airplane", "Radios") {
             openSystemScreen(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))
         },
         CompactControlSpec("◐", "Focus", "DND") {
-            openSystemScreen(
-                context,
-                Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-            )
+            openSystemScreen(context, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
         },
-        CompactControlSpec("↻", "Display", "Rotation") {
+        CompactControlSpec("↻", "Display", "Rotate") {
             openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
         },
         CompactControlSpec("◒", "Battery", "Saver") {
@@ -270,16 +242,17 @@ private fun NativeSystemControls(
         },
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         controls.chunked(4).forEach { row ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 row.forEach { control ->
                     CompactControl(
                         spec = control,
                         modifier = Modifier.weight(1f),
+                        intensity = 0.55f,
                     )
                 }
                 repeat(4 - row.size) {
@@ -291,72 +264,38 @@ private fun NativeSystemControls(
 }
 
 @Composable
-private fun QuickControl(
-    symbol: String,
-    label: String,
-    detail: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val palette = LocalVeloraPalette.current
-
-    LiquidGlassPanel(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-    ) {
-        Column {
-            Text(
-                text = symbol,
-                color = palette.secondary,
-                fontSize = 22.sp,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = label,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = detail,
-                color = Color.White.copy(alpha = 0.52f),
-                fontSize = 10.sp,
-            )
-        }
-    }
-}
-
-@Composable
 private fun CompactControl(
     spec: CompactControlSpec,
     modifier: Modifier = Modifier,
+    intensity: Float = 0.60f,
 ) {
     val palette = LocalVeloraPalette.current
 
     LiquidGlassPanel(
         modifier = modifier.clickable(onClick = spec.action),
-        shape = RoundedCornerShape(22.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(20.dp),
+        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 10.dp),
+        intensity = intensity,
     ) {
         Column {
             Text(
                 text = spec.symbol,
                 color = palette.secondary,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(5.dp))
             Text(
                 text = spec.label,
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
             )
             Text(
                 text = spec.detail,
-                color = Color.White.copy(alpha = 0.48f),
-                fontSize = 8.sp,
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 7.sp,
                 maxLines = 1,
             )
         }
@@ -380,7 +319,8 @@ private fun SystemSliders() {
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        intensity = 0.62f,
     ) {
         Column {
             SliderRow(
@@ -447,15 +387,11 @@ private fun SliderRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = label,
-                color = Color.White,
-                fontSize = 12.sp,
-            )
+            Text(label, color = Color.White, fontSize = 11.sp)
             Text(
                 text = trailing,
-                color = Color.White.copy(alpha = 0.60f),
-                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 10.sp,
                 modifier = if (onTrailingClick != null) {
                     Modifier.clickable { onTrailingClick() }
                 } else {
@@ -473,51 +409,42 @@ private fun SliderRow(
 @Composable
 private fun MediaCard(state: VeloraMediaState) {
     val palette = LocalVeloraPalette.current
-
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        contentPadding = PaddingValues(16.dp),
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(14.dp),
+        intensity = 0.62f,
     ) {
         Column {
             Text(
                 text = "NOW PLAYING",
                 color = palette.secondary,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 text = state.title,
                 color = Color.White,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
             )
             if (state.artist.isNotBlank()) {
                 Text(
                     text = state.artist,
-                    color = Color.White.copy(alpha = 0.60f),
-                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.58f),
+                    fontSize = 11.sp,
                     maxLines = 1,
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(22.dp),
-            ) {
-                MediaAction("Previous") {
-                    state.controller.transportControls.skipToPrevious()
-                }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                MediaAction("Previous") { state.controller.transportControls.skipToPrevious() }
                 MediaAction(if (state.isPlaying) "Pause" else "Play") {
-                    if (state.isPlaying) {
-                        state.controller.transportControls.pause()
-                    } else {
-                        state.controller.transportControls.play()
-                    }
+                    if (state.isPlaying) state.controller.transportControls.pause()
+                    else state.controller.transportControls.play()
                 }
-                MediaAction("Next") {
-                    state.controller.transportControls.skipToNext()
-                }
+                MediaAction("Next") { state.controller.transportControls.skipToNext() }
             }
         }
     }
@@ -526,29 +453,22 @@ private fun MediaCard(state: VeloraMediaState) {
 @Composable
 private fun MediaAccessCard() {
     val context = LocalContext.current
-
     LiquidGlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                openSystemScreen(
-                    context,
-                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
-                )
+                openSystemScreen(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             },
         shape = RoundedCornerShape(24.dp),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(14.dp),
+        intensity = 0.62f,
     ) {
         Column {
+            Text("Enable media access", color = Color.White, fontWeight = FontWeight.SemiBold)
             Text(
-                text = "Enable media access",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "Notification access lets Velora read active media sessions.",
-                color = Color.White.copy(alpha = 0.58f),
-                fontSize = 12.sp,
+                "Notification access lets Velora read active media sessions.",
+                color = Color.White.copy(alpha = 0.56f),
+                fontSize = 11.sp,
             )
         }
     }
@@ -559,18 +479,15 @@ private fun SafeReleaseMediaCard() {
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(14.dp),
+        intensity = 0.58f,
     ) {
         Column {
+            Text("Media", color = Color.White, fontWeight = FontWeight.SemiBold)
             Text(
-                text = "Media",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "Cross-app media session access is disabled in the sideload-safe release.",
-                color = Color.White.copy(alpha = 0.54f),
-                fontSize = 12.sp,
+                "Cross-app media session access is disabled in the sideload-safe release.",
+                color = Color.White.copy(alpha = 0.52f),
+                fontSize = 11.sp,
             )
         }
     }
@@ -581,52 +498,39 @@ private fun EmptyMediaCard() {
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(14.dp),
+        intensity = 0.58f,
     ) {
         Column {
+            Text("Media", color = Color.White, fontWeight = FontWeight.SemiBold)
             Text(
-                text = "Media",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "Nothing is playing.",
-                color = Color.White.copy(alpha = 0.54f),
-                fontSize = 12.sp,
+                "Nothing is playing.",
+                color = Color.White.copy(alpha = 0.52f),
+                fontSize = 11.sp,
             )
         }
     }
 }
 
 @Composable
-private fun MediaAction(
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun MediaAction(label: String, onClick: () -> Unit) {
     Text(
         text = label,
         color = Color.White,
-        fontSize = 12.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
 
 @Composable
-private fun mediaState(
-    mediaAccess: Boolean,
-): State<VeloraMediaState?> {
+private fun mediaState(mediaAccess: Boolean): State<VeloraMediaState?> {
     val context = LocalContext.current
-
-    return produceState<VeloraMediaState?>(
-        initialValue = null,
-        key1 = mediaAccess,
-    ) {
+    return produceState<VeloraMediaState?>(initialValue = null, key1 = mediaAccess) {
         if (!mediaAccess) {
             value = null
             return@produceState
         }
-
         while (true) {
             value = findActiveMedia(context)
             delay(1_000)
@@ -637,23 +541,16 @@ private fun mediaState(
 private fun findActiveMedia(context: Context): VeloraMediaState? {
     val manager = context.getSystemService(MediaSessionManager::class.java) ?: return null
     val component = ComponentName(context, VeloraNotificationListener::class.java)
-    val controllers = runCatching {
-        manager.getActiveSessions(component)
-    }.getOrDefault(emptyList())
-
+    val controllers = runCatching { manager.getActiveSessions(component) }.getOrDefault(emptyList())
     val controller = controllers.firstOrNull {
         it.playbackState?.state == PlaybackState.STATE_PLAYING
     } ?: controllers.firstOrNull() ?: return null
-
     val metadata = controller.metadata
     val title = metadata
         ?.getString(MediaMetadata.METADATA_KEY_TITLE)
         ?.takeIf { it.isNotBlank() }
         ?: controller.packageName
-    val artist = metadata
-        ?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-        .orEmpty()
-
+    val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty()
     return VeloraMediaState(
         title = title,
         artist = artist,
@@ -662,10 +559,7 @@ private fun findActiveMedia(context: Context): VeloraMediaState? {
     )
 }
 
-private fun writeWindowBrightness(
-    context: Context,
-    value: Float,
-) {
+private fun writeWindowBrightness(context: Context, value: Float) {
     context.findActivity()?.let { activity ->
         val attributes = activity.window.attributes
         attributes.screenBrightness = value.coerceIn(0.01f, 1f)
@@ -690,10 +584,7 @@ private fun readBrightness(context: Context): Float {
     return (raw / 255f).coerceIn(0f, 1f)
 }
 
-private fun writeBrightness(
-    context: Context,
-    value: Float,
-) {
+private fun writeBrightness(context: Context, value: Float) {
     runCatching {
         Settings.System.putInt(
             context.contentResolver,
@@ -712,18 +603,12 @@ private fun openInternetPanel(context: Context) {
     openSystemScreen(context, intent)
 }
 
-private fun openSystemScreen(
-    context: Context,
-    intent: Intent,
-) {
+private fun openSystemScreen(context: Context, intent: Intent) {
     val opened = runCatching {
         context.startActivity(intent)
         true
     }.getOrDefault(false)
-
     if (!opened) {
-        runCatching {
-            context.startActivity(Intent(Settings.ACTION_SETTINGS))
-        }
+        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 }

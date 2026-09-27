@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.wonderer.velora.model.HomeTransitionMode
 import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.ui.components.GlassPanel
 
@@ -24,9 +25,13 @@ import tech.wonderer.velora.ui.components.GlassPanel
 fun GlassSimulationSettings(
     globalScale: Float,
     wallpaperBlur: Float,
+    transitionMode: HomeTransitionMode,
+    transitionSoftness: Float,
     appearance: IconAppearance,
     onScale: (Float) -> Unit,
     onWallpaperBlur: (Float) -> Unit,
+    onTransitionMode: () -> Unit,
+    onTransitionSoftness: (Float) -> Unit,
     onStyle: () -> Unit,
     onShape: () -> Unit,
     onLabels: () -> Unit,
@@ -73,6 +78,24 @@ fun GlassSimulationSettings(
                     onValueChange = onWallpaperBlur,
                     valueRange = 0f..1f,
                 )
+
+                SimulationSettingRow(
+                    label = "Home transition",
+                    value = transitionMode.displayName,
+                    onClick = onTransitionMode,
+                )
+
+                if (transitionMode == HomeTransitionMode.JELLY) {
+                    Text(
+                        text = "Jelly softness · " + (transitionSoftness * 100).toInt() + "%",
+                        color = Color.White,
+                    )
+                    Slider(
+                        value = transitionSoftness,
+                        onValueChange = onTransitionSoftness,
+                        valueRange = 0f..1f,
+                    )
+                }
 
                 SimulationSettingRow(
                     label = "Icon pack",

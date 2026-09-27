@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,14 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -66,14 +63,13 @@ fun AppDrawer(
     onClose: () -> Unit,
     systemActionsEnabled: Boolean = true,
 ) {
-    var query by remember { mutableStateOf("") }
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
     var draggingApp by remember { mutableStateOf<InstalledApp?>(null) }
     var dragPosition by remember { mutableStateOf(Offset.Zero) }
     var dragDistance by remember { mutableFloatStateOf(0f) }
     var drawerSize by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
-    val ghostHalfPx = with(density) { 36.dp.toPx() }
+    val ghostHalfPx = with(density) { 30.dp.toPx() }
 
     fun finishDrag() {
         val app = draggingApp ?: return
@@ -89,17 +85,6 @@ fun AppDrawer(
         }
         draggingApp = null
         dragDistance = 0f
-    }
-
-    val filtered = remember(apps, query) {
-        if (query.isBlank()) {
-            apps
-        } else {
-            apps.filter {
-                it.label.contains(query, ignoreCase = true) ||
-                    it.packageName.contains(query, ignoreCase = true)
-            }
-        }
     }
 
     SwipeDismissSurface(
@@ -118,124 +103,72 @@ fun AppDrawer(
             LiquidGlassPanel(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 26.dp, bottom = 82.dp, start = 10.dp, end = 10.dp)
+                    .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp)
                     .graphicsLayer {
-                        alpha = if (draggingApp != null) 0.16f else 1f
+                        alpha = if (draggingApp != null) 0.18f else 1f
                     },
                 shape = RoundedCornerShape(34.dp),
-                contentPadding = PaddingValues(18.dp),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
             ) {
                 Column(Modifier.fillMaxSize()) {
-                    Text(
-                        text = "Apps",
-                        color = Color.White,
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.Light,
-                    )
-                    Text(
-                        text = "Tap to open · Hold and drag to Home · ⋯ for actions",
-                        color = Color.White.copy(alpha = 0.62f),
-                        fontSize = 12.sp,
-                    )
-
-                    Spacer(Modifier.height(14.dp))
-
-                    LiquidGlassPanel(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(62.dp),
-                        shape = RoundedCornerShape(22.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Box(
-                            contentAlignment = Alignment.CenterStart,
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            if (query.isBlank()) {
-                                Text(
-                                    text = "Search apps",
-                                    color = Color.White.copy(alpha = 0.54f),
-                                    fontSize = 15.sp,
-                                )
-                            }
-
-                            BasicTextField(
-                                value = query,
-                                onValueChange = { query = it },
-                                singleLine = true,
-                                textStyle = TextStyle(
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                ),
-                                cursorBrush = SolidColor(Color.White),
-                                modifier = Modifier.fillMaxWidth(),
+                        Column {
+                            Text(
+                                text = "All Apps",
+                                color = Color.White,
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Light,
+                            )
+                            Text(
+                                text = "Tap to open · Hold and drag to Home · ⋯ for actions",
+                                color = Color.White.copy(alpha = 0.60f),
+                                fontSize = 11.sp,
                             )
                         }
+                        Text(
+                            text = apps.size.toString(),
+                            color = Color.White.copy(alpha = 0.52f),
+                            fontSize = 11.sp,
+                        )
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    LiquidGlassPanel(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        shape = RoundedCornerShape(28.dp),
-                        contentPadding = PaddingValues(14.dp),
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        contentPadding = PaddingValues(bottom = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f),
                     ) {
-                        Column(Modifier.fillMaxSize()) {
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(
-                                    text = "All Apps",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = filtered.size.toString(),
-                                    color = Color.White.copy(alpha = 0.48f),
-                                    fontSize = 11.sp,
-                                )
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(6),
-                                contentPadding = PaddingValues(bottom = 18.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                items(filtered, key = { it.packageName }) { app ->
-                                    DrawerApp(
-                                        app = app,
-                                        onLaunch = {
-                                            onLaunch(app.packageName)
-                                            onClose()
-                                        },
-                                        onMenu = { selectedApp = app },
-                                        onDragStart = { absolute ->
-                                            selectedApp = null
-                                            draggingApp = app
-                                            dragPosition = absolute
-                                            dragDistance = 0f
-                                        },
-                                        onDrag = { amount ->
-                                            dragPosition += amount
-                                            dragDistance += amount.getDistance()
-                                        },
-                                        onDragEnd = ::finishDrag,
-                                        onDragCancel = {
-                                            draggingApp = null
-                                            dragDistance = 0f
-                                        },
-                                    )
-                                }
-                            }
+                        items(apps, key = { it.packageName }) { app ->
+                            DrawerApp(
+                                app = app,
+                                onLaunch = {
+                                    onLaunch(app.packageName)
+                                    onClose()
+                                },
+                                onMenu = { selectedApp = app },
+                                onDragStart = { absolute ->
+                                    selectedApp = null
+                                    draggingApp = app
+                                    dragPosition = absolute
+                                    dragDistance = 0f
+                                },
+                                onDrag = { amount ->
+                                    dragPosition += amount
+                                    dragDistance += amount.getDistance()
+                                },
+                                onDragEnd = ::finishDrag,
+                                onDragCancel = {
+                                    draggingApp = null
+                                    dragDistance = 0f
+                                },
+                            )
                         }
                     }
                 }
@@ -283,12 +216,12 @@ fun AppDrawer(
                 ) {
                     PackageIcon(
                         packageName = app.packageName,
-                        modifier = Modifier.size(72.dp),
+                        modifier = Modifier.size(60.dp),
                     )
                     Text(
                         text = app.label,
                         color = Color.White,
-                        fontSize = 11.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -332,9 +265,9 @@ private fun DrawerApp(
             packageName = app.packageName,
             modifier = Modifier
                 .size(46.dp)
-                .clip(RoundedCornerShape(15.dp)),
+                .clip(RoundedCornerShape(13.dp)),
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(5.dp))
         Text(
             text = app.label,
             color = Color.White,
@@ -345,11 +278,11 @@ private fun DrawerApp(
         )
         Text(
             text = "⋯",
-            color = Color.White.copy(alpha = 0.70f),
-            fontSize = 14.sp,
+            color = Color.White.copy(alpha = 0.68f),
+            fontSize = 13.sp,
             modifier = Modifier
                 .clickable(onClick = onMenu)
-                .padding(horizontal = 14.dp, vertical = 2.dp),
+                .padding(horizontal = 12.dp, vertical = 1.dp),
         )
     }
 }

@@ -19,7 +19,10 @@ import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.HostedWidget
+import tech.wonderer.velora.model.HomeTransitionMode
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.NavIconConfig
+import tech.wonderer.velora.model.NavIconSlot
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
@@ -44,6 +47,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     var wallpaperBlur by mutableFloatStateOf(store.loadWallpaperBlur())
+        private set
+
+    var homeTransitionMode by mutableStateOf(store.loadHomeTransitionMode())
+        private set
+
+    var transitionSoftness by mutableFloatStateOf(store.loadTransitionSoftness())
+        private set
+
+    var navIcons by mutableStateOf(store.loadNavIcons())
         private set
 
     var iconAppearance by mutableStateOf(store.loadIconAppearance())
@@ -85,17 +97,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         AppCatalog.launch(getApplication(), packageName)
     }
 
-    fun pinToHome(app: InstalledApp) {
-        val index = homeItems.size
-        val x = (0.08f + ((index * 0.19f) % 0.76f)).coerceIn(0.02f, 0.88f)
-        val y = (0.22f + (((index / 4) * 0.17f) % 0.58f)).coerceIn(0.12f, 0.82f)
-        pinToHomeAt(app, x, y)
+    fun pinToHome(app: InstalledApp, page: Int = 0) {
+        val pageItems = homeItems.count { it.page == page }
+        val x = (0.08f + ((pageItems * 0.19f) % 0.76f)).coerceIn(0.02f, 0.88f)
+        val y = (0.22f + (((pageItems / 4) * 0.17f) % 0.58f)).coerceIn(0.12f, 0.82f)
+        pinToHomeAt(app, x, y, page)
     }
 
     fun pinToHomeAt(
         app: InstalledApp,
         x: Float,
         y: Float,
+        page: Int = 0,
     ) {
         if (app.packageName in hiddenPackages) return
         val alreadyPinned = homeItems.any {
@@ -111,6 +124,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             x = x.coerceIn(0.02f, 0.88f),
             y = y.coerceIn(0.08f, 0.86f),
             zIndex = nextZ(),
+            page = page.coerceAtLeast(0),
         )
         persist()
     }
@@ -133,7 +147,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (dragged?.kind == HomeItemKind.APP && dragged.packageName != null) {
             val target = updated
                 .asSequence()
-                .filter { it.id != dragged.id }
+                .filter { it.id != dragged.id && it.page == dragged.page }
                 .map { candidate -> candidate to distance(dragged, candidate) }
                 .filter { (_, distance) -> distance < GROUP_DROP_DISTANCE }
                 .minByOrNull { it.second }
@@ -155,6 +169,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                                 y = target.y,
                                 scale = maxOf(target.scale, dragged.scale),
                                 zIndex = raisedZ,
+                                page = dragged.page,
                             )
                             updated.filterNot { it.id == dragged.id || it.id == target.id } + group
                         }
@@ -215,6 +230,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 y = (group.y + offset.second).coerceIn(0f, 1f),
                 scale = group.scale.coerceAtMost(1.25f),
                 zIndex = baseZ + index * 0.01f,
+                page = group.page,
             )
         }
 
@@ -253,6 +269,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                                         y = item.y,
                                         scale = item.scale,
                                         zIndex = item.zIndex,
+                                        page = item.page,
                                     )
                                 }
 
@@ -265,8 +282,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun addWidget(type: PremiumWidgetType) {
-        if (homeWidgets.count { it.type == type } >= 2) return
+    fun addWidget(type: PremiumWidgetType, page: Int = 0) {
+        if (homeWidgets.count { it.type == type && it.page == page } >= 2) return
         val index = homeWidgets.size
         homeWidgets = homeWidgets + HomeWidget(
             id = "widget-" + type.name.lowercase() + "-" + System.currentTimeMillis(),
@@ -274,6 +291,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             x = (0.08f + ((index * 0.16f) % 0.55f)).coerceAtMost(0.72f),
             y = (0.08f + ((index * 0.15f) % 0.62f)).coerceAtMost(0.75f),
             zIndex = nextZ(),
+            page = page.coerceAtLeast(0),
         )
         persistWidgets()
     }
@@ -307,6 +325,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         label: String,
         widthDp: Float,
         heightDp: Float,
+        page: Int = 0,
     ) {
         hostedWidgets = hostedWidgets + HostedWidget(
             id = "android-widget-" + appWidgetId,
@@ -318,6 +337,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             widthDp = widthDp,
             heightDp = heightDp,
             zIndex = nextZ(),
+            page = page.coerceAtLeast(0),
         )
         persistHostedWidgets()
     }
@@ -380,6 +400,21 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         store.saveWallpaperBlur(wallpaperBlur)
     }
 
+    fun setHomeTransitionMode(mode: HomeTransitionMode) {
+        homeTransitionMode = mode
+        store.saveHomeTransitionMode(mode)
+    }
+
+    fun setTransitionSoftness(value: Float) {
+        transitionSoftness = value.coerceIn(0f, 1f)
+        store.saveTransitionSoftness(transitionSoftness)
+    }
+
+    fun setNavIcon(slot: NavIconSlot, uri: String?) {
+        navIcons = navIcons.withUri(slot, uri)
+        store.saveNavIcons(navIcons)
+    }
+
     fun setIconStyle(style: VeloraIconStyle) {
         iconAppearance = iconAppearance.copy(style = style)
         persistIconAppearance()
@@ -408,9 +443,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun createBackupJson(): String {
         val root = JSONObject()
         root.put("format", "velora-backup")
-        root.put("version", 4)
+        root.put("version", 5)
         root.put("globalIconScale", globalIconScale)
         root.put("wallpaperBlur", wallpaperBlur)
+        root.put("homeTransitionMode", homeTransitionMode.name)
+        root.put("transitionSoftness", transitionSoftness)
+        root.put(
+            "navIcons",
+            JSONObject().apply {
+                put("recentsUri", navIcons.recentsUri ?: "")
+                put("homeUri", navIcons.homeUri ?: "")
+                put("backUri", navIcons.backUri ?: "")
+            },
+        )
         root.put(
             "iconAppearance",
             JSONObject().apply {
@@ -435,6 +480,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("y", item.y)
                             put("scale", item.scale)
                             put("zIndex", item.zIndex)
+                            put("page", item.page)
                         },
                     )
                 }
@@ -452,6 +498,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("y", widget.y)
                             put("scale", widget.scale)
                             put("zIndex", widget.zIndex)
+                            put("page", widget.page)
                         },
                     )
                 }
@@ -470,6 +517,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             put("widthDp", widget.widthDp)
                             put("heightDp", widget.heightDp)
                             put("scale", widget.scale)
+                            put("page", widget.page)
                         },
                     )
                 }
@@ -504,6 +552,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             y = obj.optDouble("y", 0.2).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
                             zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                            page = obj.optInt("page", 0).coerceAtLeast(0),
                         ),
                     )
                 }
@@ -521,6 +570,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                             y = obj.optDouble("y", 0.1).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
                             zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                            page = obj.optInt("page", 0).coerceAtLeast(0),
                         ),
                     )
                 }
@@ -554,6 +604,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 .coerceIn(0.72f, 1.35f)
             wallpaperBlur = root.optDouble("wallpaperBlur", 0.42).toFloat()
                 .coerceIn(0f, 1f)
+            homeTransitionMode = runCatching {
+                HomeTransitionMode.valueOf(
+                    root.optString("homeTransitionMode", HomeTransitionMode.JELLY.name),
+                )
+            }.getOrDefault(HomeTransitionMode.JELLY)
+            transitionSoftness = root.optDouble("transitionSoftness", 0.62).toFloat()
+                .coerceIn(0f, 1f)
+            val navJson = root.optJSONObject("navIcons")
+            navIcons = NavIconConfig(
+                recentsUri = navJson?.optString("recentsUri")?.takeIf { it.isNotBlank() },
+                homeUri = navJson?.optString("homeUri")?.takeIf { it.isNotBlank() },
+                backUri = navJson?.optString("backUri")?.takeIf { it.isNotBlank() },
+            )
             iconAppearance = restoredAppearance
             hiddenPackages = restoredHidden
 
@@ -561,6 +624,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             store.saveHomeWidgets(homeWidgets)
             store.saveGlobalIconScale(globalIconScale)
             store.saveWallpaperBlur(wallpaperBlur)
+            store.saveHomeTransitionMode(homeTransitionMode)
+            store.saveTransitionSoftness(transitionSoftness)
+            store.saveNavIcons(navIcons)
             store.saveIconAppearance(iconAppearance)
             store.saveHiddenPackages(hiddenPackages)
             true
@@ -592,6 +658,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     x = x,
                     y = y,
                     zIndex = 10f + index,
+                    page = 0,
                 )
             }
     }
@@ -604,6 +671,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             y = 0.07f,
             scale = 1f,
             zIndex = 1f,
+            page = 0,
         ),
         HomeWidget(
             id = "widget-battery-default",
@@ -612,6 +680,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             y = 0.24f,
             scale = 0.88f,
             zIndex = 2f,
+            page = 0,
         ),
     )
 

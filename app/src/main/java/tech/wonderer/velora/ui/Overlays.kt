@@ -40,8 +40,11 @@ import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.HomeTransitionMode
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.NavIconConfig
+import tech.wonderer.velora.model.NavIconSlot
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
@@ -333,11 +336,17 @@ fun WidgetPicker(
 fun SettingsPanel(
     globalScale: Float,
     wallpaperBlur: Float,
+    homeTransitionMode: HomeTransitionMode,
+    transitionSoftness: Float,
+    navIcons: NavIconConfig,
     iconAppearance: IconAppearance,
     backupJson: () -> String,
     restoreBackup: (String) -> Boolean,
     onGlobalScaleChanged: (Float) -> Unit,
     onWallpaperBlurChanged: (Float) -> Unit,
+    onHomeTransitionModeChanged: (HomeTransitionMode) -> Unit,
+    onTransitionSoftnessChanged: (Float) -> Unit,
+    onNavIconChanged: (NavIconSlot, String?) -> Unit,
     onIconStyleChanged: (VeloraIconStyle) -> Unit,
     onIconShapeChanged: (VeloraIconShape) -> Unit,
     onHomeLabelsChanged: (Boolean) -> Unit,
@@ -346,6 +355,29 @@ fun SettingsPanel(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+
+    fun persistNavIcon(slot: NavIconSlot, uri: android.net.Uri?) {
+        if (uri == null) return
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        onNavIconChanged(slot, uri.toString())
+    }
+
+    val recentsIconPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> persistNavIcon(NavIconSlot.RECENTS, uri) }
+
+    val homeIconPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> persistNavIcon(NavIconSlot.HOME, uri) }
+
+    val backIconPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> persistNavIcon(NavIconSlot.BACK, uri) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -425,6 +457,57 @@ fun SettingsPanel(
                     color = Color.White.copy(alpha = 0.48f),
                     fontSize = 11.sp,
                 )
+                Spacer(Modifier.size(10.dp))
+
+                SettingValueButton(
+                    label = "Home transition",
+                    value = homeTransitionMode.displayName,
+                ) {
+                    onHomeTransitionModeChanged(nextTransitionMode(homeTransitionMode))
+                }
+
+                if (homeTransitionMode == HomeTransitionMode.JELLY) {
+                    Text(
+                        text = "Jelly softness · " + (transitionSoftness * 100).toInt() + "%",
+                        color = Color.White,
+                    )
+                    Slider(
+                        value = transitionSoftness,
+                        onValueChange = onTransitionSoftnessChanged,
+                        valueRange = 0f..1f,
+                    )
+                }
+
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = "Navigation icons",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                )
+                SettingValueButton(
+                    label = "Recents icon",
+                    value = if (navIcons.recentsUri.isNullOrBlank()) "Default" else "Custom",
+                ) {
+                    recentsIconPicker.launch(arrayOf("image/png", "image/svg+xml", "image/*"))
+                }
+                SettingValueButton(
+                    label = "Home icon",
+                    value = if (navIcons.homeUri.isNullOrBlank()) "Default" else "Custom",
+                ) {
+                    homeIconPicker.launch(arrayOf("image/png", "image/svg+xml", "image/*"))
+                }
+                SettingValueButton(
+                    label = "Back icon",
+                    value = if (navIcons.backUri.isNullOrBlank()) "Default" else "Custom",
+                ) {
+                    backIconPicker.launch(arrayOf("image/png", "image/svg+xml", "image/*"))
+                }
+                SettingButton("Reset navigation icons") {
+                    onNavIconChanged(NavIconSlot.RECENTS, null)
+                    onNavIconChanged(NavIconSlot.HOME, null)
+                    onNavIconChanged(NavIconSlot.BACK, null)
+                }
+
                 Spacer(Modifier.size(8.dp))
 
                 SettingValueButton(
@@ -543,6 +626,13 @@ private fun SettingButton(
             color = Color.White,
         )
     }
+}
+
+private fun nextTransitionMode(current: HomeTransitionMode): HomeTransitionMode = when (current) {
+    HomeTransitionMode.JELLY -> HomeTransitionMode.SMOOTH
+    HomeTransitionMode.SMOOTH -> HomeTransitionMode.FADE
+    HomeTransitionMode.FADE -> HomeTransitionMode.OFF
+    HomeTransitionMode.OFF -> HomeTransitionMode.JELLY
 }
 
 private fun nextIconStyle(current: VeloraIconStyle): VeloraIconStyle = when (current) {

@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -63,8 +64,8 @@ fun FreeformPremiumWidget(
     onMoveCommitted: (String, Float, Float) -> Unit,
     onEdit: (String) -> Unit,
 ) {
-    var localX by remember(widget.id, widget.x) { mutableFloatStateOf(widget.x) }
-    var localY by remember(widget.id, widget.y) { mutableFloatStateOf(widget.y) }
+    var dragXPx by remember(widget.id) { mutableFloatStateOf(0f) }
+    var dragYPx by remember(widget.id) { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
     val base = widgetBaseSize(widget.type)
@@ -72,30 +73,51 @@ fun FreeformPremiumWidget(
     val height = base.second * widget.scale
     val widthPx = with(density) { width.toPx() }
     val heightPx = with(density) { height.toPx() }
-    val xPx = localX.coerceIn(0f, 1f) * (canvasWidthPx - widthPx).coerceAtLeast(1f)
-    val yPx = localY.coerceIn(0f, 1f) * (canvasHeightPx - heightPx).coerceAtLeast(1f)
+    val travelX = (canvasWidthPx - widthPx).coerceAtLeast(1f)
+    val travelY = (canvasHeightPx - heightPx).coerceAtLeast(1f)
+    val baseXPx = widget.x.coerceIn(0f, 1f) * travelX
+    val baseYPx = widget.y.coerceIn(0f, 1f) * travelY
 
     Box(
         modifier = Modifier
             .zIndex(widget.zIndex)
-            .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
+            .offset {
+                IntOffset(
+                    baseXPx.roundToInt(),
+                    baseYPx.roundToInt(),
+                )
+            }
+            .graphicsLayer {
+                translationX = dragXPx
+                translationY = dragYPx
+            }
             .size(width, height)
-            .pointerInput(widget.id, canvasWidthPx, canvasHeightPx) {
+            .pointerInput(widget.id, canvasWidthPx, canvasHeightPx, widget.x, widget.y) {
                 detectDragGestures(
                     onDragStart = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        localX = (
-                            localX + dragAmount.x / canvasWidthPx.coerceAtLeast(1f)
-                            ).coerceIn(0f, 1f)
-                        localY = (
-                            localY + dragAmount.y / canvasHeightPx.coerceAtLeast(1f)
-                            ).coerceIn(0f, 1f)
+                        dragXPx = (dragXPx + dragAmount.x).coerceIn(
+                            -widget.x * travelX,
+                            (1f - widget.x) * travelX,
+                        )
+                        dragYPx = (dragYPx + dragAmount.y).coerceIn(
+                            -widget.y * travelY,
+                            (1f - widget.y) * travelY,
+                        )
                     },
                     onDragEnd = {
-                        onMoveCommitted(widget.id, localX, localY)
+                        val x = (widget.x + dragXPx / travelX).coerceIn(0f, 1f)
+                        val y = (widget.y + dragYPx / travelY).coerceIn(0f, 1f)
+                        dragXPx = 0f
+                        dragYPx = 0f
+                        onMoveCommitted(widget.id, x, y)
+                    },
+                    onDragCancel = {
+                        dragXPx = 0f
+                        dragYPx = 0f
                     },
                 )
             }

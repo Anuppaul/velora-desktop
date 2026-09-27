@@ -186,3 +186,19 @@ Play Protect blocking was traced to special-access capabilities in the sideloade
 - Release brightness uses local window brightness instead of WRITE_SETTINGS.
 - Notification reading, cross-app media-session access and global Recents/Accessibility navigation are intentionally disabled in the sideload-safe APK.
 - The release manifest therefore no longer advertises the sensitive services that caused the Play Protect financial-fraud warning.
+
+
+## Beta 05 Home UX + performance pass
+
+- Home now has three swipeable pages with page dots.
+- Home page transitions are configurable: Jelly, Smooth, Fade or Off; Jelly softness is adjustable.
+- App/icon dragging uses placement-only pixel deltas to avoid recomposing the full item on every drag frame.
+- Premium widgets and hosted Android widgets use the same lower-overhead drag path.
+- Long-press a Home icon (or tap it in Home Edit Mode) to open floating inline tools above/below that icon.
+- Floating tools provide Remove, size slider, App info, Uninstall, or Ungroup as applicable; tapping outside dismisses them while icon dragging remains available.
+- Apps opens directly to a six-column All Apps grid: search and the nested double-border surface are removed.
+- Control Center uses a softer glass intensity; Internet/Wi-Fi/Bluetooth/Mobile are compact in one row with Brightness and Volume directly underneath.
+- Home has a launcher-owned Recents surface that tracks apps opened from Velora.
+- Velora now draws its own top status surface (time/network/battery) while Android system bars remain hidden in the launcher.
+- Recents/Home/Back nav icons can be replaced from Settings with local PNG or SVG files and reset to defaults.
+- Home item/widget page assignments, transitions, softness and custom nav icon URIs are persisted and included in backup format v5.

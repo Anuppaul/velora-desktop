@@ -7,7 +7,9 @@ import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.HostedWidget
+import tech.wonderer.velora.model.HomeTransitionMode
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.NavIconConfig
 import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
@@ -39,6 +41,7 @@ class LayoutStore(context: Context) {
                             y = obj.optDouble("y", 0.2).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
                             zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                            page = obj.optInt("page", 0).coerceAtLeast(0),
                         ),
                     )
                 }
@@ -59,6 +62,7 @@ class LayoutStore(context: Context) {
                     put("y", item.y)
                     put("scale", item.scale)
                     put("zIndex", item.zIndex)
+                    put("page", item.page)
                     put("members", JSONArray(item.members))
                 },
             )
@@ -83,6 +87,7 @@ class LayoutStore(context: Context) {
                             y = obj.optDouble("y", 0.10).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
                             zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                            page = obj.optInt("page", 0).coerceAtLeast(0),
                         ),
                     )
                 }
@@ -101,6 +106,7 @@ class LayoutStore(context: Context) {
                     put("y", widget.y)
                     put("scale", widget.scale)
                     put("zIndex", widget.zIndex)
+                    put("page", widget.page)
                 },
             )
         }
@@ -126,6 +132,7 @@ class LayoutStore(context: Context) {
                             heightDp = obj.optDouble("heightDp", 140.0).toFloat(),
                             scale = obj.optDouble("scale", 1.0).toFloat(),
                             zIndex = obj.optDouble("zIndex", index.toDouble()).toFloat(),
+                            page = obj.optInt("page", 0).coerceAtLeast(0),
                         ),
                     )
                 }
@@ -148,6 +155,7 @@ class LayoutStore(context: Context) {
                     put("heightDp", widget.heightDp)
                     put("scale", widget.scale)
                     put("zIndex", widget.zIndex)
+                    put("page", widget.page)
                 },
             )
         }
@@ -166,6 +174,39 @@ class LayoutStore(context: Context) {
     fun saveWallpaperBlur(value: Float) {
         prefs.edit()
             .putFloat(KEY_WALLPAPER_BLUR, value.coerceIn(0f, 1f))
+            .apply()
+    }
+
+    fun loadHomeTransitionMode(): HomeTransitionMode =
+        runCatching {
+            HomeTransitionMode.valueOf(
+                prefs.getString(KEY_HOME_TRANSITION, HomeTransitionMode.JELLY.name)
+                    ?: HomeTransitionMode.JELLY.name,
+            )
+        }.getOrDefault(HomeTransitionMode.JELLY)
+
+    fun saveHomeTransitionMode(mode: HomeTransitionMode) {
+        prefs.edit().putString(KEY_HOME_TRANSITION, mode.name).apply()
+    }
+
+    fun loadTransitionSoftness(): Float =
+        prefs.getFloat(KEY_TRANSITION_SOFTNESS, 0.62f).coerceIn(0f, 1f)
+
+    fun saveTransitionSoftness(value: Float) {
+        prefs.edit().putFloat(KEY_TRANSITION_SOFTNESS, value.coerceIn(0f, 1f)).apply()
+    }
+
+    fun loadNavIcons(): NavIconConfig = NavIconConfig(
+        recentsUri = prefs.getString(KEY_NAV_RECENTS, null),
+        homeUri = prefs.getString(KEY_NAV_HOME, null),
+        backUri = prefs.getString(KEY_NAV_BACK, null),
+    )
+
+    fun saveNavIcons(config: NavIconConfig) {
+        prefs.edit()
+            .putString(KEY_NAV_RECENTS, config.recentsUri)
+            .putString(KEY_NAV_HOME, config.homeUri)
+            .putString(KEY_NAV_BACK, config.backUri)
             .apply()
     }
 
@@ -218,6 +259,11 @@ class LayoutStore(context: Context) {
         const val KEY_HOSTED_WIDGETS = "hosted_widgets_v1"
         const val KEY_GLOBAL_SCALE = "global_icon_scale"
         const val KEY_WALLPAPER_BLUR = "wallpaper_blur"
+        const val KEY_HOME_TRANSITION = "home_transition"
+        const val KEY_TRANSITION_SOFTNESS = "transition_softness"
+        const val KEY_NAV_RECENTS = "nav_icon_recents"
+        const val KEY_NAV_HOME = "nav_icon_home"
+        const val KEY_NAV_BACK = "nav_icon_back"
         const val KEY_ICON_STYLE = "icon_style"
         const val KEY_ICON_SHAPE = "icon_shape"
         const val KEY_HOME_LABELS = "home_labels"

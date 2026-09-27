@@ -14,4 +14,5 @@ data class HomeWidget(
     val y: Float,
     val scale: Float = 1f,
     val zIndex: Float = 0f,
+    val page: Int = 0,
 )

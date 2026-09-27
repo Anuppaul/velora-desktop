@@ -26,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -90,26 +90,32 @@ private fun HostedWidgetView(
     onMoveCommitted: (String, Float, Float) -> Unit,
     onEdit: (String) -> Unit,
 ) {
-    var localX by remember(widget.id) { mutableFloatStateOf(widget.x) }
-    var localY by remember(widget.id) { mutableFloatStateOf(widget.y) }
-
-    LaunchedEffect(widget.x, widget.y) {
-        localX = widget.x
-        localY = widget.y
-    }
+    var dragXPx by remember(widget.id) { mutableFloatStateOf(0f) }
+    var dragYPx by remember(widget.id) { mutableFloatStateOf(0f) }
 
     val width = widget.widthDp.dp * widget.scale
     val height = widget.heightDp.dp * widget.scale
     val density = LocalDensity.current
     val widthPx = with(density) { width.toPx() }
     val heightPx = with(density) { height.toPx() }
-    val xPx = localX.coerceIn(0f, 1f) * (canvasWidthPx - widthPx).coerceAtLeast(1f)
-    val yPx = localY.coerceIn(0f, 1f) * (canvasHeightPx - heightPx).coerceAtLeast(1f)
+    val travelX = (canvasWidthPx - widthPx).coerceAtLeast(1f)
+    val travelY = (canvasHeightPx - heightPx).coerceAtLeast(1f)
+    val baseXPx = widget.x.coerceIn(0f, 1f) * travelX
+    val baseYPx = widget.y.coerceIn(0f, 1f) * travelY
 
     Box(
         modifier = Modifier
             .zIndex(widget.zIndex)
-            .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
+            .offset {
+                IntOffset(
+                    baseXPx.roundToInt(),
+                    baseYPx.roundToInt(),
+                )
+            }
+            .graphicsLayer {
+                translationX = dragXPx
+                translationY = dragYPx
+            }
             .size(width, height)
             .clip(RoundedCornerShape(24.dp)),
     ) {
@@ -130,19 +136,29 @@ private fun HostedWidgetView(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .pointerInput(widget.id, canvasWidthPx, canvasHeightPx) {
+                    .pointerInput(widget.id, canvasWidthPx, canvasHeightPx, widget.x, widget.y) {
                         detectDragGestures(
                             onDrag = { change, amount ->
                                 change.consume()
-                                localX = (
-                                    localX + amount.x / canvasWidthPx.coerceAtLeast(1f)
-                                ).coerceIn(0f, 1f)
-                                localY = (
-                                    localY + amount.y / canvasHeightPx.coerceAtLeast(1f)
-                                ).coerceIn(0f, 1f)
+                                dragXPx = (dragXPx + amount.x).coerceIn(
+                                    -widget.x * travelX,
+                                    (1f - widget.x) * travelX,
+                                )
+                                dragYPx = (dragYPx + amount.y).coerceIn(
+                                    -widget.y * travelY,
+                                    (1f - widget.y) * travelY,
+                                )
                             },
                             onDragEnd = {
-                                onMoveCommitted(widget.id, localX, localY)
+                                val x = (widget.x + dragXPx / travelX).coerceIn(0f, 1f)
+                                val y = (widget.y + dragYPx / travelY).coerceIn(0f, 1f)
+                                dragXPx = 0f
+                                dragYPx = 0f
+                                onMoveCommitted(widget.id, x, y)
+                            },
+                            onDragCancel = {
+                                dragXPx = 0f
+                                dragYPx = 0f
                             },
                         )
                     }

@@ -1,15 +1,16 @@
 package tech.wonderer.velora.ui
 
-import android.os.BatteryManager
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,24 +18,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -43,16 +45,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.delay
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalIconAppearance
+import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.VeloraAppIcon
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -61,55 +62,108 @@ fun HomeCanvas(
     items: List<HomeItem>,
     widgets: List<HomeWidget>,
     globalScale: Float,
+    selectedItemId: String?,
     onLaunch: (String) -> Unit,
     onMoveCommitted: (String, Float, Float) -> Unit,
     onWidgetMoveCommitted: (String, Float, Float) -> Unit,
     onGroupOpen: (String) -> Unit,
-    onItemEdit: (String) -> Unit,
+    onItemSelect: (String) -> Unit,
+    onDismissItemTools: () -> Unit,
+    onItemScaleChanged: (String, Float) -> Unit,
+    onItemRemove: (String) -> Unit,
+    onAppInfo: (String) -> Unit,
+    onUninstall: (String) -> Unit,
+    onUngroup: (String) -> Unit,
     onWidgetEdit: (String) -> Unit,
     onSwipeUp: () -> Unit,
     onSwipeDownLeft: () -> Unit,
     onSwipeDownRight: () -> Unit,
+    onSwipeLeft: () -> Unit,
+    onSwipeRight: () -> Unit,
     onHomeLongPress: () -> Unit,
     editMode: Boolean = false,
 ) {
-    var swipeDistance by remember { mutableFloatStateOf(0f) }
-    var swipeStartX by remember { mutableFloatStateOf(0f) }
-    var swipeStartY by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var gestureX by remember { mutableFloatStateOf(0f) }
+    var gestureY by remember { mutableFloatStateOf(0f) }
+    var gestureStartX by remember { mutableFloatStateOf(0f) }
+    var gestureStartY by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var childConsumedGesture by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        swipeDistance = 0f
-                        swipeStartX = offset.x
-                        swipeStartY = offset.y
-                    },
-                    onVerticalDrag = { change, amount ->
-                        if (!change.isConsumed) swipeDistance += amount
-                    },
-                    onDragEnd = {
+            .pointerInput(
+                onSwipeUp,
+                onSwipeDownLeft,
+                onSwipeDownRight,
+                onSwipeLeft,
+                onSwipeRight,
+            ) {
+                while (true) {
+                    awaitPointerEventScope {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Final,
+                        )
+                        gestureStartX = down.position.x
+                        gestureStartY = down.position.y
+                        gestureX = 0f
+                        gestureY = 0f
+                        childConsumedGesture = down.isConsumed
+
+                        var lastX = down.position.x
+                        var lastY = down.position.y
+                        var pressed = true
+
+                        while (pressed) {
+                            val event = awaitPointerEvent(PointerEventPass.Final)
+                            val change = event.changes.firstOrNull { it.id == down.id }
+
+                            if (change == null) {
+                                pressed = false
+                            } else {
+                                if (change.isConsumed) {
+                                    childConsumedGesture = true
+                                } else {
+                                    gestureX += change.position.x - lastX
+                                    gestureY += change.position.y - lastY
+                                }
+                                lastX = change.position.x
+                                lastY = change.position.y
+                                pressed = change.pressed
+                            }
+                        }
+                    }
+
+                    if (!childConsumedGesture) {
+                        val absX = abs(gestureX)
+                        val absY = abs(gestureY)
                         val topGestureZone = 140.dp.toPx()
+
                         when {
-                            swipeDistance < -140f -> onSwipeUp()
-                            swipeDistance > 140f && swipeStartY <= topGestureZone -> {
-                                if (swipeStartX < size.width / 2f) {
+                            absX > 110.dp.toPx() && absX > absY * 1.15f -> {
+                                if (gestureX < 0f) onSwipeLeft() else onSwipeRight()
+                            }
+
+                            gestureY < -120.dp.toPx() && absY > absX -> onSwipeUp()
+
+                            gestureY > 120.dp.toPx() &&
+                                absY > absX &&
+                                gestureStartY <= topGestureZone -> {
+                                if (gestureStartX < size.width / 2f) {
                                     onSwipeDownLeft()
                                 } else {
                                     onSwipeDownRight()
                                 }
                             }
                         }
-                        swipeDistance = 0f
-                        swipeStartY = Float.MAX_VALUE
-                    },
-                    onDragCancel = {
-                        swipeDistance = 0f
-                        swipeStartY = Float.MAX_VALUE
-                    },
-                )
+                    }
+
+                    gestureX = 0f
+                    gestureY = 0f
+                    gestureStartY = Float.MAX_VALUE
+                    childConsumedGesture = false
+                }
             }
             .pointerInput(onHomeLongPress) {
                 detectTapGestures(
@@ -117,16 +171,10 @@ fun HomeCanvas(
                 )
             },
     ) {
-        StatusRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 12.dp),
-        )
-
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 46.dp, bottom = 106.dp),
+                .padding(top = 50.dp, bottom = 112.dp),
         ) {
             val density = LocalDensity.current
             val widthPx = with(density) { maxWidth.toPx() }
@@ -142,21 +190,88 @@ fun HomeCanvas(
                 )
             }
 
+            if (selectedItemId != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(800f)
+                        .pointerInput(selectedItemId) {
+                            detectTapGestures(
+                                onTap = { onDismissItemTools() },
+                            )
+                        },
+                )
+            }
+
             items.forEach { item ->
                 FreeformHomeItem(
                     item = item,
                     globalScale = globalScale,
                     canvasWidthPx = widthPx,
                     canvasHeightPx = heightPx,
+                    selected = item.id == selectedItemId,
                     onLaunch = onLaunch,
                     onMoveCommitted = onMoveCommitted,
                     onGroupOpen = onGroupOpen,
-                    onItemEdit = onItemEdit,
+                    onItemSelect = onItemSelect,
                     editMode = editMode,
                 )
             }
-        }
 
+            items.firstOrNull { it.id == selectedItemId }?.let { selected ->
+                val itemSize = 70.dp * (globalScale * selected.scale)
+                val itemSizePx = with(density) { itemSize.toPx() }
+                val travelX = (widthPx - itemSizePx).coerceAtLeast(1f)
+                val travelY = (heightPx - itemSizePx).coerceAtLeast(1f)
+                val itemXPx = selected.x.coerceIn(0f, 1f) * travelX
+                val itemYPx = selected.y.coerceIn(0f, 1f) * travelY
+                val toolbarWidthPx = with(density) { 216.dp.toPx() }
+                val toolbarHeightPx = with(density) { 94.dp.toPx() }
+                val edgePx = with(density) { 8.dp.toPx() }
+                val gapPx = with(density) { 10.dp.toPx() }
+
+                val toolbarX = (
+                    itemXPx + itemSizePx / 2f - toolbarWidthPx / 2f
+                    ).coerceIn(
+                    edgePx,
+                    (widthPx - toolbarWidthPx - edgePx).coerceAtLeast(edgePx),
+                )
+                val toolbarY = if (itemYPx < toolbarHeightPx + gapPx) {
+                    (itemYPx + itemSizePx + gapPx)
+                        .coerceAtMost((heightPx - toolbarHeightPx).coerceAtLeast(0f))
+                } else {
+                    itemYPx - toolbarHeightPx - gapPx
+                }
+
+                HomeItemQuickTools(
+                    item = selected,
+                    onScaleChanged = { onItemScaleChanged(selected.id, it) },
+                    onRemove = {
+                        onItemRemove(selected.id)
+                        onDismissItemTools()
+                    },
+                    onAppInfo = {
+                        selected.packageName?.let(onAppInfo)
+                    },
+                    onUninstall = {
+                        selected.packageName?.let(onUninstall)
+                    },
+                    onUngroup = {
+                        onUngroup(selected.id)
+                        onDismissItemTools()
+                    },
+                    modifier = Modifier
+                        .zIndex(1_100f)
+                        .offset {
+                            IntOffset(
+                                toolbarX.roundToInt(),
+                                toolbarY.roundToInt(),
+                            )
+                        }
+                        .requiredWidth(216.dp),
+                )
+            }
+        }
     }
 }
 
@@ -167,108 +282,212 @@ private fun FreeformHomeItem(
     globalScale: Float,
     canvasWidthPx: Float,
     canvasHeightPx: Float,
+    selected: Boolean,
     onLaunch: (String) -> Unit,
     onMoveCommitted: (String, Float, Float) -> Unit,
     onGroupOpen: (String) -> Unit,
-    onItemEdit: (String) -> Unit,
+    onItemSelect: (String) -> Unit,
     editMode: Boolean,
 ) {
     val iconAppearance = LocalIconAppearance.current
     val haptics = LocalHapticFeedback.current
-    var localX by remember(item.id) { mutableFloatStateOf(item.x) }
-    var localY by remember(item.id) { mutableFloatStateOf(item.y) }
-    var dragging by remember(item.id) { mutableStateOf(false) }
-
-    LaunchedEffect(item.x, item.y, dragging) {
-        if (!dragging) {
-            localX = item.x
-            localY = item.y
-        }
-    }
+    var dragXPx by remember(item.id) { mutableFloatStateOf(0f) }
+    var dragYPx by remember(item.id) { mutableFloatStateOf(0f) }
 
     val size = 70.dp * (globalScale * item.scale)
     val density = LocalDensity.current
     val itemPx = with(density) { size.toPx() }
-    val xPx = localX.coerceIn(0f, 1f) * (canvasWidthPx - itemPx).coerceAtLeast(1f)
-    val yPx = localY.coerceIn(0f, 1f) * (canvasHeightPx - itemPx).coerceAtLeast(1f)
+    val travelX = (canvasWidthPx - itemPx).coerceAtLeast(1f)
+    val travelY = (canvasHeightPx - itemPx).coerceAtLeast(1f)
+    val baseXPx = item.x.coerceIn(0f, 1f) * travelX
+    val baseYPx = item.y.coerceIn(0f, 1f) * travelY
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
         modifier = Modifier
-            .zIndex(item.zIndex)
-            .offset { IntOffset(xPx.roundToInt(), yPx.roundToInt()) }
-            .width((size.value + 30f).dp)
-            .pointerInput(item.id, canvasWidthPx, canvasHeightPx) {
-                detectDragGestures(
-                    onDragStart = {
-                        dragging = true
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        localX = (
-                            localX + dragAmount.x / canvasWidthPx.coerceAtLeast(1f)
-                            ).coerceIn(0f, 1f)
-                        localY = (
-                            localY + dragAmount.y / canvasHeightPx.coerceAtLeast(1f)
-                            ).coerceIn(0f, 1f)
-                    },
-                    onDragEnd = {
-                        dragging = false
-                        onMoveCommitted(item.id, localX, localY)
-                    },
-                    onDragCancel = {
-                        dragging = false
-                        localX = item.x
-                        localY = item.y
-                    },
+            .zIndex(if (selected) 1_000f else item.zIndex)
+            .offset {
+                IntOffset(
+                    x = baseXPx.roundToInt(),
+                    y = baseYPx.roundToInt(),
                 )
             }
-            .combinedClickable(
-                onClick = {
-                    if (editMode) {
-                        onItemEdit(item.id)
-                    } else {
-                        when (item.kind) {
-                            HomeItemKind.APP -> item.packageName?.let(onLaunch)
-                            HomeItemKind.GROUP -> onGroupOpen(item.id)
-                        }
-                    }
-                },
-                onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onItemEdit(item.id)
-                },
-            ),
+            .graphicsLayer {
+                translationX = dragXPx
+                translationY = dragYPx
+            }
+            .width((size.value + 30f).dp),
     ) {
-        when (item.kind) {
-            HomeItemKind.APP -> {
-                item.packageName?.let {
-                    PackageIcon(
-                        packageName = it,
-                        modifier = Modifier.size(size),
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .pointerInput(
+                    item.id,
+                    canvasWidthPx,
+                    canvasHeightPx,
+                    item.x,
+                    item.y,
+                    item.scale,
+                    globalScale,
+                ) {
+                    detectDragGestures(
+                        onDragStart = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            dragXPx = (dragXPx + amount.x).coerceIn(
+                                -item.x * travelX,
+                                (1f - item.x) * travelX,
+                            )
+                            dragYPx = (dragYPx + amount.y).coerceIn(
+                                -item.y * travelY,
+                                (1f - item.y) * travelY,
+                            )
+                        },
+                        onDragEnd = {
+                            val x = (item.x + dragXPx / travelX).coerceIn(0f, 1f)
+                            val y = (item.y + dragYPx / travelY).coerceIn(0f, 1f)
+                            dragXPx = 0f
+                            dragYPx = 0f
+                            onMoveCommitted(item.id, x, y)
+                        },
+                        onDragCancel = {
+                            dragXPx = 0f
+                            dragYPx = 0f
+                        },
+                    )
+                }
+                .combinedClickable(
+                    onClick = {
+                        if (editMode || selected) {
+                            onItemSelect(item.id)
+                        } else {
+                            when (item.kind) {
+                                HomeItemKind.APP -> item.packageName?.let(onLaunch)
+                                HomeItemKind.GROUP -> onGroupOpen(item.id)
+                            }
+                        }
+                    },
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onItemSelect(item.id)
+                    },
+                ),
+        ) {
+            when (item.kind) {
+                HomeItemKind.APP -> {
+                    item.packageName?.let {
+                        PackageIcon(
+                            packageName = it,
+                            modifier = Modifier.size(size),
+                        )
+                    }
+                }
+
+                HomeItemKind.GROUP -> {
+                    GroupBubble(
+                        members = item.members,
+                        sizeDp = size.value,
                     )
                 }
             }
 
-            HomeItemKind.GROUP -> {
-                GroupBubble(
-                    members = item.members,
-                    sizeDp = size.value,
+            if (iconAppearance.showHomeLabels) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = item.label,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
 
-        if (iconAppearance.showHomeLabels) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = item.label,
-                color = Color.White,
-                fontSize = 11.sp,
-                maxLines = 1,
-                textAlign = TextAlign.Center,
+    }
+}
+
+@Composable
+private fun HomeItemQuickTools(
+    item: HomeItem,
+    onScaleChanged: (Float) -> Unit,
+    onRemove: () -> Unit,
+    onAppInfo: () -> Unit,
+    onUninstall: () -> Unit,
+    onUngroup: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LiquidGlassPanel(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Column {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                QuickToolButton(
+                    symbol = "✕",
+                    label = "Remove",
+                    onClick = onRemove,
+                )
+
+                if (item.kind == HomeItemKind.APP) {
+                    QuickToolButton(
+                        symbol = "i",
+                        label = "Info",
+                        onClick = onAppInfo,
+                    )
+                    QuickToolButton(
+                        symbol = "⌫",
+                        label = "Uninstall",
+                        onClick = onUninstall,
+                    )
+                } else {
+                    QuickToolButton(
+                        symbol = "↗",
+                        label = "Ungroup",
+                        onClick = onUngroup,
+                    )
+                }
+            }
+
+            Slider(
+                value = item.scale,
+                onValueChange = onScaleChanged,
+                valueRange = 0.60f..1.80f,
             )
         }
+    }
+}
+
+@Composable
+private fun QuickToolButton(
+    symbol: String,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val palette = LocalVeloraPalette.current
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = symbol,
+            color = palette.secondary,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.72f),
+            fontSize = 8.sp,
+        )
     }
 }
 
@@ -313,35 +532,4 @@ fun PackageIcon(
         packageName = packageName,
         modifier = modifier,
     )
-}
-
-@Composable
-private fun StatusRow(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val now by produceState(initialValue = Date()) {
-        while (true) {
-            value = Date()
-            delay(30_000)
-        }
-    }
-    val battery = remember(now) {
-        val manager = context.getSystemService(BatteryManager::class.java)
-        manager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it >= 0 }
-    }
-
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier,
-    ) {
-        Text(
-            text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now),
-            color = Color.White.copy(alpha = 0.92f),
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = battery?.let { it.toString() + "%" } ?: "Velora",
-            color = Color.White.copy(alpha = 0.82f),
-        )
-    }
 }

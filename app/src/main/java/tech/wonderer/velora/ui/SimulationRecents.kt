@@ -34,9 +34,10 @@ fun SimulationRecentsPanel(
     LiquidGlassPanel(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 34.dp, bottom = 86.dp, start = 12.dp, end = 12.dp),
+            .padding(top = 52.dp, bottom = 86.dp, start = 12.dp, end = 12.dp),
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
+        intensity = 0.74f,
     ) {
         Column(Modifier.fillMaxSize()) {
             Text(

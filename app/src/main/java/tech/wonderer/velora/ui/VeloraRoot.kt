@@ -9,11 +9,19 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -30,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,11 +58,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.data.AndroidWidgetHostController
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.HomeTransitionMode
+import tech.wonderer.velora.model.NavIconConfig
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.WallpaperBlurHost
 import tech.wonderer.velora.ui.components.ModalBackdrop
+import tech.wonderer.velora.ui.components.NavIconAsset
 import tech.wonderer.velora.ui.components.VeloraAmbientProvider
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 
@@ -67,6 +79,7 @@ private data class PendingHostedWidget(
 
 private enum class Overlay {
     NONE,
+    RECENTS,
     DRAWER,
     NOTIFICATIONS,
     CONTROL_CENTER,
@@ -75,6 +88,8 @@ private enum class Overlay {
     ANDROID_WIDGET_PICKER,
     HIDDEN_APPS,
 }
+
+private const val HOME_PAGE_COUNT = 3
 
 @Composable
 fun VeloraRoot(
@@ -93,6 +108,23 @@ fun VeloraRoot(
     var editingHostedWidgetId by remember { mutableStateOf<String?>(null) }
     var homeEditMode by remember { mutableStateOf(false) }
     var pendingHostedWidget by remember { mutableStateOf<PendingHostedWidget?>(null) }
+    var currentHomePage by remember { mutableIntStateOf(0) }
+    var recentPackages by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    fun setHomePage(page: Int) {
+        val next = page.coerceIn(0, HOME_PAGE_COUNT - 1)
+        if (next != currentHomePage) {
+            editingItemId = null
+            groupId = null
+            currentHomePage = next
+        }
+    }
+
+    fun launchPackage(packageName: String) {
+        recentPackages = (listOf(packageName) + recentPackages.filterNot { it == packageName })
+            .take(8)
+        launcher.launch(packageName)
+    }
 
     fun cancelPendingHostedWidget() {
         pendingHostedWidget?.let { androidWidgetHost.deleteId(it.appWidgetId) }
@@ -107,6 +139,7 @@ fun VeloraRoot(
             label = pending.label,
             widthDp = pending.widthDp,
             heightDp = pending.heightDp,
+            page = currentHomePage,
         )
         pendingHostedWidget = null
         overlay = Overlay.NONE
@@ -176,6 +209,7 @@ fun VeloraRoot(
             groupId != null -> groupId = null
             overlay != Overlay.NONE -> overlay = Overlay.NONE
             homeEditMode -> homeEditMode = false
+            currentHomePage > 0 -> setHomePage(currentHomePage - 1)
             else -> Unit
         }
     }
@@ -186,7 +220,8 @@ fun VeloraRoot(
             editingHostedWidgetId != null ||
             groupId != null ||
             overlay != Overlay.NONE ||
-            homeEditMode,
+            homeEditMode ||
+            currentHomePage > 0,
         onBack = closeTopLayer,
     )
 
@@ -199,7 +234,8 @@ fun VeloraRoot(
                     strength = launcher.wallpaperBlur,
                 )
                 val liquidSheetVisible =
-                    overlay == Overlay.DRAWER ||
+                    overlay == Overlay.RECENTS ||
+                        overlay == Overlay.DRAWER ||
                         overlay == Overlay.NOTIFICATIONS ||
                         overlay == Overlay.CONTROL_CENTER
 
@@ -215,48 +251,142 @@ fun VeloraRoot(
                         .fillMaxSize()
                         .blur(liquidBackdropBlur),
                 ) {
-                    HomeCanvas(
-                        items = launcher.homeItems,
-                        widgets = launcher.homeWidgets,
-                        globalScale = launcher.globalIconScale,
-                        onLaunch = launcher::launch,
-                        onMoveCommitted = launcher::commitMove,
-                        onWidgetMoveCommitted = launcher::commitWidgetMove,
-                        onGroupOpen = { groupId = it },
-                        onItemEdit = {
-                            homeEditMode = true
-                            editingItemId = it
-                        },
-                        onWidgetEdit = {
-                            homeEditMode = true
-                            editingWidgetId = it
-                        },
-                        onSwipeUp = {
-                            homeEditMode = false
-                            overlay = Overlay.DRAWER
-                        },
-                        onSwipeDownLeft = {
-                            homeEditMode = false
-                            overlay = Overlay.NOTIFICATIONS
-                        },
-                        onSwipeDownRight = {
-                            homeEditMode = false
-                            overlay = Overlay.CONTROL_CENTER
-                        },
-                        onHomeLongPress = { homeEditMode = true },
-                        editMode = homeEditMode,
-                    )
+                    AnimatedContent(
+                        targetState = currentHomePage,
+                        transitionSpec = {
+                            val forward = targetState > initialState
+                            when (launcher.homeTransitionMode) {
+                                HomeTransitionMode.JELLY -> {
+                                    val softness = launcher.transitionSoftness.coerceIn(0f, 1f)
+                                    val damping = 0.54f + softness * 0.24f
+                                    val stiffness = 560f - softness * 300f
+                                    (
+                                        slideInHorizontally(
+                                            animationSpec = spring(
+                                                dampingRatio = damping,
+                                                stiffness = stiffness,
+                                            ),
+                                        ) { width -> if (forward) width else -width } +
+                                            fadeIn(animationSpec = tween(120))
+                                        ).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = spring(
+                                                dampingRatio = damping,
+                                                stiffness = stiffness,
+                                            ),
+                                        ) { width -> if (forward) -width else width } +
+                                            fadeOut(animationSpec = tween(110)),
+                                    )
+                                }
 
-                    AndroidWidgetLayer(
-                        widgets = launcher.hostedWidgets,
-                        controller = androidWidgetHost,
-                        editMode = homeEditMode,
-                        onMoveCommitted = launcher::commitHostedWidgetMove,
-                        onEdit = {
-                            homeEditMode = true
-                            editingHostedWidgetId = it
+                                HomeTransitionMode.SMOOTH -> {
+                                    (
+                                        slideInHorizontally(
+                                            animationSpec = tween(260),
+                                        ) { width -> if (forward) width else -width } +
+                                            fadeIn(animationSpec = tween(160))
+                                        ).togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = tween(260),
+                                        ) { width -> if (forward) -width else width } +
+                                            fadeOut(animationSpec = tween(150)),
+                                    )
+                                }
+
+                                HomeTransitionMode.FADE -> {
+                                    fadeIn(animationSpec = tween(210))
+                                        .togetherWith(fadeOut(animationSpec = tween(180)))
+                                }
+
+                                HomeTransitionMode.OFF -> {
+                                    EnterTransition.None.togetherWith(ExitTransition.None)
+                                }
+                            }
                         },
-                    )
+                        label = "velora-home-page",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { page ->
+                        Box(Modifier.fillMaxSize()) {
+                            HomeCanvas(
+                                items = launcher.homeItems.filter { it.page == page },
+                                widgets = launcher.homeWidgets.filter { it.page == page },
+                                globalScale = launcher.globalIconScale,
+                                selectedItemId = editingItemId,
+                                onLaunch = ::launchPackage,
+                                onMoveCommitted = launcher::commitMove,
+                                onWidgetMoveCommitted = launcher::commitWidgetMove,
+                                onGroupOpen = { groupId = it },
+                                onItemSelect = { editingItemId = it },
+                                onDismissItemTools = { editingItemId = null },
+                                onItemScaleChanged = launcher::setItemScale,
+                                onItemRemove = launcher::removeFromHome,
+                                onAppInfo = { packageName ->
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                Uri.parse("package:" + packageName),
+                                            ),
+                                        )
+                                    }
+                                    editingItemId = null
+                                },
+                                onUninstall = { packageName ->
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_DELETE,
+                                                Uri.parse("package:" + packageName),
+                                            ),
+                                        )
+                                    }
+                                    editingItemId = null
+                                },
+                                onUngroup = launcher::ungroup,
+                                onWidgetEdit = {
+                                    homeEditMode = true
+                                    editingWidgetId = it
+                                },
+                                onSwipeUp = {
+                                    homeEditMode = false
+                                    editingItemId = null
+                                    overlay = Overlay.DRAWER
+                                },
+                                onSwipeDownLeft = {
+                                    homeEditMode = false
+                                    editingItemId = null
+                                    overlay = Overlay.NOTIFICATIONS
+                                },
+                                onSwipeDownRight = {
+                                    homeEditMode = false
+                                    editingItemId = null
+                                    overlay = Overlay.CONTROL_CENTER
+                                },
+                                onSwipeLeft = {
+                                    if (page < HOME_PAGE_COUNT - 1) setHomePage(page + 1)
+                                },
+                                onSwipeRight = {
+                                    if (page > 0) setHomePage(page - 1)
+                                },
+                                onHomeLongPress = {
+                                    editingItemId = null
+                                    homeEditMode = true
+                                },
+                                editMode = homeEditMode,
+                            )
+
+                            AndroidWidgetLayer(
+                                widgets = launcher.hostedWidgets.filter { it.page == page },
+                                controller = androidWidgetHost,
+                                editMode = homeEditMode,
+                                onMoveCommitted = launcher::commitHostedWidgetMove,
+                                onEdit = {
+                                    homeEditMode = true
+                                    editingHostedWidgetId = it
+                                },
+                            )
+                        }
+                    }
                 }
 
                 val modalVisible =
@@ -265,7 +395,6 @@ fun VeloraRoot(
                         overlay == Overlay.ANDROID_WIDGET_PICKER ||
                         overlay == Overlay.HIDDEN_APPS ||
                         groupId != null ||
-                        editingItemId != null ||
                         editingWidgetId != null ||
                         editingHostedWidgetId != null ||
                         !launcher.onboardingComplete
@@ -275,11 +404,23 @@ fun VeloraRoot(
                 }
 
                 when (overlay) {
+                    Overlay.RECENTS -> LauncherRecentsPanel(
+                        recentPackages = recentPackages,
+                        labelForPackage = launcher::labelForPackage,
+                        onOpen = { packageName ->
+                            overlay = Overlay.NONE
+                            launchPackage(packageName)
+                        },
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
                     Overlay.DRAWER -> AppDrawer(
                         apps = launcher.visibleApps(),
-                        onLaunch = launcher::launch,
-                        onPin = launcher::pinToHome,
-                        onDropToHome = launcher::pinToHomeAt,
+                        onLaunch = ::launchPackage,
+                        onPin = { app -> launcher.pinToHome(app, currentHomePage) },
+                        onDropToHome = { app, x, y ->
+                            launcher.pinToHomeAt(app, x, y, currentHomePage)
+                        },
                         onHide = { app -> launcher.setPackageHidden(app.packageName, true) },
                         onClose = { overlay = Overlay.NONE },
                         systemActionsEnabled = true,
@@ -296,11 +437,17 @@ fun VeloraRoot(
                     Overlay.SETTINGS -> SettingsPanel(
                         globalScale = launcher.globalIconScale,
                         wallpaperBlur = launcher.wallpaperBlur,
+                        homeTransitionMode = launcher.homeTransitionMode,
+                        transitionSoftness = launcher.transitionSoftness,
+                        navIcons = launcher.navIcons,
                         iconAppearance = launcher.iconAppearance,
                         backupJson = launcher::createBackupJson,
                         restoreBackup = launcher::restoreBackupJson,
                         onGlobalScaleChanged = launcher::updateGlobalIconScale,
                         onWallpaperBlurChanged = launcher::updateWallpaperBlur,
+                        onHomeTransitionModeChanged = launcher::setHomeTransitionMode,
+                        onTransitionSoftnessChanged = launcher::setTransitionSoftness,
+                        onNavIconChanged = launcher::setNavIcon,
                         onIconStyleChanged = launcher::setIconStyle,
                         onIconShapeChanged = launcher::setIconShape,
                         onHomeLabelsChanged = launcher::setHomeLabelsVisible,
@@ -310,7 +457,7 @@ fun VeloraRoot(
                     )
 
                     Overlay.WIDGET_PICKER -> WidgetPicker(
-                        onAdd = launcher::addWidget,
+                        onAdd = { type -> launcher.addWidget(type, currentHomePage) },
                         onAndroidWidgets = { overlay = Overlay.ANDROID_WIDGET_PICKER },
                         onClose = { overlay = Overlay.NONE },
                     )
@@ -341,53 +488,8 @@ fun VeloraRoot(
                         GroupOverlay(
                             item = group,
                             labelForPackage = launcher::labelForPackage,
-                            onLaunch = launcher::launch,
+                            onLaunch = ::launchPackage,
                             onClose = { groupId = null },
-                        )
-                    }
-
-                editingItemId
-                    ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
-                    ?.let { item ->
-                        ItemEditSheet(
-                            item = item,
-                            onScaleChanged = { launcher.setItemScale(item.id, it) },
-                            onRenameGroup = { launcher.renameGroup(item.id, it) },
-                            onUngroup = {
-                                launcher.ungroup(item.id)
-                                editingItemId = null
-                            },
-                            onRemove = {
-                                launcher.removeFromHome(item.id)
-                                editingItemId = null
-                            },
-                            onAppInfo = item.packageName?.let { packageName ->
-                                {
-                                    runCatching {
-                                        context.startActivity(
-                                            Intent(
-                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                Uri.parse("package:" + packageName),
-                                            ),
-                                        )
-                                    }
-                                    editingItemId = null
-                                }
-                            },
-                            onUninstall = item.packageName?.let { packageName ->
-                                {
-                                    runCatching {
-                                        context.startActivity(
-                                            Intent(
-                                                Intent.ACTION_DELETE,
-                                                Uri.parse("package:" + packageName),
-                                            ),
-                                        )
-                                    }
-                                    editingItemId = null
-                                }
-                            },
-                            onClose = { editingItemId = null },
                         )
                     }
 
@@ -422,6 +524,33 @@ fun VeloraRoot(
                         )
                     }
 
+                if (launcher.onboardingComplete) {
+                    VeloraStatusBar(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .zIndex(160f),
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = launcher.onboardingComplete &&
+                        overlay == Overlay.NONE &&
+                        !homeEditMode &&
+                        editingItemId == null &&
+                        groupId == null,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(80f)
+                        .padding(bottom = 98.dp),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    HomePageIndicator(
+                        currentPage = currentHomePage,
+                        pageCount = HOME_PAGE_COUNT,
+                    )
+                }
+
                 AnimatedVisibility(
                     visible = launcher.onboardingComplete &&
                         homeEditMode &&
@@ -449,27 +578,15 @@ fun VeloraRoot(
 
                 if (launcher.onboardingComplete) {
                     VeloraNavBar(
+                        navIcons = launcher.navIcons,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .zIndex(100f)
                             .padding(horizontal = 16.dp, vertical = 16.dp),
                     onRecents = {
-                        if (BuildConfig.SENSITIVE_INTEGRATIONS) {
-                            if (!VeloraNavActions.recents()) {
-                                Toast.makeText(
-                                    context,
-                                    "Enable Velora navigation controls for Recents",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                            }
-                        } else {
-                            Toast.makeText(
-                                context,
-                                "Recents is disabled in the sideload-safe release",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
+                        editingItemId = null
+                        homeEditMode = false
+                        overlay = Overlay.RECENTS
                     },
                     onHome = {
                         overlay = Overlay.NONE
@@ -478,27 +595,20 @@ fun VeloraRoot(
                         editingWidgetId = null
                         editingHostedWidgetId = null
                         homeEditMode = false
-                        VeloraNavActions.home()
+                        setHomePage(0)
                     },
                     onBack = {
-                        if (
+                        when {
                             editingItemId != null ||
-                            editingWidgetId != null ||
-                            editingHostedWidgetId != null ||
-                            groupId != null ||
-                            overlay != Overlay.NONE
-                        ) {
-                            closeTopLayer()
-                        } else if (
-                            BuildConfig.SENSITIVE_INTEGRATIONS &&
-                            !VeloraNavActions.back()
-                        ) {
-                            Toast.makeText(
-                                context,
-                                "Enable Velora navigation controls for Back",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                editingWidgetId != null ||
+                                editingHostedWidgetId != null ||
+                                groupId != null ||
+                                overlay != Overlay.NONE ||
+                                homeEditMode -> closeTopLayer()
+
+                            currentHomePage > 0 -> setHomePage(currentHomePage - 1)
+
+                            BuildConfig.SENSITIVE_INTEGRATIONS -> VeloraNavActions.back()
                         }
                     },
                         onSettings = { overlay = Overlay.SETTINGS },
@@ -509,15 +619,16 @@ fun VeloraRoot(
                     FirstRunSetup(
                         onComplete = launcher::completeOnboarding,
                     )
+                    }
                 }
             }
         }
     }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun VeloraNavBar(
+    navIcons: NavIconConfig = NavIconConfig(),
     modifier: Modifier = Modifier,
     onRecents: () -> Unit,
     onHome: () -> Unit,
@@ -528,6 +639,7 @@ internal fun VeloraNavBar(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(32.dp),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 11.dp),
+        intensity = 0.78f,
     ) {
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -535,22 +647,33 @@ internal fun VeloraNavBar(
             modifier = Modifier.fillMaxWidth(),
         ) {
             NavGlyph(onClick = onRecents) {
-                Canvas(Modifier.size(28.dp)) {
-                    val stroke = Stroke(width = 2.3.dp.toPx())
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.78f),
-                        topLeft = Offset(4.dp.toPx(), 6.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(15.dp.toPx(), 15.dp.toPx()),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-                        style = stroke,
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        topLeft = Offset(9.dp.toPx(), 2.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(15.dp.toPx(), 15.dp.toPx()),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-                        style = stroke,
-                    )
+                NavIconAsset(
+                    uri = navIcons.recentsUri,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Canvas(Modifier.size(28.dp)) {
+                        val stroke = Stroke(width = 2.3.dp.toPx())
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.78f),
+                            topLeft = Offset(4.dp.toPx(), 6.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(
+                                15.dp.toPx(),
+                                15.dp.toPx(),
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+                            style = stroke,
+                        )
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = Offset(9.dp.toPx(), 2.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(
+                                15.dp.toPx(),
+                                15.dp.toPx(),
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+                            style = stroke,
+                        )
+                    }
                 }
             }
 
@@ -568,40 +691,51 @@ internal fun VeloraNavBar(
                         brush = Brush.radialGradient(
                             listOf(
                                 Color.White.copy(alpha = 0.96f),
-                                Color(0xFFD7D2FF).copy(alpha = 0.86f),
-                                Color.White.copy(alpha = 0.22f),
+                                Color(0xFFD7D2FF).copy(alpha = 0.82f),
+                                Color.White.copy(alpha = 0.20f),
                             ),
                         ),
                     )
                     drawCircle(
-                        color = Color.White.copy(alpha = 0.32f),
+                        color = Color.White.copy(alpha = 0.30f),
                         radius = size.minDimension * 0.48f,
                         style = Stroke(width = 1.dp.toPx()),
                     )
                 }
-                Text(
-                    text = "V",
-                    color = Color(0xFF1A1821),
-                    fontWeight = FontWeight.Bold,
-                )
+
+                NavIconAsset(
+                    uri = navIcons.homeUri,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Text(
+                        text = "V",
+                        color = Color(0xFF1A1821),
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             NavGlyph(onClick = onBack) {
-                Canvas(Modifier.size(28.dp)) {
-                    drawLine(
-                        color = Color.White,
-                        start = Offset(18.dp.toPx(), 6.dp.toPx()),
-                        end = Offset(9.dp.toPx(), 14.dp.toPx()),
-                        strokeWidth = 2.6.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawLine(
-                        color = Color.White,
-                        start = Offset(9.dp.toPx(), 14.dp.toPx()),
-                        end = Offset(18.dp.toPx(), 22.dp.toPx()),
-                        strokeWidth = 2.6.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
+                NavIconAsset(
+                    uri = navIcons.backUri,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Canvas(Modifier.size(28.dp)) {
+                        drawLine(
+                            color = Color.White,
+                            start = Offset(18.dp.toPx(), 6.dp.toPx()),
+                            end = Offset(9.dp.toPx(), 14.dp.toPx()),
+                            strokeWidth = 2.6.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawLine(
+                            color = Color.White,
+                            start = Offset(9.dp.toPx(), 14.dp.toPx()),
+                            end = Offset(18.dp.toPx(), 22.dp.toPx()),
+                            strokeWidth = 2.6.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
                 }
             }
         }
@@ -612,7 +746,6 @@ internal fun VeloraNavBar(
 @Composable
 private fun NavGlyph(
     onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Box(
@@ -621,7 +754,7 @@ private fun NavGlyph(
             .size(48.dp)
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = onClick,
             ),
     ) {
         content()
