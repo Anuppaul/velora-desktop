@@ -1,6 +1,5 @@
 package tech.wonderer.velora.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +28,12 @@ import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
 
+private data class SimCompactControl(
+    val symbol: String,
+    val label: String,
+    val detail: String,
+)
+
 @Composable
 fun SimulationControlCenter(
     onClose: () -> Unit,
@@ -44,99 +49,154 @@ fun SimulationControlCenter(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-        shape = RoundedCornerShape(34.dp),
-        contentPadding = PaddingValues(18.dp),
-    ) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 12.dp),
-            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(34.dp),
+            contentPadding = PaddingValues(18.dp),
         ) {
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(bottom = 18.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column {
+                            Text(
+                                text = "Control Center",
+                                color = Color.White,
+                                fontSize = 29.sp,
+                                fontWeight = FontWeight.Light,
+                            )
+                            Text(
+                                text = "2:14 · Sun, 27 Sep",
+                                color = Color.White.copy(alpha = 0.62f),
+                                fontSize = 12.sp,
+                            )
+                        }
                         Text(
-                            text = "Control Center",
-                            color = Color.White,
-                            fontSize = 29.sp,
-                            fontWeight = FontWeight.Light,
-                        )
-                        Text(
-                            text = "2:14 · Sun, 27 Sep",
-                            color = Color.White.copy(alpha = 0.58f),
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Text(
-                        text = "87%",
-                        color = Color.White.copy(alpha = 0.82f),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-
-            item { SimQuickGrid() }
-
-            item {
-                LiquidGlassPanel(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                ) {
-                    Column {
-                        SimSlider(
-                            label = "Brightness",
-                            value = brightness,
-                            onValueChange = { brightness = it },
-                        )
-                        SimSlider(
-                            label = "Volume",
-                            value = volume,
-                            onValueChange = { volume = it },
+                            text = "87%",
+                            color = Color.White.copy(alpha = 0.88f),
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
+
+                item {
+                    SimSectionTitle("Connectivity")
+                    Spacer(Modifier.height(8.dp))
+                    SimConnectivity()
+                }
+
+                item {
+                    SimSectionTitle("System controls")
+                    Spacer(Modifier.height(8.dp))
+                    SimSystemControls()
+                }
+
+                item {
+                    LiquidGlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Column {
+                            SimSlider(
+                                label = "Brightness",
+                                value = brightness,
+                                onValueChange = { brightness = it },
+                            )
+                            SimSlider(
+                                label = "Volume",
+                                value = volume,
+                                onValueChange = { volume = it },
+                            )
+                        }
+                    }
+                }
+
+                item { SimMediaCard() }
             }
-
-            item { SimMediaCard() }
-
         }
-    }
     }
 }
 
 @Composable
-private fun SimQuickGrid() {
+private fun SimSectionTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = Color.White.copy(alpha = 0.55f),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+    )
+}
+
+@Composable
+private fun SimConnectivity() {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            SimQuick("⌁", "Wi-Fi", "Home 5G", Modifier.weight(1f))
-            SimQuick("ᛒ", "Bluetooth", "On", Modifier.weight(1f))
+            SimHeroControl("◎", "Internet", "Connected", Modifier.weight(1f))
+            SimHeroControl("⌁", "Wi-Fi", "Home 5G", Modifier.weight(1f))
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            SimQuick("◐", "Focus", "Personal", Modifier.weight(1f))
-            SimQuick("↻", "Display", "Auto rotate", Modifier.weight(1f))
+            SimHeroControl("ᛒ", "Bluetooth", "On", Modifier.weight(1f))
+            SimHeroControl("▥", "Mobile", "5G", Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun SimQuick(
+private fun SimSystemControls() {
+    val controls = listOf(
+        SimCompactControl("✈", "Airplane", "Off"),
+        SimCompactControl("◐", "Focus", "Personal"),
+        SimCompactControl("↻", "Display", "Auto"),
+        SimCompactControl("◒", "Battery", "Saver"),
+        SimCompactControl("⌁", "Hotspot", "Off"),
+        SimCompactControl("⌖", "Location", "On"),
+        SimCompactControl("◇", "VPN", "Off"),
+        SimCompactControl("▱", "Cast", "Ready"),
+        SimCompactControl("♪", "Sound", "Normal"),
+        SimCompactControl("N", "NFC", "On"),
+        SimCompactControl("A", "Access", "Services"),
+        SimCompactControl("⚙", "Settings", "System"),
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        controls.chunked(4).forEach { row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                row.forEach { control ->
+                    SimCompact(
+                        control = control,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(4 - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimHeroControl(
     symbol: String,
     label: String,
     detail: String,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalVeloraPalette.current
-
     LiquidGlassPanel(
         modifier = modifier,
         shape = RoundedCornerShape(22.dp),
@@ -146,7 +206,43 @@ private fun SimQuick(
             Text(symbol, color = palette.secondary, fontSize = 22.sp)
             Spacer(Modifier.height(8.dp))
             Text(label, color = Color.White, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = Color.White.copy(alpha = 0.48f), fontSize = 10.sp)
+            Text(detail, color = Color.White.copy(alpha = 0.52f), fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun SimCompact(
+    control: SimCompactControl,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalVeloraPalette.current
+    LiquidGlassPanel(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+    ) {
+        Column {
+            Text(
+                text = control.symbol,
+                color = palette.secondary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                text = control.label,
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+            Text(
+                text = control.detail,
+                color = Color.White.copy(alpha = 0.48f),
+                fontSize = 8.sp,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -165,7 +261,7 @@ private fun SimSlider(
             Text(label, color = Color.White, fontSize = 12.sp)
             Text(
                 ((value * 100).toInt()).toString() + "%",
-                color = Color.White.copy(alpha = 0.56f),
+                color = Color.White.copy(alpha = 0.60f),
                 fontSize = 11.sp,
             )
         }
@@ -197,7 +293,7 @@ private fun SimMediaCard() {
             )
             Text(
                 text = "Velora Sessions",
-                color = Color.White.copy(alpha = 0.56f),
+                color = Color.White.copy(alpha = 0.60f),
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(12.dp))

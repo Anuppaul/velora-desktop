@@ -143,3 +143,13 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - The app grid sits inside its own Liquid Glass surface with a compact All Apps header/count.
 - App action sheets also use Liquid Glass while preserving Pin, Hide, App info and Uninstall.
 - Existing long-press drag-to-Home behavior remains intact.
+
+
+## Beta 01 phone-test release flow
+
+- Control Center now exposes a fuller native/system set: Internet, Wi-Fi, Bluetooth, Mobile, Airplane, Focus/DND, Display/Rotation, Battery Saver, Hotspot/Tethering, Location, VPN, Cast, Sound, NFC, Accessibility and Settings.
+- Android-restricted controls open the corresponding native system panel/settings instead of pretending to toggle privileged system state.
+- Brightness, media volume and active media controls remain directly integrated where Android permits.
+- Colab signed-release build is password-only: no JKS upload.
+- First signed build creates `/MyDrive/VeloraSigning/velora-release.jks`; future builds reuse it automatically after the same password is entered.
+- Signed `Velora-release.apk`, `Velora-release.aab` and APK SHA-256 are downloaded automatically.

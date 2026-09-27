@@ -10,6 +10,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +57,13 @@ private data class VeloraMediaState(
     val controller: MediaController,
 )
 
+private data class CompactControlSpec(
+    val symbol: String,
+    val label: String,
+    val detail: String,
+    val action: () -> Unit,
+)
+
 @Composable
 fun ControlCenter(
     onClose: () -> Unit,
@@ -82,77 +90,113 @@ fun ControlCenter(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-        shape = RoundedCornerShape(34.dp),
-        contentPadding = PaddingValues(18.dp),
-    ) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 12.dp),
-            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(34.dp),
+            contentPadding = PaddingValues(18.dp),
         ) {
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(bottom = 18.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column {
+                            Text(
+                                text = "Control Center",
+                                color = Color.White,
+                                fontSize = 29.sp,
+                                fontWeight = FontWeight.Light,
+                            )
+                            Text(
+                                text = SimpleDateFormat(
+                                    "h:mm · EEE, d MMM",
+                                    Locale.getDefault(),
+                                ).format(now),
+                                color = Color.White.copy(alpha = 0.62f),
+                                fontSize = 12.sp,
+                            )
+                        }
                         Text(
-                            text = "Control Center",
-                            color = Color.White,
-                            fontSize = 29.sp,
-                            fontWeight = FontWeight.Light,
-                        )
-                        Text(
-                            text = SimpleDateFormat("h:mm · EEE, d MMM", Locale.getDefault())
-                                .format(now),
-                            color = Color.White.copy(alpha = 0.58f),
-                            fontSize = 12.sp,
+                            text = battery?.let { it.toString() + "%" } ?: "Velora",
+                            color = Color.White.copy(alpha = 0.88f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    Text(
-                        text = battery?.let { it.toString() + "%" } ?: "Velora",
-                        color = Color.White.copy(alpha = 0.82f),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                }
+
+                item {
+                    SectionTitle("Connectivity")
+                    Spacer(Modifier.height(8.dp))
+                    ConnectivityControls(context)
+                }
+
+                item {
+                    SectionTitle("System controls")
+                    Spacer(Modifier.height(8.dp))
+                    NativeSystemControls(context)
+                }
+
+                item {
+                    SystemSliders()
+                }
+
+                item {
+                    when {
+                        media != null -> MediaCard(media!!)
+                        !mediaAccess -> MediaAccessCard()
+                        else -> EmptyMediaCard()
+                    }
                 }
             }
-
-            item { QuickControls() }
-            item { SystemSliders() }
-
-            item {
-                when {
-                    media != null -> MediaCard(media!!)
-                    !mediaAccess -> MediaAccessCard()
-                    else -> EmptyMediaCard()
-                }
-            }
-
         }
-    }
     }
 }
 
 @Composable
-private fun QuickControls() {
-    val context = LocalContext.current
+private fun SectionTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = Color.White.copy(alpha = 0.55f),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+    )
+}
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+@Composable
+private fun ConnectivityControls(
+    context: Context,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             QuickControl(
+                symbol = "◎",
+                label = "Internet",
+                detail = "Network panel",
+                modifier = Modifier.weight(1f),
+            ) {
+                openInternetPanel(context)
+            }
+            QuickControl(
                 symbol = "⌁",
                 label = "Wi-Fi",
-                detail = "Network",
+                detail = "Networks",
                 modifier = Modifier.weight(1f),
             ) {
                 openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
             }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             QuickControl(
                 symbol = "ᛒ",
                 label = "Bluetooth",
@@ -161,30 +205,79 @@ private fun QuickControls() {
             ) {
                 openSystemScreen(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
             }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
             QuickControl(
-                symbol = "◐",
-                label = "Focus",
-                detail = "Do Not Disturb",
+                symbol = "▥",
+                label = "Mobile",
+                detail = "SIM & network",
                 modifier = Modifier.weight(1f),
             ) {
-                openSystemScreen(
-                    context,
-                    Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-                )
+                openSystemScreen(context, Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS))
             }
-            QuickControl(
-                symbol = "↻",
-                label = "Display",
-                detail = "Rotation & screen",
-                modifier = Modifier.weight(1f),
+        }
+    }
+}
+
+@Composable
+private fun NativeSystemControls(
+    context: Context,
+) {
+    val controls = listOf(
+        CompactControlSpec("✈", "Airplane", "Radios") {
+            openSystemScreen(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))
+        },
+        CompactControlSpec("◐", "Focus", "DND") {
+            openSystemScreen(
+                context,
+                Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+            )
+        },
+        CompactControlSpec("↻", "Display", "Rotation") {
+            openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
+        },
+        CompactControlSpec("◒", "Battery", "Saver") {
+            openSystemScreen(context, Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+        },
+        CompactControlSpec("⌁", "Hotspot", "Tether") {
+            openSystemScreen(context, Intent("android.settings.TETHER_SETTINGS"))
+        },
+        CompactControlSpec("⌖", "Location", "GPS") {
+            openSystemScreen(context, Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        },
+        CompactControlSpec("◇", "VPN", "Secure") {
+            openSystemScreen(context, Intent(Settings.ACTION_VPN_SETTINGS))
+        },
+        CompactControlSpec("▱", "Cast", "Screen") {
+            openSystemScreen(context, Intent(Settings.ACTION_CAST_SETTINGS))
+        },
+        CompactControlSpec("♪", "Sound", "Audio") {
+            openSystemScreen(context, Intent(Settings.ACTION_SOUND_SETTINGS))
+        },
+        CompactControlSpec("N", "NFC", "Tap") {
+            openSystemScreen(context, Intent(Settings.ACTION_NFC_SETTINGS))
+        },
+        CompactControlSpec("A", "Access", "Services") {
+            openSystemScreen(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        },
+        CompactControlSpec("⚙", "Settings", "System") {
+            openSystemScreen(context, Intent(Settings.ACTION_SETTINGS))
+        },
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        controls.chunked(4).forEach { row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                row.forEach { control ->
+                    CompactControl(
+                        spec = control,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(4 - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
     }
@@ -219,8 +312,45 @@ private fun QuickControl(
             )
             Text(
                 text = detail,
-                color = Color.White.copy(alpha = 0.48f),
+                color = Color.White.copy(alpha = 0.52f),
                 fontSize = 10.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactControl(
+    spec: CompactControlSpec,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalVeloraPalette.current
+
+    LiquidGlassPanel(
+        modifier = modifier.clickable(onClick = spec.action),
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+    ) {
+        Column {
+            Text(
+                text = spec.symbol,
+                color = palette.secondary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                text = spec.label,
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+            Text(
+                text = spec.detail,
+                color = Color.White.copy(alpha = 0.48f),
+                fontSize = 8.sp,
+                maxLines = 1,
             )
         }
     }
@@ -306,7 +436,7 @@ private fun SliderRow(
             )
             Text(
                 text = trailing,
-                color = Color.White.copy(alpha = 0.56f),
+                color = Color.White.copy(alpha = 0.60f),
                 fontSize = 11.sp,
                 modifier = if (onTrailingClick != null) {
                     Modifier.clickable { onTrailingClick() }
@@ -348,7 +478,7 @@ private fun MediaCard(state: VeloraMediaState) {
             if (state.artist.isNotBlank()) {
                 Text(
                     text = state.artist,
-                    color = Color.White.copy(alpha = 0.56f),
+                    color = Color.White.copy(alpha = 0.60f),
                     fontSize = 12.sp,
                     maxLines = 1,
                 )
@@ -399,7 +529,7 @@ private fun MediaAccessCard() {
             )
             Text(
                 text = "Notification access lets Velora read active media sessions.",
-                color = Color.White.copy(alpha = 0.56f),
+                color = Color.White.copy(alpha = 0.58f),
                 fontSize = 12.sp,
             )
         }
@@ -421,7 +551,7 @@ private fun EmptyMediaCard() {
             )
             Text(
                 text = "Nothing is playing.",
-                color = Color.White.copy(alpha = 0.52f),
+                color = Color.White.copy(alpha = 0.54f),
                 fontSize = 12.sp,
             )
         }
@@ -516,6 +646,14 @@ private fun writeBrightness(
     }
 }
 
+private fun openInternetPanel(context: Context) {
+    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        Intent("android.settings.panel.action.INTERNET_CONNECTIVITY")
+    } else {
+        Intent(Settings.ACTION_WIRELESS_SETTINGS)
+    }
+    openSystemScreen(context, intent)
+}
 
 private fun openSystemScreen(
     context: Context,
