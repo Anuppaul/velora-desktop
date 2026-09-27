@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -126,5 +127,115 @@ fun ModalBackdrop(
                 center = Offset(size.width * 0.18f, size.height * 0.08f),
             )
         }
+    }
+}
+
+
+@Composable
+fun LiquidGlassPanel(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(28.dp),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val palette = LocalVeloraPalette.current
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 22.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = 0.34f),
+                spotColor = palette.secondary.copy(alpha = 0.16f),
+            )
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.28f),
+                        palette.accent.copy(alpha = 0.12f),
+                        Color(0xFF12141D).copy(alpha = 0.72f),
+                        Color(0xFF080A10).copy(alpha = 0.82f),
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite,
+                ),
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.72f),
+                        Color.White.copy(alpha = 0.18f),
+                        palette.secondary.copy(alpha = 0.36f),
+                        Color.White.copy(alpha = 0.10f),
+                    ),
+                ),
+                shape = shape,
+            ),
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            val edge = 1.4.dp.toPx()
+
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.34f),
+                        Color.White.copy(alpha = 0.08f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.20f, size.height * 0.06f),
+                    radius = size.minDimension * 0.95f,
+                ),
+                topLeft = Offset(-size.width * 0.14f, -size.height * 0.34f),
+                size = Size(size.width * 1.05f, size.height * 0.82f),
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        palette.secondary.copy(alpha = 0.22f),
+                        palette.secondary.copy(alpha = 0.05f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.96f, size.height * 0.96f),
+                    radius = size.minDimension * 0.64f,
+                ),
+                radius = size.minDimension * 0.64f,
+                center = Offset(size.width * 0.96f, size.height * 0.96f),
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        palette.accent.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.05f, size.height * 0.74f),
+                    radius = size.minDimension * 0.48f,
+                ),
+                radius = size.minDimension * 0.48f,
+                center = Offset(size.width * 0.05f, size.height * 0.74f),
+            )
+
+            drawRoundRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.56f),
+                        Color.White.copy(alpha = 0.08f),
+                        palette.secondary.copy(alpha = 0.22f),
+                    ),
+                    start = Offset.Zero,
+                    end = Offset(size.width, size.height),
+                ),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(30.dp.toPx()),
+                style = Stroke(width = edge),
+            )
+        }
+
+        Box(
+            modifier = Modifier.padding(contentPadding),
+            content = content,
+        )
     }
 }

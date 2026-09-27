@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,7 +49,8 @@ import tech.wonderer.velora.data.AndroidWidgetHostController
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
-import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
+import tech.wonderer.velora.ui.components.WallpaperBlurHost
 import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.VeloraAmbientProvider
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
@@ -191,6 +193,9 @@ fun VeloraRoot(
             Box(
                 modifier = Modifier.fillMaxSize(),
             ) {
+                WallpaperBlurHost(
+                    strength = launcher.wallpaperBlur,
+                )
                 HomeCanvas(
                     items = launcher.homeItems,
                     widgets = launcher.homeWidgets,
@@ -270,10 +275,12 @@ fun VeloraRoot(
 
                     Overlay.SETTINGS -> SettingsPanel(
                         globalScale = launcher.globalIconScale,
+                        wallpaperBlur = launcher.wallpaperBlur,
                         iconAppearance = launcher.iconAppearance,
                         backupJson = launcher::createBackupJson,
                         restoreBackup = launcher::restoreBackupJson,
                         onGlobalScaleChanged = launcher::updateGlobalIconScale,
+                        onWallpaperBlurChanged = launcher::updateWallpaperBlur,
                         onIconStyleChanged = launcher::setIconStyle,
                         onIconShapeChanged = launcher::setIconShape,
                         onHomeLabelsChanged = launcher::setHomeLabelsVisible,
@@ -428,6 +435,11 @@ fun VeloraRoot(
                             .padding(horizontal = 16.dp, vertical = 16.dp),
                     onRecents = {
                         if (!VeloraNavActions.recents()) {
+                            Toast.makeText(
+                                context,
+                                "Enable Velora navigation controls for Recents and Back",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }
                     },
@@ -438,6 +450,7 @@ fun VeloraRoot(
                         editingWidgetId = null
                         editingHostedWidgetId = null
                         homeEditMode = false
+                        VeloraNavActions.home()
                     },
                     onBack = {
                         if (
@@ -448,8 +461,13 @@ fun VeloraRoot(
                             overlay != Overlay.NONE
                         ) {
                             closeTopLayer()
-                        } else {
-                            VeloraNavActions.back()
+                        } else if (!VeloraNavActions.back()) {
+                            Toast.makeText(
+                                context,
+                                "Enable Velora navigation controls for Back",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         }
                     },
                         onSettings = { overlay = Overlay.SETTINGS },
@@ -475,7 +493,7 @@ internal fun VeloraNavBar(
     onBack: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(32.dp),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 11.dp),

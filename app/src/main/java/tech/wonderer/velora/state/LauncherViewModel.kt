@@ -43,6 +43,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var globalIconScale by mutableFloatStateOf(store.loadGlobalIconScale())
         private set
 
+    var wallpaperBlur by mutableFloatStateOf(store.loadWallpaperBlur())
+        private set
+
     var iconAppearance by mutableStateOf(store.loadIconAppearance())
         private set
 
@@ -372,6 +375,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         store.saveGlobalIconScale(globalIconScale)
     }
 
+    fun updateWallpaperBlur(value: Float) {
+        wallpaperBlur = value.coerceIn(0f, 1f)
+        store.saveWallpaperBlur(wallpaperBlur)
+    }
+
     fun setIconStyle(style: VeloraIconStyle) {
         iconAppearance = iconAppearance.copy(style = style)
         persistIconAppearance()
@@ -400,8 +408,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun createBackupJson(): String {
         val root = JSONObject()
         root.put("format", "velora-backup")
-        root.put("version", 3)
+        root.put("version", 4)
         root.put("globalIconScale", globalIconScale)
+        root.put("wallpaperBlur", wallpaperBlur)
         root.put(
             "iconAppearance",
             JSONObject().apply {
@@ -543,12 +552,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             homeWidgets = restoredWidgets
             globalIconScale = root.optDouble("globalIconScale", 1.0).toFloat()
                 .coerceIn(0.72f, 1.35f)
+            wallpaperBlur = root.optDouble("wallpaperBlur", 0.42).toFloat()
+                .coerceIn(0f, 1f)
             iconAppearance = restoredAppearance
             hiddenPackages = restoredHidden
 
             store.saveHomeItems(homeItems)
             store.saveHomeWidgets(homeWidgets)
             store.saveGlobalIconScale(globalIconScale)
+            store.saveWallpaperBlur(wallpaperBlur)
             store.saveIconAppearance(iconAppearance)
             store.saveHiddenPackages(hiddenPackages)
             true

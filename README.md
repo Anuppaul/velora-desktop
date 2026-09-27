@@ -115,3 +115,13 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - Apps can be long-pressed and dragged from Apps to a freeform Home position.
 - Full-screen Apps/Notifications/Control Center no longer rely on the global modal blackout.
 - Simulation app taps open a synthetic app preview instead of behaving like a no-op.
+
+
+## Alpha 18 liquid glass + wallpaper blur
+
+- Notifications, Control Center and bottom navigation use the stronger Liquid Glass surface.
+- Wallpaper blur is adjustable from 0% to 100% in Velora Settings and is persisted in backup v4.
+- Android 12+ uses window-level wallpaper/background blur; older devices keep a soft translucent fallback.
+- Simulation Mode previews wallpaper blur and includes a working Recents surface.
+- Real Recents/Back buttons fall back to Accessibility setup when global navigation permission is not enabled.
+- Home closes every Velora layer and returns to the launcher root.

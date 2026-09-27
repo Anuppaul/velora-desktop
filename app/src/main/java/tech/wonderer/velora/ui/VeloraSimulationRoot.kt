@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -47,6 +48,7 @@ private enum class SimulationOverlay {
     CONTROL_CENTER,
     SETTINGS,
     WIDGET_PICKER,
+    RECENTS,
 }
 
 @Composable
@@ -56,6 +58,7 @@ fun VeloraSimulationRoot(
     var items by remember { mutableStateOf(simulationItems()) }
     var widgets by remember { mutableStateOf(simulationWidgets()) }
     var globalScale by remember { mutableFloatStateOf(0.98f) }
+    var wallpaperBlur by remember { mutableFloatStateOf(0.42f) }
     var appearance by remember {
         mutableStateOf(
             IconAppearance(
@@ -74,6 +77,24 @@ fun VeloraSimulationRoot(
     var homeEditMode by remember { mutableStateOf(false) }
     var wallpaperVariant by remember { mutableIntStateOf(0) }
     var simulatedPackage by remember { mutableStateOf<String?>(null) }
+    var recentPackages by remember {
+        mutableStateOf(
+            listOf(
+                "velora.sim.music",
+                "velora.sim.messages",
+                "velora.sim.camera",
+            ),
+        )
+    }
+
+    fun openSimulationApp(packageName: String) {
+        simulatedPackage = packageName
+        recentPackages = (
+            listOf(packageName) + recentPackages.filterNot { it == packageName }
+            ).take(5)
+        overlay = SimulationOverlay.NONE
+        homeEditMode = false
+    }
 
     fun nextZ(): Float {
         val itemMax = items.maxOfOrNull { it.zIndex } ?: 0f
@@ -202,25 +223,26 @@ fun VeloraSimulationRoot(
     ) {
         VeloraIconAppearanceProvider(appearance) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = simulationWallpaperColors(wallpaperVariant),
-                        ),
-                    ),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                SimulationWallpaperGlow(wallpaperVariant)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur((wallpaperBlur * 30f).dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = simulationWallpaperColors(wallpaperVariant),
+                            ),
+                        ),
+                ) {
+                    SimulationWallpaperGlow(wallpaperVariant)
+                }
 
                 HomeCanvas(
                     items = items,
                     widgets = widgets,
                     globalScale = globalScale,
-                    onLaunch = { packageName ->
-                        simulatedPackage = packageName
-                        overlay = SimulationOverlay.NONE
-                        homeEditMode = false
-                    },
+                    onLaunch = ::openSimulationApp,
                     onMoveCommitted = ::commitMove,
                     onWidgetMoveCommitted = ::commitWidgetMove,
                     onGroupOpen = { groupId = it },
@@ -261,9 +283,7 @@ fun VeloraSimulationRoot(
                 when (overlay) {
                     SimulationOverlay.DRAWER -> AppDrawer(
                         apps = simulationApps(),
-                        onLaunch = { packageName ->
-                            simulatedPackage = packageName
-                        },
+                        onLaunch = ::openSimulationApp,
                         onPin = { app ->
                             if (items.none { it.packageName == app.packageName }) {
                                 items = items + HomeItem(
@@ -305,8 +325,10 @@ fun VeloraSimulationRoot(
 
                     SimulationOverlay.SETTINGS -> SimulationSettingsPanel(
                         globalScale = globalScale,
+                        wallpaperBlur = wallpaperBlur,
                         appearance = appearance,
                         onScale = { globalScale = it },
+                        onWallpaperBlur = { wallpaperBlur = it },
                         onStyle = {
                             appearance = appearance.copy(style = nextSimulationStyle(appearance.style))
                         },
@@ -319,6 +341,18 @@ fun VeloraSimulationRoot(
                             )
                         },
                         onWidgets = { overlay = SimulationOverlay.WIDGET_PICKER },
+                        onClose = { overlay = SimulationOverlay.NONE },
+                    )
+
+                    SimulationOverlay.RECENTS -> SimulationRecentsPanel(
+                        recentPackages = recentPackages,
+                        labelForPackage = { packageName ->
+                            simulationApps()
+                                .firstOrNull { it.packageName == packageName }
+                                ?.label
+                                ?: packageName.substringAfterLast('.')
+                        },
+                        onOpen = ::openSimulationApp,
                         onClose = { overlay = SimulationOverlay.NONE },
                     )
 
@@ -352,8 +386,8 @@ fun VeloraSimulationRoot(
                                     ?: packageName.substringAfterLast('.')
                             },
                             onLaunch = { packageName ->
-                                simulatedPackage = packageName
                                 groupId = null
+                                openSimulationApp(packageName)
                             },
                             onClose = { groupId = null },
                         )
@@ -460,7 +494,11 @@ fun VeloraSimulationRoot(
                         .align(Alignment.BottomCenter)
                         .zIndex(100f)
                         .padding(horizontal = 16.dp, vertical = 16.dp),
-                    onRecents = {},
+                    onRecents = {
+                        simulatedPackage = null
+                        homeEditMode = false
+                        overlay = SimulationOverlay.RECENTS
+                    },
                     onHome = {
                         overlay = SimulationOverlay.NONE
                         groupId = null
@@ -527,8 +565,10 @@ private fun SimulationWallpaperGlow(variant: Int) {
 @Composable
 private fun SimulationSettingsPanel(
     globalScale: Float,
+    wallpaperBlur: Float,
     appearance: IconAppearance,
     onScale: (Float) -> Unit,
+    onWallpaperBlur: (Float) -> Unit,
     onStyle: () -> Unit,
     onShape: () -> Unit,
     onLabels: () -> Unit,
@@ -537,8 +577,10 @@ private fun SimulationSettingsPanel(
 ) {
     GlassSimulationSettings(
         globalScale = globalScale,
+        wallpaperBlur = wallpaperBlur,
         appearance = appearance,
         onScale = onScale,
+        onWallpaperBlur = onWallpaperBlur,
         onStyle = onStyle,
         onShape = onShape,
         onLabels = onLabels,

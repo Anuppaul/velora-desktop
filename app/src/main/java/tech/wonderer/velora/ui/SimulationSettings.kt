@@ -23,8 +23,10 @@ import tech.wonderer.velora.ui.components.GlassPanel
 @Composable
 fun GlassSimulationSettings(
     globalScale: Float,
+    wallpaperBlur: Float,
     appearance: IconAppearance,
     onScale: (Float) -> Unit,
+    onWallpaperBlur: (Float) -> Unit,
     onStyle: () -> Unit,
     onShape: () -> Unit,
     onLabels: () -> Unit,
@@ -60,6 +62,16 @@ fun GlassSimulationSettings(
                     value = globalScale,
                     onValueChange = onScale,
                     valueRange = 0.72f..1.35f,
+                )
+
+                Text(
+                    text = "Wallpaper blur · " + (wallpaperBlur * 100).toInt() + "%",
+                    color = Color.White,
+                )
+                Slider(
+                    value = wallpaperBlur,
+                    onValueChange = onWallpaperBlur,
+                    valueRange = 0f..1f,
                 )
 
                 SimulationSettingRow(

@@ -331,10 +331,12 @@ fun WidgetPicker(
 @Composable
 fun SettingsPanel(
     globalScale: Float,
+    wallpaperBlur: Float,
     iconAppearance: IconAppearance,
     backupJson: () -> String,
     restoreBackup: (String) -> Boolean,
     onGlobalScaleChanged: (Float) -> Unit,
+    onWallpaperBlurChanged: (Float) -> Unit,
     onIconStyleChanged: (VeloraIconStyle) -> Unit,
     onIconShapeChanged: (VeloraIconShape) -> Unit,
     onHomeLabelsChanged: (Boolean) -> Unit,
@@ -407,6 +409,22 @@ fun SettingsPanel(
                     onValueChange = onGlobalScaleChanged,
                     valueRange = 0.72f..1.35f,
                 )
+
+                Text(
+                    text = "Wallpaper blur · " + (wallpaperBlur * 100).toInt() + "%",
+                    color = Color.White,
+                )
+                Slider(
+                    value = wallpaperBlur,
+                    onValueChange = onWallpaperBlurChanged,
+                    valueRange = 0f..1f,
+                )
+                Text(
+                    text = "0% keeps the wallpaper sharp · 100% gives maximum soft glass backdrop",
+                    color = Color.White.copy(alpha = 0.48f),
+                    fontSize = 11.sp,
+                )
+                Spacer(Modifier.size(8.dp))
 
                 SettingValueButton(
                     label = "Icon pack",

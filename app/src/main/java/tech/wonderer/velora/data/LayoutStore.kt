@@ -160,6 +160,15 @@ class LayoutStore(context: Context) {
         prefs.edit().putFloat(KEY_GLOBAL_SCALE, scale).apply()
     }
 
+    fun loadWallpaperBlur(): Float =
+        prefs.getFloat(KEY_WALLPAPER_BLUR, 0.42f).coerceIn(0f, 1f)
+
+    fun saveWallpaperBlur(value: Float) {
+        prefs.edit()
+            .putFloat(KEY_WALLPAPER_BLUR, value.coerceIn(0f, 1f))
+            .apply()
+    }
+
     fun loadIconAppearance(): IconAppearance {
         val style = runCatching {
             VeloraIconStyle.valueOf(
@@ -208,6 +217,7 @@ class LayoutStore(context: Context) {
         const val KEY_WIDGETS = "home_widgets_v1"
         const val KEY_HOSTED_WIDGETS = "hosted_widgets_v1"
         const val KEY_GLOBAL_SCALE = "global_icon_scale"
+        const val KEY_WALLPAPER_BLUR = "wallpaper_blur"
         const val KEY_ICON_STYLE = "icon_style"
         const val KEY_ICON_SHAPE = "icon_shape"
         const val KEY_HOME_LABELS = "home_labels"

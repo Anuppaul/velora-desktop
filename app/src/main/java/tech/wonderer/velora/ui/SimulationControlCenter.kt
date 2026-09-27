@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
@@ -40,7 +40,7 @@ fun SimulationControlCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        GlassPanel(
+        LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
@@ -81,7 +81,7 @@ fun SimulationControlCenter(
             item { SimQuickGrid() }
 
             item {
-                GlassPanel(
+                LiquidGlassPanel(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
@@ -137,7 +137,7 @@ private fun SimQuick(
 ) {
     val palette = LocalVeloraPalette.current
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = modifier,
         shape = RoundedCornerShape(22.dp),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
@@ -177,7 +177,7 @@ private fun SimSlider(
 private fun SimMediaCard() {
     val palette = LocalVeloraPalette.current
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         contentPadding = PaddingValues(16.dp),

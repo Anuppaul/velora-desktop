@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.service.VeloraNotificationListener
-import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
@@ -78,7 +78,7 @@ fun ControlCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        GlassPanel(
+        LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
@@ -200,7 +200,7 @@ private fun QuickControl(
 ) {
     val palette = LocalVeloraPalette.current
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
@@ -239,7 +239,7 @@ private fun SystemSliders() {
     var brightness by remember { mutableFloatStateOf(readBrightness(context)) }
     val canWriteBrightness = Settings.System.canWrite(context)
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
@@ -326,7 +326,7 @@ private fun SliderRow(
 private fun MediaCard(state: VeloraMediaState) {
     val palette = LocalVeloraPalette.current
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         contentPadding = PaddingValues(16.dp),
@@ -379,7 +379,7 @@ private fun MediaCard(state: VeloraMediaState) {
 private fun MediaAccessCard() {
     val context = LocalContext.current
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
@@ -408,7 +408,7 @@ private fun MediaAccessCard() {
 
 @Composable
 private fun EmptyMediaCard() {
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(16.dp),

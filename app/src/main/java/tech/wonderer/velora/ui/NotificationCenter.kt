@@ -31,7 +31,7 @@ import kotlinx.coroutines.delay
 import tech.wonderer.velora.service.NotificationActions
 import tech.wonderer.velora.service.NotificationRepository
 import tech.wonderer.velora.service.VeloraNotification
-import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
 import java.text.SimpleDateFormat
@@ -57,7 +57,7 @@ fun NotificationCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        GlassPanel(
+        LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
@@ -98,7 +98,7 @@ fun NotificationCenter(
 
             when {
                 !accessEnabled -> {
-                    GlassPanel(
+                    LiquidGlassPanel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -163,7 +163,7 @@ private fun NotificationCenterGroup(
 ) {
     val first = group.first()
 
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(14.dp),

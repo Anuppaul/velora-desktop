@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
 
@@ -31,7 +31,7 @@ fun SimulationNotificationCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        GlassPanel(
+        LiquidGlassPanel(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 18.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
@@ -113,7 +113,7 @@ private fun SimNotificationCard(
     text: String,
     time: String,
 ) {
-    GlassPanel(
+    LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         contentPadding = PaddingValues(14.dp),
