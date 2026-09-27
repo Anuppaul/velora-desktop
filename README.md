@@ -133,3 +133,13 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - Notifications and Control Center blur the entire underlying Home layer while open, so icons/widgets/wallpaper are actually softened behind the glass.
 - Liquid Glass material is lighter and more translucent, with stronger white edge sheen and cyan/violet refraction instead of near-black cards.
 - The existing Wallpaper Blur slider also controls sheet backdrop intensity.
+
+
+## Alpha 20 liquid-glass Apps drawer
+
+- Apps now uses the same Liquid Glass outer sheet as Notifications and Control Center.
+- Opening Apps blurs the underlying Home/wallpaper using the same adjustable Wallpaper Blur setting.
+- Search is an inset Liquid Glass field rather than an outlined Material text box.
+- The app grid sits inside its own Liquid Glass surface with a compact All Apps header/count.
+- App action sheets also use Liquid Glass while preserving Pin, Hide, App info and Uninstall.
+- Existing long-press drag-to-Home behavior remains intact.

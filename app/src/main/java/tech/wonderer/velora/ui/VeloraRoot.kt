@@ -198,7 +198,8 @@ fun VeloraRoot(
                     strength = launcher.wallpaperBlur,
                 )
                 val liquidSheetVisible =
-                    overlay == Overlay.NOTIFICATIONS ||
+                    overlay == Overlay.DRAWER ||
+                        overlay == Overlay.NOTIFICATIONS ||
                         overlay == Overlay.CONTROL_CENTER
 
                 val liquidBackdropBlur =

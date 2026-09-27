@@ -239,7 +239,8 @@ fun VeloraSimulationRoot(
                 }
 
                 val liquidSheetVisible =
-                    overlay == SimulationOverlay.NOTIFICATIONS ||
+                    overlay == SimulationOverlay.DRAWER ||
+                        overlay == SimulationOverlay.NOTIFICATIONS ||
                         overlay == SimulationOverlay.CONTROL_CENTER ||
                         overlay == SimulationOverlay.RECENTS
 
