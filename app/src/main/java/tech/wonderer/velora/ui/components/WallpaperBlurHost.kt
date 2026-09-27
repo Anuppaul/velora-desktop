@@ -58,9 +58,10 @@ fun WallpaperBlurHost(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.015f + normalized * 0.025f),
-                        Color(0xFF10121A).copy(alpha = 0.025f + normalized * 0.055f),
-                        Color(0xFF05060A).copy(alpha = 0.045f + normalized * 0.075f),
+                        Color(0xFF9EFFF4).copy(alpha = 0.035f + normalized * 0.045f),
+                        Color(0xFF4ADCF5).copy(alpha = 0.045f + normalized * 0.055f),
+                        Color(0xFF2A7AF4).copy(alpha = 0.050f + normalized * 0.060f),
+                        Color(0xFF684DFF).copy(alpha = 0.035f + normalized * 0.050f),
                     ),
                 ),
             ),

@@ -152,10 +152,10 @@ fun LiquidGlassPanel(
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.24f),
+                        palette.secondary.copy(alpha = 0.17f),
                         palette.accent.copy(alpha = 0.12f),
-                        Color(0xFF12141D).copy(alpha = 0.72f),
-                        Color(0xFF080A10).copy(alpha = 0.82f),
+                        Color(0xFF122238).copy(alpha = 0.34f),
                     ),
                     start = Offset.Zero,
                     end = Offset.Infinite,
@@ -165,10 +165,10 @@ fun LiquidGlassPanel(
                 width = 1.dp,
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.72f),
-                        Color.White.copy(alpha = 0.18f),
-                        palette.secondary.copy(alpha = 0.36f),
-                        Color.White.copy(alpha = 0.10f),
+                        Color.White.copy(alpha = 0.82f),
+                        Color.White.copy(alpha = 0.24f),
+                        palette.secondary.copy(alpha = 0.52f),
+                        palette.accent.copy(alpha = 0.24f),
                     ),
                 ),
                 shape = shape,
@@ -180,8 +180,8 @@ fun LiquidGlassPanel(
             drawOval(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.34f),
-                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.46f),
+                        Color.White.copy(alpha = 0.12f),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.20f, size.height * 0.06f),
@@ -194,8 +194,8 @@ fun LiquidGlassPanel(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.secondary.copy(alpha = 0.22f),
-                        palette.secondary.copy(alpha = 0.05f),
+                        palette.secondary.copy(alpha = 0.34f),
+                        palette.secondary.copy(alpha = 0.08f),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.96f, size.height * 0.96f),
@@ -208,7 +208,7 @@ fun LiquidGlassPanel(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        palette.accent.copy(alpha = 0.16f),
+                        palette.accent.copy(alpha = 0.26f),
                         Color.Transparent,
                     ),
                     center = Offset(size.width * 0.05f, size.height * 0.74f),

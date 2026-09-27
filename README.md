@@ -125,3 +125,11 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - Simulation Mode previews wallpaper blur and includes a working Recents surface.
 - Real Recents/Back buttons fall back to Accessibility setup when global navigation permission is not enabled.
 - Home closes every Velora layer and returns to the launcher root.
+
+
+## Alpha 19 vivid wallpaper + real sheet backdrop blur
+
+- Simulation Preview now starts with a vivid cyan / aqua / blue / violet Aurora wallpaper inspired by modern Control Center references.
+- Notifications and Control Center blur the entire underlying Home layer while open, so icons/widgets/wallpaper are actually softened behind the glass.
+- Liquid Glass material is lighter and more translucent, with stronger white edge sheen and cyan/violet refraction instead of near-black cards.
+- The existing Wallpaper Blur slider also controls sheet backdrop intensity.

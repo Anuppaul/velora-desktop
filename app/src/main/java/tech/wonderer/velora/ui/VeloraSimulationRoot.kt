@@ -238,7 +238,24 @@ fun VeloraSimulationRoot(
                     SimulationWallpaperGlow(wallpaperVariant)
                 }
 
-                HomeCanvas(
+                val liquidSheetVisible =
+                    overlay == SimulationOverlay.NOTIFICATIONS ||
+                        overlay == SimulationOverlay.CONTROL_CENTER ||
+                        overlay == SimulationOverlay.RECENTS
+
+                val sheetBackdropBlur =
+                    if (liquidSheetVisible) {
+                        (wallpaperBlur * 46f).dp
+                    } else {
+                        0.dp
+                    }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(sheetBackdropBlur),
+                ) {
+                    HomeCanvas(
                     items = items,
                     widgets = widgets,
                     globalScale = globalScale,
@@ -268,7 +285,8 @@ fun VeloraSimulationRoot(
                     },
                     onHomeLongPress = { homeEditMode = true },
                     editMode = homeEditMode,
-                )
+                    )
+                }
 
                 if (
                     overlay == SimulationOverlay.SETTINGS ||
@@ -524,21 +542,21 @@ fun VeloraSimulationRoot(
 @Composable
 private fun SimulationWallpaperGlow(variant: Int) {
     val primary = when (variant) {
-        1 -> Color(0xFFFF8EB8)
-        2 -> Color(0xFF55E0C2)
-        else -> Color(0xFF9B87FF)
+        1 -> Color(0xFFFF77BC)
+        2 -> Color(0xFF63FFE5)
+        else -> Color(0xFF6DEBFF)
     }
     val secondary = when (variant) {
-        1 -> Color(0xFFFFC36C)
-        2 -> Color(0xFF58A8FF)
-        else -> Color(0xFF4ECFF5)
+        1 -> Color(0xFF7E63FF)
+        2 -> Color(0xFF3E7CFF)
+        else -> Color(0xFF674DFF)
     }
 
     Canvas(Modifier.fillMaxSize()) {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    primary.copy(alpha = 0.28f),
+                    primary.copy(alpha = 0.54f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 0.20f, size.height * 0.18f),
@@ -550,7 +568,7 @@ private fun SimulationWallpaperGlow(variant: Int) {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    secondary.copy(alpha = 0.19f),
+                    secondary.copy(alpha = 0.42f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 0.94f, size.height * 0.66f),
@@ -715,18 +733,22 @@ private fun nextSimulationShape(shape: VeloraIconShape): VeloraIconShape = when 
 
 private fun simulationWallpaperColors(variant: Int): List<Color> = when (variant) {
     1 -> listOf(
-        Color(0xFF1E1320),
-        Color(0xFF22141D),
-        Color(0xFF090A11),
+        Color(0xFFFF85B8),
+        Color(0xFF9B6BFF),
+        Color(0xFF2456E8),
+        Color(0xFF07122A),
     )
     2 -> listOf(
-        Color(0xFF0D1D1B),
-        Color(0xFF101C27),
-        Color(0xFF070A10),
+        Color(0xFF7FFFE8),
+        Color(0xFF2BC5E9),
+        Color(0xFF0A79EE),
+        Color(0xFF2130A4),
     )
     else -> listOf(
-        Color(0xFF10121A),
-        Color(0xFF151329),
-        Color(0xFF090A11),
+        Color(0xFFC5FFF4),
+        Color(0xFF48D9F4),
+        Color(0xFF1688F0),
+        Color(0xFF3350E7),
+        Color(0xFF5C42C7),
     )
 }

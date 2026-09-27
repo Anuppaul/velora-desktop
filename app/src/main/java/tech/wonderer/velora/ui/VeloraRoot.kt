@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -196,48 +197,65 @@ fun VeloraRoot(
                 WallpaperBlurHost(
                     strength = launcher.wallpaperBlur,
                 )
-                HomeCanvas(
-                    items = launcher.homeItems,
-                    widgets = launcher.homeWidgets,
-                    globalScale = launcher.globalIconScale,
-                    onLaunch = launcher::launch,
-                    onMoveCommitted = launcher::commitMove,
-                    onWidgetMoveCommitted = launcher::commitWidgetMove,
-                    onGroupOpen = { groupId = it },
-                    onItemEdit = {
-                        homeEditMode = true
-                        editingItemId = it
-                    },
-                    onWidgetEdit = {
-                        homeEditMode = true
-                        editingWidgetId = it
-                    },
-                    onSwipeUp = {
-                        homeEditMode = false
-                        overlay = Overlay.DRAWER
-                    },
-                    onSwipeDownLeft = {
-                        homeEditMode = false
-                        overlay = Overlay.NOTIFICATIONS
-                    },
-                    onSwipeDownRight = {
-                        homeEditMode = false
-                        overlay = Overlay.CONTROL_CENTER
-                    },
-                    onHomeLongPress = { homeEditMode = true },
-                    editMode = homeEditMode,
-                )
+                val liquidSheetVisible =
+                    overlay == Overlay.NOTIFICATIONS ||
+                        overlay == Overlay.CONTROL_CENTER
 
-                AndroidWidgetLayer(
-                    widgets = launcher.hostedWidgets,
-                    controller = androidWidgetHost,
-                    editMode = homeEditMode,
-                    onMoveCommitted = launcher::commitHostedWidgetMove,
-                    onEdit = {
-                        homeEditMode = true
-                        editingHostedWidgetId = it
-                    },
-                )
+                val liquidBackdropBlur =
+                    if (liquidSheetVisible) {
+                        (launcher.wallpaperBlur * 42f).dp
+                    } else {
+                        0.dp
+                    }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(liquidBackdropBlur),
+                ) {
+                    HomeCanvas(
+                        items = launcher.homeItems,
+                        widgets = launcher.homeWidgets,
+                        globalScale = launcher.globalIconScale,
+                        onLaunch = launcher::launch,
+                        onMoveCommitted = launcher::commitMove,
+                        onWidgetMoveCommitted = launcher::commitWidgetMove,
+                        onGroupOpen = { groupId = it },
+                        onItemEdit = {
+                            homeEditMode = true
+                            editingItemId = it
+                        },
+                        onWidgetEdit = {
+                            homeEditMode = true
+                            editingWidgetId = it
+                        },
+                        onSwipeUp = {
+                            homeEditMode = false
+                            overlay = Overlay.DRAWER
+                        },
+                        onSwipeDownLeft = {
+                            homeEditMode = false
+                            overlay = Overlay.NOTIFICATIONS
+                        },
+                        onSwipeDownRight = {
+                            homeEditMode = false
+                            overlay = Overlay.CONTROL_CENTER
+                        },
+                        onHomeLongPress = { homeEditMode = true },
+                        editMode = homeEditMode,
+                    )
+
+                    AndroidWidgetLayer(
+                        widgets = launcher.hostedWidgets,
+                        controller = androidWidgetHost,
+                        editMode = homeEditMode,
+                        onMoveCommitted = launcher::commitHostedWidgetMove,
+                        onEdit = {
+                            homeEditMode = true
+                            editingHostedWidgetId = it
+                        },
+                    )
+                }
 
                 val modalVisible =
                     overlay == Overlay.SETTINGS ||
