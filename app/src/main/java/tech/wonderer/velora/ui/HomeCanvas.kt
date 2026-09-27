@@ -47,7 +47,6 @@ import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.ui.components.GlassPanel
-import tech.wonderer.velora.ui.components.GlassPill
 import tech.wonderer.velora.ui.components.LocalIconAppearance
 import tech.wonderer.velora.ui.components.VeloraAppIcon
 import java.text.SimpleDateFormat
@@ -55,6 +54,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeCanvas(
     items: List<HomeItem>,
@@ -69,6 +69,7 @@ fun HomeCanvas(
     onSwipeUp: () -> Unit,
     onSwipeDownLeft: () -> Unit,
     onSwipeDownRight: () -> Unit,
+    onHomeLongPress: () -> Unit,
 ) {
     var swipeDistance by remember { mutableFloatStateOf(0f) }
     var swipeStartX by remember { mutableFloatStateOf(0f) }
@@ -107,7 +108,11 @@ fun HomeCanvas(
                         swipeStartY = Float.MAX_VALUE
                     },
                 )
-            },
+            }
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onHomeLongPress,
+            ),
     ) {
         StatusRow(
             modifier = Modifier
@@ -148,12 +153,6 @@ fun HomeCanvas(
             }
         }
 
-        GlassPill(
-            text = "↑ Apps   ↓ Left Notifications   ↓ Right Controls",
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 92.dp),
-        )
     }
 }
 

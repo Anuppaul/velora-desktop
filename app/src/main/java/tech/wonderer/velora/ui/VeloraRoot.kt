@@ -3,6 +3,11 @@ package tech.wonderer.velora.ui
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -60,6 +65,7 @@ fun VeloraRoot(
     var groupId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
     var editingWidgetId by remember { mutableStateOf<String?>(null) }
+    var homeEditMode by remember { mutableStateOf(false) }
 
     val closeTopLayer = {
         when {
@@ -67,6 +73,7 @@ fun VeloraRoot(
             editingWidgetId != null -> editingWidgetId = null
             groupId != null -> groupId = null
             overlay != Overlay.NONE -> overlay = Overlay.NONE
+            homeEditMode -> homeEditMode = false
             else -> Unit
         }
     }
@@ -75,7 +82,8 @@ fun VeloraRoot(
         enabled = editingItemId != null ||
             editingWidgetId != null ||
             groupId != null ||
-            overlay != Overlay.NONE,
+            overlay != Overlay.NONE ||
+            homeEditMode,
         onBack = closeTopLayer,
     )
 
@@ -92,11 +100,27 @@ fun VeloraRoot(
                     onMoveCommitted = launcher::commitMove,
                     onWidgetMoveCommitted = launcher::commitWidgetMove,
                     onGroupOpen = { groupId = it },
-                    onItemEdit = { editingItemId = it },
-                    onWidgetEdit = { editingWidgetId = it },
-                    onSwipeUp = { overlay = Overlay.DRAWER },
-                    onSwipeDownLeft = { overlay = Overlay.NOTIFICATIONS },
-                    onSwipeDownRight = { overlay = Overlay.CONTROL_CENTER },
+                    onItemEdit = {
+                        homeEditMode = true
+                        editingItemId = it
+                    },
+                    onWidgetEdit = {
+                        homeEditMode = true
+                        editingWidgetId = it
+                    },
+                    onSwipeUp = {
+                        homeEditMode = false
+                        overlay = Overlay.DRAWER
+                    },
+                    onSwipeDownLeft = {
+                        homeEditMode = false
+                        overlay = Overlay.NOTIFICATIONS
+                    },
+                    onSwipeDownRight = {
+                        homeEditMode = false
+                        overlay = Overlay.CONTROL_CENTER
+                    },
+                    onHomeLongPress = { homeEditMode = true },
                 )
 
                 val modalVisible =
@@ -115,7 +139,9 @@ fun VeloraRoot(
                         apps = launcher.visibleApps(),
                         onLaunch = launcher::launch,
                         onPin = launcher::pinToHome,
+                        onHide = { app -> launcher.setPackageHidden(app.packageName, true) },
                         onClose = { overlay = Overlay.NONE },
+                        systemActionsEnabled = true,
                     )
 
                     Overlay.NOTIFICATIONS -> NotificationCenter(
@@ -200,6 +226,30 @@ fun VeloraRoot(
                         )
                     }
 
+                AnimatedVisibility(
+                    visible = launcher.onboardingComplete &&
+                        homeEditMode &&
+                        overlay == Overlay.NONE &&
+                        groupId == null &&
+                        editingItemId == null &&
+                        editingWidgetId == null,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(90f)
+                        .padding(horizontal = 16.dp, bottom = 88.dp),
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                ) {
+                    HomeEditBar(
+                        onWidgets = { overlay = Overlay.WIDGET_PICKER },
+                        onWallpaper = {
+                            context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
+                        },
+                        onSettings = { overlay = Overlay.SETTINGS },
+                        onDone = { homeEditMode = false },
+                    )
+                }
+
                 if (launcher.onboardingComplete) {
                     VeloraNavBar(
                         modifier = Modifier
@@ -216,6 +266,7 @@ fun VeloraRoot(
                         groupId = null
                         editingItemId = null
                         editingWidgetId = null
+                        homeEditMode = false
                     },
                     onBack = {
                         if (

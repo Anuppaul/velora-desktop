@@ -1,6 +1,11 @@
 package tech.wonderer.velora.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -10,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,6 +71,8 @@ fun VeloraSimulationRoot(
     var groupId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
     var editingWidgetId by remember { mutableStateOf<String?>(null) }
+    var homeEditMode by remember { mutableStateOf(false) }
+    var wallpaperVariant by remember { mutableIntStateOf(0) }
 
     fun nextZ(): Float {
         val itemMax = items.maxOfOrNull { it.zIndex } ?: 0f
@@ -167,6 +175,7 @@ fun VeloraSimulationRoot(
             editingWidgetId != null -> editingWidgetId = null
             groupId != null -> groupId = null
             overlay != SimulationOverlay.NONE -> overlay = SimulationOverlay.NONE
+            homeEditMode -> homeEditMode = false
         }
     }
 
@@ -174,7 +183,8 @@ fun VeloraSimulationRoot(
         enabled = editingItemId != null ||
             editingWidgetId != null ||
             groupId != null ||
-            overlay != SimulationOverlay.NONE,
+            overlay != SimulationOverlay.NONE ||
+            homeEditMode,
         onBack = { closeTopLayer() },
     )
 
@@ -193,15 +203,11 @@ fun VeloraSimulationRoot(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF10121A),
-                                Color(0xFF151329),
-                                Color(0xFF090A11),
-                            ),
+                            colors = simulationWallpaperColors(wallpaperVariant),
                         ),
                     ),
             ) {
-                SimulationWallpaperGlow()
+                SimulationWallpaperGlow(wallpaperVariant)
 
                 HomeCanvas(
                     items = items,
@@ -211,11 +217,27 @@ fun VeloraSimulationRoot(
                     onMoveCommitted = ::commitMove,
                     onWidgetMoveCommitted = ::commitWidgetMove,
                     onGroupOpen = { groupId = it },
-                    onItemEdit = { editingItemId = it },
-                    onWidgetEdit = { editingWidgetId = it },
-                    onSwipeUp = { overlay = SimulationOverlay.DRAWER },
-                    onSwipeDownLeft = { overlay = SimulationOverlay.NOTIFICATIONS },
-                    onSwipeDownRight = { overlay = SimulationOverlay.CONTROL_CENTER },
+                    onItemEdit = {
+                        homeEditMode = true
+                        editingItemId = it
+                    },
+                    onWidgetEdit = {
+                        homeEditMode = true
+                        editingWidgetId = it
+                    },
+                    onSwipeUp = {
+                        homeEditMode = false
+                        overlay = SimulationOverlay.DRAWER
+                    },
+                    onSwipeDownLeft = {
+                        homeEditMode = false
+                        overlay = SimulationOverlay.NOTIFICATIONS
+                    },
+                    onSwipeDownRight = {
+                        homeEditMode = false
+                        overlay = SimulationOverlay.CONTROL_CENTER
+                    },
+                    onHomeLongPress = { homeEditMode = true },
                 )
 
                 if (
@@ -244,7 +266,9 @@ fun VeloraSimulationRoot(
                                 )
                             }
                         },
+                        onHide = {},
                         onClose = { overlay = SimulationOverlay.NONE },
+                        systemActionsEnabled = false,
                     )
 
                     SimulationOverlay.NOTIFICATIONS -> SimulationNotificationCenter(
@@ -368,6 +392,29 @@ fun VeloraSimulationRoot(
                         )
                     }
 
+                AnimatedVisibility(
+                    visible = homeEditMode &&
+                        overlay == SimulationOverlay.NONE &&
+                        groupId == null &&
+                        editingItemId == null &&
+                        editingWidgetId == null,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(90f)
+                        .padding(horizontal = 16.dp, bottom = 88.dp),
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                ) {
+                    HomeEditBar(
+                        onWidgets = { overlay = SimulationOverlay.WIDGET_PICKER },
+                        onWallpaper = {
+                            wallpaperVariant = (wallpaperVariant + 1) % 3
+                        },
+                        onSettings = { overlay = SimulationOverlay.SETTINGS },
+                        onDone = { homeEditMode = false },
+                    )
+                }
+
                 VeloraNavBar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -379,6 +426,7 @@ fun VeloraSimulationRoot(
                         groupId = null
                         editingItemId = null
                         editingWidgetId = null
+                        homeEditMode = false
                     },
                     onBack = { closeTopLayer() },
                     onSettings = { overlay = SimulationOverlay.SETTINGS },
@@ -389,12 +437,23 @@ fun VeloraSimulationRoot(
 }
 
 @Composable
-private fun SimulationWallpaperGlow() {
+private fun SimulationWallpaperGlow(variant: Int) {
+    val primary = when (variant) {
+        1 -> Color(0xFFFF8EB8)
+        2 -> Color(0xFF55E0C2)
+        else -> Color(0xFF9B87FF)
+    }
+    val secondary = when (variant) {
+        1 -> Color(0xFFFFC36C)
+        2 -> Color(0xFF58A8FF)
+        else -> Color(0xFF4ECFF5)
+    }
+
     Canvas(Modifier.fillMaxSize()) {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFF9B87FF).copy(alpha = 0.28f),
+                    primary.copy(alpha = 0.28f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 0.20f, size.height * 0.18f),
@@ -406,7 +465,7 @@ private fun SimulationWallpaperGlow() {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFF4ECFF5).copy(alpha = 0.19f),
+                    secondary.copy(alpha = 0.19f),
                     Color.Transparent,
                 ),
                 center = Offset(size.width * 0.94f, size.height * 0.66f),
@@ -562,4 +621,23 @@ private fun nextSimulationShape(shape: VeloraIconShape): VeloraIconShape = when 
     VeloraIconShape.SQUIRCLE -> VeloraIconShape.CIRCLE
     VeloraIconShape.CIRCLE -> VeloraIconShape.SOFT_SQUARE
     VeloraIconShape.SOFT_SQUARE -> VeloraIconShape.SQUIRCLE
+}
+
+
+private fun simulationWallpaperColors(variant: Int): List<Color> = when (variant) {
+    1 -> listOf(
+        Color(0xFF1E1320),
+        Color(0xFF22141D),
+        Color(0xFF090A11),
+    )
+    2 -> listOf(
+        Color(0xFF0D1D1B),
+        Color(0xFF101C27),
+        Color(0xFF070A10),
+    )
+    else -> listOf(
+        Color(0xFF10121A),
+        Color(0xFF151329),
+        Color(0xFF090A11),
+    )
 }

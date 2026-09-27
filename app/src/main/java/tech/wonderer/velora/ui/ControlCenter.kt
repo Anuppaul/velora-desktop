@@ -1,6 +1,5 @@
 package tech.wonderer.velora.ui
 
-import android.os.BatteryManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -10,6 +9,7 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.net.Uri
+import android.os.BatteryManager
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,14 +21,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
@@ -42,9 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.delay
-import tech.wonderer.velora.service.NotificationActions
-import tech.wonderer.velora.service.NotificationRepository
-import tech.wonderer.velora.service.VeloraNotification
 import tech.wonderer.velora.service.VeloraNotificationListener
 import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
@@ -64,8 +58,7 @@ fun ControlCenter(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val notifications by NotificationRepository.notifications.collectAsState()
-    val notificationAccess =
+    val mediaAccess =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     val now by produceState(initialValue = Date()) {
         while (true) {
@@ -75,8 +68,8 @@ fun ControlCenter(
     }
     val battery = context.getSystemService(BatteryManager::class.java)
         ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        ?.takeIf { it >= 0 }
-    val media by mediaState(notificationAccess)
+        ?.takeIf { it in 0..100 }
+    val media by mediaState(mediaAccess)
 
     GlassPanel(
         modifier = Modifier
@@ -85,119 +78,62 @@ fun ControlCenter(
         shape = RoundedCornerShape(34.dp),
         contentPadding = PaddingValues(18.dp),
     ) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column {
-                        Text(
-                            text = SimpleDateFormat("h:mm", Locale.getDefault()).format(now),
-                            color = Color.White,
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.Light,
-                        )
-                        Text(
-                            text = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(now),
-                            color = Color.White.copy(alpha = 0.62f),
-                        )
-                    }
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column {
                     Text(
-                        text = battery?.let { it.toString() + "%" } ?: "Velora",
-                        color = Color.White.copy(alpha = 0.82f),
-                    )
-                }
-            }
-
-            item {
-                QuickControls()
-            }
-
-            item {
-                SystemSliders()
-            }
-
-            media?.let { mediaValue ->
-                item {
-                    MediaCard(mediaValue)
-                }
-            }
-
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        text = "Notifications",
+                        text = "Control Center",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 29.sp,
+                        fontWeight = FontWeight.Light,
                     )
-                    if (notifications.isNotEmpty() && notificationAccess) {
-                        Text(
-                            text = "Clear all",
-                            color = Color.White.copy(alpha = 0.66f),
-                            fontSize = 12.sp,
-                            modifier = Modifier.clickable {
-                                NotificationActions.clearAll()
-                            },
-                        )
-                    }
+                    Text(
+                        text = SimpleDateFormat("h:mm · EEE, d MMM", Locale.getDefault())
+                            .format(now),
+                        color = Color.White.copy(alpha = 0.58f),
+                        fontSize = 12.sp,
+                    )
                 }
-            }
-
-            when {
-                !notificationAccess -> {
-                    item {
-                        NotificationAccessCard {
-                            context.startActivity(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
-                            )
-                        }
-                    }
-                }
-
-                notifications.isEmpty() -> {
-                    item {
-                        Text(
-                            text = "You're all caught up.",
-                            color = Color.White.copy(alpha = 0.60f),
-                            modifier = Modifier.padding(vertical = 18.dp),
-                        )
-                    }
-                }
-
-                else -> {
-                    val groups = notifications
-                        .groupBy { it.packageName }
-                        .values
-                        .toList()
-
-                    items(
-                        items = groups,
-                        key = { group -> group.first().packageName },
-                    ) { group ->
-                        NotificationGroup(group)
-                    }
-                }
-            }
-
-            item {
-                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Close Control Center",
-                    color = Color.White.copy(alpha = 0.70f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onClose)
-                        .padding(vertical = 12.dp),
+                    text = battery?.let { it.toString() + "%" } ?: "Velora",
+                    color = Color.White.copy(alpha = 0.82f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
+
+            QuickControls()
+
+            SystemSliders()
+
+            when {
+                media != null -> MediaCard(media!!)
+                !mediaAccess -> MediaAccessCard()
+                else -> EmptyMediaCard()
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Text(
+                text = "Swipe from the top-left for notifications",
+                color = Color.White.copy(alpha = 0.42f),
+                fontSize = 11.sp,
+            )
+
+            Text(
+                text = "Close",
+                color = Color.White.copy(alpha = 0.68f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClose)
+                    .padding(vertical = 12.dp),
+            )
         }
     }
 }
@@ -205,28 +141,88 @@ fun ControlCenter(
 @Composable
 private fun QuickControls() {
     val context = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            QuickControl("Wi-Fi", Modifier.weight(1f)) {
+            QuickControl(
+                symbol = "⌁",
+                label = "Wi-Fi",
+                detail = "Network",
+                modifier = Modifier.weight(1f),
+            ) {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
             }
-            QuickControl("Bluetooth", Modifier.weight(1f)) {
+            QuickControl(
+                symbol = "ᛒ",
+                label = "Bluetooth",
+                detail = "Devices",
+                modifier = Modifier.weight(1f),
+            ) {
                 context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
             }
         }
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            QuickControl("Sound", Modifier.weight(1f)) {
-                context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS))
+            QuickControl(
+                symbol = "◐",
+                label = "Focus",
+                detail = "Do Not Disturb",
+                modifier = Modifier.weight(1f),
+            ) {
+                context.startActivity(Intent(Settings.ACTION_ZEN_MODE_SETTINGS))
             }
-            QuickControl("Settings", Modifier.weight(1f)) {
-                context.startActivity(Intent(Settings.ACTION_SETTINGS))
+            QuickControl(
+                symbol = "↻",
+                label = "Display",
+                detail = "Rotation & screen",
+                modifier = Modifier.weight(1f),
+            ) {
+                context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS))
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickControl(
+    symbol: String,
+    label: String,
+    detail: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val palette = LocalVeloraPalette.current
+
+    GlassPanel(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(22.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+    ) {
+        Column {
+            Text(
+                text = symbol,
+                color = palette.secondary,
+                fontSize = 22.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = label,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = detail,
+                color = Color.White.copy(alpha = 0.48f),
+                fontSize = 10.sp,
+            )
         }
     }
 }
@@ -241,9 +237,7 @@ private fun SystemSliders() {
             (audio?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0) / maxVolume.toFloat(),
         )
     }
-    var brightness by remember {
-        mutableFloatStateOf(readBrightness(context))
-    }
+    var brightness by remember { mutableFloatStateOf(readBrightness(context)) }
     val canWriteBrightness = Settings.System.canWrite(context)
 
     GlassPanel(
@@ -255,13 +249,12 @@ private fun SystemSliders() {
             SliderRow(
                 label = "Brightness",
                 value = brightness,
+                trailing = ((brightness * 100).toInt()).toString() +
+                    if (canWriteBrightness) "%" else "% · Grant",
                 onValueChange = { value ->
                     brightness = value
-                    if (canWriteBrightness) {
-                        writeBrightness(context, value)
-                    }
+                    if (canWriteBrightness) writeBrightness(context, value)
                 },
-                trailing = ((brightness * 100).toInt()).toString() + if (canWriteBrightness) "%" else "% · Grant",
                 onTrailingClick = if (canWriteBrightness) {
                     null
                 } else {
@@ -279,6 +272,7 @@ private fun SystemSliders() {
             SliderRow(
                 label = "Volume",
                 value = volume,
+                trailing = ((volume * 100).toInt()).toString() + "%",
                 onValueChange = { value ->
                     volume = value
                     audio?.setStreamVolume(
@@ -287,7 +281,6 @@ private fun SystemSliders() {
                         0,
                     )
                 },
-                trailing = ((volume * 100).toInt()).toString() + "%",
             )
         }
     }
@@ -297,8 +290,8 @@ private fun SystemSliders() {
 private fun SliderRow(
     label: String,
     value: Float,
-    onValueChange: (Float) -> Unit,
     trailing: String,
+    onValueChange: (Float) -> Unit,
     onTrailingClick: (() -> Unit)? = null,
 ) {
     Column {
@@ -313,7 +306,7 @@ private fun SliderRow(
             )
             Text(
                 text = trailing,
-                color = Color.White.copy(alpha = 0.58f),
+                color = Color.White.copy(alpha = 0.56f),
                 fontSize = 11.sp,
                 modifier = if (onTrailingClick != null) {
                     Modifier.clickable { onTrailingClick() }
@@ -340,10 +333,10 @@ private fun MediaCard(state: VeloraMediaState) {
     ) {
         Column {
             Text(
-                text = "Now Playing",
+                text = "NOW PLAYING",
                 color = palette.secondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
             )
             Text(
                 text = state.title,
@@ -355,14 +348,14 @@ private fun MediaCard(state: VeloraMediaState) {
             if (state.artist.isNotBlank()) {
                 Text(
                     text = state.artist,
-                    color = Color.White.copy(alpha = 0.58f),
+                    color = Color.White.copy(alpha = 0.56f),
                     fontSize = 12.sp,
                     maxLines = 1,
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 MediaAction("Previous") {
                     state.controller.transportControls.skipToPrevious()
@@ -383,6 +376,56 @@ private fun MediaCard(state: VeloraMediaState) {
 }
 
 @Composable
+private fun MediaAccessCard() {
+    val context = LocalContext.current
+
+    GlassPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            },
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Column {
+            Text(
+                text = "Enable media access",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Notification access lets Velora read active media sessions.",
+                color = Color.White.copy(alpha = 0.56f),
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyMediaCard() {
+    GlassPanel(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Column {
+            Text(
+                text = "Media",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Nothing is playing.",
+                color = Color.White.copy(alpha = 0.52f),
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun MediaAction(
     label: String,
     onClick: () -> Unit,
@@ -397,139 +440,16 @@ private fun MediaAction(
 }
 
 @Composable
-private fun QuickControl(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    GlassPanel(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 16.dp),
-    ) {
-        Text(
-            text = label,
-            color = Color.White,
-        )
-    }
-}
-
-@Composable
-private fun NotificationAccessCard(onClick: () -> Unit) {
-    GlassPanel(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        contentPadding = PaddingValues(16.dp),
-    ) {
-        Column {
-            Text(
-                text = "Enable notification access",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "Required for notifications and media sessions inside Velora.",
-                color = Color.White.copy(alpha = 0.62f),
-                fontSize = 12.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun NotificationGroup(
-    group: List<VeloraNotification>,
-) {
-    val first = group.first()
-    GlassPanel(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        contentPadding = PaddingValues(14.dp),
-    ) {
-        Column {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = first.appLabel,
-                    color = Color.White.copy(alpha = 0.62f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (group.size > 1) {
-                    Text(
-                        text = group.size.toString(),
-                        color = Color.White.copy(alpha = 0.52f),
-                        fontSize = 11.sp,
-                    )
-                }
-            }
-
-            group.take(5).forEachIndexed { index, item ->
-                if (index > 0) {
-                    Spacer(Modifier.height(10.dp))
-                }
-                NotificationRow(item)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotificationRow(item: VeloraNotification) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                runCatching { item.contentIntent?.send() }
-            },
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = item.title,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-            )
-            Text(
-                text = "×",
-                color = Color.White.copy(alpha = 0.56f),
-                fontSize = 18.sp,
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .clickable {
-                        NotificationActions.dismiss(item.key)
-                    },
-            )
-        }
-        if (item.text.isNotBlank()) {
-            Text(
-                text = item.text,
-                color = Color.White.copy(alpha = 0.72f),
-                maxLines = 3,
-                fontSize = 13.sp,
-            )
-        }
-    }
-}
-
-@Composable
 private fun mediaState(
-    notificationAccess: Boolean,
+    mediaAccess: Boolean,
 ): State<VeloraMediaState?> {
     val context = LocalContext.current
+
     return produceState<VeloraMediaState?>(
         initialValue = null,
-        key1 = notificationAccess,
+        key1 = mediaAccess,
     ) {
-        if (!notificationAccess) {
+        if (!mediaAccess) {
             value = null
             return@produceState
         }

@@ -65,3 +65,12 @@ See `docs/SIMULATION.md`.
 - Swipe down from the **top-left** edge: Velora Notifications
 - Swipe down from the **top-right** edge: Velora Control Center
 - Swipe up on Home: Apps
+
+
+## Home edit mode
+
+Long-press an empty area of Home to enter Edit Mode. The edit bar provides direct access to Widgets, Wallpaper, Velora Settings and Done.
+
+## App actions
+
+Long-press an app in Apps to open its action sheet. Real launcher builds provide Pin to Home, Hide, App info and Uninstall actions.
