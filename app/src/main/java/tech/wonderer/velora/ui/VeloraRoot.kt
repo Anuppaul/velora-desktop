@@ -222,7 +222,7 @@ fun VeloraRoot(
 }
 
 @Composable
-private fun VeloraNavBar(
+internal fun VeloraNavBar(
     modifier: Modifier = Modifier,
     onRecents: () -> Unit,
     onHome: () -> Unit,

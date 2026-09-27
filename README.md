@@ -49,3 +49,12 @@ See `docs/MAIN_CONCEPT_STATUS.md` for the exact implementation checklist and And
 - Android SDK 35
 
 Velora intentionally has no ads, analytics, account requirement, Firebase dependency or always-on cloud service.
+
+
+## Simulation Mode
+
+Debug builds include an isolated **Velora Preview** entry for emulator and cloud testing. It uses synthetic apps, notifications and media state, so it can demonstrate the launcher without becoming the default Home app or requesting personal permissions.
+
+The Colab notebook can automatically capture Home, Apps, Control Center, Settings and Widgets screenshots when its runtime exposes KVM.
+
+See `docs/SIMULATION.md`.
