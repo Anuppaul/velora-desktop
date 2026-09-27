@@ -112,7 +112,7 @@ fun VeloraRoot(
                         iconAppearance = launcher.iconAppearance,
                         backupJson = launcher::createBackupJson,
                         restoreBackup = launcher::restoreBackupJson,
-                        onGlobalScaleChanged = launcher::setGlobalIconScale,
+                        onGlobalScaleChanged = launcher::updateGlobalIconScale,
                         onIconStyleChanged = launcher::setIconStyle,
                         onIconShapeChanged = launcher::setIconShape,
                         onHomeLabelsChanged = launcher::setHomeLabelsVisible,

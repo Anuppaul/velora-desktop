@@ -297,7 +297,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persist()
     }
 
-    fun setGlobalIconScale(scale: Float) {
+    fun updateGlobalIconScale(scale: Float) {
         globalIconScale = scale.coerceIn(0.72f, 1.35f)
         store.saveGlobalIconScale(globalIconScale)
     }
