@@ -58,3 +58,10 @@ Debug builds include an isolated **Velora Preview** entry for emulator and cloud
 The Colab notebook can automatically capture Home, Apps, Control Center, Settings and Widgets screenshots when its runtime exposes KVM.
 
 See `docs/SIMULATION.md`.
+
+
+## Home edge gestures
+
+- Swipe down from the **top-left** edge: Velora Notifications
+- Swipe down from the **top-right** edge: Velora Control Center
+- Swipe up on Home: Apps

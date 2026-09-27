@@ -30,6 +30,7 @@ capture() {
 
 capture home
 capture drawer
+capture notifications
 capture control
 capture settings
 capture widgets

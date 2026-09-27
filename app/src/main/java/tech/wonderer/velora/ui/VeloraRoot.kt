@@ -44,6 +44,7 @@ import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 private enum class Overlay {
     NONE,
     DRAWER,
+    NOTIFICATIONS,
     CONTROL_CENTER,
     SETTINGS,
     WIDGET_PICKER,
@@ -94,7 +95,8 @@ fun VeloraRoot(
                     onItemEdit = { editingItemId = it },
                     onWidgetEdit = { editingWidgetId = it },
                     onSwipeUp = { overlay = Overlay.DRAWER },
-                    onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
+                    onSwipeDownLeft = { overlay = Overlay.NOTIFICATIONS },
+                    onSwipeDownRight = { overlay = Overlay.CONTROL_CENTER },
                 )
 
                 val modalVisible =
@@ -113,6 +115,10 @@ fun VeloraRoot(
                         apps = launcher.visibleApps(),
                         onLaunch = launcher::launch,
                         onPin = launcher::pinToHome,
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.NOTIFICATIONS -> NotificationCenter(
                         onClose = { overlay = Overlay.NONE },
                     )
 

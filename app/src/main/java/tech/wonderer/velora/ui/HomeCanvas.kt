@@ -67,26 +67,45 @@ fun HomeCanvas(
     onItemEdit: (String) -> Unit,
     onWidgetEdit: (String) -> Unit,
     onSwipeUp: () -> Unit,
-    onSwipeDown: () -> Unit,
+    onSwipeDownLeft: () -> Unit,
+    onSwipeDownRight: () -> Unit,
 ) {
     var swipeDistance by remember { mutableFloatStateOf(0f) }
+    var swipeStartX by remember { mutableFloatStateOf(0f) }
+    var swipeStartY by remember { mutableFloatStateOf(Float.MAX_VALUE) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        swipeDistance = 0f
+                        swipeStartX = offset.x
+                        swipeStartY = offset.y
+                    },
                     onVerticalDrag = { change, amount ->
                         if (!change.isConsumed) swipeDistance += amount
                     },
                     onDragEnd = {
+                        val topGestureZone = 140.dp.toPx()
                         when {
                             swipeDistance < -140f -> onSwipeUp()
-                            swipeDistance > 140f -> onSwipeDown()
+                            swipeDistance > 140f && swipeStartY <= topGestureZone -> {
+                                if (swipeStartX < size.width / 2f) {
+                                    onSwipeDownLeft()
+                                } else {
+                                    onSwipeDownRight()
+                                }
+                            }
                         }
                         swipeDistance = 0f
+                        swipeStartY = Float.MAX_VALUE
                     },
-                    onDragCancel = { swipeDistance = 0f },
+                    onDragCancel = {
+                        swipeDistance = 0f
+                        swipeStartY = Float.MAX_VALUE
+                    },
                 )
             },
     ) {
@@ -130,7 +149,7 @@ fun HomeCanvas(
         }
 
         GlassPill(
-            text = "Swipe up · Apps     Swipe down · Control Center",
+            text = "↑ Apps   ↓ Left Notifications   ↓ Right Controls",
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 92.dp),

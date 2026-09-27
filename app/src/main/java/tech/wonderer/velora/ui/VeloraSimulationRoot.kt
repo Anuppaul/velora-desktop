@@ -37,6 +37,7 @@ import kotlin.math.sqrt
 private enum class SimulationOverlay {
     NONE,
     DRAWER,
+    NOTIFICATIONS,
     CONTROL_CENTER,
     SETTINGS,
     WIDGET_PICKER,
@@ -213,7 +214,8 @@ fun VeloraSimulationRoot(
                     onItemEdit = { editingItemId = it },
                     onWidgetEdit = { editingWidgetId = it },
                     onSwipeUp = { overlay = SimulationOverlay.DRAWER },
-                    onSwipeDown = { overlay = SimulationOverlay.CONTROL_CENTER },
+                    onSwipeDownLeft = { overlay = SimulationOverlay.NOTIFICATIONS },
+                    onSwipeDownRight = { overlay = SimulationOverlay.CONTROL_CENTER },
                 )
 
                 if (
@@ -242,6 +244,10 @@ fun VeloraSimulationRoot(
                                 )
                             }
                         },
+                        onClose = { overlay = SimulationOverlay.NONE },
+                    )
+
+                    SimulationOverlay.NOTIFICATIONS -> SimulationNotificationCenter(
                         onClose = { overlay = SimulationOverlay.NONE },
                     )
 
@@ -529,6 +535,8 @@ private fun simulationWidgets(): List<HomeWidget> = listOf(
 
 private fun simulationOverlayFor(screen: String): SimulationOverlay = when (screen.lowercase()) {
     "drawer", "apps" -> SimulationOverlay.DRAWER
+    "notifications", "notification", "notification-center", "notification_center" ->
+        SimulationOverlay.NOTIFICATIONS
     "control", "control-center", "control_center" -> SimulationOverlay.CONTROL_CENTER
     "settings" -> SimulationOverlay.SETTINGS
     "widgets", "widget-picker", "widget_picker" -> SimulationOverlay.WIDGET_PICKER
