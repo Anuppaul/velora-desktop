@@ -162,3 +162,14 @@ The sheet follows the drag, dismisses after the threshold, and springs back when
 - Colab asks only for a release password, creates a temporary JKS inside the runtime, builds and verifies Velora-release.apk, then downloads it.
 - A fresh Colab runtime creates a new signature. Uninstall any older Velora build before installing a newly generated release APK.
 - This flow is intended for direct phone testing, not long-term Play Store/update signing.
+
+
+## Beta 03 POCO / OEM install compatibility
+
+The uploaded beta01 APK was structurally intact and its APK Signature Scheme v2 signature/content digest verified correctly, but it was v2-only. Phone-test releases now use a conservative compatibility profile:
+
+- RSA 2048 temporary signing key.
+- APK Signature Scheme v1 + v2 + v3 explicitly enabled; v4 disabled.
+- Release minification and resource shrinking disabled for phone-test builds.
+- Legacy JNI packaging enabled so native libraries are extracted by the device installer.
+- Colab is release-only: repository ZIP + password -> verified Velora-release.apk.

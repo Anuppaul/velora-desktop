@@ -23,8 +23,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "0.1.0-beta02"
+        versionCode = 24
+        versionName = "0.1.0-beta03"
     }
 
     signingConfigs {
@@ -34,6 +34,11 @@ android {
                 storePassword = releaseStorePassword!!
                 keyAlias = releaseKeyAlias!!
                 keyPassword = releaseKeyPassword!!
+                storeType = "JKS"
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
             }
         }
     }
@@ -45,8 +50,8 @@ android {
 
         release {
             isDebuggable = false
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -72,6 +77,9 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
