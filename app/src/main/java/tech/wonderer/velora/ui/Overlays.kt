@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
@@ -27,7 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.model.HomeItem
+import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
 import tech.wonderer.velora.ui.components.GlassPanel
@@ -65,7 +70,7 @@ fun GroupOverlay(
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(item.members, key = { it }) { packageName ->
+                gridItems(item.members, key = { it }) { packageName ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.clickable {
@@ -134,6 +139,110 @@ fun ItemEditSheet(
 }
 
 @Composable
+fun WidgetEditSheet(
+    widget: HomeWidget,
+    onScaleChanged: (Float) -> Unit,
+    onRemove: () -> Unit,
+    onClose: () -> Unit,
+) {
+    GlassPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 104.dp),
+        shape = RoundedCornerShape(30.dp),
+        contentPadding = PaddingValues(20.dp),
+    ) {
+        Column {
+            Text(
+                text = widget.type.displayName,
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Widget size",
+                color = Color.White.copy(alpha = 0.60f),
+                fontSize = 12.sp,
+            )
+            Slider(
+                value = widget.scale,
+                onValueChange = onScaleChanged,
+                valueRange = 0.72f..1.45f,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onRemove) {
+                    Text("Remove")
+                }
+                Button(onClick = onClose) {
+                    Text("Done")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WidgetPicker(
+    onAdd: (PremiumWidgetType) -> Unit,
+    onClose: () -> Unit,
+) {
+    GlassPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 86.dp),
+        shape = RoundedCornerShape(32.dp),
+        contentPadding = PaddingValues(18.dp),
+    ) {
+        Column {
+            Text(
+                text = "Velora Widgets",
+                color = Color.White,
+                fontSize = 26.sp,
+            )
+            Text(
+                text = "Native, lightweight and freeform",
+                color = Color.White.copy(alpha = 0.56f),
+                fontSize = 12.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(PremiumWidgetType.entries) { type ->
+                    GlassPanel(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(126.dp)
+                            .clickable {
+                                onAdd(type)
+                                onClose()
+                            },
+                        shape = RoundedCornerShape(26.dp),
+                        contentPadding = PaddingValues(12.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            PremiumWidgetPreview(
+                                type = type,
+                                modifier = Modifier.size(154.dp, 92.dp),
+                            )
+                            Text(
+                                text = type.displayName,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsPanel(
     globalScale: Float,
     iconAppearance: IconAppearance,
@@ -141,6 +250,7 @@ fun SettingsPanel(
     onIconStyleChanged: (VeloraIconStyle) -> Unit,
     onIconShapeChanged: (VeloraIconShape) -> Unit,
     onHomeLabelsChanged: (Boolean) -> Unit,
+    onAddWidget: () -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -148,64 +258,67 @@ fun SettingsPanel(
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 70.dp),
+            .padding(horizontal = 12.dp, vertical = 54.dp),
         shape = RoundedCornerShape(32.dp),
         contentPadding = PaddingValues(20.dp),
     ) {
-        Column {
-            Text(
-                text = "Velora Settings",
-                color = Color.White,
-                fontSize = 26.sp,
-            )
-            Text(
-                text = "Appearance",
-                color = Color.White.copy(alpha = 0.55f),
-                fontSize = 12.sp,
-            )
-            Spacer(Modifier.size(10.dp))
+        LazyColumn {
+            item {
+                Text(
+                    text = "Velora Settings",
+                    color = Color.White,
+                    fontSize = 26.sp,
+                )
+                Text(
+                    text = "Appearance & Home",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.size(10.dp))
 
-            Text(
-                text = "Global icon size",
-                color = Color.White,
-            )
-            Slider(
-                value = globalScale,
-                onValueChange = onGlobalScaleChanged,
-                valueRange = 0.72f..1.35f,
-            )
+                Text(
+                    text = "Global icon size",
+                    color = Color.White,
+                )
+                Slider(
+                    value = globalScale,
+                    onValueChange = onGlobalScaleChanged,
+                    valueRange = 0.72f..1.35f,
+                )
 
-            SettingValueButton(
-                label = "Icon pack",
-                value = iconAppearance.style.displayName,
-            ) {
-                onIconStyleChanged(nextIconStyle(iconAppearance.style))
-            }
-            SettingValueButton(
-                label = "Icon shape",
-                value = iconAppearance.shape.displayName,
-            ) {
-                onIconShapeChanged(nextIconShape(iconAppearance.shape))
-            }
-            SettingValueButton(
-                label = "Home labels",
-                value = if (iconAppearance.showHomeLabels) "On" else "Off",
-            ) {
-                onHomeLabelsChanged(!iconAppearance.showHomeLabels)
-            }
+                SettingValueButton(
+                    label = "Icon pack",
+                    value = iconAppearance.style.displayName,
+                ) {
+                    onIconStyleChanged(nextIconStyle(iconAppearance.style))
+                }
+                SettingValueButton(
+                    label = "Icon shape",
+                    value = iconAppearance.shape.displayName,
+                ) {
+                    onIconShapeChanged(nextIconShape(iconAppearance.shape))
+                }
+                SettingValueButton(
+                    label = "Home labels",
+                    value = if (iconAppearance.showHomeLabels) "On" else "Off",
+                ) {
+                    onHomeLabelsChanged(!iconAppearance.showHomeLabels)
+                }
+                SettingButton("Add premium widget", onAddWidget)
 
-            Spacer(Modifier.size(8.dp))
-            SettingButton("Choose default Home app") {
-                context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+                Spacer(Modifier.size(8.dp))
+                SettingButton("Choose default Home app") {
+                    context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+                }
+                SettingButton("Notification access") {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+                SettingButton("Enable Velora navigation controls") {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+                Spacer(Modifier.size(8.dp))
+                SettingButton("Close", onClose)
             }
-            SettingButton("Notification access") {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-            SettingButton("Enable Velora navigation controls") {
-                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-            Spacer(Modifier.size(8.dp))
-            SettingButton("Close") { onClose() }
         }
     }
 }

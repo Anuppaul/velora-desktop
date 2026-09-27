@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.ui.components.GlassPanel
 import tech.wonderer.velora.ui.components.GlassPill
 import tech.wonderer.velora.ui.components.LocalIconAppearance
@@ -55,11 +56,14 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeCanvas(
     items: List<HomeItem>,
+    widgets: List<HomeWidget>,
     globalScale: Float,
     onLaunch: (String) -> Unit,
     onMoveCommitted: (String, Float, Float) -> Unit,
+    onWidgetMoveCommitted: (String, Float, Float) -> Unit,
     onGroupOpen: (String) -> Unit,
     onItemEdit: (String) -> Unit,
+    onWidgetEdit: (String) -> Unit,
     onSwipeUp: () -> Unit,
     onSwipeDown: () -> Unit,
 ) {
@@ -90,20 +94,24 @@ fun HomeCanvas(
                 .padding(horizontal = 18.dp, vertical = 12.dp),
         )
 
-        PremiumClock(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 70.dp),
-        )
-
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 118.dp, bottom = 106.dp),
+                .padding(top = 46.dp, bottom = 106.dp),
         ) {
             val density = LocalDensity.current
             val widthPx = with(density) { maxWidth.toPx() }
             val heightPx = with(density) { maxHeight.toPx() }
+
+            widgets.forEach { widget ->
+                FreeformPremiumWidget(
+                    widget = widget,
+                    canvasWidthPx = widthPx,
+                    canvasHeightPx = heightPx,
+                    onMoveCommitted = onWidgetMoveCommitted,
+                    onEdit = onWidgetEdit,
+                )
+            }
 
             items.forEach { item ->
                 FreeformHomeItem(
@@ -120,7 +128,7 @@ fun HomeCanvas(
         }
 
         GlassPill(
-            text = "Swipe up for apps  •  Swipe down for Control Center",
+            text = "Swipe up · Apps     Swipe down · Control Center",
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 92.dp),
@@ -268,39 +276,6 @@ fun PackageIcon(
         packageName = packageName,
         modifier = modifier,
     )
-}
-
-@Composable
-private fun PremiumClock(modifier: Modifier = Modifier) {
-    val now by produceState(initialValue = Date()) {
-        while (true) {
-            value = Date()
-            delay(1_000)
-        }
-    }
-    val time = remember(now) {
-        SimpleDateFormat("h:mm", Locale.getDefault()).format(now)
-    }
-    val date = remember(now) {
-        SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
-    }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier,
-    ) {
-        Text(
-            text = time,
-            color = Color.White,
-            fontSize = 44.sp,
-            fontWeight = FontWeight.Light,
-        )
-        Text(
-            text = date,
-            color = Color.White.copy(alpha = 0.76f),
-            fontSize = 13.sp,
-        )
-    }
 }
 
 @Composable

@@ -26,6 +26,8 @@ fun GlassPanel(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val palette = LocalVeloraPalette.current
+
     Box(
         modifier = modifier
             .shadow(18.dp, shape, ambientColor = Color.Black.copy(alpha = 0.30f))
@@ -33,9 +35,9 @@ fun GlassPanel(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.20f),
-                        Color.White.copy(alpha = 0.095f),
-                        Color.Black.copy(alpha = 0.12f),
+                        palette.glassTop,
+                        palette.glassMiddle,
+                        palette.glassBottom,
                     ),
                 ),
             )

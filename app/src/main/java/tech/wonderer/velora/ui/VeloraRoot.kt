@@ -36,6 +36,7 @@ import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.service.VeloraNavActions
 import tech.wonderer.velora.state.LauncherViewModel
 import tech.wonderer.velora.ui.components.GlassPanel
+import tech.wonderer.velora.ui.components.VeloraAmbientProvider
 import tech.wonderer.velora.ui.components.VeloraIconAppearanceProvider
 
 private enum class Overlay {
@@ -43,6 +44,7 @@ private enum class Overlay {
     DRAWER,
     CONTROL_CENTER,
     SETTINGS,
+    WIDGET_PICKER,
 }
 
 @Composable
@@ -53,10 +55,12 @@ fun VeloraRoot(
     var overlay by remember { mutableStateOf(Overlay.NONE) }
     var groupId by remember { mutableStateOf<String?>(null) }
     var editingItemId by remember { mutableStateOf<String?>(null) }
+    var editingWidgetId by remember { mutableStateOf<String?>(null) }
 
     val closeTopLayer = {
         when {
             editingItemId != null -> editingItemId = null
+            editingWidgetId != null -> editingWidgetId = null
             groupId != null -> groupId = null
             overlay != Overlay.NONE -> overlay = Overlay.NONE
             else -> Unit
@@ -64,99 +68,133 @@ fun VeloraRoot(
     }
 
     BackHandler(
-        enabled = editingItemId != null || groupId != null || overlay != Overlay.NONE,
+        enabled = editingItemId != null ||
+            editingWidgetId != null ||
+            groupId != null ||
+            overlay != Overlay.NONE,
         onBack = closeTopLayer,
     )
 
-    VeloraIconAppearanceProvider(launcher.iconAppearance) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            HomeCanvas(
-                items = launcher.homeItems,
-                globalScale = launcher.globalIconScale,
-                onLaunch = launcher::launch,
-                onMoveCommitted = launcher::commitMove,
-                onGroupOpen = { groupId = it },
-                onItemEdit = { editingItemId = it },
-                onSwipeUp = { overlay = Overlay.DRAWER },
-                onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
-            )
-
-            when (overlay) {
-                Overlay.DRAWER -> AppDrawer(
-                    apps = launcher.apps,
-                    onLaunch = launcher::launch,
-                    onPin = launcher::pinToHome,
-                    onClose = { overlay = Overlay.NONE },
-                )
-
-                Overlay.CONTROL_CENTER -> ControlCenter(
-                    onClose = { overlay = Overlay.NONE },
-                )
-
-                Overlay.SETTINGS -> SettingsPanel(
+    VeloraAmbientProvider {
+        VeloraIconAppearanceProvider(launcher.iconAppearance) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                HomeCanvas(
+                    items = launcher.homeItems,
+                    widgets = launcher.homeWidgets,
                     globalScale = launcher.globalIconScale,
-                    iconAppearance = launcher.iconAppearance,
-                    onGlobalScaleChanged = launcher::setGlobalIconScale,
-                    onIconStyleChanged = launcher::setIconStyle,
-                    onIconShapeChanged = launcher::setIconShape,
-                    onHomeLabelsChanged = launcher::setHomeLabelsVisible,
-                    onClose = { overlay = Overlay.NONE },
+                    onLaunch = launcher::launch,
+                    onMoveCommitted = launcher::commitMove,
+                    onWidgetMoveCommitted = launcher::commitWidgetMove,
+                    onGroupOpen = { groupId = it },
+                    onItemEdit = { editingItemId = it },
+                    onWidgetEdit = { editingWidgetId = it },
+                    onSwipeUp = { overlay = Overlay.DRAWER },
+                    onSwipeDown = { overlay = Overlay.CONTROL_CENTER },
                 )
 
-                Overlay.NONE -> Unit
-            }
-
-            groupId
-                ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
-                ?.takeIf { it.kind == HomeItemKind.GROUP }
-                ?.let { group ->
-                    GroupOverlay(
-                        item = group,
-                        labelForPackage = launcher::labelForPackage,
+                when (overlay) {
+                    Overlay.DRAWER -> AppDrawer(
+                        apps = launcher.apps,
                         onLaunch = launcher::launch,
-                        onClose = { groupId = null },
+                        onPin = launcher::pinToHome,
+                        onClose = { overlay = Overlay.NONE },
                     )
+
+                    Overlay.CONTROL_CENTER -> ControlCenter(
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.SETTINGS -> SettingsPanel(
+                        globalScale = launcher.globalIconScale,
+                        iconAppearance = launcher.iconAppearance,
+                        onGlobalScaleChanged = launcher::setGlobalIconScale,
+                        onIconStyleChanged = launcher::setIconStyle,
+                        onIconShapeChanged = launcher::setIconShape,
+                        onHomeLabelsChanged = launcher::setHomeLabelsVisible,
+                        onAddWidget = { overlay = Overlay.WIDGET_PICKER },
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.WIDGET_PICKER -> WidgetPicker(
+                        onAdd = launcher::addWidget,
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.NONE -> Unit
                 }
 
-            editingItemId
-                ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
-                ?.let { item ->
-                    ItemEditSheet(
-                        item = item,
-                        onScaleChanged = { launcher.setItemScale(item.id, it) },
-                        onRemove = {
-                            launcher.removeFromHome(item.id)
-                            editingItemId = null
-                        },
-                        onClose = { editingItemId = null },
-                    )
-                }
+                groupId
+                    ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
+                    ?.takeIf { it.kind == HomeItemKind.GROUP }
+                    ?.let { group ->
+                        GroupOverlay(
+                            item = group,
+                            labelForPackage = launcher::labelForPackage,
+                            onLaunch = launcher::launch,
+                            onClose = { groupId = null },
+                        )
+                    }
 
-            VeloraNavBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                onRecents = {
-                    if (!VeloraNavActions.recents()) {
-                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                editingItemId
+                    ?.let { id -> launcher.homeItems.firstOrNull { it.id == id } }
+                    ?.let { item ->
+                        ItemEditSheet(
+                            item = item,
+                            onScaleChanged = { launcher.setItemScale(item.id, it) },
+                            onRemove = {
+                                launcher.removeFromHome(item.id)
+                                editingItemId = null
+                            },
+                            onClose = { editingItemId = null },
+                        )
                     }
-                },
-                onHome = {
-                    overlay = Overlay.NONE
-                    groupId = null
-                    editingItemId = null
-                },
-                onBack = {
-                    if (editingItemId != null || groupId != null || overlay != Overlay.NONE) {
-                        closeTopLayer()
-                    } else {
-                        VeloraNavActions.back()
+
+                editingWidgetId
+                    ?.let { id -> launcher.homeWidgets.firstOrNull { it.id == id } }
+                    ?.let { widget ->
+                        WidgetEditSheet(
+                            widget = widget,
+                            onScaleChanged = { launcher.setWidgetScale(widget.id, it) },
+                            onRemove = {
+                                launcher.removeWidget(widget.id)
+                                editingWidgetId = null
+                            },
+                            onClose = { editingWidgetId = null },
+                        )
                     }
-                },
-                onSettings = { overlay = Overlay.SETTINGS },
-            )
+
+                VeloraNavBar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    onRecents = {
+                        if (!VeloraNavActions.recents()) {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }
+                    },
+                    onHome = {
+                        overlay = Overlay.NONE
+                        groupId = null
+                        editingItemId = null
+                        editingWidgetId = null
+                    },
+                    onBack = {
+                        if (
+                            editingItemId != null ||
+                            editingWidgetId != null ||
+                            groupId != null ||
+                            overlay != Overlay.NONE
+                        ) {
+                            closeTopLayer()
+                        } else {
+                            VeloraNavActions.back()
+                        }
+                    },
+                    onSettings = { overlay = Overlay.SETTINGS },
+                )
+            }
         }
     }
 }

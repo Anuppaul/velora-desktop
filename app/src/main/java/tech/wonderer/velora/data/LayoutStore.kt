@@ -5,7 +5,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
 
@@ -61,6 +63,45 @@ class LayoutStore(context: Context) {
         prefs.edit().putString(KEY_LAYOUT, array.toString()).apply()
     }
 
+    fun hasWidgetLayout(): Boolean = prefs.contains(KEY_WIDGETS)
+
+    fun loadHomeWidgets(): List<HomeWidget> {
+        val raw = prefs.getString(KEY_WIDGETS, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    val obj = array.getJSONObject(index)
+                    add(
+                        HomeWidget(
+                            id = obj.getString("id"),
+                            type = PremiumWidgetType.valueOf(obj.getString("type")),
+                            x = obj.optDouble("x", 0.08).toFloat(),
+                            y = obj.optDouble("y", 0.10).toFloat(),
+                            scale = obj.optDouble("scale", 1.0).toFloat(),
+                        ),
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveHomeWidgets(widgets: List<HomeWidget>) {
+        val array = JSONArray()
+        widgets.forEach { widget ->
+            array.put(
+                JSONObject().apply {
+                    put("id", widget.id)
+                    put("type", widget.type.name)
+                    put("x", widget.x)
+                    put("y", widget.y)
+                    put("scale", widget.scale)
+                },
+            )
+        }
+        prefs.edit().putString(KEY_WIDGETS, array.toString()).apply()
+    }
+
     fun loadGlobalIconScale(): Float = prefs.getFloat(KEY_GLOBAL_SCALE, 1f)
 
     fun saveGlobalIconScale(scale: Float) {
@@ -99,6 +140,7 @@ class LayoutStore(context: Context) {
 
     private companion object {
         const val KEY_LAYOUT = "home_layout_v1"
+        const val KEY_WIDGETS = "home_widgets_v1"
         const val KEY_GLOBAL_SCALE = "global_icon_scale"
         const val KEY_ICON_STYLE = "icon_style"
         const val KEY_ICON_SHAPE = "icon_shape"

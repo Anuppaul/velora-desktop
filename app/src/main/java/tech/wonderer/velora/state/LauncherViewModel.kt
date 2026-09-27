@@ -15,7 +15,9 @@ import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.data.LayoutStore
 import tech.wonderer.velora.model.HomeItem
 import tech.wonderer.velora.model.HomeItemKind
+import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.IconAppearance
+import tech.wonderer.velora.model.PremiumWidgetType
 import tech.wonderer.velora.model.VeloraIconShape
 import tech.wonderer.velora.model.VeloraIconStyle
 import kotlin.math.sqrt
@@ -27,6 +29,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     var homeItems by mutableStateOf<List<HomeItem>>(emptyList())
+        private set
+
+    var homeWidgets by mutableStateOf<List<HomeWidget>>(emptyList())
         private set
 
     var globalIconScale by mutableFloatStateOf(store.loadGlobalIconScale())
@@ -46,6 +51,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             homeItems = if (stored.isNotEmpty()) stored else seedHome(loadedApps)
             if (stored.isEmpty() && homeItems.isNotEmpty()) {
                 store.saveHomeItems(homeItems)
+            }
+
+            homeWidgets = if (store.hasWidgetLayout()) {
+                store.loadHomeWidgets()
+            } else {
+                seedWidgets().also(store::saveHomeWidgets)
             }
         }
     }
@@ -129,6 +140,44 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persist()
     }
 
+    fun addWidget(type: PremiumWidgetType) {
+        if (homeWidgets.count { it.type == type } >= 2) return
+        val index = homeWidgets.size
+        homeWidgets = homeWidgets + HomeWidget(
+            id = "widget-" + type.name.lowercase() + "-" + System.currentTimeMillis(),
+            type = type,
+            x = (0.08f + ((index * 0.16f) % 0.55f)).coerceAtMost(0.72f),
+            y = (0.08f + ((index * 0.15f) % 0.62f)).coerceAtMost(0.75f),
+        )
+        persistWidgets()
+    }
+
+    fun commitWidgetMove(widgetId: String, x: Float, y: Float) {
+        homeWidgets = homeWidgets.map {
+            if (it.id == widgetId) {
+                it.copy(
+                    x = x.coerceIn(0f, 1f),
+                    y = y.coerceIn(0f, 1f),
+                )
+            } else {
+                it
+            }
+        }
+        persistWidgets()
+    }
+
+    fun setWidgetScale(widgetId: String, scale: Float) {
+        homeWidgets = homeWidgets.map {
+            if (it.id == widgetId) it.copy(scale = scale.coerceIn(0.72f, 1.45f)) else it
+        }
+        persistWidgets()
+    }
+
+    fun removeWidget(widgetId: String) {
+        homeWidgets = homeWidgets.filterNot { it.id == widgetId }
+        persistWidgets()
+    }
+
     fun setItemScale(itemId: String, scale: Float) {
         homeItems = homeItems.map {
             if (it.id == itemId) it.copy(scale = scale.coerceIn(0.6f, 1.8f)) else it
@@ -166,12 +215,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun seedHome(loadedApps: List<InstalledApp>): List<HomeItem> {
         val positions = listOf(
-            0.08f to 0.30f,
-            0.39f to 0.24f,
-            0.71f to 0.34f,
-            0.18f to 0.53f,
-            0.56f to 0.58f,
-            0.76f to 0.72f,
+            0.08f to 0.43f,
+            0.39f to 0.39f,
+            0.71f to 0.48f,
+            0.18f to 0.62f,
+            0.56f to 0.66f,
+            0.76f to 0.78f,
         )
         return loadedApps.take(positions.size).mapIndexed { index, app ->
             val (x, y) = positions[index]
@@ -186,8 +235,29 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun seedWidgets(): List<HomeWidget> = listOf(
+        HomeWidget(
+            id = "widget-clock-default",
+            type = PremiumWidgetType.CLOCK,
+            x = 0.08f,
+            y = 0.07f,
+            scale = 1f,
+        ),
+        HomeWidget(
+            id = "widget-battery-default",
+            type = PremiumWidgetType.BATTERY,
+            x = 0.54f,
+            y = 0.24f,
+            scale = 0.88f,
+        ),
+    )
+
     private fun persist() {
         store.saveHomeItems(homeItems)
+    }
+
+    private fun persistWidgets() {
+        store.saveHomeWidgets(homeWidgets)
     }
 
     private fun persistIconAppearance() {
