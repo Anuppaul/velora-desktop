@@ -204,10 +204,10 @@ fun AppDrawer(
                             Spacer(Modifier.height(12.dp))
 
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(4),
+                                columns = GridCells.Fixed(6),
                                 contentPadding = PaddingValues(bottom = 18.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                                 modifier = Modifier.weight(1f),
                             ) {
                                 items(filtered, key = { it.packageName }) { app ->
@@ -331,14 +331,14 @@ private fun DrawerApp(
         PackageIcon(
             packageName = app.packageName,
             modifier = Modifier
-                .size(58.dp)
+                .size(46.dp)
                 .clip(RoundedCornerShape(15.dp)),
         )
         Spacer(Modifier.height(6.dp))
         Text(
             text = app.label,
             color = Color.White,
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             maxLines = 1,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
@@ -346,7 +346,7 @@ private fun DrawerApp(
         Text(
             text = "⋯",
             color = Color.White.copy(alpha = 0.70f),
-            fontSize = 16.sp,
+            fontSize = 14.sp,
             modifier = Modifier
                 .clickable(onClick = onMenu)
                 .padding(horizontal = 14.dp, vertical = 2.dp),
