@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Velora</string>
     <string name="accessibility_service_name">Velora navigation controls</string>
-    <string name="accessibility_description">Allows Velora's custom navigation surface to invoke Back, Home, and Recents when you enable it.</string>
+    <string name="accessibility_description">Allows the Velora custom navigation surface to invoke Back, Home, and Recents when enabled.</string>
 </resources>
