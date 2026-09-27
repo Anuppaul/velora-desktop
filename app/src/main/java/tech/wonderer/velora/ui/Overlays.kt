@@ -2,6 +2,9 @@ package tech.wonderer.velora.ui
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,9 +22,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.wonderer.velora.model.HomeItem
+import tech.wonderer.velora.model.HomeItemKind
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.IconAppearance
 import tech.wonderer.velora.model.PremiumWidgetType
@@ -99,13 +108,17 @@ fun GroupOverlay(
 fun ItemEditSheet(
     item: HomeItem,
     onScaleChanged: (Float) -> Unit,
+    onRenameGroup: (String) -> Unit,
+    onUngroup: () -> Unit,
     onRemove: () -> Unit,
     onClose: () -> Unit,
 ) {
+    var groupName by remember(item.id) { mutableStateOf(item.label) }
+
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 104.dp),
+            .padding(horizontal = 14.dp, vertical = 88.dp),
         shape = RoundedCornerShape(30.dp),
         contentPadding = PaddingValues(20.dp),
     ) {
@@ -116,8 +129,30 @@ fun ItemEditSheet(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
             )
+
+            if (item.kind == HomeItemKind.GROUP) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it.take(24) },
+                    label = { Text("Group name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        onRenameGroup(groupName)
+                        onClose()
+                    },
+                ) {
+                    Text("Rename")
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
             Text(
-                text = "Individual icon size",
+                text = if (item.kind == HomeItemKind.GROUP) "Group size" else "Individual icon size",
                 color = Color.White.copy(alpha = 0.60f),
                 fontSize = 12.sp,
             )
@@ -126,9 +161,15 @@ fun ItemEditSheet(
                 onValueChange = onScaleChanged,
                 valueRange = 0.6f..1.8f,
             )
+
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (item.kind == HomeItemKind.GROUP) {
+                    Button(onClick = onUngroup) {
+                        Text("Ungroup")
+                    }
+                }
                 Button(onClick = onRemove) {
-                    Text("Remove from Home")
+                    Text("Remove")
                 }
                 Button(onClick = onClose) {
                     Text("Done")
@@ -246,19 +287,55 @@ fun WidgetPicker(
 fun SettingsPanel(
     globalScale: Float,
     iconAppearance: IconAppearance,
+    backupJson: () -> String,
+    restoreBackup: (String) -> Boolean,
     onGlobalScaleChanged: (Float) -> Unit,
     onIconStyleChanged: (VeloraIconStyle) -> Unit,
     onIconShapeChanged: (VeloraIconShape) -> Unit,
     onHomeLabelsChanged: (Boolean) -> Unit,
     onAddWidget: () -> Unit,
+    onManageHiddenApps: () -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                    it.write(backupJson())
+                } ?: error("Unable to open destination")
+            }.isSuccess
+            Toast.makeText(
+                context,
+                if (ok) "Velora backup saved" else "Backup failed",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            val raw = runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()
+            val ok = raw?.let(restoreBackup) == true
+            Toast.makeText(
+                context,
+                if (ok) "Velora layout restored" else "Invalid Velora backup",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
     GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 54.dp),
+            .padding(horizontal = 12.dp, vertical = 44.dp),
         shape = RoundedCornerShape(32.dp),
         contentPadding = PaddingValues(20.dp),
     ) {
@@ -305,8 +382,30 @@ fun SettingsPanel(
                     onHomeLabelsChanged(!iconAppearance.showHomeLabels)
                 }
                 SettingButton("Add premium widget", onAddWidget)
+                SettingButton("Manage hidden apps", onManageHiddenApps)
+                SettingButton("Choose wallpaper") {
+                    context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
+                }
 
                 Spacer(Modifier.size(8.dp))
+                Text(
+                    text = "Backup",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                )
+                SettingButton("Export Velora layout") {
+                    exportLauncher.launch("velora-layout.json")
+                }
+                SettingButton("Restore Velora layout") {
+                    importLauncher.launch(arrayOf("application/json", "text/plain"))
+                }
+
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = "System integration",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                )
                 SettingButton("Choose default Home app") {
                     context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
                 }

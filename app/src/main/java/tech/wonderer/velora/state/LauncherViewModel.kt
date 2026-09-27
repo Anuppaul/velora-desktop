@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import tech.wonderer.velora.data.AppCatalog
 import tech.wonderer.velora.data.InstalledApp
 import tech.wonderer.velora.data.LayoutStore
@@ -40,6 +42,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var iconAppearance by mutableStateOf(store.loadIconAppearance())
         private set
 
+    var hiddenPackages by mutableStateOf(store.loadHiddenPackages())
+        private set
+
+    var onboardingComplete by mutableStateOf(store.isOnboardingComplete())
+        private set
+
     init {
         viewModelScope.launch {
             val loadedApps = withContext(Dispatchers.IO) {
@@ -61,11 +69,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun visibleApps(): List<InstalledApp> =
+        apps.filterNot { it.packageName in hiddenPackages }
+
     fun launch(packageName: String) {
         AppCatalog.launch(getApplication(), packageName)
     }
 
     fun pinToHome(app: InstalledApp) {
+        if (app.packageName in hiddenPackages) return
         val alreadyPinned = homeItems.any {
             it.packageName == app.packageName || app.packageName in it.members
         }
@@ -140,6 +152,86 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persist()
     }
 
+    fun renameGroup(groupId: String, name: String) {
+        val clean = name.trim().take(24)
+        if (clean.isBlank()) return
+        homeItems = homeItems.map {
+            if (it.id == groupId && it.kind == HomeItemKind.GROUP) it.copy(label = clean) else it
+        }
+        persist()
+    }
+
+    fun ungroup(groupId: String) {
+        val group = homeItems.firstOrNull {
+            it.id == groupId && it.kind == HomeItemKind.GROUP
+        } ?: return
+
+        val offsets = listOf(
+            -0.05f to -0.04f,
+            0.05f to -0.04f,
+            -0.05f to 0.05f,
+            0.05f to 0.05f,
+            0f to 0.10f,
+        )
+        val restored = group.members.mapIndexed { index, packageName ->
+            val offset = offsets[index % offsets.size]
+            HomeItem(
+                id = "app-" + packageName,
+                kind = HomeItemKind.APP,
+                label = labelForPackage(packageName),
+                packageName = packageName,
+                x = (group.x + offset.first).coerceIn(0f, 1f),
+                y = (group.y + offset.second).coerceIn(0f, 1f),
+                scale = group.scale.coerceAtMost(1.25f),
+            )
+        }
+
+        homeItems = homeItems.filterNot { it.id == groupId } + restored
+        persist()
+    }
+
+    fun setPackageHidden(packageName: String, hidden: Boolean) {
+        hiddenPackages = if (hidden) {
+            hiddenPackages + packageName
+        } else {
+            hiddenPackages - packageName
+        }
+        store.saveHiddenPackages(hiddenPackages)
+
+        if (hidden) {
+            homeItems = homeItems
+                .mapNotNull { item ->
+                    when (item.kind) {
+                        HomeItemKind.APP -> {
+                            if (item.packageName == packageName) null else item
+                        }
+
+                        HomeItemKind.GROUP -> {
+                            val members = item.members.filterNot { it == packageName }
+                            when {
+                                members.isEmpty() -> null
+                                members.size == 1 -> {
+                                    val remaining = members.first()
+                                    HomeItem(
+                                        id = "app-" + remaining,
+                                        kind = HomeItemKind.APP,
+                                        label = labelForPackage(remaining),
+                                        packageName = remaining,
+                                        x = item.x,
+                                        y = item.y,
+                                        scale = item.scale,
+                                    )
+                                }
+
+                                else -> item.copy(members = members)
+                            }
+                        }
+                    }
+                }
+            persist()
+        }
+    }
+
     fun addWidget(type: PremiumWidgetType) {
         if (homeWidgets.count { it.type == type } >= 2) return
         val index = homeWidgets.size
@@ -210,6 +302,147 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         persist()
     }
 
+    fun completeOnboarding() {
+        onboardingComplete = true
+        store.setOnboardingComplete(true)
+    }
+
+    fun createBackupJson(): String {
+        val root = JSONObject()
+        root.put("format", "velora-backup")
+        root.put("version", 1)
+        root.put("globalIconScale", globalIconScale)
+        root.put(
+            "iconAppearance",
+            JSONObject().apply {
+                put("style", iconAppearance.style.name)
+                put("shape", iconAppearance.shape.name)
+                put("showHomeLabels", iconAppearance.showHomeLabels)
+            },
+        )
+        root.put("hiddenPackages", JSONArray(hiddenPackages.toList()))
+        root.put(
+            "homeItems",
+            JSONArray().apply {
+                homeItems.forEach { item ->
+                    put(
+                        JSONObject().apply {
+                            put("id", item.id)
+                            put("kind", item.kind.name)
+                            put("label", item.label)
+                            put("packageName", item.packageName ?: "")
+                            put("members", JSONArray(item.members))
+                            put("x", item.x)
+                            put("y", item.y)
+                            put("scale", item.scale)
+                        },
+                    )
+                }
+            },
+        )
+        root.put(
+            "homeWidgets",
+            JSONArray().apply {
+                homeWidgets.forEach { widget ->
+                    put(
+                        JSONObject().apply {
+                            put("id", widget.id)
+                            put("type", widget.type.name)
+                            put("x", widget.x)
+                            put("y", widget.y)
+                            put("scale", widget.scale)
+                        },
+                    )
+                }
+            },
+        )
+        return root.toString(2)
+    }
+
+    fun restoreBackupJson(raw: String): Boolean {
+        return runCatching {
+            val root = JSONObject(raw)
+            require(root.optString("format") == "velora-backup")
+
+            val itemsJson = root.getJSONArray("homeItems")
+            val restoredItems = buildList {
+                for (index in 0 until itemsJson.length()) {
+                    val obj = itemsJson.getJSONObject(index)
+                    val membersJson = obj.optJSONArray("members") ?: JSONArray()
+                    val members = buildList {
+                        for (memberIndex in 0 until membersJson.length()) {
+                            add(membersJson.getString(memberIndex))
+                        }
+                    }
+                    add(
+                        HomeItem(
+                            id = obj.getString("id"),
+                            kind = HomeItemKind.valueOf(obj.getString("kind")),
+                            label = obj.optString("label", "App"),
+                            packageName = obj.optString("packageName").takeIf { it.isNotBlank() },
+                            members = members,
+                            x = obj.optDouble("x", 0.1).toFloat(),
+                            y = obj.optDouble("y", 0.2).toFloat(),
+                            scale = obj.optDouble("scale", 1.0).toFloat(),
+                        ),
+                    )
+                }
+            }
+
+            val widgetsJson = root.optJSONArray("homeWidgets") ?: JSONArray()
+            val restoredWidgets = buildList {
+                for (index in 0 until widgetsJson.length()) {
+                    val obj = widgetsJson.getJSONObject(index)
+                    add(
+                        HomeWidget(
+                            id = obj.getString("id"),
+                            type = PremiumWidgetType.valueOf(obj.getString("type")),
+                            x = obj.optDouble("x", 0.1).toFloat(),
+                            y = obj.optDouble("y", 0.1).toFloat(),
+                            scale = obj.optDouble("scale", 1.0).toFloat(),
+                        ),
+                    )
+                }
+            }
+
+            val appearanceJson = root.optJSONObject("iconAppearance")
+            val restoredAppearance = IconAppearance(
+                style = appearanceJson
+                    ?.optString("style")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { VeloraIconStyle.valueOf(it) }
+                    ?: VeloraIconStyle.GLASS,
+                shape = appearanceJson
+                    ?.optString("shape")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { VeloraIconShape.valueOf(it) }
+                    ?: VeloraIconShape.SQUIRCLE,
+                showHomeLabels = appearanceJson?.optBoolean("showHomeLabels", true) ?: true,
+            )
+
+            val hiddenJson = root.optJSONArray("hiddenPackages") ?: JSONArray()
+            val restoredHidden = buildSet {
+                for (index in 0 until hiddenJson.length()) {
+                    add(hiddenJson.getString(index))
+                }
+            }
+
+            homeItems = restoredItems
+            homeWidgets = restoredWidgets
+            globalIconScale = root.optDouble("globalIconScale", 1.0).toFloat()
+                .coerceIn(0.72f, 1.35f)
+            iconAppearance = restoredAppearance
+            hiddenPackages = restoredHidden
+
+            store.saveHomeItems(homeItems)
+            store.saveHomeWidgets(homeWidgets)
+            store.saveGlobalIconScale(globalIconScale)
+            store.saveIconAppearance(iconAppearance)
+            store.saveHiddenPackages(hiddenPackages)
+            true
+        }.getOrDefault(false)
+    }
+
     fun labelForPackage(packageName: String): String =
         apps.firstOrNull { it.packageName == packageName }?.label ?: packageName
 
@@ -222,17 +455,20 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             0.56f to 0.66f,
             0.76f to 0.78f,
         )
-        return loadedApps.take(positions.size).mapIndexed { index, app ->
-            val (x, y) = positions[index]
-            HomeItem(
-                id = "app-" + app.packageName,
-                kind = HomeItemKind.APP,
-                label = app.label,
-                packageName = app.packageName,
-                x = x,
-                y = y,
-            )
-        }
+        return loadedApps
+            .filterNot { it.packageName in hiddenPackages }
+            .take(positions.size)
+            .mapIndexed { index, app ->
+                val (x, y) = positions[index]
+                HomeItem(
+                    id = "app-" + app.packageName,
+                    kind = HomeItemKind.APP,
+                    label = app.label,
+                    packageName = app.packageName,
+                    x = x,
+                    y = y,
+                )
+            }
     }
 
     private fun seedWidgets(): List<HomeWidget> = listOf(

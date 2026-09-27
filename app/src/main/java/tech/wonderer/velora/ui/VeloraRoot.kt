@@ -45,6 +45,7 @@ private enum class Overlay {
     CONTROL_CENTER,
     SETTINGS,
     WIDGET_PICKER,
+    HIDDEN_APPS,
 }
 
 @Composable
@@ -96,7 +97,7 @@ fun VeloraRoot(
 
                 when (overlay) {
                     Overlay.DRAWER -> AppDrawer(
-                        apps = launcher.apps,
+                        apps = launcher.visibleApps(),
                         onLaunch = launcher::launch,
                         onPin = launcher::pinToHome,
                         onClose = { overlay = Overlay.NONE },
@@ -109,16 +110,26 @@ fun VeloraRoot(
                     Overlay.SETTINGS -> SettingsPanel(
                         globalScale = launcher.globalIconScale,
                         iconAppearance = launcher.iconAppearance,
+                        backupJson = launcher::createBackupJson,
+                        restoreBackup = launcher::restoreBackupJson,
                         onGlobalScaleChanged = launcher::setGlobalIconScale,
                         onIconStyleChanged = launcher::setIconStyle,
                         onIconShapeChanged = launcher::setIconShape,
                         onHomeLabelsChanged = launcher::setHomeLabelsVisible,
                         onAddWidget = { overlay = Overlay.WIDGET_PICKER },
+                        onManageHiddenApps = { overlay = Overlay.HIDDEN_APPS },
                         onClose = { overlay = Overlay.NONE },
                     )
 
                     Overlay.WIDGET_PICKER -> WidgetPicker(
                         onAdd = launcher::addWidget,
+                        onClose = { overlay = Overlay.NONE },
+                    )
+
+                    Overlay.HIDDEN_APPS -> HiddenAppsPanel(
+                        apps = launcher.apps,
+                        hiddenPackages = launcher.hiddenPackages,
+                        onToggle = launcher::setPackageHidden,
                         onClose = { overlay = Overlay.NONE },
                     )
 
@@ -143,6 +154,11 @@ fun VeloraRoot(
                         ItemEditSheet(
                             item = item,
                             onScaleChanged = { launcher.setItemScale(item.id, it) },
+                            onRenameGroup = { launcher.renameGroup(item.id, it) },
+                            onUngroup = {
+                                launcher.ungroup(item.id)
+                                editingItemId = null
+                            },
                             onRemove = {
                                 launcher.removeFromHome(item.id)
                                 editingItemId = null
@@ -194,6 +210,12 @@ fun VeloraRoot(
                     },
                     onSettings = { overlay = Overlay.SETTINGS },
                 )
+
+                if (!launcher.onboardingComplete) {
+                    FirstRunSetup(
+                        onComplete = launcher::completeOnboarding,
+                    )
+                }
             }
         }
     }

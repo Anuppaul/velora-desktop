@@ -138,6 +138,19 @@ class LayoutStore(context: Context) {
             .apply()
     }
 
+    fun loadHiddenPackages(): Set<String> =
+        prefs.getStringSet(KEY_HIDDEN_PACKAGES, emptySet())?.toSet().orEmpty()
+
+    fun saveHiddenPackages(packages: Set<String>) {
+        prefs.edit().putStringSet(KEY_HIDDEN_PACKAGES, packages).apply()
+    }
+
+    fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+
+    fun setOnboardingComplete(complete: Boolean) {
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, complete).apply()
+    }
+
     private companion object {
         const val KEY_LAYOUT = "home_layout_v1"
         const val KEY_WIDGETS = "home_widgets_v1"
@@ -145,5 +158,7 @@ class LayoutStore(context: Context) {
         const val KEY_ICON_STYLE = "icon_style"
         const val KEY_ICON_SHAPE = "icon_shape"
         const val KEY_HOME_LABELS = "home_labels"
+        const val KEY_HIDDEN_PACKAGES = "hidden_packages"
+        const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     }
 }
