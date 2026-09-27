@@ -27,10 +27,32 @@ object NotificationRepository {
     }
 }
 
+object NotificationActions {
+    @Volatile
+    internal var service: VeloraNotificationListener? = null
+
+    fun dismiss(key: String): Boolean {
+        val active = service ?: return false
+        return runCatching {
+            active.cancelNotification(key)
+            true
+        }.getOrDefault(false)
+    }
+
+    fun clearAll(): Boolean {
+        val active = service ?: return false
+        return runCatching {
+            active.cancelAllNotifications()
+            true
+        }.getOrDefault(false)
+    }
+}
+
 class VeloraNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        NotificationActions.service = this
         refresh()
     }
 
@@ -43,8 +65,18 @@ class VeloraNotificationListener : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        if (NotificationActions.service === this) {
+            NotificationActions.service = null
+        }
         NotificationRepository.replace(emptyList())
         super.onListenerDisconnected()
+    }
+
+    override fun onDestroy() {
+        if (NotificationActions.service === this) {
+            NotificationActions.service = null
+        }
+        super.onDestroy()
     }
 
     private fun refresh() {
