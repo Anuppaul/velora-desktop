@@ -163,26 +163,23 @@ private fun PremiumWidgetCard(
 @Composable
 private fun ClockWidget(modifier: Modifier) {
     val now by ticker()
-    val palette = LocalVeloraPalette.current
 
-    GlassPanel(
-        modifier = modifier,
-        shape = RoundedCornerShape(30.dp),
-        contentPadding = PaddingValues(18.dp),
+    Box(
+        contentAlignment = Alignment.CenterStart,
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize(),
         ) {
             Text(
                 text = SimpleDateFormat("h:mm", Locale.getDefault()).format(now),
                 color = Color.White,
-                fontSize = 36.sp,
+                fontSize = 42.sp,
                 fontWeight = FontWeight.Light,
             )
             Text(
                 text = SimpleDateFormat("EEEE · d MMM", Locale.getDefault()).format(now),
-                color = Color.White.copy(alpha = 0.68f),
+                color = Color.White.copy(alpha = 0.66f),
                 fontSize = 12.sp,
             )
         }
@@ -244,61 +241,52 @@ private fun BatteryWidget(modifier: Modifier) {
             delay(30_000)
         }
     }
-    val palette = LocalVeloraPalette.current
 
-    GlassPanel(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        contentPadding = PaddingValues(16.dp),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize(),
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(54.dp),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(54.dp),
-            ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.12f),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 5.dp.toPx(),
-                        ),
-                    )
-                    val sweep = 360f * ((battery ?: 0) / 100f)
-                    drawArc(
-                        brush = Brush.sweepGradient(
-                            listOf(palette.accent, palette.secondary),
-                        ),
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 5.dp.toPx(),
-                            cap = StrokeCap.Round,
-                        ),
-                    )
-                }
-                Text(
-                    text = battery?.toString() ?: "—",
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.16f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 5.dp.toPx(),
+                    ),
+                )
+                val sweep = 360f * ((battery ?: 0) / 100f)
+                drawArc(
+                    color = Color.White.copy(alpha = 0.92f),
+                    startAngle = -90f,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    ),
                 )
             }
-            Column {
-                Text(
-                    text = "Battery",
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = battery?.let { it.toString() + "% remaining" } ?: "Unavailable",
-                    color = Color.White.copy(alpha = 0.60f),
-                    fontSize = 12.sp,
-                )
-            }
+            Text(
+                text = battery?.toString() ?: "—",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Column {
+            Text(
+                text = "Battery",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = battery?.let { it.toString() + "% remaining" } ?: "Unavailable",
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+            )
         }
     }
 }

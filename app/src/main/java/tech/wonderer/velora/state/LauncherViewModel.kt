@@ -75,8 +75,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             apps = loadedApps
 
             val stored = store.loadHomeItems()
-            homeItems = if (stored.isNotEmpty()) stored else seedHome(loadedApps)
-            if (stored.isEmpty() && homeItems.isNotEmpty()) {
+            homeItems = if (stored.isNotEmpty()) {
+                expandLegacyHomePages(stored, loadedApps)
+            } else {
+                seedHome(loadedApps)
+            }
+            if (homeItems != stored && homeItems.isNotEmpty()) {
                 store.saveHomeItems(homeItems)
             }
 
@@ -90,10 +94,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun visibleApps(): List<InstalledApp> =
-        apps.filterNot { it.packageName in hiddenPackages }
+    fun visibleApps(): List<InstalledApp> {
+        val usage = store.loadAppUsage()
+        return apps
+            .filterNot { it.packageName in hiddenPackages }
+            .sortedWith(
+                compareByDescending<InstalledApp> {
+                    usage[it.packageName]?.first ?: 0
+                }.thenByDescending {
+                    usage[it.packageName]?.second ?: 0L
+                }.thenBy {
+                    it.label.lowercase()
+                },
+            )
+    }
 
     fun launch(packageName: String) {
+        store.recordAppLaunch(packageName)
+        applyAdaptiveUsageLayout()
         AppCatalog.launch(getApplication(), packageName)
     }
 
@@ -636,6 +654,109 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun labelForPackage(packageName: String): String =
         apps.firstOrNull { it.packageName == packageName }?.label ?: packageName
 
+    private fun applyAdaptiveUsageLayout() {
+        val usage = store.loadAppUsage()
+        if (usage.isEmpty()) return
+
+        val slots = listOf(
+            0.08f to 0.40f,
+            0.39f to 0.38f,
+            0.70f to 0.42f,
+            0.12f to 0.58f,
+            0.42f to 0.57f,
+            0.72f to 0.60f,
+            0.08f to 0.76f,
+            0.39f to 0.75f,
+            0.70f to 0.78f,
+            0.18f to 0.88f,
+            0.56f to 0.88f,
+        )
+
+        val updates = mutableMapOf<String, HomeItem>()
+
+        homeItems
+            .filter { it.kind == HomeItemKind.APP && it.packageName != null }
+            .groupBy { it.page }
+            .forEach { (_, pageItems) ->
+                val ranked = pageItems.sortedWith(
+                    compareByDescending<HomeItem> {
+                        usage[it.packageName]?.first ?: 0
+                    }.thenByDescending {
+                        usage[it.packageName]?.second ?: 0L
+                    },
+                )
+                val maxCount = ranked.maxOfOrNull {
+                    usage[it.packageName]?.first ?: 0
+                }?.coerceAtLeast(1) ?: 1
+
+                ranked.forEachIndexed { index, item ->
+                    val packageName = item.packageName ?: return@forEachIndexed
+                    val count = usage[packageName]?.first ?: 0
+                    val normalized = sqrt(count.toFloat() / maxCount.toFloat())
+                    val adaptiveScale = (0.78f + normalized * 0.54f)
+                        .coerceIn(0.78f, 1.32f)
+                    val slot = slots[index % slots.size]
+                    val overflowBand = index / slots.size
+                    val y = (slot.second + overflowBand * 0.035f).coerceAtMost(0.90f)
+
+                    updates[item.id] = item.copy(
+                        x = slot.first,
+                        y = y,
+                        scale = adaptiveScale,
+                    )
+                }
+            }
+
+        if (updates.isNotEmpty()) {
+            homeItems = homeItems.map { updates[it.id] ?: it }
+            persist()
+        }
+    }
+
+    private fun expandLegacyHomePages(
+        existing: List<HomeItem>,
+        loadedApps: List<InstalledApp>,
+    ): List<HomeItem> {
+        if (existing.any { it.page > 0 }) return existing
+
+        val occupiedPackages = buildSet {
+            existing.forEach { item ->
+                item.packageName?.let { add(it) }
+                addAll(item.members)
+            }
+        }
+        val positions = listOf(
+            0.08f to 0.43f,
+            0.39f to 0.39f,
+            0.71f to 0.48f,
+            0.18f to 0.62f,
+            0.56f to 0.66f,
+            0.76f to 0.78f,
+        )
+        val candidates = loadedApps
+            .filterNot { it.packageName in hiddenPackages || it.packageName in occupiedPackages }
+            .take(positions.size * 2)
+
+        if (candidates.isEmpty()) return existing
+
+        val appended = candidates.mapIndexed { index, app ->
+            val page = 1 + index / positions.size
+            val (x, y) = positions[index % positions.size]
+            HomeItem(
+                id = "app-" + app.packageName,
+                kind = HomeItemKind.APP,
+                label = app.label,
+                packageName = app.packageName,
+                x = x,
+                y = y,
+                zIndex = 40f + index,
+                page = page.coerceAtMost(2),
+            )
+        }
+
+        return existing + appended
+    }
+
     private fun seedHome(loadedApps: List<InstalledApp>): List<HomeItem> {
         val positions = listOf(
             0.08f to 0.43f,
@@ -645,11 +766,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             0.56f to 0.66f,
             0.76f to 0.78f,
         )
+
         return loadedApps
             .filterNot { it.packageName in hiddenPackages }
-            .take(positions.size)
+            .take(positions.size * 3)
             .mapIndexed { index, app ->
-                val (x, y) = positions[index]
+                val page = index / positions.size
+                val (x, y) = positions[index % positions.size]
                 HomeItem(
                     id = "app-" + app.packageName,
                     kind = HomeItemKind.APP,
@@ -658,7 +781,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     x = x,
                     y = y,
                     zIndex = 10f + index,
-                    page = 0,
+                    page = page,
                 )
             }
     }

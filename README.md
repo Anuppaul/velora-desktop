@@ -259,3 +259,15 @@ Velora now separates distribution capabilities instead of putting every special 
 - Colab now treats `apksigner verify --min-sdk-version 26` exit code 0 as authoritative.
 - v1/v2/v3 lines remain visible for diagnostics only and no longer create a false failure after a valid build.
 - Colab identifies this source as `beta11-verifyfix` and requires versionCode 32.
+
+
+## Beta 12 gesture, scrolling and adaptive Home repair
+
+- Fixed the Home gesture arbitration bug that prevented swipe-up Apps, top-left Notifications, top-right Control Center and left/right Home-page swipes.
+- Swipe-dismiss now belongs only to the visible handle, so LazyColumn/LazyVerticalGrid content can scroll without fighting the dismiss gesture.
+- Clock and Battery premium widgets are now clean transparent widgets with no glass/palette background.
+- Velora records only launches made through Velora itself; no Android Usage Access permission is requested.
+- Home app icons adapt by local launch frequency: frequently used apps become larger, rarely used apps become smaller, and each page reorders into stable freeform slots.
+- Usage adaptation preserves each app's assigned Home page.
+- Fresh installs seed up to 18 apps across all three Home pages so page swiping is immediately visible.
+- Colab identifies this source as `beta12-gesture-adaptive` and requires versionCode 33.

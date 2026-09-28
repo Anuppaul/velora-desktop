@@ -243,6 +243,35 @@ class LayoutStore(context: Context) {
     fun loadHiddenPackages(): Set<String> =
         prefs.getStringSet(KEY_HIDDEN_PACKAGES, emptySet())?.toSet().orEmpty()
 
+    fun recordAppLaunch(packageName: String) {
+        val usage = runCatching {
+            JSONObject(prefs.getString(KEY_APP_USAGE, "{}") ?: "{}")
+        }.getOrDefault(JSONObject())
+        val current = usage.optJSONObject(packageName) ?: JSONObject()
+        current.put("count", current.optInt("count", 0) + 1)
+        current.put("lastUsedAt", System.currentTimeMillis())
+        usage.put(packageName, current)
+        prefs.edit().putString(KEY_APP_USAGE, usage.toString()).apply()
+    }
+
+    fun loadAppUsage(): Map<String, Pair<Int, Long>> {
+        val usage = runCatching {
+            JSONObject(prefs.getString(KEY_APP_USAGE, "{}") ?: "{}")
+        }.getOrDefault(JSONObject())
+
+        return buildMap {
+            val keys = usage.keys()
+            while (keys.hasNext()) {
+                val packageName = keys.next()
+                val item = usage.optJSONObject(packageName) ?: continue
+                put(
+                    packageName,
+                    item.optInt("count", 0) to item.optLong("lastUsedAt", 0L),
+                )
+            }
+        }
+    }
+
     fun saveHiddenPackages(packages: Set<String>) {
         prefs.edit().putStringSet(KEY_HIDDEN_PACKAGES, packages).apply()
     }
@@ -268,6 +297,7 @@ class LayoutStore(context: Context) {
         const val KEY_ICON_SHAPE = "icon_shape"
         const val KEY_HOME_LABELS = "home_labels"
         const val KEY_HIDDEN_PACKAGES = "hidden_packages"
+        const val KEY_APP_USAGE = "app_usage_v1"
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     }
 }

@@ -3,7 +3,7 @@ package tech.wonderer.velora.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,17 +17,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -45,9 +46,11 @@ fun SwipeDismissSurface(
 ) {
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
+    val scope = rememberCoroutineScope()
     val screenHeightPx = with(density) {
         configuration.screenHeightDp.dp.toPx().coerceAtLeast(1f)
     }
+    val thresholdPx = with(density) { 64.dp.toPx() }
     val entryOffset = if (direction == SwipeDismissDirection.UP) {
         -screenHeightPx
     } else {
@@ -78,95 +81,12 @@ fun SwipeDismissSurface(
                     x = 0,
                     y = (animatedOffset.value + dragOffset).roundToInt(),
                 )
-            }
-            .pointerInput(direction, onDismiss, screenHeightPx) {
-                val thresholdPx = 76.dp.toPx()
-                val topHandleZonePx = 116.dp.toPx()
-                val bottomHandleZonePx = 190.dp.toPx()
-
-                while (true) {
-                    val completedDrag = awaitPointerEventScope {
-                        val down = awaitFirstDown(
-                            requireUnconsumed = false,
-                            pass = PointerEventPass.Initial,
-                        )
-
-                        val canDismiss = when (direction) {
-                            SwipeDismissDirection.UP ->
-                                down.position.y >= size.height - bottomHandleZonePx
-
-                            SwipeDismissDirection.DOWN ->
-                                down.position.y <= topHandleZonePx
-                        }
-
-                        if (!canDismiss) {
-                            var pressed = true
-                            while (pressed) {
-                                val event = awaitPointerEvent(PointerEventPass.Final)
-                                pressed = event.changes.any { it.pressed }
-                            }
-                            return@awaitPointerEventScope null
-                        }
-
-                        val startY = down.position.y
-                        var latestOffset = 0f
-                        var pressed = true
-
-                        while (pressed) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            val change = event.changes.firstOrNull { it.id == down.id }
-
-                            if (change == null) {
-                                pressed = false
-                            } else {
-                                val rawDelta = change.position.y - startY
-                                latestOffset = when (direction) {
-                                    SwipeDismissDirection.UP ->
-                                        rawDelta.coerceAtMost(0f)
-
-                                    SwipeDismissDirection.DOWN ->
-                                        rawDelta.coerceAtLeast(0f)
-                                }
-                                dragOffset = latestOffset
-                                pressed = change.pressed
-                            }
-                        }
-
-                        latestOffset
-                    }
-
-                    if (completedDrag == null) {
-                        continue
-                    }
-
-                    animatedOffset.snapTo(dragOffset)
-                    dragOffset = 0f
-
-                    if (abs(completedDrag) >= thresholdPx) {
-                        val exitOffset = if (direction == SwipeDismissDirection.UP) {
-                            -screenHeightPx
-                        } else {
-                            screenHeightPx
-                        }
-
-                        animatedOffset.animateTo(
-                            targetValue = exitOffset,
-                            animationSpec = tween(durationMillis = 180),
-                        )
-                        onDismiss()
-                        return@pointerInput
-                    }
-
-                    animatedOffset.animateTo(
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = 160),
-                    )
-                }
             },
     ) {
         content()
 
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .align(
                     if (direction == SwipeDismissDirection.UP) {
@@ -176,13 +96,70 @@ fun SwipeDismissSurface(
                     },
                 )
                 .padding(
-                    top = if (direction == SwipeDismissDirection.DOWN) 12.dp else 0.dp,
-                    bottom = if (direction == SwipeDismissDirection.UP) 94.dp else 0.dp,
+                    top = if (direction == SwipeDismissDirection.DOWN) 52.dp else 0.dp,
+                    bottom = if (direction == SwipeDismissDirection.UP) 82.dp else 0.dp,
                 )
-                .width(42.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.White.copy(alpha = 0.34f)),
-        )
+                .width(96.dp)
+                .height(44.dp)
+                .pointerInput(direction, onDismiss, screenHeightPx) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            dragOffset = when (direction) {
+                                SwipeDismissDirection.UP ->
+                                    (dragOffset + dragAmount).coerceAtMost(0f)
+
+                                SwipeDismissDirection.DOWN ->
+                                    (dragOffset + dragAmount).coerceAtLeast(0f)
+                            }
+                        },
+                        onDragCancel = {
+                            val completed = dragOffset
+                            scope.launch {
+                                animatedOffset.snapTo(completed)
+                                dragOffset = 0f
+                                animatedOffset.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = tween(durationMillis = 150),
+                                )
+                            }
+                        },
+                        onDragEnd = {
+                            val completed = dragOffset
+                            scope.launch {
+                                animatedOffset.snapTo(completed)
+                                dragOffset = 0f
+
+                                if (abs(completed) >= thresholdPx) {
+                                    val exitOffset =
+                                        if (direction == SwipeDismissDirection.UP) {
+                                            -screenHeightPx
+                                        } else {
+                                            screenHeightPx
+                                        }
+                                    animatedOffset.animateTo(
+                                        targetValue = exitOffset,
+                                        animationSpec = tween(durationMillis = 170),
+                                    )
+                                    onDismiss()
+                                } else {
+                                    animatedOffset.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = tween(durationMillis = 150),
+                                    )
+                                }
+                            }
+                        },
+                    )
+                },
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(42.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.White.copy(alpha = 0.38f)),
+            )
+        }
     }
 }

@@ -109,7 +109,10 @@ fun HomeCanvas(
                         gestureStartY = down.position.y
                         gestureX = 0f
                         gestureY = 0f
-                        childConsumedGesture = down.isConsumed
+                        // The empty-space long-press detector consumes the initial DOWN.
+                        // Only movement consumed later by an actual child drag should cancel
+                        // Home-level swipes.
+                        childConsumedGesture = false
 
                         var lastX = down.position.x
                         var lastY = down.position.y
@@ -122,7 +125,7 @@ fun HomeCanvas(
                             if (change == null) {
                                 pressed = false
                             } else {
-                                if (change.isConsumed) {
+                                if (change.isConsumed && change.pressed) {
                                     childConsumedGesture = true
                                 } else {
                                     gestureX += change.position.x - lastX
@@ -141,13 +144,13 @@ fun HomeCanvas(
                         val topGestureZone = 140.dp.toPx()
 
                         when {
-                            absX > 110.dp.toPx() && absX > absY * 1.15f -> {
+                            absX > 72.dp.toPx() && absX > absY * 1.15f -> {
                                 if (gestureX < 0f) onSwipeLeft() else onSwipeRight()
                             }
 
-                            gestureY < -120.dp.toPx() && absY > absX -> onSwipeUp()
+                            gestureY < -88.dp.toPx() && absY > absX -> onSwipeUp()
 
-                            gestureY > 120.dp.toPx() &&
+                            gestureY > 88.dp.toPx() &&
                                 absY > absX &&
                                 gestureStartY <= topGestureZone -> {
                                 if (gestureStartX < size.width / 2f) {
