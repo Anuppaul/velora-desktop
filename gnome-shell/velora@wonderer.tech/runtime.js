@@ -67,6 +67,7 @@ export default class VeloraRuntime extends Extension {
         this._showAppsCheckedId = 0;
         this._overviewHiddenId = 0;
 
+        this._removeStaleLayers();
         this._createLayer();
         this._createOrb();
         this._connectSignals();
@@ -122,6 +123,8 @@ export default class VeloraRuntime extends Extension {
         this._layer?.destroy();
         this._layer = null;
         this._orb = null;
+        this._orbContent = null;
+        this._orbFace = null;
         this._orbMark = null;
         this._panGesture = null;
         this._tooltip = null;
@@ -138,6 +141,21 @@ export default class VeloraRuntime extends Extension {
         this._overviewHiddenId = 0;
     }
 
+    _removeStaleLayers() {
+        for (const actor of Main.uiGroup.get_children()) {
+            if (actor.get_name?.() === 'velora-desktop-layer') {
+                try {
+                    actor.destroy();
+                } catch (error) {
+                    logError(
+                        error,
+                        'Velora Desktop: stale layer cleanup failed'
+                    );
+                }
+            }
+        }
+    }
+
     _createLayer() {
         this._layer = new St.Widget({
             name: 'velora-desktop-layer',
@@ -151,22 +169,41 @@ export default class VeloraRuntime extends Extension {
     }
 
     _createOrb() {
+        this._orbContent = new St.Widget({
+            style_class: 'velora-orb-content-v2',
+            reactive: false,
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.FILL,
+            y_align: Clutter.ActorAlign.FILL,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+
+        this._orbFace = new St.Widget({
+            style_class: 'velora-orb-face-v2',
+            reactive: false,
+        });
+
         this._orbMark = new St.Icon({
             icon_name: DEFAULT_ORB_ICON,
             fallback_icon_name: FALLBACK_ORB_ICON,
             icon_size: 24,
-            style_class: 'velora-orb-mark',
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'velora-orb-glyph-v2',
+            reactive: false,
         });
+
+        this._orbContent.add_child(this._orbFace);
+        this._orbContent.add_child(this._orbMark);
+
         this._orb = new St.Button({
-            style_class: 'velora-orb',
+            style_class: 'velora-orb-hitbox-v2',
             accessible_name: 'Velora',
             can_focus: true,
             reactive: true,
             track_hover: true,
-            child: this._orbMark,
+            child: this._orbContent,
         });
+
         this._layer.add_child(this._orb);
         this._applyOrbAppearance();
 
@@ -174,7 +211,10 @@ export default class VeloraRuntime extends Extension {
             if (this._dragging)
                 return;
 
-            if (this._orb.get_hover()) {
+            const hovering = this._orb.get_hover();
+            this._setOrbVisualPseudoClass('hover', hovering);
+
+            if (hovering) {
                 this._cancelOrbAutoFadeTimer();
                 this._restoreOrbOpacity(true);
                 this._revealOrb();
@@ -216,7 +256,7 @@ export default class VeloraRuntime extends Extension {
             this._closeMenu(true);
             this._orb.fake_release();
             this._dragGrab = global.stage.grab(this._orb);
-            this._orb.add_style_pseudo_class('dragging');
+            this._setOrbVisualPseudoClass('dragging', true);
             return Clutter.EVENT_STOP;
         });
 
@@ -249,7 +289,7 @@ export default class VeloraRuntime extends Extension {
                 this._dragGrab = null;
             }
 
-            this._orb.remove_style_pseudo_class('dragging');
+            this._setOrbVisualPseudoClass('dragging', false);
             this._clampOrbToStage();
             this._storeOrbPosition();
             this._suppressClickUntil = GLib.get_monotonic_time() + 250000;
@@ -259,6 +299,16 @@ export default class VeloraRuntime extends Extension {
 
         this._panGesture.connect('end', finishDrag);
         this._panGesture.connect('cancel', finishDrag);
+    }
+
+    _setOrbVisualPseudoClass(name, enabled) {
+        if (!this._orbFace)
+            return;
+
+        if (enabled)
+            this._orbFace.add_style_pseudo_class(name);
+        else
+            this._orbFace.remove_style_pseudo_class(name);
     }
 
     _connectSignals() {
@@ -470,26 +520,37 @@ export default class VeloraRuntime extends Extension {
     }
 
     _applyOrbAppearance() {
-        if (!this._orb)
+        if (
+            !this._orb ||
+            !this._orbContent ||
+            !this._orbFace ||
+            !this._orbMark
+        ) {
             return;
+        }
 
         const size = this._settings.get_int('orb-size');
         const opacity = this._settings.get_int('orb-opacity');
 
         this._orb.set_size(size, size);
+        this._orbContent.set_size(size, size);
+        this._orbFace.set_position(0, 0);
+        this._orbFace.set_size(size, size);
+
         this._orb.opacity = this._orbFaded
             ? 0
             : Math.round(opacity * 2.55);
 
-        // Keep the child strictly inside the configured Orb diameter. GNOME
-        // theme metrics can otherwise leave a larger button footprint when
-        // the Orb is configured near the 20px minimum.
         const markSize = Math.max(
             8,
-            Math.min(size - 4, Math.round(size * 0.44))
+            Math.min(size - 6, Math.round(size * 0.44))
         );
+        const markOffset = Math.round((size - markSize) / 2);
+
         this._orbMark.set_icon_size(markSize);
         this._orbMark.set_size(markSize, markSize);
+        this._orbMark.set_position(markOffset, markOffset);
+
         this._applyOrbIcon();
     }
 
@@ -505,10 +566,12 @@ export default class VeloraRuntime extends Extension {
         if (configured.startsWith('/')) {
             const file = Gio.File.new_for_path(configured);
             if (file.query_exists(null)) {
+                this._orbMark.icon_name = null;
                 this._orbMark.gicon = new Gio.FileIcon({file});
                 return;
             }
 
+            this._orbMark.gicon = null;
             this._orbMark.icon_name = DEFAULT_ORB_ICON;
             return;
         }
@@ -516,14 +579,17 @@ export default class VeloraRuntime extends Extension {
         if (configured.startsWith('file://')) {
             const file = Gio.File.new_for_uri(configured);
             if (file.query_exists(null)) {
+                this._orbMark.icon_name = null;
                 this._orbMark.gicon = new Gio.FileIcon({file});
                 return;
             }
 
+            this._orbMark.gicon = null;
             this._orbMark.icon_name = DEFAULT_ORB_ICON;
             return;
         }
 
+        this._orbMark.gicon = null;
         this._orbMark.icon_name = configured;
     }
 
@@ -963,7 +1029,7 @@ export default class VeloraRuntime extends Extension {
             return;
 
         this._menuOpen = true;
-        this._orb.add_style_pseudo_class('open');
+        this._setOrbVisualPseudoClass('open', true);
 
         const orbSize = this._settings.get_int('orb-size');
         const iconSize = this._settings.get_int('icon-size');
@@ -1028,7 +1094,7 @@ export default class VeloraRuntime extends Extension {
         const visibleCapacity = totalCapacity(capacities);
         if (visibleCapacity === 0) {
             this._menuOpen = false;
-            this._orb.remove_style_pseudo_class('open');
+            this._setOrbVisualPseudoClass('open', false);
             return;
         }
 
@@ -1177,7 +1243,7 @@ export default class VeloraRuntime extends Extension {
         }
 
         this._menuOpen = false;
-        this._orb?.remove_style_pseudo_class('open');
+        this._setOrbVisualPseudoClass('open', false);
         const actors = this._radialActors;
         this._radialActors = [];
 
