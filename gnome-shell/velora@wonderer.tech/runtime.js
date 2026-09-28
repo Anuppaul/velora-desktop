@@ -1445,6 +1445,21 @@ export default class VeloraRuntime extends Extension {
             }
         });
 
+        app.connectObject('windows-changed', () => {
+            if (
+                this._appPreviewApp !== app ||
+                !this._appPreviewAnchor
+            ) {
+                return;
+            }
+
+            const anchor = this._appPreviewAnchor;
+            this._hideAppPreview(true);
+
+            if (anchor.get_parent())
+                this._showAppPreview(app, anchor);
+        }, card);
+
         this._layer.add_child(card);
         this._appPreview = card;
         this._appPreviewApp = app;
@@ -1521,6 +1536,9 @@ export default class VeloraRuntime extends Extension {
             if (tile.get_hover()) {
                 this._cancelCloseTimer();
                 this._cancelAppPreviewHide();
+            } else {
+                this._scheduleAppPreviewHide();
+                this._scheduleClose();
             }
         });
 
