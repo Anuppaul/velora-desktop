@@ -15,14 +15,13 @@ import {
     clamp,
     effectiveRingGap,
     ICON_HOVER_SCALE,
-    safeColor,
     selectEvenlySpacedSlots,
     slotsForRings,
     totalCapacity,
 } from './geometry.js';
 
-const DEFAULT_ACCENT_START = '#4aa8ff';
-const DEFAULT_ACCENT_END = '#8b5cf6';
+const DEFAULT_ORB_ICON = 'view-app-grid-ubuntu-symbolic';
+const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 
 export default class VeloraRuntime extends Extension {
@@ -38,6 +37,8 @@ export default class VeloraRuntime extends Extension {
         this._dragging = false;
         this._openTimeoutId = 0;
         this._closeTimeoutId = 0;
+        this._orbAutoHideTimeoutId = 0;
+        this._orbHidden = false;
         this._suppressClickUntil = 0;
         this._writingOrbPosition = false;
         this._dragCurrentX = 0;
@@ -49,11 +50,13 @@ export default class VeloraRuntime extends Extension {
         this._connectSignals();
         this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
         this._syncOrbFromSettings();
+        this._scheduleOrbAutoHide();
     }
 
     disable() {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
         this._closeMenu(true);
         this._destroyClosingActors();
         this._dock?.destroy();
@@ -126,16 +129,21 @@ export default class VeloraRuntime extends Extension {
             if (this._dragging)
                 return;
 
-            if (this._orb.get_hover())
+            if (this._orb.get_hover()) {
+                this._revealOrb();
+                this._cancelOrbAutoHideTimer();
                 this._scheduleOpen();
-            else
+            } else {
                 this._scheduleClose();
+                this._scheduleOrbAutoHide();
+            }
         });
 
         this._orb.connect('clicked', () => {
             if (GLib.get_monotonic_time() < this._suppressClickUntil)
                 return;
 
+            this._revealOrb();
             this._showAllApps();
         });
 
@@ -151,6 +159,8 @@ export default class VeloraRuntime extends Extension {
             this._dragging = true;
             this._cancelOpenTimer();
             this._cancelCloseTimer();
+            this._cancelOrbAutoHideTimer();
+            this._revealOrb();
             this._closeMenu(true);
             this._orb.fake_release();
             this._dragGrab = global.stage.grab(this._orb);
@@ -191,6 +201,7 @@ export default class VeloraRuntime extends Extension {
             this._clampOrbToStage();
             this._storeOrbPosition();
             this._suppressClickUntil = GLib.get_monotonic_time() + 250000;
+            this._scheduleOrbAutoHide();
         };
 
         this._panGesture.connect('end', finishDrag);
@@ -210,9 +221,23 @@ export default class VeloraRuntime extends Extension {
             if (key === 'hide-ubuntu-dock')
                 this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
 
-            if (['orb-size', 'orb-opacity', 'accent-start', 'accent-end'].includes(key)) {
+            if (['orb-size', 'orb-opacity', 'orb-icon'].includes(key)) {
                 this._applyOrbAppearance();
                 this._syncOrbFromSettings();
+            }
+
+            if (key === 'auto-hide-orb') {
+                if (this._settings.get_boolean('auto-hide-orb'))
+                    this._scheduleOrbAutoHide();
+                else {
+                    this._cancelOrbAutoHideTimer();
+                    this._revealOrb();
+                }
+            }
+
+            if (key === 'auto-hide-delay' && this._settings.get_boolean('auto-hide-orb')) {
+                this._cancelOrbAutoHideTimer();
+                this._scheduleOrbAutoHide();
             }
 
             if ([
@@ -259,25 +284,35 @@ export default class VeloraRuntime extends Extension {
 
         const size = this._settings.get_int('orb-size');
         const opacity = this._settings.get_int('orb-opacity');
-        const start = safeColor(
-            this._settings.get_string('accent-start'),
-            DEFAULT_ACCENT_START
-        );
-        const end = safeColor(
-            this._settings.get_string('accent-end'),
-            DEFAULT_ACCENT_END
-        );
 
         this._orb.set_size(size, size);
         this._orb.opacity = Math.round(opacity * 2.55);
-        this._orb.set_style(
-            'background-gradient-direction: horizontal; ' +
-            'background-gradient-start: ' + start + '; ' +
-            'background-gradient-end: ' + end + ';'
-        );
         this._orbMark.set_icon_size(
-            Math.max(18, Math.round(size * 0.42))
+            Math.max(18, Math.round(size * 0.44))
         );
+        this._applyOrbIcon();
+    }
+
+    _applyOrbIcon() {
+        if (!this._orbMark)
+            return;
+
+        const configured =
+            this._settings.get_string('orb-icon').trim() || DEFAULT_ORB_ICON;
+
+        let gicon;
+        if (configured.startsWith('/')) {
+            const file = Gio.File.new_for_path(configured);
+            if (file.query_exists(null))
+                gicon = new Gio.FileIcon({file});
+        } else if (configured.startsWith('file://')) {
+            const file = Gio.File.new_for_uri(configured);
+            if (file.query_exists(null))
+                gicon = new Gio.FileIcon({file});
+        }
+
+        this._orbMark.gicon =
+            gicon ?? new Gio.ThemedIcon({name: configured});
     }
 
     _syncOrbFromSettings() {
@@ -299,6 +334,110 @@ export default class VeloraRuntime extends Extension {
         );
 
         this._orb.set_position(x, y);
+
+        if (this._orbHidden)
+            this._applyOrbHiddenPosition(x, y, size);
+    }
+
+    _scheduleOrbAutoHide() {
+        this._cancelOrbAutoHideTimer();
+
+        if (
+            !this._orb ||
+            !this._settings.get_boolean('auto-hide-orb') ||
+            this._dragging ||
+            this._menuOpen ||
+            this._orb.get_hover()
+        ) {
+            return;
+        }
+
+        const delay = this._settings.get_int('auto-hide-delay');
+        this._orbAutoHideTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+                this._orbAutoHideTimeoutId = 0;
+
+                if (
+                    !this._orb ||
+                    !this._settings.get_boolean('auto-hide-orb') ||
+                    this._dragging ||
+                    this._menuOpen ||
+                    this._orb.get_hover()
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                this._hideOrbToEdge();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelOrbAutoHideTimer() {
+        if (this._orbAutoHideTimeoutId) {
+            GLib.source_remove(this._orbAutoHideTimeoutId);
+            this._orbAutoHideTimeoutId = 0;
+        }
+    }
+
+    _hideOrbToEdge() {
+        if (!this._orb || this._orbHidden)
+            return;
+
+        const size = this._settings.get_int('orb-size');
+        const [x, y] = this._orb.get_position();
+
+        this._orbHidden = true;
+        this._applyOrbHiddenPosition(x, y, size);
+    }
+
+    _applyOrbHiddenPosition(x, y, size) {
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        const monitor = this._nearestMonitor(centerX, centerY);
+
+        const distances = [
+            ['left', Math.abs(centerX - monitor.x)],
+            ['right', Math.abs(monitor.x + monitor.width - centerX)],
+            ['top', Math.abs(centerY - monitor.y)],
+            ['bottom', Math.abs(monitor.y + monitor.height - centerY)],
+        ];
+        distances.sort((a, b) => a[1] - b[1]);
+
+        let hiddenX = x;
+        let hiddenY = y;
+
+        switch (distances[0][0]) {
+        case 'left':
+            hiddenX = monitor.x - size + ORB_AUTO_HIDE_REVEAL_PX;
+            break;
+        case 'right':
+            hiddenX = monitor.x + monitor.width - ORB_AUTO_HIDE_REVEAL_PX;
+            break;
+        case 'top':
+            hiddenY = monitor.y - size + ORB_AUTO_HIDE_REVEAL_PX;
+            break;
+        case 'bottom':
+            hiddenY = monitor.y + monitor.height - ORB_AUTO_HIDE_REVEAL_PX;
+            break;
+        }
+
+        this._orb.ease({
+            x: hiddenX,
+            y: hiddenY,
+            duration: 150,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _revealOrb() {
+        if (!this._orb || !this._orbHidden)
+            return;
+
+        this._orbHidden = false;
+        this._syncOrbFromSettings();
     }
 
     _clampOrbToStage() {
@@ -402,6 +541,12 @@ export default class VeloraRuntime extends Extension {
                 new Error('GNOME Applications button is unavailable'),
                 'Velora Desktop: failed to open Applications view'
             );
+            return;
+        }
+
+        if (showAppsButton.checked) {
+            showAppsButton.checked = false;
+            Main.overview.hide();
             return;
         }
 
