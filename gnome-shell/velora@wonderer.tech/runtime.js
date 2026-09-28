@@ -828,7 +828,7 @@ export default class VeloraRuntime extends Extension {
             ? configuredRingMode
             : 'auto';
 
-        let rings = ringMode === 'auto' ? 2 : Number(ringMode);
+        let rings = ringMode === 'auto' ? 1 : Number(ringMode);
         let slotRings = null;
         let capacities = null;
 
