@@ -32,6 +32,7 @@ import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.service.NotificationActions
 import tech.wonderer.velora.service.NotificationRepository
 import tech.wonderer.velora.service.VeloraNotification
+import tech.wonderer.velora.ui.components.FullPageLiquidGlass
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
 import tech.wonderer.velora.ui.components.SwipeDismissSurface
@@ -70,14 +71,16 @@ fun NotificationCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        LiquidGlassPanel(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-        shape = RoundedCornerShape(34.dp),
-        contentPadding = PaddingValues(18.dp),
-        intensity = 0.74f,
-    ) {
+        FullPageLiquidGlass(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = 68.dp,
+                bottom = 96.dp,
+                start = 18.dp,
+                end = 18.dp,
+            ),
+            intensity = 0.74f,
+        ) {
         Column(Modifier.fillMaxSize()) {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,

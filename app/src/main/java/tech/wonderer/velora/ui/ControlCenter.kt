@@ -45,6 +45,7 @@ import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.BuildConfig
 import tech.wonderer.velora.service.VeloraNotificationListener
+import tech.wonderer.velora.ui.components.FullPageLiquidGlass
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
@@ -101,12 +102,14 @@ fun ControlCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        LiquidGlassPanel(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-            shape = RoundedCornerShape(34.dp),
-            contentPadding = PaddingValues(18.dp),
+        FullPageLiquidGlass(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = 68.dp,
+                bottom = 96.dp,
+                start = 18.dp,
+                end = 18.dp,
+            ),
             intensity = 0.74f,
         ) {
             LazyColumn(

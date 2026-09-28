@@ -223,3 +223,13 @@ Velora now separates distribution capabilities instead of putting every special 
 - Accessibility disclosure appears only in development builds and explains that Velora uses it only for global navigation actions.
 - Settings and Control Center now use granular build capability flags instead of one broad sensitive-integration switch.
 - Colab defaults to `sideloadRelease`. Set `BUILD_CHANNEL = 'play'` only when intentionally building the Play distribution.
+
+
+## Beta 08 borderless full-page glass surfaces
+
+- Notifications no longer sit inside a rounded outer glass card.
+- Control Center no longer sits inside a rounded outer glass card.
+- All Apps no longer sits inside a rounded outer glass card.
+- All three use one borderless edge-to-edge FullPageLiquidGlass layer while the underlying Home remains blurred.
+- Inner notification/control/action cards keep their local rounded glass treatment.
+- Colab preflight prints NOTEBOOK BUILD: beta08-fullpage and requires versionCode 29.

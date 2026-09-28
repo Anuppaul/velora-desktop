@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.wonderer.velora.ui.components.FullPageLiquidGlass
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
@@ -45,12 +46,14 @@ fun SimulationControlCenter(
         direction = SwipeDismissDirection.UP,
         onDismiss = onClose,
     ) {
-        LiquidGlassPanel(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-            shape = RoundedCornerShape(34.dp),
-            contentPadding = PaddingValues(18.dp),
+        FullPageLiquidGlass(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = 68.dp,
+                bottom = 96.dp,
+                start = 18.dp,
+                end = 18.dp,
+            ),
             intensity = 0.74f,
         ) {
             LazyColumn(

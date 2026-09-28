@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import tech.wonderer.velora.data.InstalledApp
+import tech.wonderer.velora.ui.components.FullPageLiquidGlass
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 import tech.wonderer.velora.ui.components.ModalBackdrop
 import tech.wonderer.velora.ui.components.SwipeDismissDirection
@@ -100,15 +101,19 @@ fun AppDrawer(
                 .fillMaxSize()
                 .onGloballyPositioned { drawerSize = it.size },
         ) {
-            LiquidGlassPanel(
+            FullPageLiquidGlass(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp)
                     .graphicsLayer {
                         alpha = if (draggingApp != null) 0.18f else 1f
                     },
-                shape = RoundedCornerShape(34.dp),
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+                contentPadding = PaddingValues(
+                    top = 68.dp,
+                    bottom = 96.dp,
+                    start = 18.dp,
+                    end = 18.dp,
+                ),
+                intensity = 0.74f,
             ) {
                 Column(Modifier.fillMaxSize()) {
                     Row(

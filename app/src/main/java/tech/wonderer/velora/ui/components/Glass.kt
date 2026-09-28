@@ -239,3 +239,78 @@ fun LiquidGlassPanel(
         )
     }
 }
+
+
+@Composable
+fun FullPageLiquidGlass(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    intensity: Float = 0.74f,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val palette = LocalVeloraPalette.current
+    val glassIntensity = intensity.coerceIn(0.35f, 1f)
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.08f * glassIntensity),
+                        palette.secondary.copy(alpha = 0.12f * glassIntensity),
+                        palette.accent.copy(alpha = 0.08f * glassIntensity),
+                        Color(0xFF09111F).copy(alpha = 0.30f * glassIntensity),
+                    ),
+                ),
+            ),
+    ) {
+        Canvas(Modifier.matchParentSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.16f * glassIntensity),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.18f, size.height * 0.05f),
+                    radius = size.width * 0.78f,
+                ),
+                radius = size.width * 0.78f,
+                center = Offset(size.width * 0.18f, size.height * 0.05f),
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        palette.secondary.copy(alpha = 0.18f * glassIntensity),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.98f, size.height * 0.48f),
+                    radius = size.width * 0.66f,
+                ),
+                radius = size.width * 0.66f,
+                center = Offset(size.width * 0.98f, size.height * 0.48f),
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        palette.accent.copy(alpha = 0.14f * glassIntensity),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width * 0.04f, size.height * 0.92f),
+                    radius = size.width * 0.58f,
+                ),
+                radius = size.width * 0.58f,
+                center = Offset(size.width * 0.04f, size.height * 0.92f),
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+            content = content,
+        )
+    }
+}
