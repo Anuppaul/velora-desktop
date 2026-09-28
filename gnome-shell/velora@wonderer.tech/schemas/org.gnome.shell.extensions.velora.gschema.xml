@@ -48,7 +48,7 @@
       <summary>Dock icon ring count mode: auto, 2, 3 or 4</summary>
     </key>
     <key name="orb-size" type="i">
-      <default>46</default>
+      <default>44</default>
       <range min="32" max="80"/>
       <summary>Floating Velora orb size</summary>
     </key>
@@ -96,7 +96,7 @@
       <summary>Radial open and close animation duration</summary>
     </key>
     <key name="orb-opacity" type="i">
-      <default>94</default>
+      <default>100</default>
       <range min="35" max="100"/>
       <summary>Orb opacity percentage</summary>
     </key>
