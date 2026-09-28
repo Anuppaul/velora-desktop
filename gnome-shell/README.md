@@ -6,7 +6,11 @@ Velora Desktop is a GNOME-native adaptation of the Velora launcher concept, not 
 
 - Ubuntu Dock is hidden while Velora is enabled.
 - Velora clears fixed-dock reservation so a hidden dock does not leave an empty workspace gap.
+- Orb and Liquid Glass Dock are independent launcher surfaces; either one or both can be enabled.
 - One movable Velora Orb defaults to the top-left.
+- The independent Liquid Glass Dock shows Favorites + running apps in a floating edge-aligned glass surface.
+- Liquid Dock hover reuses Velora's native live window previews.
+- Liquid Dock can adapt its tint to the wallpaper, use GNOME background blur, move to any screen edge and auto-hide.
 - Drag the Orb anywhere; its position survives resolution changes and is kept on a real monitor.
 - Hover the Orb -> GNOME Favorites + currently running apps.
 - Click the Orb -> toggles the GNOME Applications view open/closed.
@@ -43,6 +47,7 @@ Velora is split into:
     runtime.css        hot-swappable visual layer
     apps.js
     dock.js
+    floatingDock.js
     geometry.js
 
 The bootstrap watches an internal `runtime-revision` GSettings key.
@@ -130,6 +135,13 @@ Inspect hot runtime status:
 
 Velora exposes:
 
+- Orb on/off.
+- Liquid Glass Dock on/off; Orb and Dock may be enabled together.
+- Liquid Dock position: bottom / top / left / right.
+- Liquid Dock icon size, gap, edge distance and glass opacity.
+- Wallpaper-adaptive Liquid Dock tint.
+- Optional native background blur with a no-blur fallback.
+- Liquid Dock auto-hide with configurable delay.
 - Hide/show Ubuntu Dock.
 - Adaptive / forced 2 / 3 / 4 hover layers.
 - Hover app icon size (20–80 px).
