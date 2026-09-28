@@ -1,6 +1,4 @@
 import Clutter from 'gi://Clutter';
-import GdkPixbuf from 'gi://GdkPixbuf';
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -9,11 +7,13 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {collectDockApps} from './apps.js';
 
-const DOCK_PADDING = 8;
-const DOCK_HOVER_PADDING = 10;
+const DOCK_PADDING_TOP = 16;
+const DOCK_PADDING_RIGHT = 24;
+const DOCK_PADDING_BOTTOM = 14;
+const DOCK_PADDING_LEFT = 24;
 const DOCK_REVEAL_PX = 7;
 const DOCK_HOVER_SCALE = 0.95;
-const DEFAULT_TINT = [245, 247, 252];
+const GLASS_FILTER_INSET = 3;
 
 export class FloatingDockController {
     constructor(params) {
@@ -30,35 +30,14 @@ export class FloatingDockController {
         this._hideTooltip = params.hideTooltip;
 
         this._root = null;
-        this._glassTint = null;
+        this._glassFilter = null;
+        this._glassOverlay = null;
+        this._glassSpecular = null;
         this._box = null;
         this._buttons = [];
         this._hideTimeoutId = 0;
         this._hidden = false;
         this._blurEffect = null;
-        this._wallpaperColorCache = null;
-
-        this._backgroundSettings = new Gio.Settings({
-            schema_id: 'org.gnome.desktop.background',
-        });
-        this._interfaceSettings = new Gio.Settings({
-            schema_id: 'org.gnome.desktop.interface',
-        });
-
-        this._wallpaperChangedIds = [
-            this._backgroundSettings.connect(
-                'changed::picture-uri',
-                () => this._invalidateWallpaperTint()
-            ),
-            this._backgroundSettings.connect(
-                'changed::picture-uri-dark',
-                () => this._invalidateWallpaperTint()
-            ),
-            this._interfaceSettings.connect(
-                'changed::color-scheme',
-                () => this._invalidateWallpaperTint()
-            ),
-        ];
     }
 
     setEnabled(enabled) {
@@ -74,22 +53,33 @@ export class FloatingDockController {
 
         this._root = new St.Widget({
             name: 'velora-floating-liquid-dock',
-            style_class: 'velora-liquidGlass-wrapper',
+            style_class: 'velora-glass-container',
             reactive: true,
             track_hover: true,
+            clip_to_allocation: true,
             layout_manager: new Clutter.FixedLayout(),
         });
         this._root.set_pivot_point(0.5, 0.5);
 
-        this._glassTint = new St.Widget({
-            style_class: 'velora-liquidGlass-tint',
+        this._glassFilter = new St.Widget({
+            style_class: 'velora-glass-filter',
+            reactive: false,
+        });
+        this._glassOverlay = new St.Widget({
+            style_class: 'velora-glass-overlay',
+            reactive: false,
+        });
+        this._glassSpecular = new St.Widget({
+            style_class: 'velora-glass-specular',
             reactive: false,
         });
         this._box = new St.BoxLayout({
-            style_class: 'velora-liquidGlass-text velora-dock-content',
+            style_class: 'velora-glass-content',
         });
 
-        this._root.add_child(this._glassTint);
+        this._root.add_child(this._glassFilter);
+        this._root.add_child(this._glassOverlay);
+        this._root.add_child(this._glassSpecular);
         this._root.add_child(this._box);
         this._layer.add_child(this._root);
 
@@ -97,19 +87,16 @@ export class FloatingDockController {
             if (this._root.get_hover()) {
                 this._cancelHide();
                 this._reveal(true);
-                this._setWrapperHover(true);
             } else {
-                this._setWrapperHover(false);
                 this._scheduleHide();
             }
         });
 
         this.refresh();
-        this.syncSettings();
 
         this._root.opacity = 0;
-        this._root.scale_x = 0.96;
-        this._root.scale_y = 0.96;
+        this._root.scale_x = 0.97;
+        this._root.scale_y = 0.97;
         this._root.ease({
             opacity: 255,
             scale_x: 1,
@@ -124,9 +111,21 @@ export class FloatingDockController {
         this._hideTooltip?.();
         this._hidePreview?.(true);
 
+        if (this._blurEffect && this._glassFilter) {
+            try {
+                this._glassFilter.remove_effect(
+                    this._blurEffect
+                );
+            } catch {
+                // The filter actor may already be destroyed.
+            }
+        }
+
         this._root?.destroy();
         this._root = null;
-        this._glassTint = null;
+        this._glassFilter = null;
+        this._glassOverlay = null;
+        this._glassSpecular = null;
         this._box = null;
         this._buttons = [];
         this._blurEffect = null;
@@ -136,13 +135,6 @@ export class FloatingDockController {
     destroy() {
         this.disable();
 
-        for (const id of this._wallpaperChangedIds)
-            this._backgroundSettings.disconnect(id);
-
-        this._wallpaperChangedIds = [];
-        this._backgroundSettings = null;
-        this._interfaceSettings = null;
-        this._wallpaperColorCache = null;
         this._isPreviewVisible = null;
         this._settings = null;
         this._appSystem = null;
@@ -191,79 +183,17 @@ export class FloatingDockController {
             : Clutter.Orientation.HORIZONTAL;
         this._box.set_style('spacing: ' + gap + 'px;');
 
-        this._root.remove_style_class_name(
-            'velora-floating-dock-horizontal'
-        );
-        this._root.remove_style_class_name(
-            'velora-floating-dock-vertical'
-        );
-        this._root.add_style_class_name(
-            vertical
-                ? 'velora-floating-dock-vertical'
-                : 'velora-floating-dock-horizontal'
-        );
-
-        apps.forEach((app, index) => {
+        for (const app of apps) {
             const button = this._createAppButton(
                 app,
                 iconSize,
-                position,
-                index
+                position
             );
             this._box.add_child(button);
             this._buttons.push(button);
-        });
+        }
 
         const count = this._buttons.length;
-        const contentWidth = vertical
-            ? iconSize
-            : count * iconSize + Math.max(0, count - 1) * gap;
-        const contentHeight = vertical
-            ? count * iconSize + Math.max(0, count - 1) * gap
-            : iconSize;
-
-        const width = contentWidth + DOCK_PADDING * 2;
-        const height = contentHeight + DOCK_PADDING * 2;
-
-        this._box.set_position(DOCK_PADDING, DOCK_PADDING);
-        this._box.set_size(contentWidth, contentHeight);
-        this._root.set_size(width, height);
-        this._layoutGlassLayers(width, height);
-
-        this._syncTint();
-        this._syncBlur();
-        this.reposition(false);
-    }
-
-    _layoutGlassLayers(width, height) {
-        if (!this._glassTint)
-            return;
-
-        this._glassTint.set_position(0, 0);
-        this._glassTint.set_size(width, height);
-    }
-
-    _setWrapperHover(hovered) {
-        if (!this._root || !this._box)
-            return;
-
-        const padding = hovered
-            ? DOCK_HOVER_PADDING
-            : DOCK_PADDING;
-
-        const iconSize = this._settings.get_int(
-            'floating-dock-icon-size'
-        );
-        const gap = this._settings.get_int(
-            'floating-dock-gap'
-        );
-        const position = this._settings.get_string(
-            'floating-dock-position'
-        );
-        const vertical =
-            position === 'left' || position === 'right';
-        const count = this._buttons.length;
-
         const contentWidth = vertical
             ? iconSize
             : count * iconSize +
@@ -273,23 +203,37 @@ export class FloatingDockController {
               Math.max(0, count - 1) * gap
             : iconSize;
 
-        const width = contentWidth + padding * 2;
-        const height = contentHeight + padding * 2;
+        const width =
+            contentWidth +
+            DOCK_PADDING_LEFT +
+            DOCK_PADDING_RIGHT;
+        const height =
+            contentHeight +
+            DOCK_PADDING_TOP +
+            DOCK_PADDING_BOTTOM;
 
-        this._box.set_position(padding, padding);
+        this._box.set_position(
+            DOCK_PADDING_LEFT,
+            DOCK_PADDING_TOP
+        );
         this._box.set_size(
             contentWidth,
             contentHeight
         );
+
         this._root.set_size(width, height);
         this._layoutGlassLayers(width, height);
+        this._syncOverlay();
+        this._syncBlur();
+        this.reposition(false);
 
-        if (hovered)
-            this._root.add_style_pseudo_class('hover');
-        else
-            this._root.remove_style_pseudo_class('hover');
-
-        this.reposition(true);
+        if (
+            this._settings.get_boolean(
+                'floating-dock-auto-hide'
+            )
+        ) {
+            this._scheduleHide();
+        }
     }
 
     syncSettings() {
@@ -298,10 +242,46 @@ export class FloatingDockController {
 
         this.refresh();
 
-        if (this._settings.get_boolean('floating-dock-auto-hide'))
-            this._scheduleHide();
-        else
+        if (
+            !this._settings.get_boolean(
+                'floating-dock-auto-hide'
+            )
+        ) {
             this._reveal(false);
+        }
+    }
+
+    _layoutGlassLayers(width, height) {
+        if (
+            !this._glassFilter ||
+            !this._glassOverlay ||
+            !this._glassSpecular
+        ) {
+            return;
+        }
+
+        this._glassFilter.set_position(
+            GLASS_FILTER_INSET,
+            GLASS_FILTER_INSET
+        );
+        this._glassFilter.set_size(
+            Math.max(
+                1,
+                width - GLASS_FILTER_INSET * 2
+            ),
+            Math.max(
+                1,
+                height - GLASS_FILTER_INSET * 2
+            )
+        );
+
+        for (const actor of [
+            this._glassOverlay,
+            this._glassSpecular,
+        ]) {
+            actor.set_position(0, 0);
+            actor.set_size(width, height);
+        }
     }
 
     reposition(animate = false) {
@@ -326,21 +306,37 @@ export class FloatingDockController {
 
         switch (position) {
         case 'top':
-            x = monitor.x + (monitor.width - width) / 2;
+            x =
+                monitor.x +
+                (monitor.width - width) / 2;
             y = monitor.y + offset;
             break;
         case 'left':
             x = monitor.x + offset;
-            y = monitor.y + (monitor.height - height) / 2;
+            y =
+                monitor.y +
+                (monitor.height - height) / 2;
             break;
         case 'right':
-            x = monitor.x + monitor.width - width - offset;
-            y = monitor.y + (monitor.height - height) / 2;
+            x =
+                monitor.x +
+                monitor.width -
+                width -
+                offset;
+            y =
+                monitor.y +
+                (monitor.height - height) / 2;
             break;
         case 'bottom':
         default:
-            x = monitor.x + (monitor.width - width) / 2;
-            y = monitor.y + monitor.height - height - offset;
+            x =
+                monitor.x +
+                (monitor.width - width) / 2;
+            y =
+                monitor.y +
+                monitor.height -
+                height -
+                offset;
             break;
         }
 
@@ -374,7 +370,11 @@ export class FloatingDockController {
         }
     }
 
-    _createAppButton(app, iconSize, dockPosition, _index) {
+    _createAppButton(
+        app,
+        iconSize,
+        dockPosition
+    ) {
         const running =
             app.get_state() !== Shell.AppState.STOPPED;
         const textureSize = Math.max(
@@ -383,33 +383,44 @@ export class FloatingDockController {
         );
 
         const content = new St.Widget({
-            style_class: 'velora-floating-dock-icon-content',
+            style_class:
+                'velora-floating-dock-icon-content',
             layout_manager: new Clutter.FixedLayout(),
         });
         content.set_size(iconSize, iconSize);
 
-        const icon = app.create_icon_texture(textureSize);
+        const icon =
+            app.create_icon_texture(textureSize);
         icon.set_position(
-            Math.round((iconSize - textureSize) / 2),
-            Math.round((iconSize - textureSize) / 2) - 1
+            Math.round(
+                (iconSize - textureSize) / 2
+            ),
+            Math.round(
+                (iconSize - textureSize) / 2
+            ) - 1
         );
         content.add_child(icon);
 
         if (
             running &&
-            this._settings.get_boolean('show-running-indicator')
+            this._settings.get_boolean(
+                'show-running-indicator'
+            )
         ) {
             const dotSize = Math.max(
                 3,
                 Math.round(iconSize * 0.08)
             );
             const dot = new St.Widget({
-                style_class: 'velora-floating-dock-running-dot',
+                style_class:
+                    'velora-floating-dock-running-dot',
                 reactive: false,
             });
             dot.set_size(dotSize, dotSize);
             dot.set_position(
-                Math.round((iconSize - dotSize) / 2),
+                Math.round(
+                    (iconSize - dotSize) / 2
+                ),
                 iconSize - dotSize - 2
             );
             content.add_child(dot);
@@ -427,9 +438,10 @@ export class FloatingDockController {
         button.set_size(iconSize, iconSize);
         button.set_pivot_point(0.5, 0.5);
 
-        const previewSide = this._previewSideForDock(
-            dockPosition
-        );
+        const previewSide =
+            this._previewSideForDock(
+                dockPosition
+            );
 
         button.connect('notify::hover', () => {
             if (button.get_hover()) {
@@ -440,7 +452,9 @@ export class FloatingDockController {
                     scale_x: DOCK_HOVER_SCALE,
                     scale_y: DOCK_HOVER_SCALE,
                     duration: 400,
-                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                    mode:
+                        Clutter.AnimationMode
+                            .EASE_OUT_BACK,
                 });
 
                 const previewShown =
@@ -453,7 +467,9 @@ export class FloatingDockController {
                 if (previewShown) {
                     this._hideTooltip?.();
                 } else if (
-                    this._settings.get_boolean('show-tooltips')
+                    this._settings.get_boolean(
+                        'show-tooltips'
+                    )
                 ) {
                     this._showTooltip?.(
                         app.get_name(),
@@ -468,7 +484,9 @@ export class FloatingDockController {
                     scale_x: 1,
                     scale_y: 1,
                     duration: 400,
-                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                    mode:
+                        Clutter.AnimationMode
+                            .EASE_OUT_BACK,
                 });
 
                 this._scheduleHide();
@@ -509,7 +527,9 @@ export class FloatingDockController {
                 'floating-dock-auto-hide'
             ) ||
             this._root.get_hover() ||
-            this._buttons.some(button => button.get_hover()) ||
+            this._buttons.some(
+                button => button.get_hover()
+            ) ||
             this._isPreviewVisible?.()
         ) {
             return;
@@ -591,11 +611,17 @@ export class FloatingDockController {
         case 'top':
             return {
                 x,
-                y: monitor.y - height + DOCK_REVEAL_PX,
+                y:
+                    monitor.y -
+                    height +
+                    DOCK_REVEAL_PX,
             };
         case 'left':
             return {
-                x: monitor.x - width + DOCK_REVEAL_PX,
+                x:
+                    monitor.x -
+                    width +
+                    DOCK_REVEAL_PX,
                 y,
             };
         case 'right':
@@ -619,190 +645,71 @@ export class FloatingDockController {
     }
 
     _syncBlur() {
-        // Intentionally disabled for now: the separate background-blur actor
-        // produced a second rectangular surface behind the glass capsule.
-        this._blurEffect = null;
-    }
-
-    _invalidateWallpaperTint() {
-        this._wallpaperColorCache = null;
-        this._syncTint();
-    }
-
-    _syncTint() {
-        if (!this._glassTint)
+        if (!this._glassFilter)
             return;
 
-        let tint = [255, 255, 255];
-
-        if (
-            this._settings.get_boolean(
-                'floating-dock-wallpaper-tint'
-            )
-        ) {
-            if (!this._wallpaperColorCache) {
-                this._wallpaperColorCache =
-                    this._sampleWallpaperColor() ??
-                    DEFAULT_TINT;
+        if (this._blurEffect) {
+            try {
+                this._glassFilter.remove_effect(
+                    this._blurEffect
+                );
+            } catch {
+                // Effect may already be detached.
             }
-
-            const sampled = this._wallpaperColorCache;
-            const strength = 0.08;
-            tint = sampled.map((value, index) =>
-                Math.round(
-                    tint[index] * (1 - strength) +
-                    value * strength
-                )
-            );
+            this._blurEffect = null;
         }
 
+        if (
+            !this._settings.get_boolean(
+                'floating-dock-blur'
+            )
+        ) {
+            return;
+        }
+
+        try {
+            // Browser reference uses SVG displacement. GNOME Shell does not
+            // support that filter pipeline, so a tiny native background blur
+            // is the closest lightweight compositor-native equivalent.
+            this._blurEffect = new Shell.BlurEffect({
+                brightness: 1.0,
+                mode: Shell.BlurMode.BACKGROUND,
+                radius: 3,
+            });
+            this._glassFilter.add_effect(
+                this._blurEffect
+            );
+        } catch (error) {
+            this._blurEffect = null;
+            logError(
+                error,
+                'Velora Desktop: glass filter unavailable'
+            );
+        }
+    }
+
+    _syncOverlay() {
+        if (!this._glassOverlay)
+            return;
+
+        // Reference: rgba(255,255,255,0.25). Keep the current opacity
+        // control by mapping its default 76% to the reference alpha.
         const opacity =
             this._settings.get_int(
                 'floating-dock-opacity'
             ) / 100;
-        const tintAlpha = Math.max(
-            0.20,
-            Math.min(0.60, 0.20 + opacity * 0.40)
+        const alpha = Math.max(
+            0.08,
+            Math.min(
+                0.45,
+                0.25 * (opacity / 0.76)
+            )
         );
 
-        this._glassTint.set_style(
-            'background-color: rgba(' +
-            tint.join(',') + ',' +
-            tintAlpha.toFixed(2) +
+        this._glassOverlay.set_style(
+            'background-color: rgba(255,255,255,' +
+            alpha.toFixed(3) +
             ');'
         );
     }
-
-    _sampleWallpaperColor() {
-        try {
-            const scheme =
-                this._interfaceSettings.get_string(
-                    'color-scheme'
-                );
-            const darkUri =
-                this._backgroundSettings.get_string(
-                    'picture-uri-dark'
-                );
-            const lightUri =
-                this._backgroundSettings.get_string(
-                    'picture-uri'
-                );
-            const uri =
-                scheme.includes('dark') && darkUri
-                    ? darkUri
-                    : lightUri || darkUri;
-
-            if (!uri)
-                return null;
-
-            const file = uri.includes('://')
-                ? Gio.File.new_for_uri(uri)
-                : Gio.File.new_for_path(uri);
-            const path = file.get_path();
-
-            if (!path)
-                return null;
-
-            const pixbuf =
-                GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    path,
-                    32,
-                    32,
-                    true
-                );
-            const pixels = pixbuf.get_pixels();
-            const width = pixbuf.get_width();
-            const height = pixbuf.get_height();
-            const channels = pixbuf.get_n_channels();
-            const rowstride = pixbuf.get_rowstride();
-            const hasAlpha = pixbuf.get_has_alpha();
-
-            const buckets = new Map();
-
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const offset =
-                        y * rowstride + x * channels;
-                    const red = pixels[offset];
-                    const green = pixels[offset + 1];
-                    const blue = pixels[offset + 2];
-
-                    if (
-                        hasAlpha &&
-                        pixels[offset + 3] < 96
-                    ) {
-                        continue;
-                    }
-
-                    const max = Math.max(red, green, blue);
-                    const min = Math.min(red, green, blue);
-                    const saturation = max - min;
-                    const luminance =
-                        red * 0.2126 +
-                        green * 0.7152 +
-                        blue * 0.0722;
-
-                    let weight =
-                        1 + saturation / 72;
-
-                    if (
-                        luminance < 24 ||
-                        luminance > 238
-                    ) {
-                        weight *= 0.45;
-                    }
-
-                    const key =
-                        (red >> 5) << 6 |
-                        (green >> 5) << 3 |
-                        (blue >> 5);
-
-                    const bucket = buckets.get(key) ?? {
-                        weight: 0,
-                        red: 0,
-                        green: 0,
-                        blue: 0,
-                        count: 0,
-                    };
-
-                    bucket.weight += weight;
-                    bucket.red += red;
-                    bucket.green += green;
-                    bucket.blue += blue;
-                    bucket.count++;
-                    buckets.set(key, bucket);
-                }
-            }
-
-            let dominant = null;
-            for (const bucket of buckets.values()) {
-                if (
-                    !dominant ||
-                    bucket.weight > dominant.weight
-                ) {
-                    dominant = bucket;
-                }
-            }
-
-            if (!dominant || dominant.count === 0)
-                return null;
-
-            const dominantColor = [
-                dominant.red / dominant.count,
-                dominant.green / dominant.count,
-                dominant.blue / dominant.count,
-            ];
-
-            return dominantColor.map(value =>
-                Math.round(value)
-            );
-        } catch (error) {
-            logError(
-                error,
-                'Velora Desktop: wallpaper tint sampling failed'
-            );
-            return null;
-        }
-    }
-
 }
