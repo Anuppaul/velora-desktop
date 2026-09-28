@@ -6,10 +6,10 @@ Velora Desktop is a GNOME-native adaptation of the Velora launcher concept, not 
 
 - Ubuntu Dock is hidden while Velora is enabled.
 - Velora clears fixed-dock reservation so a hidden dock does not leave an empty workspace gap.
-- One movable Velora V orb defaults to the top-left.
-- Drag V anywhere; its position survives resolution changes and is kept on a real monitor.
-- Hover V -> GNOME Favorites + currently running apps.
-- Click V -> GNOME Applications view with installed apps.
+- One movable Velora Orb defaults to the top-left.
+- Drag the Orb anywhere; its position survives resolution changes and is kept on a real monitor.
+- Hover the Orb -> GNOME Favorites + currently running apps.
+- Click the Orb -> toggles the GNOME Applications view open/closed.
 - Hover icons use adaptive 2–4 radial layers.
 - Icon size, same-layer icon distance and layer distance are independent.
 - Safe-slot geometry prevents normal and magnified icons from overlapping or leaving the visible monitor.
@@ -137,12 +137,13 @@ Velora exposes:
 - Layer distance.
 - Orb size.
 - Orb opacity.
+- Custom Orb icon (themed icon name or absolute SVG/PNG path).
+- Auto-hide Orb with configurable delay and edge reveal.
 - Hover delay.
 - Close delay.
 - Animation duration.
 - Running-app dot.
 - App-name tooltips.
-- Two Velora gradient colors.
 - Direct Orb drag positioning.
 - Reset-to-top-left.
 
