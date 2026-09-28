@@ -426,22 +426,6 @@ export class FloatingDockController {
         });
         content.set_size(iconSize, iconSize);
 
-        const haloSize = Math.max(
-            12,
-            iconSize - 6
-        );
-        const halo = new St.Widget({
-            style_class: 'velora-floating-dock-icon-halo',
-            reactive: false,
-            opacity: 0,
-        });
-        halo.set_size(haloSize, haloSize);
-        halo.set_position(
-            Math.round((iconSize - haloSize) / 2),
-            Math.round((iconSize - haloSize) / 2)
-        );
-        content.add_child(halo);
-
         const icon = app.create_icon_texture(textureSize);
         icon.set_position(
             Math.round((iconSize - textureSize) / 2),
@@ -741,10 +725,20 @@ export class FloatingDockController {
             );
         }
 
+        const opacity =
+            this._settings.get_int(
+                'floating-dock-opacity'
+            ) / 100;
+        const tintAlpha = Math.max(
+            0.20,
+            Math.min(0.60, 0.20 + opacity * 0.40)
+        );
+
         this._glassTint.set_style(
             'background-color: rgba(' +
-            tint.join(',') +
-            ',0.50);'
+            tint.join(',') + ',' +
+            tintAlpha.toFixed(2) +
+            ');'
         );
     }
 
