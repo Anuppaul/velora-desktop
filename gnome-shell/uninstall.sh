@@ -21,6 +21,9 @@ restore_dock_from_saved_state() {
     local captured
     local original_fixed
     local original_manualhide
+    local extension_captured
+    local original_enabled_listed
+    local original_disabled_listed
 
     [[ -d "${SCHEMA_DIR}" ]] || return 0
 
@@ -56,7 +59,61 @@ restore_dock_from_saved_state() {
     env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
         gsettings set "${VELORA_SCHEMA}" dock-state-captured false
 
-    echo "Restored Ubuntu Dock state saved by Velora."
+    echo "Restored Ubuntu Dock settings saved by Velora."
+
+    extension_captured="$(
+        env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+            gsettings get "${VELORA_SCHEMA}" dock-extension-state-captured 2>/dev/null || true
+    )"
+
+    if [[ "${extension_captured}" == "true" ]]; then
+        original_enabled_listed="$(
+            env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+                gsettings get "${VELORA_SCHEMA}" dock-original-enabled-listed 2>/dev/null || true
+        )"
+        original_disabled_listed="$(
+            env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+                gsettings get "${VELORA_SCHEMA}" dock-original-disabled-listed 2>/dev/null || true
+        )"
+
+        python3 - "${original_enabled_listed}" "${original_disabled_listed}" <<'PY'
+import ast
+import subprocess
+import sys
+
+uuid = "ubuntu-dock@ubuntu.com"
+want_enabled = sys.argv[1].strip().lower() == "true"
+want_disabled = sys.argv[2].strip().lower() == "true"
+
+def get_list(key):
+    raw = subprocess.check_output(
+        ["gsettings", "get", "org.gnome.shell", key],
+        text=True,
+    ).strip()
+    return list(ast.literal_eval(raw))
+
+enabled = [x for x in get_list("enabled-extensions") if x != uuid]
+disabled = [x for x in get_list("disabled-extensions") if x != uuid]
+
+if want_enabled:
+    enabled.append(uuid)
+if want_disabled:
+    disabled.append(uuid)
+
+subprocess.run(
+    ["gsettings", "set", "org.gnome.shell", "enabled-extensions", repr(enabled)],
+    check=True,
+)
+subprocess.run(
+    ["gsettings", "set", "org.gnome.shell", "disabled-extensions", repr(disabled)],
+    check=True,
+)
+PY
+
+        env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+            gsettings set "${VELORA_SCHEMA}" dock-extension-state-captured false
+        echo "Restored Ubuntu Dock extension-list state saved by Velora."
+    fi
 }
 
 clean_shell_uuid_lists() {
