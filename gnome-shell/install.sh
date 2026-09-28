@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.13"
+INSTALLER_VERSION="2026-09-28.14"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -608,8 +608,14 @@ if bootstrap_scaffold_compatible; then
             attempt_live_register_or_explain
             exit $?
             ;;
-        21|23)
-            echo "GNOME knows Velora, but activation/runtime failed." >&2
+        23)
+            echo "Velora bootstrap is active, but the current runtime failed."
+            echo "Attempting automatic recovery with a fresh hashed runtime..."
+            hot_deploy_runtime
+            exit $?
+            ;;
+        21)
+            echo "GNOME knows Velora, but activation failed." >&2
             echo "Check:" >&2
             echo "  gnome-extensions info ${UUID}" >&2
             echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
@@ -670,6 +676,15 @@ gnome-extensions install --force "${PACK_PATH}"
 
 [[ -d "${TARGET_DIR}" ]] ||
     fail "Installation completed but ${TARGET_DIR} was not created."
+
+# Do not rely on gnome-extensions install --force to refresh every
+# extra source in an already existing user-extension directory. Make the
+# canonical on-disk copy deterministic before any current-session live load.
+for file in "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}" "${RUNTIME_FILES[@]}"; do
+    parent="$(dirname "${TARGET_DIR}/${file}")"
+    mkdir -p "${parent}"
+    cp -f "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
+done
 
 glib-compile-schemas --strict "${TARGET_DIR}/schemas"
 record_bootstrap_identity
