@@ -216,6 +216,23 @@ export default class VeloraPreferences extends ExtensionPreferences {
             2
         );
 
+        const previewGroup = new Adw.PreferencesGroup({
+            title: 'App window preview',
+            description: 'Customize the live window preview shown when hovering a running app.',
+        });
+        appearancePage.add(previewGroup);
+
+        addSpin(
+            previewGroup,
+            settings,
+            'app-preview-size',
+            'Window preview size',
+            'Scale the live hover preview. 100% is the default size.',
+            50,
+            180,
+            5
+        );
+
         const geometryGroup = new Adw.PreferencesGroup({
             title: 'Hover icon geometry',
             description: 'Hover launcher icon size, icon-to-icon distance and layer distance are independent.',
