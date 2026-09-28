@@ -16,7 +16,7 @@ import {
     clamp,
     effectiveRingGap,
     ICON_HOVER_SCALE,
-    selectEvenlySpacedSlots,
+    selectOrganizedSlots,
     slotsForRings,
     totalCapacity,
 } from './geometry.js';
@@ -954,6 +954,7 @@ export default class VeloraRuntime extends Extension {
         let rings = ringMode === 'auto' ? 1 : Number(ringMode);
         let slotRings = null;
         let capacities = null;
+        let layoutArc = null;
 
         for (let candidate = rings; candidate <= 4; candidate++) {
             const outerRadius = orbSize / 2 + candidate * ringGap;
@@ -983,6 +984,7 @@ export default class VeloraRuntime extends Extension {
             rings = candidate;
             slotRings = candidateSlotRings;
             capacities = candidateCapacities;
+            layoutArc = candidateArc;
 
             if (
                 ringMode !== 'auto' ||
@@ -1005,9 +1007,11 @@ export default class VeloraRuntime extends Extension {
         let appIndex = 0;
         for (let ring = 0; ring < rings; ring++) {
             const count = counts[ring];
-            const selectedSlots = selectEvenlySpacedSlots(
+            const selectedSlots = selectOrganizedSlots(
                 slotRings[ring],
-                count
+                count,
+                layoutArc,
+                ring
             );
 
             for (const slot of selectedSlots) {
