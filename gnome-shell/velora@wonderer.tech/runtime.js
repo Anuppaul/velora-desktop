@@ -378,6 +378,19 @@ export default class VeloraRuntime extends Extension {
             if (key === 'minimal-all-apps' || key === 'all-apps-icon-size')
                 this._syncAllAppsTheme();
 
+            if (
+                key === 'app-preview-size' &&
+                this._appPreviewApp &&
+                this._appPreviewAnchor
+            ) {
+                const app = this._appPreviewApp;
+                const anchor = this._appPreviewAnchor;
+                this._hideAppPreview(true);
+
+                if (anchor.get_parent())
+                    this._showAppPreview(app, anchor);
+            }
+
             if ([
                 'ring-mode',
                 'orb-size',
@@ -1390,14 +1403,18 @@ export default class VeloraRuntime extends Extension {
         const columns = count === 1 ? 1 : 2;
         const rows = Math.ceil(count / columns);
 
-        const tileWidth =
+        const previewScale =
+            this._settings.get_int('app-preview-size') / 100;
+        const baseTileWidth =
             count === 1 ? 280 :
             count === 2 ? 220 :
             190;
-        const tileHeight =
+        const baseTileHeight =
             count === 1 ? 176 :
             count === 2 ? 140 :
             120;
+        const tileWidth = Math.round(baseTileWidth * previewScale);
+        const tileHeight = Math.round(baseTileHeight * previewScale);
 
         const cardWidth =
             APP_PREVIEW_PADDING * 2 +
