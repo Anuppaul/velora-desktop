@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 SCHEMA_FILE="${SCHEMA_DIR}/org.gnome.shell.extensions.velora.gschema.xml"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
-INSTALLER_VERSION="2026-09-28.5"
+INSTALLER_VERSION="2026-09-28.6"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -36,8 +36,8 @@ fail() {
 }
 
 for command_name in \
-    gnome-shell gnome-extensions glib-compile-schemas gsettings \
-    mktemp sed grep sha256sum mkdir cp sleep cat head env dirname; do
+    gnome-shell gnome-extensions glib-compile-schemas gsettings gdbus python3 \
+    mktemp sed grep sha256sum mkdir cp rm sleep cat head env dirname; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found."
 done
@@ -214,6 +214,138 @@ runtime_revision() {
     } | sha256sum | sed -E 's/^([0-9a-f]{20}).*/\1/'
 }
 
+shell_eval() {
+    local code="$1"
+
+    gdbus call --session \
+        --dest org.gnome.Shell \
+        --object-path /org/gnome/Shell \
+        --method org.gnome.Shell.Eval \
+        "${code}" 2>/dev/null
+}
+
+shell_unsafe_mode_enabled() {
+    local output
+
+    output="$(shell_eval 'global.context.unsafe_mode' || true)"
+
+    [[ "${output}" == *"(true, 'true')"* ||
+       "${output}" == *'(true, "true")'* ]]
+}
+
+wait_for_velora_active() {
+    local i
+
+    for ((i = 0; i < 60; i++)); do
+        if gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}"; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    return 1
+}
+
+try_live_register() {
+    local revision
+    local live_root
+    local live_dir
+    local uuid_json
+    local dir_json
+    local code
+    local output
+
+    shell_unsafe_mode_enabled || return 31
+
+    revision="$(runtime_revision)"
+    live_root="${HOME}/.cache/velora-live"
+    live_dir="${live_root}/${SOURCE_BOOTSTRAP_GENERATION}-${revision}"
+
+    rm -rf "${live_dir}"
+    mkdir -p "${live_dir}"
+    cp -a "${TARGET_DIR}/." "${live_dir}/"
+
+    glib-compile-schemas --strict "${live_dir}/schemas"
+
+    uuid_json="$(
+        python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "${UUID}"
+    )"
+    dir_json="$(
+        python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "${live_dir}"
+    )"
+
+    code="$(cat <<EOF
+(async () => {
+    const Main = await import('resource:///org/gnome/shell/ui/main.js');
+    const {default: Gio} = await import('gi://Gio');
+    const {ExtensionType} = await import('resource:///org/gnome/shell/misc/extensionUtils.js');
+
+    const uuid = ${uuid_json};
+    const dir = Gio.File.new_for_path(${dir_json});
+
+    try {
+        const existing = Main.extensionManager.lookup(uuid);
+        if (existing)
+            await Main.extensionManager.unloadExtension(existing);
+
+        const extension = Main.extensionManager.createExtensionObject(
+            uuid,
+            dir,
+            ExtensionType.PER_USER
+        );
+
+        await Main.extensionManager.loadExtension(extension);
+
+        const enabled = Main.extensionManager.enableExtension(uuid);
+        const current = Main.extensionManager.lookup(uuid);
+
+        return {
+            enabled,
+            state: current?.state ?? null,
+            error: current?.error ?? '',
+            path: current?.path ?? '',
+        };
+    } finally {
+        global.context.unsafe_mode = false;
+    }
+})()
+EOF
+)"
+
+    output="$(shell_eval "${code}" || true)"
+
+    if [[ "${output}" != "(true,"* ]]; then
+        echo "GNOME Shell live-load Eval failed:" >&2
+        echo "  ${output}" >&2
+        return 32
+    fi
+
+    if wait_for_velora_active; then
+        echo "Velora was registered and activated in the current Shell session."
+        echo "No logout is required."
+        return 0
+    fi
+
+    echo "GNOME Shell accepted the live-load request, but Velora did not become active." >&2
+    echo "Eval result: ${output}" >&2
+    return 33
+}
+
+print_live_load_instructions() {
+    echo
+    echo "Velora is installed on disk, but GNOME has not discovered this fresh local UUID."
+    echo "To activate it WITHOUT logout:"
+    echo "  1. Press Alt+F2"
+    echo "  2. Type: lg"
+    echo "  3. Open the Flags tab"
+    echo "  4. Enable: unsafe-mode"
+    echo "  5. Close Looking Glass"
+    echo "  6. Run: bash gnome-shell/install.sh"
+    echo
+    echo "Velora uses Unsafe Mode only for the one live-registration call and"
+    echo "turns Unsafe Mode back OFF automatically after that call."
+}
+
 hot_deploy_runtime() {
     local revision
     local previous_revision
@@ -313,10 +445,20 @@ if bootstrap_scaffold_compatible; then
 
     case "${BOOTSTRAP_STATUS}" in
         20)
-            echo "This state requires one GNOME Shell session restart:"
-            echo "the running Shell has not discovered this local extension UUID yet."
-            echo "Log out and back in once. Then run:"
-            echo "  bash gnome-shell/install.sh"
+            if try_live_register; then
+                exit 0
+            fi
+
+            LIVE_STATUS=$?
+            if [[ "${LIVE_STATUS}" -eq 31 ]]; then
+                print_live_load_instructions
+                exit 31
+            fi
+
+            echo "Current-session live registration failed." >&2
+            echo "Check:" >&2
+            echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
+            exit "${LIVE_STATUS}"
             ;;
         21|23|24)
             echo "GNOME has discovered Velora, so logout is not the correct fix."
@@ -406,10 +548,19 @@ echo
 echo "Velora bootstrap/scaffold installed successfully:"
 echo "  ${TARGET_DIR}"
 echo
-echo "This is the first install, or the Velora bootstrap generation changed."
-echo "GNOME 50 loads that new local extension bootstrap in the next Shell session."
-echo "Log out and log back in once, then run:"
-echo "  bash gnome-shell/install.sh"
-echo
-echo "After this one-time bootstrap load, ordinary runtime/style updates use"
-echo "live hot-swap and do not require logout."
+echo "This is a fresh local install or bootstrap scaffold update."
+
+if try_live_register; then
+    exit 0
+fi
+
+LIVE_STATUS=$?
+if [[ "${LIVE_STATUS}" -eq 31 ]]; then
+    print_live_load_instructions
+    exit 31
+fi
+
+echo "Current-session live registration failed." >&2
+echo "Check:" >&2
+echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
+exit "${LIVE_STATUS}"
