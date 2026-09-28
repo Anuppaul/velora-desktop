@@ -5,7 +5,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 const RING_MODES = [
-    ['auto', 'Adaptive (2–4 layers)'],
+    ['auto', 'Adaptive (1–4 layers)'],
     ['2', 'Force 2 layers'],
     ['3', 'Force 3 layers'],
     ['4', 'Force 4 layers'],
@@ -130,7 +130,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'ring-mode',
             'Hover layers',
-            'Adaptive chooses 2, 3 or 4 radial layers from available dock icons and screen geometry.',
+            'Adaptive starts with one compact ring and adds more rings only when the app count or screen geometry requires it.',
             RING_MODES
         );
         addSwitch(
@@ -205,7 +205,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         appearancePage.add(geometryGroup);
 
-        addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each premium circular dock icon.', 32, 80, 2);
+        addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each clean circular hover app button.', 32, 80, 2);
         addSpin(geometryGroup, settings, 'icon-gap', 'Icon distance', 'Minimum edge-to-edge distance between neighboring icons in the same layer.', 0, 36, 2);
         addSpin(geometryGroup, settings, 'ring-gap', 'Layer distance', 'Requested center-to-center distance between radial layers. Velora increases it only when needed to prevent overlap.', 48, 128, 2);
 
