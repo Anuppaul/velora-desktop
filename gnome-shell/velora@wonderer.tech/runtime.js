@@ -104,8 +104,9 @@ export default class VeloraRuntime extends Extension {
     }
 
     _createOrb() {
-        this._orbMark = new St.Label({
-            text: 'V',
+        this._orbMark = new St.Icon({
+            icon_name: 'view-app-grid-ubuntu-symbolic',
+            icon_size: 24,
             style_class: 'velora-orb-mark',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
@@ -274,8 +275,8 @@ export default class VeloraRuntime extends Extension {
             'background-gradient-start: ' + start + '; ' +
             'background-gradient-end: ' + end + ';'
         );
-        this._orbMark.set_style(
-            'font-size: ' + Math.max(14, Math.round(size * 0.30)) + 'px;'
+        this._orbMark.set_icon_size(
+            Math.max(18, Math.round(size * 0.42))
         );
     }
 
