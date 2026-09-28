@@ -25,9 +25,23 @@ const DEFAULT_ORB_ICON = 'start-here-symbolic';
 const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
 const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
+const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
 
 export default class VeloraRuntime extends Extension {
     enable() {
+        const previousRuntime = globalThis[RUNTIME_SINGLETON_KEY];
+        if (previousRuntime && previousRuntime !== this) {
+            try {
+                previousRuntime.disable();
+            } catch (error) {
+                logError(
+                    error,
+                    'Velora Desktop: failed to retire duplicate runtime'
+                );
+            }
+        }
+
+        this._disabled = false;
         this._settings = this.getSettings();
         this._shellSettings = new Gio.Settings({schema_id: 'org.gnome.shell'});
         this._appSystem = Shell.AppSystem.get_default();
@@ -61,9 +75,19 @@ export default class VeloraRuntime extends Extension {
         this._scheduleOrbAutoHide();
         this._scheduleOrbAutoFade();
         this._syncAllAppsTheme();
+
+        globalThis[RUNTIME_SINGLETON_KEY] = this;
     }
 
     disable() {
+        if (this._disabled)
+            return;
+
+        this._disabled = true;
+
+        if (globalThis[RUNTIME_SINGLETON_KEY] === this)
+            delete globalThis[RUNTIME_SINGLETON_KEY];
+
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
