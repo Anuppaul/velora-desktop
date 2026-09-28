@@ -131,7 +131,7 @@ export function allocateAcrossRings(appCount, capacities) {
     return counts;
 }
 
-export function selectEvenlySpacedSlots(slots, count) {
+export function selectOrganizedSlots(slots, count, arc, ringIndex = 0) {
     if (count <= 0 || slots.length === 0)
         return [];
 
@@ -141,15 +141,35 @@ export function selectEvenlySpacedSlots(slots, count) {
     if (count === 1)
         return [slots[Math.floor((slots.length - 1) / 2)]];
 
-    const selected = [];
-    for (let index = 0; index < count; index++) {
-        const slotIndex = Math.round(
-            index * (slots.length - 1) / (count - 1)
-        );
-        selected.push(slots[slotIndex]);
+    const span = Math.abs(arc.end - arc.start);
+    const isFullOrbit = span >= 350;
+
+    if (isFullOrbit) {
+        // Circular slot arrays wrap: first and last are neighbors, not opposite
+        // ends. Space selected apps around the actual 360-degree orbit.
+        const step = slots.length / count;
+        const phase = ringIndex % 2 === 0 ? 0 : step / 2;
+        const selected = [];
+
+        for (let index = 0; index < count; index++) {
+            const slotIndex = Math.round(phase + index * step) % slots.length;
+            selected.push(slots[slotIndex]);
+        }
+
+        return selected;
     }
 
-    return selected;
+    // On an edge/corner arc, keep small app sets visually grouped instead of
+    // stretching them from one end of the available arc to the other.
+    const start = Math.max(
+        0,
+        Math.min(
+            slots.length - count,
+            Math.round((slots.length - count) / 2)
+        )
+    );
+
+    return slots.slice(start, start + count);
 }
 
 export function arcForPosition(centerX, centerY, outerRadius, iconSize, monitor) {
