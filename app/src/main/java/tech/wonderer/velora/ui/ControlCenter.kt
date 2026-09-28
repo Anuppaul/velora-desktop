@@ -14,8 +14,10 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,7 +26,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -32,11 +36,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,11 +70,42 @@ private data class VeloraMediaState(
 )
 
 private data class CompactControlSpec(
+    val id: String,
     val symbol: String,
     val label: String,
     val detail: String,
     val action: () -> Unit,
 )
+
+private const val CONTROL_ICON_PREFS = "velora_control_center_icon_colors"
+
+private fun loadControlIconColors(context: Context): Map<String, Color> {
+    val prefs = context.getSharedPreferences(CONTROL_ICON_PREFS, Context.MODE_PRIVATE)
+    return prefs.all.mapNotNull { (key, value) ->
+        (value as? Int)?.let { key to Color(it) }
+    }.toMap()
+}
+
+private fun persistControlIconColor(
+    context: Context,
+    controlId: String,
+    color: Color,
+) {
+    context.getSharedPreferences(CONTROL_ICON_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putInt(controlId, color.toArgb())
+        .apply()
+}
+
+private fun resetControlIconColor(
+    context: Context,
+    controlId: String,
+) {
+    context.getSharedPreferences(CONTROL_ICON_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .remove(controlId)
+        .apply()
+}
 
 @Composable
 fun ControlCenter(
@@ -97,6 +136,29 @@ fun ControlCenter(
         ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
         ?.takeIf { it in 0..100 }
     val media by mediaState(mediaAccess)
+    var editMode by remember { mutableStateOf(false) }
+    var selectedControl by remember { mutableStateOf<CompactControlSpec?>(null) }
+    val iconColors = remember(context) {
+        mutableStateMapOf<String, Color>().apply {
+            putAll(loadControlIconColors(context))
+        }
+    }
+
+    fun selectControl(spec: CompactControlSpec) {
+        selectedControl = spec
+    }
+
+    fun changeSelectedColor(color: Color) {
+        val spec = selectedControl ?: return
+        iconColors[spec.id] = color
+        persistControlIconColor(context, spec.id, color)
+    }
+
+    fun resetSelectedColor() {
+        val spec = selectedControl ?: return
+        iconColors.remove(spec.id)
+        resetControlIconColor(context, spec.id)
+    }
 
     SwipeDismissSurface(
         direction = SwipeDismissDirection.UP,
@@ -119,6 +181,7 @@ fun ControlCenter(
             ) {
                 item {
                     Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -138,17 +201,68 @@ fun ControlCenter(
                                 fontSize = 12.sp,
                             )
                         }
-                        Text(
-                            text = battery?.let { it.toString() + "%" } ?: "Velora",
-                            color = Color.White.copy(alpha = 0.88f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(
+                                text = battery?.let { it.toString() + "%" } ?: "Velora",
+                                color = Color.White.copy(alpha = 0.88f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = if (editMode) "Done" else "✎ Edit",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clickable {
+                                        editMode = !editMode
+                                        if (!editMode) selectedControl = null
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                            )
+                        }
+                    }
+                }
+
+                if (editMode) {
+                    item {
+                        val spec = selectedControl
+                        if (spec == null) {
+                            LiquidGlassPanel(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(22.dp),
+                                contentPadding = PaddingValues(14.dp),
+                                intensity = 0.58f,
+                            ) {
+                                Text(
+                                    text = "Tap any control tile to edit its icon color.",
+                                    color = Color.White.copy(alpha = 0.72f),
+                                    fontSize = 11.sp,
+                                )
+                            }
+                        } else {
+                            ControlIconColorEditor(
+                                spec = spec,
+                                color = iconColors[spec.id] ?: Color.Black,
+                                onColorChanged = ::changeSelectedColor,
+                                onReset = ::resetSelectedColor,
+                            )
+                        }
                     }
                 }
 
                 item {
-                    CompactConnectivityRow(context)
+                    CompactConnectivityRow(
+                        context = context,
+                        editMode = editMode,
+                        iconColors = iconColors,
+                        selectedControlId = selectedControl?.id,
+                        onSelect = ::selectControl,
+                    )
                 }
 
                 item {
@@ -158,7 +272,13 @@ fun ControlCenter(
                 item {
                     SectionTitle("System controls")
                     Spacer(Modifier.height(7.dp))
-                    NativeSystemControls(context)
+                    NativeSystemControls(
+                        context = context,
+                        editMode = editMode,
+                        iconColors = iconColors,
+                        selectedControlId = selectedControl?.id,
+                        onSelect = ::selectControl,
+                    )
                 }
 
                 item {
@@ -175,18 +295,24 @@ fun ControlCenter(
 }
 
 @Composable
-private fun CompactConnectivityRow(context: Context) {
+private fun CompactConnectivityRow(
+    context: Context,
+    editMode: Boolean,
+    iconColors: Map<String, Color>,
+    selectedControlId: String?,
+    onSelect: (CompactControlSpec) -> Unit,
+) {
     val controls = listOf(
-        CompactControlSpec("◎", "Internet", "Panel") {
+        CompactControlSpec("internet", "◎", "Internet", "Panel") {
             openInternetPanel(context)
         },
-        CompactControlSpec("⌁", "Wi-Fi", "Network") {
+        CompactControlSpec("wifi", "⌁", "Wi-Fi", "Network") {
             openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
         },
-        CompactControlSpec("ᛒ", "Bluetooth", "Devices") {
+        CompactControlSpec("bluetooth", "ᛒ", "Bluetooth", "Devices") {
             openSystemScreen(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
         },
-        CompactControlSpec("▥", "Mobile", "SIM") {
+        CompactControlSpec("mobile", "▥", "Mobile", "SIM") {
             openSystemScreen(context, Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS))
         },
     )
@@ -200,6 +326,10 @@ private fun CompactConnectivityRow(context: Context) {
                 spec = spec,
                 modifier = Modifier.weight(1f),
                 intensity = 0.60f,
+                editMode = editMode,
+                iconColor = iconColors[spec.id] ?: Color.Black,
+                selected = selectedControlId == spec.id,
+                onSelect = onSelect,
             )
         }
     }
@@ -216,15 +346,21 @@ private fun SectionTitle(title: String) {
 }
 
 @Composable
-private fun NativeSystemControls(context: Context) {
+private fun NativeSystemControls(
+    context: Context,
+    editMode: Boolean,
+    iconColors: Map<String, Color>,
+    selectedControlId: String?,
+    onSelect: (CompactControlSpec) -> Unit,
+) {
     val controls = buildList {
         add(
-            CompactControlSpec("✈", "Airplane", "Radios") {
+            CompactControlSpec("airplane", "✈", "Airplane", "Radios") {
                 openSystemScreen(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("◐", "Focus", "DND") {
+            CompactControlSpec("focus", "◐", "Focus", "DND") {
                 openSystemScreen(
                     context,
                     Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
@@ -232,56 +368,56 @@ private fun NativeSystemControls(context: Context) {
             },
         )
         add(
-            CompactControlSpec("↻", "Display", "Rotate") {
+            CompactControlSpec("display", "↻", "Display", "Rotate") {
                 openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("◒", "Battery", "Saver") {
+            CompactControlSpec("battery", "◒", "Battery", "Saver") {
                 openSystemScreen(context, Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("⌁", "Hotspot", "Tether") {
+            CompactControlSpec("hotspot", "⌁", "Hotspot", "Tether") {
                 openSystemScreen(context, Intent("android.settings.TETHER_SETTINGS"))
             },
         )
         add(
-            CompactControlSpec("⌖", "Location", "GPS") {
+            CompactControlSpec("location", "⌖", "Location", "GPS") {
                 openSystemScreen(context, Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("◇", "VPN", "Secure") {
+            CompactControlSpec("vpn", "◇", "VPN", "Secure") {
                 openSystemScreen(context, Intent(Settings.ACTION_VPN_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("▱", "Cast", "Screen") {
+            CompactControlSpec("cast", "▱", "Cast", "Screen") {
                 openSystemScreen(context, Intent(Settings.ACTION_CAST_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("♪", "Sound", "Audio") {
+            CompactControlSpec("sound", "♪", "Sound", "Audio") {
                 openSystemScreen(context, Intent(Settings.ACTION_SOUND_SETTINGS))
             },
         )
         add(
-            CompactControlSpec("N", "NFC", "Tap") {
+            CompactControlSpec("nfc", "N", "NFC", "Tap") {
                 openSystemScreen(context, Intent(Settings.ACTION_NFC_SETTINGS))
             },
         )
 
         if (BuildConfig.DEV_ADVANCED_INTEGRATIONS) {
             add(
-                CompactControlSpec("A", "Access", "Dev only") {
+                CompactControlSpec("access", "A", "Access", "Dev only") {
                     openSystemScreen(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 },
             )
         }
 
         add(
-            CompactControlSpec("⚙", "Settings", "System") {
+            CompactControlSpec("settings", "⚙", "Settings", "System") {
                 openSystemScreen(context, Intent(Settings.ACTION_SETTINGS))
             },
         )
@@ -298,6 +434,10 @@ private fun NativeSystemControls(context: Context) {
                         spec = control,
                         modifier = Modifier.weight(1f),
                         intensity = 0.55f,
+                        editMode = editMode,
+                        iconColor = iconColors[control.id] ?: Color.Black,
+                        selected = selectedControlId == control.id,
+                        onSelect = onSelect,
                     )
                 }
                 repeat(4 - row.size) {
@@ -313,22 +453,36 @@ private fun CompactControl(
     spec: CompactControlSpec,
     modifier: Modifier = Modifier,
     intensity: Float = 0.60f,
+    editMode: Boolean,
+    iconColor: Color,
+    selected: Boolean,
+    onSelect: (CompactControlSpec) -> Unit,
 ) {
-    val palette = LocalVeloraPalette.current
-
     LiquidGlassPanel(
-        modifier = modifier.clickable(onClick = spec.action),
+        modifier = modifier.clickable {
+            if (editMode) onSelect(spec) else spec.action()
+        },
         shape = RoundedCornerShape(20.dp),
         contentPadding = PaddingValues(horizontal = 7.dp, vertical = 10.dp),
-        intensity = intensity,
+        intensity = if (selected) 0.92f else intensity,
     ) {
         Column {
-            Text(
-                text = spec.symbol,
-                color = palette.secondary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        color = Color.White.copy(alpha = 0.80f),
+                        shape = CircleShape,
+                    ),
+            ) {
+                Text(
+                    text = spec.symbol,
+                    color = iconColor,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
             Spacer(Modifier.height(5.dp))
             Text(
                 text = spec.label,
@@ -338,12 +492,147 @@ private fun CompactControl(
                 maxLines = 1,
             )
             Text(
-                text = spec.detail,
-                color = Color.White.copy(alpha = 0.45f),
+                text = if (selected && editMode) "Editing" else spec.detail,
+                color = Color.White.copy(alpha = 0.48f),
                 fontSize = 7.sp,
                 maxLines = 1,
             )
         }
+    }
+}
+
+@Composable
+private fun ControlIconColorEditor(
+    spec: CompactControlSpec,
+    color: Color,
+    onColorChanged: (Color) -> Unit,
+    onReset: () -> Unit,
+) {
+    LiquidGlassPanel(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        contentPadding = PaddingValues(14.dp),
+        intensity = 0.68f,
+    ) {
+        Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(Color.White.copy(alpha = 0.84f), CircleShape),
+                ) {
+                    Text(
+                        text = spec.symbol,
+                        color = color,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = spec.label + " icon",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = String.format(
+                            Locale.US,
+                            "#%06X",
+                            color.toArgb() and 0x00FFFFFF,
+                        ),
+                        color = Color.White.copy(alpha = 0.56f),
+                        fontSize = 10.sp,
+                    )
+                }
+                Text(
+                    text = "Reset black",
+                    color = Color.White.copy(alpha = 0.76f),
+                    fontSize = 10.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onReset)
+                        .padding(8.dp),
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            ColorChannelSlider(
+                label = "R",
+                value = color.red,
+                onValueChange = {
+                    onColorChanged(
+                        Color(
+                            red = it,
+                            green = color.green,
+                            blue = color.blue,
+                            alpha = 1f,
+                        ),
+                    )
+                },
+            )
+            ColorChannelSlider(
+                label = "G",
+                value = color.green,
+                onValueChange = {
+                    onColorChanged(
+                        Color(
+                            red = color.red,
+                            green = it,
+                            blue = color.blue,
+                            alpha = 1f,
+                        ),
+                    )
+                },
+            )
+            ColorChannelSlider(
+                label = "B",
+                value = color.blue,
+                onValueChange = {
+                    onColorChanged(
+                        Color(
+                            red = color.red,
+                            green = color.green,
+                            blue = it,
+                            alpha = 1f,
+                        ),
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColorChannelSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Slider(
+            value = value.coerceIn(0f, 1f),
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = (value.coerceIn(0f, 1f) * 255f).toInt().toString(),
+            color = Color.White.copy(alpha = 0.58f),
+            fontSize = 9.sp,
+        )
     }
 }
 

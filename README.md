@@ -284,3 +284,15 @@ Velora now separates distribution capabilities instead of putting every special 
 - Recents now uses the same borderless full-page liquid-glass surface as Notifications, Control Center and All Apps.
 - Clock, Calendar, Battery and Device premium widgets are all transparent/neutral with no rounded palette card behind them.
 - Colab identifies this source as `beta13-personal-notify` and requires versionCode 34.
+
+
+## Beta 14 editable Control Center icon colors
+
+- Control Center header now has a visible Edit control.
+- Control tiles use a high-contrast light circular icon bed with black icons by default.
+- In Edit mode, tapping a connectivity/system tile selects it instead of opening the system action.
+- The selected tile exposes RGB sliders for free per-icon color customization plus a hexadecimal preview.
+- Per-control icon colors persist locally in SharedPreferences.
+- Reset black removes the custom color and returns the icon to the default black.
+- Simulation mode mirrors the improved black-on-light icon visibility.
+- Colab identifies this source as `beta14-control-edit` and requires versionCode 35.
