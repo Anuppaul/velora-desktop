@@ -9,8 +9,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {collectDockApps} from './apps.js';
 
-const DOCK_PADDING = 10;
-const DOCK_HOVER_PADDING = 13;
+const DOCK_PADDING = 8;
+const DOCK_HOVER_PADDING = 10;
 const DOCK_REVEAL_PX = 7;
 const DOCK_HOVER_SCALE = 0.95;
 const DEFAULT_TINT = [245, 247, 252];
@@ -31,7 +31,6 @@ export class FloatingDockController {
 
         this._root = null;
         this._glassTint = null;
-        this._glassShine = null;
         this._box = null;
         this._buttons = [];
         this._hideTimeoutId = 0;
@@ -86,16 +85,11 @@ export class FloatingDockController {
             style_class: 'velora-liquidGlass-tint',
             reactive: false,
         });
-        this._glassShine = new St.Widget({
-            style_class: 'velora-liquidGlass-shine',
-            reactive: false,
-        });
         this._box = new St.BoxLayout({
             style_class: 'velora-liquidGlass-text velora-dock-content',
         });
 
         this._root.add_child(this._glassTint);
-        this._root.add_child(this._glassShine);
         this._root.add_child(this._box);
         this._layer.add_child(this._root);
 
@@ -133,7 +127,6 @@ export class FloatingDockController {
         this._root?.destroy();
         this._root = null;
         this._glassTint = null;
-        this._glassShine = null;
         this._box = null;
         this._buttons = [];
         this._blurEffect = null;
@@ -243,20 +236,11 @@ export class FloatingDockController {
     }
 
     _layoutGlassLayers(width, height) {
-        if (
-            !this._glassTint ||
-            !this._glassShine
-        ) {
+        if (!this._glassTint)
             return;
-        }
 
-        for (const actor of [
-            this._glassTint,
-            this._glassShine,
-        ]) {
-            actor.set_position(0, 0);
-            actor.set_size(width, height);
-        }
+        this._glassTint.set_position(0, 0);
+        this._glassTint.set_size(width, height);
     }
 
     _setWrapperHover(hovered) {
