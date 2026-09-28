@@ -21,7 +21,8 @@ import {
     totalCapacity,
 } from './geometry.js';
 
-const DEFAULT_ORB_ICON = 'view-app-grid-ubuntu-symbolic';
+const DEFAULT_ORB_ICON = 'start-here-symbolic';
+const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
 const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 
@@ -109,7 +110,8 @@ export default class VeloraRuntime extends Extension {
 
     _createOrb() {
         this._orbMark = new St.Icon({
-            icon_name: 'view-app-grid-ubuntu-symbolic',
+            icon_name: DEFAULT_ORB_ICON,
+            fallback_icon_name: FALLBACK_ORB_ICON,
             icon_size: 24,
             style_class: 'velora-orb-mark',
             x_align: Clutter.ActorAlign.CENTER,
@@ -301,19 +303,31 @@ export default class VeloraRuntime extends Extension {
         const configured =
             this._settings.get_string('orb-icon').trim() || DEFAULT_ORB_ICON;
 
-        let gicon;
+        this._orbMark.fallback_icon_name = FALLBACK_ORB_ICON;
+
         if (configured.startsWith('/')) {
             const file = Gio.File.new_for_path(configured);
-            if (file.query_exists(null))
-                gicon = new Gio.FileIcon({file});
-        } else if (configured.startsWith('file://')) {
-            const file = Gio.File.new_for_uri(configured);
-            if (file.query_exists(null))
-                gicon = new Gio.FileIcon({file});
+            if (file.query_exists(null)) {
+                this._orbMark.gicon = new Gio.FileIcon({file});
+                return;
+            }
+
+            this._orbMark.icon_name = DEFAULT_ORB_ICON;
+            return;
         }
 
-        this._orbMark.gicon =
-            gicon ?? new Gio.ThemedIcon({name: configured});
+        if (configured.startsWith('file://')) {
+            const file = Gio.File.new_for_uri(configured);
+            if (file.query_exists(null)) {
+                this._orbMark.gicon = new Gio.FileIcon({file});
+                return;
+            }
+
+            this._orbMark.icon_name = DEFAULT_ORB_ICON;
+            return;
+        }
+
+        this._orbMark.icon_name = configured;
     }
 
     _syncOrbFromSettings() {
