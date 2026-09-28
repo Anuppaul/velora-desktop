@@ -4,26 +4,26 @@
 
 Velora on GNOME is a desktop interaction layer, not an Android launcher stretched onto a monitor.
 
-The central object is a movable Velora V orb. It replaces the persistent desktop role of the dock while preserving GNOME's native Overview, Applications, Workspaces, Quick Settings and Notifications.
+The central object is a movable Velora Orb with a compact pure-black circular background and a white symbolic icon. It replaces the persistent desktop role of the dock while preserving GNOME's native Overview, Applications, Workspaces, Quick Settings and Notifications.
 
 ## Primary interaction
 
 1. Ubuntu Dock is hidden without leaving its fixed workspace gap.
-2. V defaults to the top-left but can be dragged anywhere.
-3. Hover V -> Favorites + currently running apps expand around V.
-4. Click V -> GNOME Applications view opens and exposes installed applications.
+2. The Orb defaults to the top-left but can be dragged anywhere.
+3. Hover the Orb -> Favorites + currently running apps expand around it.
+4. Click the Orb -> GNOME Applications view toggles open/closed.
 5. Hover icons use adaptive 2, 3 or 4 radial layers.
 6. Edge/corner geometry uses only fully visible non-overlapping positions.
-7. Moving away collapses hover icons back into V.
+7. Moving away collapses hover icons back into the Orb.
 
 ## Desktop adaptation matrix
 
 | Mobile Velora idea | GNOME decision | Desktop implementation |
 | --- | --- | --- |
-| Freeform Home placement | Keep concept | Draggable V orb |
-| Aurora / Liquid Glass | Keep visual language | Premium circular glass surfaces and gradient accent |
-| App drawer | Adapt | Click V opens GNOME Applications |
-| Fast pinned apps | Adapt | Hover V shows Favorites + running apps |
+| Freeform Home placement | Keep concept | Draggable Orb |
+| Aurora / Liquid Glass | Keep visual language | Premium app surfaces; main Orb stays compact pure black with a white icon |
+| App drawer | Adapt | Click Orb toggles GNOME Applications |
+| Fast pinned apps | Adapt | Hover Orb shows Favorites + running apps |
 | Per-item sizing | Keep | Icon size, icon distance and layer distance |
 | Dynamic icons | Adapt | Native desktop icons + running dot |
 | Mobile Control Center | Remove | GNOME Quick Settings owns this |
@@ -41,7 +41,8 @@ User-controlled settings include:
 
 - Orb position.
 - Orb size and opacity.
-- Accent colors.
+- Orb icon (themed icon name or absolute SVG/PNG path).
+- Optional Orb auto-hide with delay and edge reveal.
 - App icon size.
 - Same-layer icon distance.
 - Radial layer distance.
