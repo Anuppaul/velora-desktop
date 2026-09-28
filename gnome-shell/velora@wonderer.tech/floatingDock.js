@@ -9,13 +9,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {collectDockApps} from './apps.js';
 
-const DOCK_PADDING = 8;
+const DOCK_PADDING = 10;
+const DOCK_HOVER_PADDING = 13;
 const DOCK_REVEAL_PX = 7;
-const DOCK_HOVER_SCALE = 1.22;
-const DOCK_NEIGHBOR_SCALE = 1.10;
-const DOCK_SECOND_NEIGHBOR_SCALE = 1.04;
-const DOCK_HOVER_LIFT_RATIO = 0.16;
-const DEFAULT_TINT = [22, 24, 31];
+const DOCK_HOVER_SCALE = 0.95;
+const DEFAULT_TINT = [245, 247, 252];
 
 export class FloatingDockController {
     constructor(params) {
@@ -32,11 +30,9 @@ export class FloatingDockController {
         this._hideTooltip = params.hideTooltip;
 
         this._root = null;
-        this._blurSurface = null;
-        this._glassBase = null;
-        this._glassRefraction = null;
-        this._glassSheen = null;
-        this._glassBottomShade = null;
+        this._glassEffect = null;
+        this._glassTint = null;
+        this._glassShine = null;
         this._box = null;
         this._buttons = [];
         this._hideTimeoutId = 0;
@@ -80,43 +76,32 @@ export class FloatingDockController {
 
         this._root = new St.Widget({
             name: 'velora-floating-liquid-dock',
-            style_class: 'velora-floating-dock',
+            style_class: 'velora-liquidGlass-wrapper',
             reactive: true,
             track_hover: true,
             layout_manager: new Clutter.FixedLayout(),
         });
         this._root.set_pivot_point(0.5, 0.5);
 
-        this._blurSurface = new St.Widget({
-            style_class: 'velora-floating-dock-blur-surface',
+        this._glassEffect = new St.Widget({
+            style_class: 'velora-liquidGlass-effect',
             reactive: false,
         });
-        this._glassBase = new St.Widget({
-            style_class: 'velora-floating-dock-glass',
+        this._glassTint = new St.Widget({
+            style_class: 'velora-liquidGlass-tint',
             reactive: false,
         });
-        this._glassRefraction = new St.Widget({
-            style_class: 'velora-floating-dock-refraction',
+        this._glassShine = new St.Widget({
+            style_class: 'velora-liquidGlass-shine',
             reactive: false,
         });
-        this._glassSheen = new St.Widget({
-            style_class: 'velora-floating-dock-sheen',
-            reactive: false,
-        });
-        this._glassBottomShade = new St.Widget({
-            style_class: 'velora-floating-dock-bottom-shade',
-            reactive: false,
-        });
-
         this._box = new St.BoxLayout({
-            style_class: 'velora-floating-dock-box',
+            style_class: 'velora-liquidGlass-text velora-dock-content',
         });
 
-        this._root.add_child(this._blurSurface);
-        this._root.add_child(this._glassBase);
-        this._root.add_child(this._glassRefraction);
-        this._root.add_child(this._glassSheen);
-        this._root.add_child(this._glassBottomShade);
+        this._root.add_child(this._glassEffect);
+        this._root.add_child(this._glassTint);
+        this._root.add_child(this._glassShine);
         this._root.add_child(this._box);
         this._layer.add_child(this._root);
 
@@ -124,7 +109,9 @@ export class FloatingDockController {
             if (this._root.get_hover()) {
                 this._cancelHide();
                 this._reveal(true);
+                this._setWrapperHover(true);
             } else {
+                this._setWrapperHover(false);
                 this._scheduleHide();
             }
         });
@@ -151,11 +138,9 @@ export class FloatingDockController {
 
         this._root?.destroy();
         this._root = null;
-        this._blurSurface = null;
-        this._glassBase = null;
-        this._glassRefraction = null;
-        this._glassSheen = null;
-        this._glassBottomShade = null;
+        this._glassEffect = null;
+        this._glassTint = null;
+        this._glassShine = null;
         this._box = null;
         this._buttons = [];
         this._blurEffect = null;
@@ -266,122 +251,83 @@ export class FloatingDockController {
 
     _layoutGlassLayers(width, height) {
         if (
-            !this._glassBase ||
-            !this._glassRefraction ||
-            !this._glassSheen ||
-            !this._glassBottomShade
+            !this._glassEffect ||
+            !this._glassTint ||
+            !this._glassShine
         ) {
             return;
         }
 
-        const blurInset = Math.max(
-            6,
-            Math.round(Math.min(width, height) * 0.10)
+        // Shell background blur paints a rectangular allocation. Keep its
+        // allocation slightly inside the capsule so no square corners can
+        // bleed beyond the white rounded tint/shine layers.
+        const effectInset = 3;
+
+        this._glassEffect.set_position(
+            effectInset,
+            effectInset
+        );
+        this._glassEffect.set_size(
+            Math.max(1, width - effectInset * 2),
+            Math.max(1, height - effectInset * 2)
         );
 
-        if (this._blurSurface) {
-            this._blurSurface.set_position(
-                blurInset,
-                blurInset
-            );
-            this._blurSurface.set_size(
-                Math.max(1, width - blurInset * 2),
-                Math.max(1, height - blurInset * 2)
-            );
-        }
-
         for (const actor of [
-            this._glassBase,
-            this._glassRefraction,
+            this._glassTint,
+            this._glassShine,
         ]) {
             actor.set_position(0, 0);
             actor.set_size(width, height);
         }
+    }
 
+    _setWrapperHover(hovered) {
+        if (!this._root || !this._box)
+            return;
+
+        const padding = hovered
+            ? DOCK_HOVER_PADDING
+            : DOCK_PADDING;
+
+        const iconSize = this._settings.get_int(
+            'floating-dock-icon-size'
+        );
+        const gap = this._settings.get_int(
+            'floating-dock-gap'
+        );
         const position = this._settings.get_string(
             'floating-dock-position'
         );
         const vertical =
             position === 'left' || position === 'right';
+        const count = this._buttons.length;
 
-        if (vertical) {
-            const inset = Math.max(
-                6,
-                Math.round(width * 0.10)
-            );
-            const lineHeight = Math.max(
-                1,
-                height - inset * 2
-            );
+        const contentWidth = vertical
+            ? iconSize
+            : count * iconSize +
+              Math.max(0, count - 1) * gap;
+        const contentHeight = vertical
+            ? count * iconSize +
+              Math.max(0, count - 1) * gap
+            : iconSize;
 
-            const sheenX =
-                position === 'left'
-                    ? Math.max(3, width - 5)
-                    : 3;
-            const shadeX =
-                position === 'left'
-                    ? 2
-                    : Math.max(0, width - 3);
+        const width = contentWidth + padding * 2;
+        const height = contentHeight + padding * 2;
 
-            this._glassSheen.set_position(
-                sheenX,
-                inset
-            );
-            this._glassSheen.set_size(
-                2,
-                lineHeight
-            );
+        this._box.set_position(padding, padding);
+        this._box.set_size(
+            contentWidth,
+            contentHeight
+        );
+        this._root.set_size(width, height);
+        this._layoutGlassLayers(width, height);
 
-            this._glassBottomShade.set_position(
-                shadeX,
-                inset
-            );
-            this._glassBottomShade.set_size(
-                1,
-                lineHeight
-            );
-            return;
-        }
+        if (hovered)
+            this._root.add_style_pseudo_class('hover');
+        else
+            this._root.remove_style_pseudo_class('hover');
 
-        const sheenInset = Math.max(
-            6,
-            Math.round(height * 0.10)
-        );
-        const sheenWidth = Math.max(
-            1,
-            width - sheenInset * 2
-        );
-
-        this._glassSheen.set_position(
-            sheenInset,
-            position === 'top'
-                ? Math.max(0, height - 5)
-                : Math.max(3, Math.round(height * 0.09))
-        );
-        this._glassSheen.set_size(
-            sheenWidth,
-            2
-        );
-
-        const shadeInset = Math.max(
-            8,
-            Math.round(width * 0.04)
-        );
-        const shadeWidth = Math.max(
-            1,
-            width - shadeInset * 2
-        );
-
-        this._glassBottomShade.set_position(
-            shadeInset,
-            position === 'top'
-                ? 2
-                : Math.max(0, height - 3)
-        );
-        this._glassBottomShade.set_size(
-            shadeWidth,
-            1
-        );
+        this.reposition(true);
     }
 
     syncSettings() {
@@ -466,7 +412,7 @@ export class FloatingDockController {
         }
     }
 
-    _createAppButton(app, iconSize, dockPosition, index) {
+    _createAppButton(app, iconSize, dockPosition, _index) {
         const running =
             app.get_state() !== Shell.AppState.STOPPED;
         const textureSize = Math.max(
@@ -543,16 +489,12 @@ export class FloatingDockController {
             if (button.get_hover()) {
                 this._cancelHide();
                 this._cancelPreviewHide?.();
-                this._applyMagnification(
-                    index,
-                    dockPosition,
-                    iconSize
-                );
 
-                halo.ease({
-                    opacity: 255,
-                    duration: 100,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                button.ease({
+                    scale_x: DOCK_HOVER_SCALE,
+                    scale_y: DOCK_HOVER_SCALE,
+                    duration: 400,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 });
 
                 const previewShown =
@@ -576,16 +518,13 @@ export class FloatingDockController {
                 this._hideTooltip?.();
                 this._schedulePreviewHide?.();
 
-                halo.ease({
-                    opacity: 0,
-                    duration: 90,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                button.ease({
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: 400,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 });
 
-                this._syncMagnificationFromHover(
-                    dockPosition,
-                    iconSize
-                );
                 this._scheduleHide();
             }
         });
@@ -599,96 +538,6 @@ export class FloatingDockController {
         });
 
         return button;
-    }
-
-    _syncMagnificationFromHover(
-        dockPosition,
-        iconSize
-    ) {
-        const activeIndex = this._buttons.findIndex(
-            button => button.get_hover()
-        );
-
-        if (activeIndex >= 0) {
-            this._applyMagnification(
-                activeIndex,
-                dockPosition,
-                iconSize
-            );
-        } else {
-            this._resetMagnification();
-        }
-    }
-
-    _applyMagnification(
-        activeIndex,
-        dockPosition,
-        iconSize
-    ) {
-        const lift = Math.max(
-            3,
-            Math.round(iconSize * DOCK_HOVER_LIFT_RATIO)
-        );
-
-        this._buttons.forEach((button, index) => {
-            const distance = Math.abs(index - activeIndex);
-
-            let scale = 1;
-            let liftFactor = 0;
-
-            if (distance === 0) {
-                scale = DOCK_HOVER_SCALE;
-                liftFactor = 1;
-            } else if (distance === 1) {
-                scale = DOCK_NEIGHBOR_SCALE;
-                liftFactor = 0.48;
-            } else if (distance === 2) {
-                scale = DOCK_SECOND_NEIGHBOR_SCALE;
-                liftFactor = 0.18;
-            }
-
-            let translationX = 0;
-            let translationY = 0;
-            const outward = Math.round(lift * liftFactor);
-
-            switch (dockPosition) {
-            case 'top':
-                translationY = outward;
-                break;
-            case 'left':
-                translationX = outward;
-                break;
-            case 'right':
-                translationX = -outward;
-                break;
-            case 'bottom':
-            default:
-                translationY = -outward;
-                break;
-            }
-
-            button.ease({
-                scale_x: scale,
-                scale_y: scale,
-                translation_x: translationX,
-                translation_y: translationY,
-                duration: 125,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        });
-    }
-
-    _resetMagnification() {
-        for (const button of this._buttons) {
-            button.ease({
-                scale_x: 1,
-                scale_y: 1,
-                translation_x: 0,
-                translation_y: 0,
-                duration: 115,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        }
     }
 
     _previewSideForDock(position) {
@@ -767,7 +616,6 @@ export class FloatingDockController {
         if (!this._root || this._hidden)
             return;
 
-        this._resetMagnification();
         this._hidden = true;
         this.reposition(true);
     }
@@ -825,11 +673,13 @@ export class FloatingDockController {
     }
 
     _syncBlur() {
-        if (!this._blurSurface)
+        if (!this._glassEffect)
             return;
 
         if (this._blurEffect) {
-            this._blurSurface.remove_effect(this._blurEffect);
+            this._glassEffect.remove_effect(
+                this._blurEffect
+            );
             this._blurEffect = null;
         }
 
@@ -843,16 +693,18 @@ export class FloatingDockController {
 
         try {
             this._blurEffect = new Shell.BlurEffect({
-                brightness: 1.03,
+                brightness: 1.0,
                 mode: Shell.BlurMode.BACKGROUND,
-                radius: 28,
+                radius: 3,
             });
-            this._blurSurface.add_effect(this._blurEffect);
+            this._glassEffect.add_effect(
+                this._blurEffect
+            );
         } catch (error) {
             this._blurEffect = null;
             logError(
                 error,
-                'Velora Desktop: Liquid Dock blur unavailable'
+                'Velora Desktop: Liquid Glass blur unavailable'
             );
         }
     }
@@ -863,17 +715,10 @@ export class FloatingDockController {
     }
 
     _syncTint() {
-        if (
-            !this._root ||
-            !this._glassBase ||
-            !this._glassRefraction ||
-            !this._glassSheen ||
-            !this._glassBottomShade
-        ) {
+        if (!this._glassTint)
             return;
-        }
 
-        let tint = [245, 247, 252];
+        let tint = [255, 255, 255];
 
         if (
             this._settings.get_boolean(
@@ -887,83 +732,19 @@ export class FloatingDockController {
             }
 
             const sampled = this._wallpaperColorCache;
-            const tintStrength = 0.10;
-
+            const strength = 0.08;
             tint = sampled.map((value, index) =>
                 Math.round(
-                    [248, 250, 253][index] *
-                        (1 - tintStrength) +
-                    value * tintStrength
+                    tint[index] * (1 - strength) +
+                    value * strength
                 )
             );
         }
 
-        const opacity =
-            this._settings.get_int(
-                'floating-dock-opacity'
-            ) / 100;
-
-        // Map the user-facing opacity to a frosted-glass alpha range.
-        // Even at 100% the wallpaper must remain visible through the dock.
-        const glassAlpha =
-            0.095 + opacity * 0.325;
-        const topAlpha = Math.min(
-            0.52,
-            glassAlpha + 0.08
-        );
-        const bottomAlpha = Math.max(
-            0.12,
-            glassAlpha - 0.045
-        );
-
-        const top = tint.map(value =>
-            Math.min(255, value + 6)
-        );
-        const bottom = tint.map(value =>
-            Math.max(0, value - 8)
-        );
-
-        this._glassBase.set_style(
-            'background-gradient-direction: vertical; ' +
-            'background-gradient-start: rgba(' +
-            top.join(',') + ',' +
-            topAlpha.toFixed(2) +
-            '); background-gradient-end: rgba(' +
-            bottom.join(',') + ',' +
-            bottomAlpha.toFixed(2) +
-            '); border-color: rgba(255,255,255,0.62);'
-        );
-
-        const position = this._settings.get_string(
-            'floating-dock-position'
-        );
-        const glassDirection =
-            position === 'left' || position === 'right'
-                ? 'vertical'
-                : 'horizontal';
-
-        const lensTint = tint.map(value =>
-            Math.min(255, value + 4)
-        );
-
-        this._glassRefraction.set_style(
-            'background-gradient-direction: ' +
-            glassDirection + '; ' +
-            'background-gradient-start: rgba(255,255,255,0.12); ' +
-            'background-gradient-end: rgba(' +
-            lensTint.join(',') +
-            ',0.035); border-color: rgba(255,255,255,0.24);'
-        );
-
-        this._glassSheen.set_style(
-            'background-gradient-direction: ' +
-            glassDirection + '; ' +
-            'background-gradient-start: rgba(255,255,255,0.10); ' +
-            'background-gradient-end: rgba(255,255,255,0.74);'
-        );
-
-        this._glassBottomShade.set_style(
-            'background-color: rgba(40,46,58,0.10);'
+        this._glassTint.set_style(
+            'background-color: rgba(' +
+            tint.join(',') +
+            ',0.50);'
         );
     }
 
