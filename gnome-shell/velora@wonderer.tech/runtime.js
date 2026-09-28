@@ -6,6 +6,7 @@ import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js';
 
 import {collectDockApps} from './apps.js';
 import {DockController} from './dock.js';
@@ -336,7 +337,7 @@ export default class VeloraRuntime extends Extension {
         this._orb.set_position(x, y);
 
         if (this._orbHidden)
-            this._applyOrbHiddenPosition(x, y, size);
+            this._applyOrbHiddenPosition(x, y, size, false);
     }
 
     _scheduleOrbAutoHide() {
@@ -389,11 +390,12 @@ export default class VeloraRuntime extends Extension {
         const size = this._settings.get_int('orb-size');
         const [x, y] = this._orb.get_position();
 
+        this._orb.remove_all_transitions();
         this._orbHidden = true;
-        this._applyOrbHiddenPosition(x, y, size);
+        this._applyOrbHiddenPosition(x, y, size, true);
     }
 
-    _applyOrbHiddenPosition(x, y, size) {
+    _applyOrbHiddenPosition(x, y, size, animate = false) {
         const centerX = x + size / 2;
         const centerY = y + size / 2;
         const monitor = this._nearestMonitor(centerX, centerY);
@@ -424,18 +426,25 @@ export default class VeloraRuntime extends Extension {
             break;
         }
 
-        this._orb.ease({
-            x: hiddenX,
-            y: hiddenY,
-            duration: 150,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        });
+        this._orb.remove_all_transitions();
+
+        if (animate) {
+            this._orb.ease({
+                x: hiddenX,
+                y: hiddenY,
+                duration: 150,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } else {
+            this._orb.set_position(hiddenX, hiddenY);
+        }
     }
 
     _revealOrb() {
         if (!this._orb || !this._orbHidden)
             return;
 
+        this._orb.remove_all_transitions();
         this._orbHidden = false;
         this._syncOrbFromSettings();
     }
@@ -544,13 +553,13 @@ export default class VeloraRuntime extends Extension {
             return;
         }
 
-        if (showAppsButton.checked) {
+        if (Main.overview.visible && showAppsButton.checked) {
             showAppsButton.checked = false;
             Main.overview.hide();
             return;
         }
 
-        showAppsButton.checked = true;
+        Main.overview.show(ControlsState.APP_GRID);
     }
 
     _scheduleOpen() {
@@ -609,6 +618,8 @@ export default class VeloraRuntime extends Extension {
     _openMenu() {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
+        this._revealOrb();
 
         if (this._menuOpen || this._dragging)
             return;
@@ -823,8 +834,10 @@ export default class VeloraRuntime extends Extension {
         this._cancelCloseTimer();
         this._hideTooltip();
 
-        if (!this._menuOpen && this._radialActors.length === 0)
+        if (!this._menuOpen && this._radialActors.length === 0) {
+            this._scheduleOrbAutoHide();
             return;
+        }
 
         this._menuOpen = false;
         this._orb?.remove_style_pseudo_class('open');
@@ -834,6 +847,7 @@ export default class VeloraRuntime extends Extension {
         if (!this._orb || immediate) {
             for (const actor of actors)
                 actor.destroy();
+            this._scheduleOrbAutoHide();
             return;
         }
 
@@ -868,6 +882,8 @@ export default class VeloraRuntime extends Extension {
                 },
             });
         }
+
+        this._scheduleOrbAutoHide();
     }
 
     _destroyClosingActors() {
