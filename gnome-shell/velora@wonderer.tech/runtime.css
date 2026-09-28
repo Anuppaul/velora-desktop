@@ -150,11 +150,24 @@
 
 
 /* Velora minimal GNOME Applications view */
-#overviewGroup.velora-minimal-all-apps {
+#overviewGroup.velora-minimal-all-apps,
+#overviewGroup.velora-minimal-all-apps #overview,
+.velora-minimal-all-apps-controls,
+.velora-minimal-all-apps-display {
     background-color: #000000;
 }
 
-#overviewGroup.velora-minimal-all-apps .icon-grid {
+.velora-minimal-all-apps-controls {
+    box-shadow: none;
+}
+
+.velora-minimal-all-apps-display {
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+.velora-minimal-all-apps-grid {
     row-spacing: 10px;
     column-spacing: 14px;
     max-row-spacing: 18px;
@@ -165,50 +178,50 @@
     page-padding-right: 64px;
 }
 
-#overviewGroup.velora-minimal-all-apps .overview-tile {
+.velora-minimal-all-apps-display .overview-tile {
     padding: 6px;
     border-radius: 14px;
     background-color: transparent;
     box-shadow: none;
 }
 
-#overviewGroup.velora-minimal-all-apps .overview-tile:hover,
-#overviewGroup.velora-minimal-all-apps .overview-tile:focus {
+.velora-minimal-all-apps-display .overview-tile:hover,
+.velora-minimal-all-apps-display .overview-tile:focus {
     background-color: rgba(255, 255, 255, 0.08);
     box-shadow: none;
 }
 
-#overviewGroup.velora-minimal-all-apps .overview-icon {
+.velora-minimal-all-apps-display .overview-icon {
     color: #ffffff;
     font-size: 11px;
 }
 
-#overviewGroup.velora-minimal-all-apps .overview-icon-with-label > StBoxLayout {
+.velora-minimal-all-apps-display .overview-icon-with-label > StBoxLayout {
     spacing: 4px;
 }
 
-#overviewGroup.velora-minimal-all-apps .search-entry {
+.velora-minimal-all-apps-controls .search-entry {
     color: #ffffff;
     background-color: rgba(255, 255, 255, 0.07);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: none;
 }
 
-#overviewGroup.velora-minimal-all-apps .search-entry:focus {
+.velora-minimal-all-apps-controls .search-entry:focus {
     background-color: rgba(255, 255, 255, 0.10);
     border-color: rgba(255, 255, 255, 0.24);
     box-shadow: none;
 }
 
-#overviewGroup.velora-minimal-all-apps .page-indicator-icon {
+.velora-minimal-all-apps-display .page-indicator-icon {
     background-color: rgba(255, 255, 255, 0.58);
 }
 
-#overviewGroup.velora-minimal-all-apps .page-navigation-hint {
+.velora-minimal-all-apps-display .page-navigation-hint {
     background: transparent;
 }
 
-#overviewGroup.velora-minimal-all-apps .page-navigation-arrow {
+.velora-minimal-all-apps-display .page-navigation-arrow {
     background-color: transparent;
     box-shadow: none;
 }
