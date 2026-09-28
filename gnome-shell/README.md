@@ -71,8 +71,8 @@ If the bootstrap/schema itself changes, rerun the installer with Looking Glass *
 From the repository root:
 
     git fetch origin
-    git switch feat/velora-gnome-shell
-    git pull origin feat/velora-gnome-shell
+    git switch main
+    git pull --ff-only origin main
     bash gnome-shell/install.sh
 
 Do not `chmod +x` the scripts; invoking them with `bash` avoids Git mode-only changes.
