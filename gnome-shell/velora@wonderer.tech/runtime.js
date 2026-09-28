@@ -1010,8 +1010,7 @@ export default class VeloraRuntime extends Extension {
             const selectedSlots = selectOrganizedSlots(
                 slotRings[ring],
                 count,
-                layoutArc,
-                ring
+                layoutArc
             );
 
             for (const slot of selectedSlots) {
