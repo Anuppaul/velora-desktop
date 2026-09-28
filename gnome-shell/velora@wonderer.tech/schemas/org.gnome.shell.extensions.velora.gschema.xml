@@ -5,6 +5,10 @@
       <default>''</default>
       <summary>Internal generation of the bootstrap loaded by the running Shell</summary>
     </key>
+    <key name="bootstrap-loaded-revision" type="s">
+      <default>''</default>
+      <summary>Internal fingerprint of the bootstrap loaded by the running Shell</summary>
+    </key>
     <key name="runtime-revision" type="s">
       <default>'base'</default>
       <summary>Internal requested hot-swap runtime revision</summary>
