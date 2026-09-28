@@ -11,6 +11,13 @@ const RING_MODES = [
     ['4', 'Force 4 layers'],
 ];
 
+const DOCK_POSITIONS = [
+    ['bottom', 'Bottom'],
+    ['top', 'Top'],
+    ['left', 'Left'],
+    ['right', 'Right'],
+];
+
 function addSwitch(group, settings, key, title, subtitle) {
     const row = new Adw.SwitchRow({title, subtitle});
     settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
@@ -112,6 +119,27 @@ export default class VeloraPreferences extends ExtensionPreferences {
         window.add(launcherPage);
         window.add(appearancePage);
 
+        const surfacesGroup = new Adw.PreferencesGroup({
+            title: 'Launcher surfaces',
+            description: 'Orb and Liquid Dock are independent. Enable either one or keep both visible together.',
+        });
+        launcherPage.add(surfacesGroup);
+
+        addSwitch(
+            surfacesGroup,
+            settings,
+            'orb-enabled',
+            'Velora Orb',
+            'Show the movable Orb with the adaptive circular launcher.'
+        );
+        addSwitch(
+            surfacesGroup,
+            settings,
+            'floating-dock-enabled',
+            'Liquid Glass Dock',
+            'Show the independent floating favorites + running-app dock.'
+        );
+
         const behaviorGroup = new Adw.PreferencesGroup({
             title: 'Velora Orb behavior',
             description: 'Hover shows dock apps. Click toggles the GNOME Applications view.',
@@ -187,6 +215,92 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'auto-hide-delay',
             'Auto-hide delay',
             'Milliseconds before the idle Orb slides to the nearest screen edge.',
+            0,
+            10000,
+            100
+        );
+
+        const liquidDockGroup = new Adw.PreferencesGroup({
+            title: 'Liquid Glass Dock',
+            description: 'Floating dock layout, wallpaper-aware tint, blur and auto-hide.',
+        });
+        appearancePage.add(liquidDockGroup);
+
+        addCombo(
+            liquidDockGroup,
+            settings,
+            'floating-dock-position',
+            'Dock position',
+            'Place the independent floating dock on any screen edge.',
+            DOCK_POSITIONS
+        );
+        addSpin(
+            liquidDockGroup,
+            settings,
+            'floating-dock-icon-size',
+            'Dock icon size',
+            'Size of each application icon button.',
+            24,
+            80,
+            2
+        );
+        addSpin(
+            liquidDockGroup,
+            settings,
+            'floating-dock-gap',
+            'Icon gap',
+            'Space between neighboring dock icons.',
+            0,
+            32,
+            1
+        );
+        addSpin(
+            liquidDockGroup,
+            settings,
+            'floating-dock-edge-offset',
+            'Edge distance',
+            'Distance between the floating dock and the selected screen edge.',
+            0,
+            64,
+            2
+        );
+        addSpin(
+            liquidDockGroup,
+            settings,
+            'floating-dock-opacity',
+            'Glass opacity',
+            'Background opacity of the Liquid Glass surface.',
+            20,
+            100,
+            1
+        );
+        addSwitch(
+            liquidDockGroup,
+            settings,
+            'floating-dock-wallpaper-tint',
+            'Wallpaper-adaptive tint',
+            'Samples the current wallpaper and shifts the glass tint toward its dominant tone.'
+        );
+        addSwitch(
+            liquidDockGroup,
+            settings,
+            'floating-dock-blur',
+            'Background blur',
+            'Uses GNOME native background blur behind the small dock surface when available.'
+        );
+        addSwitch(
+            liquidDockGroup,
+            settings,
+            'floating-dock-auto-hide',
+            'Auto-hide Dock',
+            'Slides the dock to its selected screen edge when idle, leaving a small reveal strip.'
+        );
+        addSpin(
+            liquidDockGroup,
+            settings,
+            'floating-dock-hide-delay',
+            'Auto-hide delay',
+            'Milliseconds before an idle floating dock hides.',
             0,
             10000,
             100
