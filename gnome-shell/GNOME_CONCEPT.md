@@ -4,17 +4,19 @@
 
 Velora on GNOME is a desktop interaction layer, not an Android launcher stretched onto a monitor.
 
-The central object is a movable Velora Orb with a compact pure-black circular background and a white symbolic icon. It replaces the persistent desktop role of the dock while preserving GNOME's native Overview, Applications, Workspaces, Quick Settings and Notifications.
+Velora has two independent desktop launcher surfaces: the movable Orb and an optional floating Liquid Glass Dock. The user may run either surface alone or keep both active together. GNOME's native Overview, Applications, Workspaces, Quick Settings and Notifications remain canonical.
 
 ## Primary interaction
 
-1. Ubuntu Dock is hidden without leaving its fixed workspace gap.
-2. The Orb defaults to the top-left but can be dragged anywhere.
-3. Hover the Orb -> Favorites + currently running apps expand around it.
-4. Click the Orb -> GNOME Applications view toggles open/closed.
-6. Hover icons use adaptive 2, 3 or 4 radial layers.
-7. Edge/corner geometry uses only fully visible non-overlapping positions.
-8. Moving away collapses hover icons back into the Orb.
+1. Ubuntu Dock can be hidden without leaving its fixed workspace gap.
+2. Orb and Liquid Dock have independent on/off controls.
+3. The Orb defaults to the top-left but can be dragged anywhere.
+4. Hover the Orb -> Favorites + currently running apps expand around it.
+5. Click the Orb -> native GNOME Applications view toggles open/closed.
+6. The Liquid Glass Dock independently shows Favorites + currently running apps.
+7. Running-app hover on either surface can show Velora's native live window preview.
+8. Liquid Dock supports wallpaper-adaptive tint, small-surface background blur, edge positioning and auto-hide.
+9. Hover icons use adaptive radial layers with screen-safe geometry.
 
 ## Desktop adaptation matrix
 
@@ -22,7 +24,7 @@ The central object is a movable Velora Orb with a compact pure-black circular ba
 | --- | --- | --- |
 | Freeform Home placement | Keep concept | Draggable Orb |
 | Aurora / Liquid Glass | Keep visual language | Premium app surfaces; main Orb stays compact pure black with a white icon |
-| App drawer | Adapt | Click Orb toggles a native GNOME Applications view with optional Velora minimal styling |
+| App drawer | Adapt | Click Orb toggles the native GNOME Applications view without replacing its UI |
 | Fast pinned apps | Adapt | Hover Orb shows Favorites + running apps |
 | Per-item sizing | Keep | Icon size, icon distance and layer distance |
 | Dynamic icons | Adapt | Native desktop icons + running dot |
@@ -39,6 +41,10 @@ The central object is a movable Velora Orb with a compact pure-black circular ba
 
 User-controlled settings include:
 
+- Orb on/off.
+- Liquid Glass Dock on/off; both launcher surfaces may coexist.
+- Liquid Dock position, icon size, icon gap and edge distance.
+- Liquid Dock glass opacity, wallpaper tint, blur and auto-hide.
 - Orb position.
 - Orb size and opacity.
 - Orb icon (themed icon name or absolute SVG/PNG path).
