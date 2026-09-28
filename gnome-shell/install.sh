@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.9"
+INSTALLER_VERSION="2026-09-28.10"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -315,7 +315,18 @@ try_live_register() {
 
     rm -rf "${live_root}"
     mkdir -p "${live_dir}"
-    cp -a "${TARGET_DIR}/." "${live_dir}/"
+
+    local file
+    local parent
+    for file in "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}"; do
+        parent="$(dirname "${live_dir}/${file}")"
+        mkdir -p "${parent}"
+        cp -f "${TARGET_DIR}/${file}" "${live_dir}/${file}"
+    done
+
+    cp -f "${BOOTSTRAP_MARKER}" "${live_dir}/.velora-bootstrap-generation"
+    cp -f "${BOOTSTRAP_REVISION_MARKER}" "${live_dir}/.velora-bootstrap-revision"
+
     glib-compile-schemas --strict "${live_dir}/schemas"
 
     uuid_json="$(
