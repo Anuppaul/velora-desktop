@@ -37,29 +37,28 @@ restore_dock_from_saved_state() {
             gsettings get "${VELORA_SCHEMA}" dock-state-captured 2>/dev/null || true
     )"
 
-    [[ "${captured}" == "true" ]] || return 0
+    if [[ "${captured}" == "true" ]]; then
+        if gsettings list-schemas | grep -Fxq "${DOCK_SCHEMA}"; then
+            original_fixed="$(
+                env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+                    gsettings get "${VELORA_SCHEMA}" dock-original-fixed
+            )"
+            original_manualhide="$(
+                env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+                    gsettings get "${VELORA_SCHEMA}" dock-original-manualhide
+            )"
 
-    if ! gsettings list-schemas | grep -Fxq "${DOCK_SCHEMA}"; then
-        echo "WARNING: saved Ubuntu Dock state exists, but Dash-to-Dock schema is unavailable." >&2
-        return 0
+            gsettings set "${DOCK_SCHEMA}" dock-fixed "${original_fixed}"
+            gsettings set "${DOCK_SCHEMA}" manualhide "${original_manualhide}"
+
+            echo "Restored Ubuntu Dock settings saved by Velora."
+        else
+            echo "WARNING: saved Ubuntu Dock settings exist, but Dash-to-Dock schema is unavailable." >&2
+        fi
+
+        env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
+            gsettings set "${VELORA_SCHEMA}" dock-state-captured false
     fi
-
-    original_fixed="$(
-        env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
-            gsettings get "${VELORA_SCHEMA}" dock-original-fixed
-    )"
-    original_manualhide="$(
-        env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
-            gsettings get "${VELORA_SCHEMA}" dock-original-manualhide
-    )"
-
-    gsettings set "${DOCK_SCHEMA}" dock-fixed "${original_fixed}"
-    gsettings set "${DOCK_SCHEMA}" manualhide "${original_manualhide}"
-
-    env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
-        gsettings set "${VELORA_SCHEMA}" dock-state-captured false
-
-    echo "Restored Ubuntu Dock settings saved by Velora."
 
     extension_captured="$(
         env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
