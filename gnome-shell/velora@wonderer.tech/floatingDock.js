@@ -27,6 +27,7 @@ export class FloatingDockController {
         this._hidePreview = params.hidePreview;
         this._cancelPreviewHide = params.cancelPreviewHide;
         this._schedulePreviewHide = params.schedulePreviewHide;
+        this._isPreviewVisible = params.isPreviewVisible;
         this._showTooltip = params.showTooltip;
         this._hideTooltip = params.hideTooltip;
 
@@ -164,6 +165,7 @@ export class FloatingDockController {
         this._backgroundSettings = null;
         this._interfaceSettings = null;
         this._wallpaperColorCache = null;
+        this._isPreviewVisible = null;
         this._settings = null;
         this._appSystem = null;
         this._shellSettings = null;
@@ -273,30 +275,89 @@ export class FloatingDockController {
             actor.set_size(width, height);
         }
 
-        const sheenInset = Math.max(6, Math.round(height * 0.10));
-        const sheenWidth = Math.max(1, width - sheenInset * 2);
-        const sheenHeight = 2;
+        const position = this._settings.get_string(
+            'floating-dock-position'
+        );
+        const vertical =
+            position === 'left' || position === 'right';
+
+        if (vertical) {
+            const inset = Math.max(
+                6,
+                Math.round(width * 0.10)
+            );
+            const lineHeight = Math.max(
+                1,
+                height - inset * 2
+            );
+
+            const sheenX =
+                position === 'left'
+                    ? Math.max(3, width - 5)
+                    : 3;
+            const shadeX =
+                position === 'left'
+                    ? 2
+                    : Math.max(0, width - 3);
+
+            this._glassSheen.set_position(
+                sheenX,
+                inset
+            );
+            this._glassSheen.set_size(
+                2,
+                lineHeight
+            );
+
+            this._glassBottomShade.set_position(
+                shadeX,
+                inset
+            );
+            this._glassBottomShade.set_size(
+                1,
+                lineHeight
+            );
+            return;
+        }
+
+        const sheenInset = Math.max(
+            6,
+            Math.round(height * 0.10)
+        );
+        const sheenWidth = Math.max(
+            1,
+            width - sheenInset * 2
+        );
 
         this._glassSheen.set_position(
             sheenInset,
-            Math.max(3, Math.round(height * 0.09))
+            position === 'top'
+                ? Math.max(0, height - 5)
+                : Math.max(3, Math.round(height * 0.09))
         );
         this._glassSheen.set_size(
             sheenWidth,
-            sheenHeight
+            2
         );
 
-        const shadeInset = Math.max(8, Math.round(width * 0.04));
-        const shadeWidth = Math.max(1, width - shadeInset * 2);
-        const shadeHeight = 1;
+        const shadeInset = Math.max(
+            8,
+            Math.round(width * 0.04)
+        );
+        const shadeWidth = Math.max(
+            1,
+            width - shadeInset * 2
+        );
 
         this._glassBottomShade.set_position(
             shadeInset,
-            Math.max(0, height - 3)
+            position === 'top'
+                ? 2
+                : Math.max(0, height - 3)
         );
         this._glassBottomShade.set_size(
             shadeWidth,
-            shadeHeight
+            1
         );
     }
 
@@ -629,7 +690,9 @@ export class FloatingDockController {
             !this._settings.get_boolean(
                 'floating-dock-auto-hide'
             ) ||
-            this._root.get_hover()
+            this._root.get_hover() ||
+            this._buttons.some(button => button.get_hover()) ||
+            this._isPreviewVisible?.()
         ) {
             return;
         }
@@ -649,13 +712,21 @@ export class FloatingDockController {
             () => {
                 this._hideTimeoutId = 0;
 
+                if (!this._root)
+                    return GLib.SOURCE_REMOVE;
+
                 if (
-                    this._root &&
-                    !this._root.get_hover()
+                    this._root.get_hover() ||
+                    this._buttons.some(
+                        button => button.get_hover()
+                    ) ||
+                    this._isPreviewVisible?.()
                 ) {
-                    this._hideToEdge();
+                    this._scheduleHide();
+                    return GLib.SOURCE_REMOVE;
                 }
 
+                this._hideToEdge();
                 return GLib.SOURCE_REMOVE;
             }
         );
@@ -843,8 +914,17 @@ export class FloatingDockController {
             ',0.34);'
         );
 
+        const position = this._settings.get_string(
+            'floating-dock-position'
+        );
+        const glassDirection =
+            position === 'left' || position === 'right'
+                ? 'vertical'
+                : 'horizontal';
+
         this._glassRefraction.set_style(
-            'background-gradient-direction: horizontal; ' +
+            'background-gradient-direction: ' +
+            glassDirection + '; ' +
             'background-gradient-start: rgba(' +
             refractA.join(',') +
             ',0.16); background-gradient-end: rgba(' +
@@ -853,7 +933,8 @@ export class FloatingDockController {
         );
 
         this._glassSheen.set_style(
-            'background-gradient-direction: horizontal; ' +
+            'background-gradient-direction: ' +
+            glassDirection + '; ' +
             'background-gradient-start: rgba(255,255,255,0.04); ' +
             'background-gradient-end: rgba(255,255,255,0.58);'
         );
