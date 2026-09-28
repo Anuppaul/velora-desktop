@@ -154,7 +154,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         launcherPage.add(motionGroup);
 
-        addSpin(motionGroup, settings, 'hover-delay', 'Hover open delay', 'Milliseconds before dock icons expand from V.', 0, 1200, 20);
+        addSpin(motionGroup, settings, 'hover-delay', 'Hover open delay', 'Milliseconds before dock icons expand from the Orb.', 0, 1200, 20);
         addSpin(motionGroup, settings, 'close-delay', 'Close delay', 'Milliseconds before dock icons collapse after pointer leaves.', 80, 1800, 20);
         addSpin(motionGroup, settings, 'animation-ms', 'Animation duration', 'Set to 0 for immediate opening and closing.', 0, 600, 10);
         addSwitch(
@@ -175,9 +175,33 @@ export default class VeloraPreferences extends ExtensionPreferences {
             100
         );
 
+        const allAppsGroup = new Adw.PreferencesGroup({
+            title: 'All Apps',
+            description: 'Customize GNOME Applications while keeping native search, folders and app launching.',
+        });
+        appearancePage.add(allAppsGroup);
+
+        addSwitch(
+            allAppsGroup,
+            settings,
+            'minimal-all-apps',
+            'Minimal All Apps',
+            'Pure black background, hides window previews and the native Overview Dash, and uses compact app tiles.'
+        );
+        addSpin(
+            allAppsGroup,
+            settings,
+            'all-apps-icon-size',
+            'All Apps icon size',
+            'Native GNOME application icon size while Minimal All Apps is active.',
+            32,
+            72,
+            4
+        );
+
         const geometryGroup = new Adw.PreferencesGroup({
-            title: 'Icon geometry',
-            description: 'Icon size, icon-to-icon distance and layer distance are independent.',
+            title: 'Hover icon geometry',
+            description: 'Hover launcher icon size, icon-to-icon distance and layer distance are independent.',
         });
         appearancePage.add(geometryGroup);
 
