@@ -58,6 +58,11 @@
       <range min="20" max="80"/>
       <summary>Application icon size in Velora's minimal All Apps view</summary>
     </key>
+    <key name="app-preview-size" type="i">
+      <default>100</default>
+      <range min="50" max="180"/>
+      <summary>Live app window preview size as a percentage of the default</summary>
+    </key>
     <key name="ring-mode" type="s">
       <default>'auto'</default>
       <choices>
