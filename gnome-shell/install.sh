@@ -445,11 +445,15 @@ if bootstrap_scaffold_compatible; then
 
     case "${BOOTSTRAP_STATUS}" in
         20)
-            if try_live_register; then
+            set +e
+            try_live_register
+            LIVE_STATUS=$?
+            set -e
+
+            if [[ "${LIVE_STATUS}" -eq 0 ]]; then
                 exit 0
             fi
 
-            LIVE_STATUS=$?
             if [[ "${LIVE_STATUS}" -eq 31 ]]; then
                 print_live_load_instructions
                 exit 31
@@ -550,11 +554,15 @@ echo "  ${TARGET_DIR}"
 echo
 echo "This is a fresh local install or bootstrap scaffold update."
 
-if try_live_register; then
+set +e
+try_live_register
+LIVE_STATUS=$?
+set -e
+
+if [[ "${LIVE_STATUS}" -eq 0 ]]; then
     exit 0
 fi
 
-LIVE_STATUS=$?
 if [[ "${LIVE_STATUS}" -eq 31 ]]; then
     print_live_load_instructions
     exit 31
