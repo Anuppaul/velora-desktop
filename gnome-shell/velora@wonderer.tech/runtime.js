@@ -71,12 +71,6 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentX = 0;
         this._dragCurrentY = 0;
         this._dragGrab = null;
-        this._allAppsThemeActive = false;
-        this._allAppsNativeState = null;
-        this._overviewStateAdjustment = null;
-        this._overviewStateChangedId = 0;
-        this._showAppsCheckedId = 0;
-        this._overviewHiddenId = 0;
 
         this._removeStaleLayers();
         this._createLayer();
@@ -86,7 +80,6 @@ export default class VeloraRuntime extends Extension {
         this._syncOrbFromSettings();
         this._scheduleOrbAutoHide();
         this._scheduleOrbAutoFade();
-        this._syncAllAppsTheme();
 
         globalThis[RUNTIME_SINGLETON_KEY] = this;
     }
@@ -106,7 +99,6 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
-        this._restoreAllAppsTheme();
         this._closeMenu(true);
         this._destroyClosingActors();
         this._dock?.destroy();
@@ -121,12 +113,6 @@ export default class VeloraRuntime extends Extension {
             this._appSystem.disconnect(this._appStateChangedId);
         if (this._monitorsChangedId)
             Main.layoutManager.disconnect(this._monitorsChangedId);
-        if (this._showAppsCheckedId)
-            Main.overview?.dash?.showAppsButton?.disconnect(this._showAppsCheckedId);
-        if (this._overviewStateAdjustment && this._overviewStateChangedId)
-            this._overviewStateAdjustment.disconnect(this._overviewStateChangedId);
-        if (this._overviewHiddenId)
-            Main.overview.disconnect(this._overviewHiddenId);
 
         if (this._dragGrab) {
             const dragGrab = this._dragGrab;
@@ -154,12 +140,6 @@ export default class VeloraRuntime extends Extension {
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;
-        this._allAppsThemeActive = false;
-        this._allAppsNativeState = null;
-        this._overviewStateAdjustment = null;
-        this._overviewStateChangedId = 0;
-        this._showAppsCheckedId = 0;
-        this._overviewHiddenId = 0;
     }
 
     _removeStaleLayers() {
@@ -381,9 +361,6 @@ export default class VeloraRuntime extends Extension {
                 this._scheduleOrbAutoFade();
             }
 
-            if (key === 'minimal-all-apps' || key === 'all-apps-icon-size')
-                this._syncAllAppsTheme();
-
             if (
                 key === 'app-preview-size' &&
                 this._appPreviewApp &&
@@ -429,339 +406,6 @@ export default class VeloraRuntime extends Extension {
             this._refreshOpenMenu();
         });
 
-        const showAppsButton = Main.overview?.dash?.showAppsButton;
-        if (showAppsButton) {
-            this._showAppsCheckedId = showAppsButton.connect(
-                'notify::checked',
-                () => this._syncAllAppsTheme()
-            );
-        }
-
-        this._overviewStateAdjustment =
-            Main.overview?.controls?._stateAdjustment ?? null;
-        if (this._overviewStateAdjustment) {
-            this._overviewStateChangedId =
-                this._overviewStateAdjustment.connect(
-                    'notify::value',
-                    () => this._syncAllAppsTheme()
-                );
-        }
-
-        this._overviewHiddenId = Main.overview.connect(
-            'hidden',
-            () => this._restoreAllAppsTheme()
-        );
-    }
-
-    _syncAllAppsTheme() {
-        if (!this._settings)
-            return;
-
-        const controls = Main.overview?.controls;
-        const showAppsButton = Main.overview?.dash?.showAppsButton;
-        const adjustment = controls?._stateAdjustment;
-
-        let appGridActive = Boolean(showAppsButton?.checked);
-        if (adjustment?.getStateTransitionParams) {
-            const {
-                currentState,
-                finalState,
-            } = adjustment.getStateTransitionParams();
-
-            appGridActive =
-                finalState === ControlsState.APP_GRID ||
-                currentState >= ControlsState.APP_GRID - 0.001;
-        }
-
-        const overviewActive =
-            Boolean(Main.overview?.visible) ||
-            Boolean(Main.overview?.visibleTarget);
-
-        const shouldApply =
-            this._settings.get_boolean('minimal-all-apps') &&
-            overviewActive &&
-            appGridActive;
-
-        if (shouldApply)
-            this._applyAllAppsTheme();
-        else
-            this._restoreAllAppsTheme();
-    }
-
-    _applyAllAppsTheme() {
-        const controls = Main.overview?.controls;
-        const overviewGroup = Main.layoutManager?.overviewGroup;
-        const appDisplay = controls?.appDisplay ?? controls?._appDisplay;
-        const grid = appDisplay?._grid;
-        const iconLayout =
-            grid?.layoutManager ?? grid?.layout_manager;
-        const controlsLayout = controls?.layout_manager;
-
-        if (
-            !controls ||
-            !overviewGroup ||
-            !appDisplay ||
-            !grid ||
-            !iconLayout ||
-            !controlsLayout
-        ) {
-            return;
-        }
-
-        if (!this._allAppsThemeActive) {
-            this._allAppsNativeState = {
-                dashVisible: controls.dash?.visible ?? true,
-                dashReactive: controls.dash?.reactive ?? true,
-                workspacesVisible:
-                    controls._workspacesDisplay?.visible ?? true,
-                workspacesReactive:
-                    controls._workspacesDisplay?.reactive ?? true,
-                thumbnailsVisible:
-                    controls._thumbnailsBox?.visible ?? true,
-                thumbnailsReactive:
-                    controls._thumbnailsBox?.reactive ?? true,
-                fixedIconSize: iconLayout.fixedIconSize,
-                iconSize: iconLayout._iconSize,
-                controlsLayout,
-                computeWorkspacesBoxForState:
-                    controlsLayout._computeWorkspacesBoxForState,
-                getAppDisplayBoxForState:
-                    controlsLayout._getAppDisplayBoxForState,
-            };
-
-            this._patchMinimalAllAppsLayout(controlsLayout);
-
-            overviewGroup.add_style_class_name(
-                'velora-minimal-all-apps'
-            );
-            controls.add_style_class_name(
-                'velora-minimal-all-apps-controls'
-            );
-            appDisplay.add_style_class_name(
-                'velora-minimal-all-apps-display'
-            );
-            grid.add_style_class_name(
-                'velora-minimal-all-apps-grid'
-            );
-
-            this._allAppsThemeActive = true;
-        }
-
-        // GNOME updates these actors during the App Grid transition, so
-        // enforce the minimal state on every state-adjustment change.
-        if (controls.dash) {
-            controls.dash.hide();
-            controls.dash.reactive = false;
-        }
-
-        if (controls._workspacesDisplay) {
-            controls._workspacesDisplay.hide();
-            controls._workspacesDisplay.reactive = false;
-        }
-
-        if (controls._thumbnailsBox) {
-            controls._thumbnailsBox.hide();
-            controls._thumbnailsBox.reactive = false;
-        }
-
-        this._applyAllAppsIconSize();
-
-        controlsLayout.layout_changed();
-        controls.queue_relayout();
-        appDisplay.queue_relayout();
-        grid.queue_relayout();
-    }
-
-    _patchMinimalAllAppsLayout(layout) {
-        if (!layout || layout.__veloraMinimalAllAppsPatched)
-            return;
-
-        const originalWorkspaceBox =
-            layout._computeWorkspacesBoxForState;
-        const originalAppDisplayBox =
-            layout._getAppDisplayBoxForState;
-
-        layout._computeWorkspacesBoxForState = function (
-            state,
-            box,
-            searchHeight,
-            dashHeight,
-            thumbnailsHeight,
-            spacing
-        ) {
-            if (state !== ControlsState.APP_GRID) {
-                return originalWorkspaceBox.call(
-                    this,
-                    state,
-                    box,
-                    searchHeight,
-                    dashHeight,
-                    thumbnailsHeight,
-                    spacing
-                );
-            }
-
-            const [width] = box.get_size();
-            const {y1: startY} = this._workAreaBox;
-            const workspaceBox = new Clutter.ActorBox();
-
-            workspaceBox.set_origin(
-                0,
-                startY + searchHeight + spacing
-            );
-            workspaceBox.set_size(width, 0);
-
-            return workspaceBox;
-        };
-
-        layout._getAppDisplayBoxForState = function (
-            state,
-            box,
-            searchHeight,
-            dashHeight,
-            workspacesBox,
-            spacing
-        ) {
-            if (state !== ControlsState.APP_GRID) {
-                return originalAppDisplayBox.call(
-                    this,
-                    state,
-                    box,
-                    searchHeight,
-                    dashHeight,
-                    workspacesBox,
-                    spacing
-                );
-            }
-
-            const [width, height] = box.get_size();
-            const {y1: startY} = this._workAreaBox;
-            const appDisplayBox = new Clutter.ActorBox();
-
-            appDisplayBox.set_origin(
-                0,
-                startY + searchHeight + spacing
-            );
-            appDisplayBox.set_size(
-                width,
-                Math.max(
-                    0,
-                    height - searchHeight - spacing
-                )
-            );
-
-            return appDisplayBox;
-        };
-
-        layout.__veloraMinimalAllAppsPatched = true;
-    }
-
-    _applyAllAppsIconSize() {
-        const grid =
-            Main.overview?.controls?.appDisplay?._grid ??
-            Main.overview?.controls?._appDisplay?._grid;
-        const layout =
-            grid?.layoutManager ?? grid?.layout_manager;
-
-        if (!grid || !layout)
-            return;
-
-        const size = this._settings.get_int('all-apps-icon-size');
-
-        layout.fixedIconSize = size;
-        layout._iconSize = size;
-
-        for (const child of grid.get_children()) {
-            if (child.icon?.setIconSize)
-                child.icon.setIconSize(size);
-        }
-
-        layout.layout_changed();
-        grid.queue_relayout();
-    }
-
-    _restoreAllAppsTheme() {
-        if (!this._allAppsThemeActive)
-            return;
-
-        const controls = Main.overview?.controls;
-        const overviewGroup = Main.layoutManager?.overviewGroup;
-        const appDisplay =
-            controls?.appDisplay ?? controls?._appDisplay;
-        const grid = appDisplay?._grid;
-        const iconLayout =
-            grid?.layoutManager ?? grid?.layout_manager;
-        const state = this._allAppsNativeState;
-        const controlsLayout =
-            state?.controlsLayout ?? controls?.layout_manager;
-
-        overviewGroup?.remove_style_class_name(
-            'velora-minimal-all-apps'
-        );
-        controls?.remove_style_class_name(
-            'velora-minimal-all-apps-controls'
-        );
-        appDisplay?.remove_style_class_name(
-            'velora-minimal-all-apps-display'
-        );
-        grid?.remove_style_class_name(
-            'velora-minimal-all-apps-grid'
-        );
-
-        if (controlsLayout && state) {
-            if (state.computeWorkspacesBoxForState) {
-                controlsLayout._computeWorkspacesBoxForState =
-                    state.computeWorkspacesBoxForState;
-            }
-
-            if (state.getAppDisplayBoxForState) {
-                controlsLayout._getAppDisplayBoxForState =
-                    state.getAppDisplayBoxForState;
-            }
-
-            delete controlsLayout.__veloraMinimalAllAppsPatched;
-        }
-
-        if (controls && state) {
-            if (controls.dash) {
-                controls.dash.visible = state.dashVisible;
-                controls.dash.reactive = state.dashReactive;
-            }
-
-            if (controls._workspacesDisplay) {
-                controls._workspacesDisplay.visible =
-                    state.workspacesVisible;
-                controls._workspacesDisplay.reactive =
-                    state.workspacesReactive;
-            }
-
-            if (controls._thumbnailsBox) {
-                controls._thumbnailsBox.visible =
-                    state.thumbnailsVisible;
-                controls._thumbnailsBox.reactive =
-                    state.thumbnailsReactive;
-            }
-        }
-
-        if (grid && iconLayout && state) {
-            iconLayout.fixedIconSize = state.fixedIconSize;
-            iconLayout._iconSize = state.iconSize;
-
-            for (const child of grid.get_children()) {
-                if (child.icon?.setIconSize)
-                    child.icon.setIconSize(state.iconSize);
-            }
-
-            iconLayout.layout_changed();
-            grid.queue_relayout();
-        }
-
-        controlsLayout?.layout_changed();
-        controls?.queue_relayout();
-        appDisplay?.queue_relayout();
-
-        this._allAppsThemeActive = false;
-        this._allAppsNativeState = null;
     }
 
     _syncLayerSize() {
