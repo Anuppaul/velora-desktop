@@ -192,30 +192,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
             100
         );
 
-        const allAppsGroup = new Adw.PreferencesGroup({
-            title: 'All Apps',
-            description: 'Customize GNOME Applications while keeping native search, folders and app launching.',
-        });
-        appearancePage.add(allAppsGroup);
-
-        addSwitch(
-            allAppsGroup,
-            settings,
-            'minimal-all-apps',
-            'Minimal All Apps',
-            'Pure black background, hides window previews and the native Overview Dash, and uses compact app tiles.'
-        );
-        addSpin(
-            allAppsGroup,
-            settings,
-            'all-apps-icon-size',
-            'All Apps icon size',
-            'Native GNOME application icon size while Minimal All Apps is active.',
-            20,
-            80,
-            2
-        );
-
         const previewGroup = new Adw.PreferencesGroup({
             title: 'App window preview',
             description: 'Customize the live window preview shown when hovering a running app.',
