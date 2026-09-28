@@ -1,0 +1,8 @@
+{
+  "uuid": "velora@wonderer.tech",
+  "name": "Velora Desktop",
+  "description": "Adaptive floating radial launcher for GNOME 50, inspired by the Velora mobile launcher without copying mobile-only UI.",
+  "shell-version": ["50"],
+  "settings-schema": "org.gnome.shell.extensions.velora",
+  "url": "https://github.com/Anuppaul/velora-launcher"
+}

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.velora" path="/org/gnome/shell/extensions/velora/">
+    <key name="bootstrap-loaded-generation" type="s">
+      <default>''</default>
+      <summary>Internal generation of the bootstrap loaded by the running Shell</summary>
+    </key>
+    <key name="runtime-revision" type="s">
+      <default>'base'</default>
+      <summary>Internal requested hot-swap runtime revision</summary>
+    </key>
+    <key name="runtime-loaded-revision" type="s">
+      <default>''</default>
+      <summary>Internal runtime revision currently loaded by the bootstrap</summary>
+    </key>
+    <key name="runtime-error" type="s">
+      <default>''</default>
+      <summary>Internal runtime hot-swap error status</summary>
+    </key>
+    <key name="hide-ubuntu-dock" type="b">
+      <default>true</default>
+      <summary>Hide Ubuntu Dock while Velora is enabled</summary>
+    </key>
+    <key name="dock-state-captured" type="b">
+      <default>false</default>
+      <summary>Internal flag indicating that the original Ubuntu Dock state is saved</summary>
+    </key>
+    <key name="dock-original-manualhide" type="b">
+      <default>false</default>
+      <summary>Internal saved Ubuntu Dock manual-hide state</summary>
+    </key>
+    <key name="dock-original-fixed" type="b">
+      <default>true</default>
+      <summary>Internal saved Ubuntu Dock fixed state</summary>
+    </key>
+    <key name="ring-mode" type="s">
+      <default>'auto'</default>
+      <choices>
+        <choice value="auto"/>
+        <choice value="2"/>
+        <choice value="3"/>
+        <choice value="4"/>
+      </choices>
+      <summary>Dock icon ring count mode: auto, 2, 3 or 4</summary>
+    </key>
+    <key name="orb-size" type="i">
+      <default>56</default>
+      <range min="36" max="96"/>
+      <summary>Floating Velora orb size</summary>
+    </key>
+    <key name="icon-size" type="i">
+      <default>52</default>
+      <range min="32" max="80"/>
+      <summary>Hover dock application icon button size</summary>
+    </key>
+    <key name="icon-gap" type="i">
+      <default>12</default>
+      <range min="0" max="36"/>
+      <summary>Minimum edge-to-edge distance between neighboring icons</summary>
+    </key>
+    <key name="ring-gap" type="i">
+      <default>80</default>
+      <range min="48" max="128"/>
+      <summary>Requested center-to-center distance between radial layers</summary>
+    </key>
+    <key name="hover-delay" type="i">
+      <default>100</default>
+      <range min="0" max="1200"/>
+      <summary>Hover delay before showing dock applications</summary>
+    </key>
+    <key name="close-delay" type="i">
+      <default>420</default>
+      <range min="80" max="1800"/>
+      <summary>Delay before hiding dock applications after pointer leaves</summary>
+    </key>
+    <key name="animation-ms" type="i">
+      <default>160</default>
+      <range min="0" max="600"/>
+      <summary>Radial open and close animation duration</summary>
+    </key>
+    <key name="orb-opacity" type="i">
+      <default>94</default>
+      <range min="35" max="100"/>
+      <summary>Orb opacity percentage</summary>
+    </key>
+    <key name="show-tooltips" type="b">
+      <default>true</default>
+      <summary>Show app names while hovering dock icons</summary>
+    </key>
+    <key name="show-running-indicator" type="b">
+      <default>true</default>
+      <summary>Show a subtle running dot for active applications</summary>
+    </key>
+    <key name="accent-start" type="s">
+      <default>'#4aa8ff'</default>
+      <summary>Start color for the Velora orb gradient</summary>
+    </key>
+    <key name="accent-end" type="s">
+      <default>'#8b5cf6'</default>
+      <summary>End color for the Velora orb gradient</summary>
+    </key>
+    <key name="orb-x" type="d">
+      <default>0.015</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized horizontal orb position</summary>
+    </key>
+    <key name="orb-y" type="d">
+      <default>0.065</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized vertical orb position</summary>
+    </key>
+  </schema>
+</schemalist>
