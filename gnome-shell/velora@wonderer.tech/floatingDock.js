@@ -33,6 +33,7 @@ export class FloatingDockController {
         this._hideTimeoutId = 0;
         this._hidden = false;
         this._blurEffect = null;
+        this._wallpaperColorCache = null;
 
         this._backgroundSettings = new Gio.Settings({
             schema_id: 'org.gnome.desktop.background',
@@ -44,15 +45,15 @@ export class FloatingDockController {
         this._wallpaperChangedIds = [
             this._backgroundSettings.connect(
                 'changed::picture-uri',
-                () => this._syncTint()
+                () => this._invalidateWallpaperTint()
             ),
             this._backgroundSettings.connect(
                 'changed::picture-uri-dark',
-                () => this._syncTint()
+                () => this._invalidateWallpaperTint()
             ),
             this._interfaceSettings.connect(
                 'changed::color-scheme',
-                () => this._syncTint()
+                () => this._invalidateWallpaperTint()
             ),
         ];
     }
@@ -118,6 +119,7 @@ export class FloatingDockController {
         this._wallpaperChangedIds = [];
         this._backgroundSettings = null;
         this._interfaceSettings = null;
+        this._wallpaperColorCache = null;
         this._settings = null;
         this._appSystem = null;
         this._shellSettings = null;
@@ -127,6 +129,9 @@ export class FloatingDockController {
     refresh() {
         if (!this._root || !this._box)
             return;
+
+        this._hideTooltip?.();
+        this._hidePreview?.(true);
 
         for (const child of this._box.get_children())
             child.destroy();
@@ -541,6 +546,11 @@ export class FloatingDockController {
         }
     }
 
+    _invalidateWallpaperTint() {
+        this._wallpaperColorCache = null;
+        this._syncTint();
+    }
+
     _syncTint() {
         if (!this._root)
             return;
@@ -552,7 +562,13 @@ export class FloatingDockController {
                 'floating-dock-wallpaper-tint'
             )
         ) {
-            color = this._sampleWallpaperColor() ?? DEFAULT_TINT;
+            if (!this._wallpaperColorCache) {
+                this._wallpaperColorCache =
+                    this._sampleWallpaperColor() ??
+                    DEFAULT_TINT;
+            }
+
+            color = this._wallpaperColorCache;
         }
 
         const opacity =
@@ -597,7 +613,7 @@ export class FloatingDockController {
             if (!uri)
                 return null;
 
-            const file = uri.startsWith('file://')
+            const file = uri.includes('://')
                 ? Gio.File.new_for_uri(uri)
                 : Gio.File.new_for_path(uri);
             const path = file.get_path();
