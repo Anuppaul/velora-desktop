@@ -1,4 +1,8 @@
 .velora-orb {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
     border-radius: 999px;
     background-color: #000000;
     border: 1px solid rgba(255, 255, 255, 0.20);
@@ -22,7 +26,12 @@
 }
 
 .velora-orb-mark {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
     color: #ffffff;
+    background-color: transparent;
     icon-shadow: none;
 }
 
