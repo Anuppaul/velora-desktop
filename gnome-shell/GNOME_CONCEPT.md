@@ -12,9 +12,10 @@ The central object is a movable Velora Orb with a compact pure-black circular ba
 2. The Orb defaults to the top-left but can be dragged anywhere.
 3. Hover the Orb -> Favorites + currently running apps expand around it.
 4. Click the Orb -> GNOME Applications view toggles open/closed.
-5. Hover icons use adaptive 2, 3 or 4 radial layers.
-6. Edge/corner geometry uses only fully visible non-overlapping positions.
-7. Moving away collapses hover icons back into the Orb.
+5. The Applications view can use Velora Minimal All Apps: pure black, compact icons, no window previews and no native Overview Dash.
+6. Hover icons use adaptive 2, 3 or 4 radial layers.
+7. Edge/corner geometry uses only fully visible non-overlapping positions.
+8. Moving away collapses hover icons back into the Orb.
 
 ## Desktop adaptation matrix
 
@@ -22,7 +23,7 @@ The central object is a movable Velora Orb with a compact pure-black circular ba
 | --- | --- | --- |
 | Freeform Home placement | Keep concept | Draggable Orb |
 | Aurora / Liquid Glass | Keep visual language | Premium app surfaces; main Orb stays compact pure black with a white icon |
-| App drawer | Adapt | Click Orb toggles GNOME Applications |
+| App drawer | Adapt | Click Orb toggles a native GNOME Applications view with optional Velora minimal styling |
 | Fast pinned apps | Adapt | Hover Orb shows Favorites + running apps |
 | Per-item sizing | Keep | Icon size, icon distance and layer distance |
 | Dynamic icons | Adapt | Native desktop icons + running dot |
@@ -43,6 +44,7 @@ User-controlled settings include:
 - Orb size and opacity.
 - Orb icon (themed icon name or absolute SVG/PNG path).
 - Optional Orb auto-hide with delay and edge reveal.
+- Minimal All Apps on/off and All Apps icon size.
 - App icon size.
 - Same-layer icon distance.
 - Radial layer distance.
