@@ -10,6 +10,7 @@ import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js'
 
 import {collectDockApps} from './apps.js';
 import {DockController} from './dock.js';
+import {FloatingDockController} from './floatingDock.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -57,6 +58,7 @@ export default class VeloraRuntime extends Extension {
         this._appPreview = null;
         this._appPreviewApp = null;
         this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
         this._appPreviewHideTimeoutId = 0;
         this._menuOpen = false;
         this._dragging = false;
@@ -71,15 +73,33 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentX = 0;
         this._dragCurrentY = 0;
         this._dragGrab = null;
+        this._floatingDock = null;
 
         this._removeStaleLayers();
         this._createLayer();
-        this._createOrb();
+
+        this._floatingDock = new FloatingDockController({
+            settings: this._settings,
+            appSystem: this._appSystem,
+            shellSettings: this._shellSettings,
+            layer: this._layer,
+            showPreview: this._showAppPreview.bind(this),
+            hidePreview: this._hideAppPreview.bind(this),
+            cancelPreviewHide: this._cancelAppPreviewHide.bind(this),
+            schedulePreviewHide: this._scheduleAppPreviewHide.bind(this),
+            showTooltip: this._showTooltip.bind(this),
+            hideTooltip: this._hideTooltip.bind(this),
+        });
+
+        this._setOrbEnabled(
+            this._settings.get_boolean('orb-enabled')
+        );
+        this._floatingDock.setEnabled(
+            this._settings.get_boolean('floating-dock-enabled')
+        );
+
         this._connectSignals();
         this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
-        this._syncOrbFromSettings();
-        this._scheduleOrbAutoHide();
-        this._scheduleOrbAutoFade();
 
         globalThis[RUNTIME_SINGLETON_KEY] = this;
     }
@@ -101,6 +121,7 @@ export default class VeloraRuntime extends Extension {
         this._hideAppPreview(true);
         this._closeMenu(true);
         this._destroyClosingActors();
+        this._floatingDock?.destroy();
         this._dock?.destroy();
 
         if (this._settings && this._settingsChangedId)
@@ -132,10 +153,12 @@ export default class VeloraRuntime extends Extension {
         this._appPreview = null;
         this._appPreviewApp = null;
         this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
         this._appPreviewHideTimeoutId = 0;
         this._radialActors = [];
         this._closingActors.clear();
         this._closingActors = null;
+        this._floatingDock = null;
         this._dock = null;
         this._appSystem = null;
         this._shellSettings = null;
@@ -167,6 +190,43 @@ export default class VeloraRuntime extends Extension {
         });
         Main.uiGroup.add_child(this._layer);
         this._syncLayerSize();
+    }
+
+    _setOrbEnabled(enabled) {
+        if (enabled) {
+            if (this._orb)
+                return;
+
+            this._createOrb();
+            this._syncOrbFromSettings();
+            this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
+            return;
+        }
+
+        if (!this._orb)
+            return;
+
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
+        this._closeMenu(true);
+
+        if (this._dragGrab) {
+            this._dragGrab.dismiss();
+            this._dragGrab = null;
+        }
+
+        this._dragging = false;
+        this._orb.destroy();
+        this._orb = null;
+        this._orbContent = null;
+        this._orbFace = null;
+        this._orbMark = null;
+        this._panGesture = null;
+        this._orbHidden = false;
+        this._orbFaded = false;
     }
 
     _createOrb() {
@@ -325,6 +385,36 @@ export default class VeloraRuntime extends Extension {
             if (key === 'hide-ubuntu-dock')
                 this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
 
+            if (key === 'orb-enabled') {
+                this._setOrbEnabled(
+                    this._settings.get_boolean('orb-enabled')
+                );
+                return;
+            }
+
+            if (key === 'floating-dock-enabled') {
+                this._floatingDock?.setEnabled(
+                    this._settings.get_boolean(
+                        'floating-dock-enabled'
+                    )
+                );
+                return;
+            }
+
+            if ([
+                'floating-dock-position',
+                'floating-dock-icon-size',
+                'floating-dock-gap',
+                'floating-dock-edge-offset',
+                'floating-dock-opacity',
+                'floating-dock-wallpaper-tint',
+                'floating-dock-blur',
+                'floating-dock-auto-hide',
+                'floating-dock-hide-delay',
+            ].includes(key)) {
+                this._floatingDock?.syncSettings();
+            }
+
             if (['orb-size', 'orb-opacity', 'orb-icon'].includes(key)) {
                 this._applyOrbAppearance();
                 this._syncOrbFromSettings();
@@ -368,10 +458,18 @@ export default class VeloraRuntime extends Extension {
             ) {
                 const app = this._appPreviewApp;
                 const anchor = this._appPreviewAnchor;
+                const side = this._appPreviewPreferredSide;
                 this._hideAppPreview(true);
 
                 if (anchor.get_parent())
-                    this._showAppPreview(app, anchor);
+                    this._showAppPreview(app, anchor, side);
+            }
+
+            if (
+                key === 'show-running-indicator' &&
+                this._settings.get_boolean('floating-dock-enabled')
+            ) {
+                this._floatingDock?.refresh();
             }
 
             if ([
@@ -388,23 +486,32 @@ export default class VeloraRuntime extends Extension {
             }
         });
 
+        const refreshLaunchers = () => {
+            this._refreshOpenMenu();
+            this._floatingDock?.refresh();
+        };
+
         this._favoritesChangedId = this._shellSettings.connect(
             'changed::favorite-apps',
-            () => this._refreshOpenMenu()
+            refreshLaunchers
         );
         this._installedChangedId = this._appSystem.connect(
             'installed-changed',
-            () => this._refreshOpenMenu()
+            refreshLaunchers
         );
         this._appStateChangedId = this._appSystem.connect(
             'app-state-changed',
-            () => this._refreshOpenMenu()
+            refreshLaunchers
         );
-        this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => {
-            this._syncLayerSize();
-            this._syncOrbFromSettings();
-            this._refreshOpenMenu();
-        });
+        this._monitorsChangedId = Main.layoutManager.connect(
+            'monitors-changed',
+            () => {
+                this._syncLayerSize();
+                this._syncOrbFromSettings();
+                this._refreshOpenMenu();
+                this._floatingDock?.reposition(false);
+            }
+        );
 
     }
 
