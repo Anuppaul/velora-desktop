@@ -1,14 +1,12 @@
 # Velora engineering rules
 
-- Keep Velora lightweight. Prefer Android platform APIs and Jetpack over large third-party UI frameworks.
-- Kotlin + Jetpack Compose is the primary stack.
-- Home placement is truly freeform; never make a grid mandatory.
-- Store positions as normalized coordinates so layouts survive resolution changes.
-- Every expensive visual effect must have a cheap fallback path.
-- Do not add analytics, tracking, ad SDKs, login systems, or cloud requirements without an explicit product decision.
-- Do not add GitHub Actions CI. The primary build flow is local Gradle or Google Colab.
-- Keep system-level capabilities optional. Notification access and Accessibility must degrade gracefully when disabled.
-- Never imply that a normal launcher APK can permanently replace Android SystemUI.
-- Prefer small focused modules and testable pure logic over one giant Activity.
-- Preserve user layouts across upgrades.
-- Treat battery, memory, launch latency and gesture responsiveness as product features.
+- `main` is the platform-neutral Velora Liquid Glass concept reference.
+- Do not restore Android launcher code, Gradle files, APK/AAB release tooling, Android services, phone navigation, notifications, widgets or Control Center logic to `main` without an explicit product decision.
+- Preserve the Liquid Glass visual identity: wallpaper-aware color, layered translucency, luminous edges, restrained blur, refraction and depth.
+- Prefer native platform blur/material APIs when available.
+- Every expensive visual effect must have a lightweight fallback.
+- Never make continuous GPU-heavy blur or animation a requirement for the design to look correct.
+- Keep implementation-specific code on platform-specific branches or directories rather than contaminating the platform-neutral concept.
+- Do not add analytics, tracking, ad SDKs, account requirements or cloud dependencies to the visual system.
+- Favor a small number of reusable glass primitives over many inconsistent one-off styles.
+- Treat readability, contrast, battery use, frame stability and accessibility as part of the visual specification.
