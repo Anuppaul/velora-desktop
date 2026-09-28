@@ -1,11 +1,14 @@
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 export const VELORA_BOOTSTRAP_API = 1;
-export const VELORA_BOOTSTRAP_GENERATION = '2026-09-28-a';
+export const VELORA_BOOTSTRAP_GENERATION = '2026-09-28-b';
 
 const BASE_REVISION = 'base';
+const BOOTSTRAP_REVISION_FILE = '.velora-bootstrap-revision';
 
 export default class VeloraBootstrap extends Extension {
     async enable() {
@@ -14,6 +17,10 @@ export default class VeloraBootstrap extends Extension {
         this._settings.set_string(
             'bootstrap-loaded-generation',
             VELORA_BOOTSTRAP_GENERATION
+        );
+        this._settings.set_string(
+            'bootstrap-loaded-revision',
+            this._readBootstrapRevision()
         );
         this._runtime = null;
         this._runtimeStyle = null;
@@ -160,12 +167,42 @@ export default class VeloraBootstrap extends Extension {
         }
     }
 
+    _readBootstrapRevision() {
+        const marker = this.dir.get_child(BOOTSTRAP_REVISION_FILE);
+
+        try {
+            const [success, contents] = marker.load_contents(null);
+            if (success) {
+                const revision = new TextDecoder()
+                    .decode(contents)
+                    .trim();
+                if (revision)
+                    return revision;
+            }
+        } catch {
+            // Older installs may not have a bootstrap revision marker.
+        }
+
+        return VELORA_BOOTSTRAP_GENERATION;
+    }
+
+    _canonicalExtensionDir() {
+        return Gio.File.new_for_path(GLib.build_filenamev([
+            GLib.get_user_data_dir(),
+            'gnome-shell',
+            'extensions',
+            this.uuid,
+        ]));
+    }
+
     _resolveRuntime(requestedRevision) {
+        const runtimeRoot = this._canonicalExtensionDir();
+
         if (
             requestedRevision &&
             requestedRevision !== BASE_REVISION
         ) {
-            const revisionDir = this.dir
+            const revisionDir = runtimeRoot
                 .get_child('runtime-revisions')
                 .get_child(requestedRevision);
             const moduleFile = revisionDir.get_child('runtime.js');
@@ -188,8 +225,8 @@ export default class VeloraBootstrap extends Extension {
 
         return {
             revision: BASE_REVISION,
-            moduleFile: this.dir.get_child('runtime.js'),
-            styleFile: this.dir.get_child('runtime.css'),
+            moduleFile: runtimeRoot.get_child('runtime.js'),
+            styleFile: runtimeRoot.get_child('runtime.css'),
             warning,
         };
     }
