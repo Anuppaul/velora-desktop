@@ -400,44 +400,70 @@ export default class VeloraRuntime extends Extension {
         const centerY = y + size / 2;
         const monitor = this._nearestMonitor(centerX, centerY);
 
-        const distances = [
-            ['left', Math.abs(centerX - monitor.x)],
-            ['right', Math.abs(monitor.x + monitor.width - centerX)],
-            ['top', Math.abs(centerY - monitor.y)],
-            ['bottom', Math.abs(monitor.y + monitor.height - centerY)],
+        const candidates = [
+            {
+                edge: 'left',
+                x: monitor.x - size + ORB_AUTO_HIDE_REVEAL_PX,
+                y,
+                distance: Math.abs(centerX - monitor.x),
+            },
+            {
+                edge: 'right',
+                x: monitor.x + monitor.width - ORB_AUTO_HIDE_REVEAL_PX,
+                y,
+                distance: Math.abs(monitor.x + monitor.width - centerX),
+            },
+            {
+                edge: 'bottom',
+                x,
+                y: monitor.y + monitor.height - ORB_AUTO_HIDE_REVEAL_PX,
+                distance: Math.abs(monitor.y + monitor.height - centerY),
+            },
         ];
-        distances.sort((a, b) => a[1] - b[1]);
 
-        let hiddenX = x;
-        let hiddenY = y;
-
-        switch (distances[0][0]) {
-        case 'left':
-            hiddenX = monitor.x - size + ORB_AUTO_HIDE_REVEAL_PX;
-            break;
-        case 'right':
-            hiddenX = monitor.x + monitor.width - ORB_AUTO_HIDE_REVEAL_PX;
-            break;
-        case 'top':
-            hiddenY = monitor.y - size + ORB_AUTO_HIDE_REVEAL_PX;
-            break;
-        case 'bottom':
-            hiddenY = monitor.y + monitor.height - ORB_AUTO_HIDE_REVEAL_PX;
-            break;
+        for (const candidate of candidates) {
+            candidate.visibleArea = this._visibleAreaAcrossMonitors(
+                candidate.x,
+                candidate.y,
+                size
+            );
         }
+
+        candidates.sort((a, b) =>
+            a.visibleArea - b.visibleArea ||
+            a.distance - b.distance
+        );
+
+        const target = candidates[0];
 
         this._orb.remove_all_transitions();
 
         if (animate) {
             this._orb.ease({
-                x: hiddenX,
-                y: hiddenY,
+                x: target.x,
+                y: target.y,
                 duration: 150,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
         } else {
-            this._orb.set_position(hiddenX, hiddenY);
+            this._orb.set_position(target.x, target.y);
         }
+    }
+
+    _visibleAreaAcrossMonitors(x, y, size) {
+        let visibleArea = 0;
+
+        for (const monitor of Main.layoutManager.monitors) {
+            const left = Math.max(x, monitor.x);
+            const top = Math.max(y, monitor.y);
+            const right = Math.min(x + size, monitor.x + monitor.width);
+            const bottom = Math.min(y + size, monitor.y + monitor.height);
+
+            if (right > left && bottom > top)
+                visibleArea += (right - left) * (bottom - top);
+        }
+
+        return visibleArea;
     }
 
     _revealOrb() {
