@@ -4,6 +4,7 @@
 - Do not restore the removed Android launcher, Gradle/APK tooling, Android services, phone navigation, notifications, widgets or Control Center code to `main` without an explicit product decision.
 - Keep GNOME implementation work inside `gnome-shell/`.
 - Preserve the Liquid Glass identity: wallpaper-aware color, layered translucency, luminous edges, restrained blur, refraction and depth.
+- Preserve Orb and Liquid Glass Dock as independent launcher surfaces; either may be enabled alone or both may coexist.
 - Prefer native GNOME/Clutter/St capabilities over heavyweight dependencies.
 - Every expensive visual effect needs a lightweight fallback.
 - Do not require continuous GPU-heavy blur or animation for the design to look correct.
