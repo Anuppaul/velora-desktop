@@ -1,31 +1,45 @@
 # Velora
 
-Velora's `main` branch now preserves only the **Liquid Glass / Aurora visual concept**.
+Velora `main` now contains two things:
 
-The previous Android launcher implementation, Gradle project, APK/release tooling, simulation code, Android services, widgets, Control Center, notifications, launcher navigation and phone-specific product logic have been intentionally removed from `main`.
+1. the **GNOME 50 Velora Desktop extension** under `gnome-shell/`;
+2. the retained, platform-neutral **Liquid Glass / Aurora visual concept** under `docs/LIQUID_GLASS_CONCEPT.md`.
 
-## Retained identity
+The previous Android launcher implementation, Gradle project, APK/release tooling, simulation code, Android services, widgets, Control Center, notifications, launcher navigation and other phone-specific product logic have been removed from the current `main` tree.
 
-Velora Liquid Glass is a platform-neutral visual system built around:
+## GNOME implementation
+
+The active desktop implementation lives in:
+
+    gnome-shell/
+
+See:
+
+    gnome-shell/README.md
+
+for installation, live registration, hot-swap updates, settings and debugging.
+
+## Retained visual identity
+
+Velora Liquid Glass keeps the design language originally explored in the Android prototype:
 
 - wallpaper-aware accent colors;
-- translucent layered surfaces rather than opaque cards;
-- soft native background blur where the platform supports it;
-- bright top-left specular highlights;
-- cyan / aqua / blue / violet ambient refraction;
-- thin luminous edge treatment;
-- restrained depth and shadow;
-- borderless full-page glass for large surfaces;
-- rounded local glass surfaces for contained controls;
-- a graceful low-cost fallback when real blur is unavailable;
-- no visual effect that requires permanent GPU load.
+- layered translucent surfaces;
+- native background blur where available;
+- bright specular highlights;
+- cyan / aqua / blue / violet refraction;
+- thin luminous edges;
+- restrained shadow and depth;
+- borderless full-page glass;
+- rounded local glass surfaces;
+- low-cost fallback paths when blur is unavailable.
 
-The canonical reference is:
+Canonical visual reference:
 
-- `docs/LIQUID_GLASS_CONCEPT.md`
+    docs/LIQUID_GLASS_CONCEPT.md
 
-## Scope
+## Android status
 
-This branch is **not an Android application** and is not intended to build an APK.
+This repository is no longer an Android launcher project and is not intended to build an APK from `main`.
 
-Future platform implementations should consume the Liquid Glass design language without restoring the removed Android launcher architecture unless that is explicitly decided later.
+Android source remains recoverable from Git history, but it is intentionally absent from the current tree.
