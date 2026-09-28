@@ -54,6 +54,57 @@
       <range min="50" max="180"/>
       <summary>Live app window preview size as a percentage of the default</summary>
     </key>
+    <key name="floating-dock-enabled" type="b">
+      <default>false</default>
+      <summary>Show the independent Velora Liquid Glass floating dock</summary>
+    </key>
+    <key name="floating-dock-position" type="s">
+      <default>'bottom'</default>
+      <choices>
+        <choice value="bottom"/>
+        <choice value="top"/>
+        <choice value="left"/>
+        <choice value="right"/>
+      </choices>
+      <summary>Screen edge used by the Velora floating dock</summary>
+    </key>
+    <key name="floating-dock-icon-size" type="i">
+      <default>48</default>
+      <range min="24" max="80"/>
+      <summary>Application icon button size in the floating dock</summary>
+    </key>
+    <key name="floating-dock-gap" type="i">
+      <default>8</default>
+      <range min="0" max="32"/>
+      <summary>Gap between application icons in the floating dock</summary>
+    </key>
+    <key name="floating-dock-edge-offset" type="i">
+      <default>16</default>
+      <range min="0" max="64"/>
+      <summary>Distance between the floating dock and its screen edge</summary>
+    </key>
+    <key name="floating-dock-opacity" type="i">
+      <default>76</default>
+      <range min="20" max="100"/>
+      <summary>Liquid Glass dock background opacity percentage</summary>
+    </key>
+    <key name="floating-dock-wallpaper-tint" type="b">
+      <default>true</default>
+      <summary>Adapt the floating dock tint to the current wallpaper</summary>
+    </key>
+    <key name="floating-dock-blur" type="b">
+      <default>true</default>
+      <summary>Use GNOME background blur behind the floating dock when available</summary>
+    </key>
+    <key name="floating-dock-auto-hide" type="b">
+      <default>false</default>
+      <summary>Slide the floating dock to its screen edge when idle</summary>
+    </key>
+    <key name="floating-dock-hide-delay" type="i">
+      <default>1200</default>
+      <range min="0" max="10000"/>
+      <summary>Milliseconds before the floating dock auto-hides</summary>
+    </key>
     <key name="ring-mode" type="s">
       <default>'auto'</default>
       <choices>
@@ -63,6 +114,10 @@
         <choice value="4"/>
       </choices>
       <summary>Dock icon ring count mode: adaptive 1–4, or forced 2, 3 or 4</summary>
+    </key>
+    <key name="orb-enabled" type="b">
+      <default>true</default>
+      <summary>Show the Velora Orb launcher surface</summary>
     </key>
     <key name="orb-size" type="i">
       <default>44</default>
