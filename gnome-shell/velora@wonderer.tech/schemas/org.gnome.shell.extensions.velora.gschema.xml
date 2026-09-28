@@ -83,7 +83,7 @@
     </key>
     <key name="auto-hide-delay" type="i">
       <default>1400</default>
-      <range min="300" max="10000"/>
+      <range min="0" max="10000"/>
       <summary>Milliseconds before an idle Velora orb auto-hides to the nearest edge</summary>
     </key>
     <key name="icon-size" type="i">
@@ -93,12 +93,12 @@
     </key>
     <key name="icon-gap" type="i">
       <default>12</default>
-      <range min="0" max="36"/>
+      <range min="0" max="64"/>
       <summary>Minimum edge-to-edge distance between neighboring icons</summary>
     </key>
     <key name="ring-gap" type="i">
       <default>80</default>
-      <range min="48" max="128"/>
+      <range min="0" max="160"/>
       <summary>Requested center-to-center distance between radial layers</summary>
     </key>
     <key name="hover-delay" type="i">
@@ -108,7 +108,7 @@
     </key>
     <key name="close-delay" type="i">
       <default>420</default>
-      <range min="80" max="1800"/>
+      <range min="0" max="1800"/>
       <summary>Delay before hiding dock applications after pointer leaves</summary>
     </key>
     <key name="animation-ms" type="i">
@@ -118,7 +118,7 @@
     </key>
     <key name="orb-opacity" type="i">
       <default>100</default>
-      <range min="35" max="100"/>
+      <range min="0" max="100"/>
       <summary>Orb opacity percentage</summary>
     </key>
     <key name="show-tooltips" type="b">
