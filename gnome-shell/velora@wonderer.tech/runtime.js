@@ -46,6 +46,10 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentX = 0;
         this._dragCurrentY = 0;
         this._dragGrab = null;
+        this._allAppsThemeActive = false;
+        this._allAppsNativeState = null;
+        this._showAppsCheckedId = 0;
+        this._overviewHiddenId = 0;
 
         this._createLayer();
         this._createOrb();
@@ -53,12 +57,14 @@ export default class VeloraRuntime extends Extension {
         this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
         this._syncOrbFromSettings();
         this._scheduleOrbAutoHide();
+        this._syncAllAppsTheme();
     }
 
     disable() {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
+        this._restoreAllAppsTheme();
         this._closeMenu(true);
         this._destroyClosingActors();
         this._dock?.destroy();
@@ -73,6 +79,10 @@ export default class VeloraRuntime extends Extension {
             this._appSystem.disconnect(this._appStateChangedId);
         if (this._monitorsChangedId)
             Main.layoutManager.disconnect(this._monitorsChangedId);
+        if (this._showAppsCheckedId)
+            Main.overview?.dash?.showAppsButton?.disconnect(this._showAppsCheckedId);
+        if (this._overviewHiddenId)
+            Main.overview.disconnect(this._overviewHiddenId);
 
         if (this._dragGrab) {
             const dragGrab = this._dragGrab;
@@ -94,6 +104,10 @@ export default class VeloraRuntime extends Extension {
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;
+        this._allAppsThemeActive = false;
+        this._allAppsNativeState = null;
+        this._showAppsCheckedId = 0;
+        this._overviewHiddenId = 0;
     }
 
     _createLayer() {
@@ -243,6 +257,9 @@ export default class VeloraRuntime extends Extension {
                 this._scheduleOrbAutoHide();
             }
 
+            if (key === 'minimal-all-apps' || key === 'all-apps-icon-size')
+                this._syncAllAppsTheme();
+
             if ([
                 'ring-mode',
                 'orb-size',
@@ -274,6 +291,124 @@ export default class VeloraRuntime extends Extension {
             this._syncOrbFromSettings();
             this._refreshOpenMenu();
         });
+
+        const showAppsButton = Main.overview?.dash?.showAppsButton;
+        if (showAppsButton) {
+            this._showAppsCheckedId = showAppsButton.connect(
+                'notify::checked',
+                () => this._syncAllAppsTheme()
+            );
+        }
+
+        this._overviewHiddenId = Main.overview.connect(
+            'hidden',
+            () => this._restoreAllAppsTheme()
+        );
+    }
+
+    _syncAllAppsTheme() {
+        if (!this._settings)
+            return;
+
+        const showAppsButton = Main.overview?.dash?.showAppsButton;
+        const shouldApply =
+            this._settings.get_boolean('minimal-all-apps') &&
+            Boolean(showAppsButton?.checked);
+
+        if (shouldApply)
+            this._applyAllAppsTheme();
+        else
+            this._restoreAllAppsTheme();
+    }
+
+    _applyAllAppsTheme() {
+        const controls = Main.overview?.controls;
+        const overviewGroup = Main.layoutManager?.overviewGroup;
+        const grid = controls?.appDisplay?._grid;
+        const layout = grid?.layout_manager;
+
+        if (!controls || !overviewGroup || !grid || !layout)
+            return;
+
+        if (!this._allAppsThemeActive) {
+            this._allAppsNativeState = {
+                dashVisible: controls.dash?.visible ?? true,
+                dashReactive: controls.dash?.reactive ?? true,
+                workspacesVisible: controls._workspacesDisplay?.visible ?? true,
+                thumbnailsVisible: controls._thumbnailsBox?.visible ?? true,
+                fixedIconSize: layout.fixedIconSize,
+                iconSize: layout.iconSize,
+            };
+
+            overviewGroup.add_style_class_name('velora-minimal-all-apps');
+
+            controls.dash?.hide();
+            if (controls.dash)
+                controls.dash.reactive = false;
+            controls._workspacesDisplay?.hide();
+            controls._thumbnailsBox?.hide();
+
+            this._allAppsThemeActive = true;
+        }
+
+        this._applyAllAppsIconSize();
+    }
+
+    _applyAllAppsIconSize() {
+        const grid = Main.overview?.controls?.appDisplay?._grid;
+        const layout = grid?.layout_manager;
+        if (!grid || !layout)
+            return;
+
+        const size = this._settings.get_int('all-apps-icon-size');
+        layout.fixedIconSize = size;
+        layout._iconSize = size;
+
+        for (const child of grid.get_children()) {
+            if (child.icon?.setIconSize)
+                child.icon.setIconSize(size);
+        }
+
+        grid.queue_relayout();
+    }
+
+    _restoreAllAppsTheme() {
+        if (!this._allAppsThemeActive)
+            return;
+
+        const controls = Main.overview?.controls;
+        const overviewGroup = Main.layoutManager?.overviewGroup;
+        const grid = controls?.appDisplay?._grid;
+        const layout = grid?.layout_manager;
+        const state = this._allAppsNativeState;
+
+        overviewGroup?.remove_style_class_name('velora-minimal-all-apps');
+
+        if (controls && state) {
+            if (controls.dash) {
+                controls.dash.visible = state.dashVisible;
+                controls.dash.reactive = state.dashReactive;
+            }
+            if (controls._workspacesDisplay)
+                controls._workspacesDisplay.visible = state.workspacesVisible;
+            if (controls._thumbnailsBox)
+                controls._thumbnailsBox.visible = state.thumbnailsVisible;
+        }
+
+        if (grid && layout && state) {
+            layout.fixedIconSize = state.fixedIconSize;
+            layout._iconSize = state.iconSize;
+
+            for (const child of grid.get_children()) {
+                if (child.icon?.setIconSize)
+                    child.icon.setIconSize(state.iconSize);
+            }
+
+            grid.queue_relayout();
+        }
+
+        this._allAppsThemeActive = false;
+        this._allAppsNativeState = null;
     }
 
     _syncLayerSize() {
