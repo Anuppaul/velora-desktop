@@ -1,32 +1,13 @@
-# Gradle
-.gradle/
-build/
-**/build/
-.kotlin/
-
-# Android local configuration
-local.properties
-
-# Android Studio / IntelliJ
-.idea/
-*.iml
-captures/
-.externalNativeBuild/
-.cxx/
-
-# Build artifacts
-*.apk
-*.aab
-output-metadata.json
-
-# Signing material
-*.jks
-*.keystore
-
-# Service configuration
-google-services.json
-
-# Profiling / logs / OS
-*.hprof
-*.log
+# OS / editor noise
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Logs / temporary files
+*.log
+tmp/
+.temp/
