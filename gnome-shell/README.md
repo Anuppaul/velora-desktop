@@ -133,15 +133,16 @@ Velora exposes:
 
 - Hide/show Ubuntu Dock.
 - Adaptive / forced 2 / 3 / 4 hover layers.
-- App icon size.
+- Hover app icon size (20–80 px).
 - Icon distance.
 - Layer distance.
-- Orb size.
-- Orb opacity.
+- Orb size (20–80 px).
+- Orb opacity (0–100%).
+- Optional Orb auto-fade to 0 opacity after an idle delay; hovering the same location restores the configured opacity.
 - Custom Orb icon (themed icon name or absolute SVG/PNG path).
 - Auto-hide Orb with configurable delay and edge reveal.
 - Minimal All Apps mode on/off.
-- All Apps icon size (32–72 px).
+- All Apps icon size (20–80 px).
 - Hover delay.
 - Close delay.
 - Animation duration.
