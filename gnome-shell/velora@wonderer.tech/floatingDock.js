@@ -30,7 +30,6 @@ export class FloatingDockController {
         this._hideTooltip = params.hideTooltip;
 
         this._root = null;
-        this._glassEffect = null;
         this._glassTint = null;
         this._glassShine = null;
         this._box = null;
@@ -83,10 +82,6 @@ export class FloatingDockController {
         });
         this._root.set_pivot_point(0.5, 0.5);
 
-        this._glassEffect = new St.Widget({
-            style_class: 'velora-liquidGlass-effect',
-            reactive: false,
-        });
         this._glassTint = new St.Widget({
             style_class: 'velora-liquidGlass-tint',
             reactive: false,
@@ -99,7 +94,6 @@ export class FloatingDockController {
             style_class: 'velora-liquidGlass-text velora-dock-content',
         });
 
-        this._root.add_child(this._glassEffect);
         this._root.add_child(this._glassTint);
         this._root.add_child(this._glassShine);
         this._root.add_child(this._box);
@@ -138,7 +132,6 @@ export class FloatingDockController {
 
         this._root?.destroy();
         this._root = null;
-        this._glassEffect = null;
         this._glassTint = null;
         this._glassShine = null;
         this._box = null;
@@ -251,26 +244,11 @@ export class FloatingDockController {
 
     _layoutGlassLayers(width, height) {
         if (
-            !this._glassEffect ||
             !this._glassTint ||
             !this._glassShine
         ) {
             return;
         }
-
-        // Shell background blur paints a rectangular allocation. Keep its
-        // allocation slightly inside the capsule so no square corners can
-        // bleed beyond the white rounded tint/shine layers.
-        const effectInset = 3;
-
-        this._glassEffect.set_position(
-            effectInset,
-            effectInset
-        );
-        this._glassEffect.set_size(
-            Math.max(1, width - effectInset * 2),
-            Math.max(1, height - effectInset * 2)
-        );
 
         for (const actor of [
             this._glassTint,
@@ -657,40 +635,9 @@ export class FloatingDockController {
     }
 
     _syncBlur() {
-        if (!this._glassEffect)
-            return;
-
-        if (this._blurEffect) {
-            this._glassEffect.remove_effect(
-                this._blurEffect
-            );
-            this._blurEffect = null;
-        }
-
-        if (
-            !this._settings.get_boolean(
-                'floating-dock-blur'
-            )
-        ) {
-            return;
-        }
-
-        try {
-            this._blurEffect = new Shell.BlurEffect({
-                brightness: 1.0,
-                mode: Shell.BlurMode.BACKGROUND,
-                radius: 3,
-            });
-            this._glassEffect.add_effect(
-                this._blurEffect
-            );
-        } catch (error) {
-            this._blurEffect = null;
-            logError(
-                error,
-                'Velora Desktop: Liquid Glass blur unavailable'
-            );
-        }
+        // Intentionally disabled for now: the separate background-blur actor
+        // produced a second rectangular surface behind the glass capsule.
+        this._blurEffect = null;
     }
 
     _invalidateWallpaperTint() {
