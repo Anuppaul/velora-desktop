@@ -48,9 +48,22 @@
       <summary>Dock icon ring count mode: auto, 2, 3 or 4</summary>
     </key>
     <key name="orb-size" type="i">
-      <default>56</default>
-      <range min="36" max="96"/>
+      <default>46</default>
+      <range min="32" max="80"/>
       <summary>Floating Velora orb size</summary>
+    </key>
+    <key name="orb-icon" type="s">
+      <default>'view-app-grid-ubuntu-symbolic'</default>
+      <summary>Themed icon name or absolute SVG/PNG path used inside the Velora orb</summary>
+    </key>
+    <key name="auto-hide-orb" type="b">
+      <default>false</default>
+      <summary>Automatically slide the Velora orb to the nearest screen edge when idle</summary>
+    </key>
+    <key name="auto-hide-delay" type="i">
+      <default>1400</default>
+      <range min="300" max="10000"/>
+      <summary>Milliseconds before an idle Velora orb auto-hides to the nearest edge</summary>
     </key>
     <key name="icon-size" type="i">
       <default>52</default>
@@ -94,14 +107,6 @@
     <key name="show-running-indicator" type="b">
       <default>true</default>
       <summary>Show a subtle running dot for active applications</summary>
-    </key>
-    <key name="accent-start" type="s">
-      <default>'#4aa8ff'</default>
-      <summary>Start color for the Velora orb gradient</summary>
-    </key>
-    <key name="accent-end" type="s">
-      <default>'#8b5cf6'</default>
-      <summary>End color for the Velora orb gradient</summary>
     </key>
     <key name="orb-x" type="d">
       <default>0.015</default>
