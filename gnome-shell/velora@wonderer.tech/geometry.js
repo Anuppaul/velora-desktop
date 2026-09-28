@@ -155,18 +155,11 @@ export function selectOrganizedSlots(slots, count, arc) {
         return slots.slice(0, count);
     }
 
-    // Near monitor edges only part of the orbit is available. Keep the same
-    // sequential-fill idea, but center the contiguous run inside that safe arc
-    // so the launcher remains compact and on-screen.
-    const start = Math.max(
-        0,
-        Math.min(
-            slots.length - count,
-            Math.round((slots.length - count) / 2)
-        )
-    );
-
-    return slots.slice(start, start + count);
+    // Near a monitor side/corner, the available slots already describe the
+    // inward-facing safe part of the circle. Fill that arc sequentially from
+    // its first safe slot instead of re-centering a small app set. This keeps
+    // the visual circulation continuous while naturally avoiding the edge.
+    return slots.slice(0, count);
 }
 
 export function arcForPosition(centerX, centerY, outerRadius, iconSize, monitor) {
@@ -188,19 +181,21 @@ export function arcForPosition(centerX, centerY, outerRadius, iconSize, monitor)
     if (horizontalEdge === 'left' && verticalEdge === 'top')
         return {start: 5, end: 95};
     if (horizontalEdge === 'right' && verticalEdge === 'top')
-        return {start: 85, end: 175};
+        return {start: 175, end: 85};
     if (horizontalEdge === 'left' && verticalEdge === 'bottom')
         return {start: -95, end: -5};
     if (horizontalEdge === 'right' && verticalEdge === 'bottom')
         return {start: 185, end: 275};
     if (verticalEdge === 'top')
-        return {start: 5, end: 175};
+        return {start: 175, end: 365};
     if (verticalEdge === 'bottom')
         return {start: 185, end: 355};
     if (horizontalEdge === 'left')
         return {start: -85, end: 85};
     if (horizontalEdge === 'right')
-        return {start: 95, end: 265};
+        return {start: 265, end: 455};
 
-    return {start: -175, end: 175};
+    // Fully free space: deterministic circulation starts at the left-most
+    // point, crosses the upper half left-to-right, then completes below.
+    return {start: 180, end: 540};
 }
