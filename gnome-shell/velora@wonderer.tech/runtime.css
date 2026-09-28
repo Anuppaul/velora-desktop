@@ -48,8 +48,8 @@
 }
 
 .velora-running-dot {
-    min-width: 5px;
-    min-height: 5px;
+    min-width: 3px;
+    min-height: 3px;
     border-radius: 999px;
     background-color: rgba(255, 255, 255, 0.96);
     box-shadow: none;
