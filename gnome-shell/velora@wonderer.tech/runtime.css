@@ -91,8 +91,7 @@
 }
 
 #overviewGroup.velora-minimal-all-apps .overview-tile:hover,
-#overviewGroup.velora-minimal-all-apps .overview-tile:focus,
-#overviewGroup.velora-minimal-all-apps .overview-tile:selected {
+#overviewGroup.velora-minimal-all-apps .overview-tile:focus {
     background-color: rgba(255, 255, 255, 0.08);
     box-shadow: none;
 }
