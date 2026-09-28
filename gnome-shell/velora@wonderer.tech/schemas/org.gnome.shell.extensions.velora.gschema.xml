@@ -55,7 +55,7 @@
     </key>
     <key name="all-apps-icon-size" type="i">
       <default>48</default>
-      <range min="32" max="72"/>
+      <range min="20" max="80"/>
       <summary>Application icon size in Velora's minimal All Apps view</summary>
     </key>
     <key name="ring-mode" type="s">
@@ -70,7 +70,7 @@
     </key>
     <key name="orb-size" type="i">
       <default>44</default>
-      <range min="32" max="80"/>
+      <range min="20" max="80"/>
       <summary>Floating Velora orb size</summary>
     </key>
     <key name="orb-icon" type="s">
@@ -81,6 +81,15 @@
       <default>false</default>
       <summary>Automatically slide the Velora orb to the nearest screen edge when idle</summary>
     </key>
+    <key name="auto-fade-orb" type="b">
+      <default>true</default>
+      <summary>Fade the Velora orb to zero opacity after an idle delay</summary>
+    </key>
+    <key name="auto-fade-delay" type="i">
+      <default>5000</default>
+      <range min="0" max="30000"/>
+      <summary>Milliseconds before the idle Velora orb fades to zero opacity</summary>
+    </key>
     <key name="auto-hide-delay" type="i">
       <default>1400</default>
       <range min="0" max="10000"/>
@@ -88,7 +97,7 @@
     </key>
     <key name="icon-size" type="i">
       <default>52</default>
-      <range min="32" max="80"/>
+      <range min="20" max="80"/>
       <summary>Hover dock application icon button size</summary>
     </key>
     <key name="icon-gap" type="i">
