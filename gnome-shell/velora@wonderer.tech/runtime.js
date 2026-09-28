@@ -1479,8 +1479,11 @@ export default class VeloraRuntime extends Extension {
         const preview = new Clutter.Actor({
             reactive: false,
             clip_to_allocation: true,
-            layout_manager: previewLayout,
         });
+        // Shell.WindowPreviewLayout tracks its container. GNOME Shell itself
+        // assigns it after actor construction to avoid GJS container setup
+        // issues during initialization.
+        preview.layout_manager = previewLayout;
 
         const frame = window.get_frame_rect();
         const maxWidth = Math.max(1, tileWidth - 12);
