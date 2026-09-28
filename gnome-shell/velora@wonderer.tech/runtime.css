@@ -101,15 +101,11 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 32px;
+    border-radius: 999px;
     background-color: transparent;
     border: 0;
-    box-shadow: 0 6px 6px rgba(0, 0, 0, 0.20);
+    box-shadow: none;
     transition-duration: 400ms;
-}
-
-.velora-liquidGlass-wrapper:hover {
-    border-radius: 40px;
 }
 
 .velora-liquidGlass-tint {
@@ -117,29 +113,15 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 32px;
-    background-color: rgba(255, 255, 255, 0.50);
-    border: 0;
-    box-shadow: none;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.48);
+    box-shadow:
+        inset 1px 1px 1px 0 rgba(255, 255, 255, 0.52);
 }
 
 .velora-liquidGlass-wrapper:hover .velora-liquidGlass-tint {
-    border-radius: 40px;
-}
-
-.velora-liquidGlass-shine {
-    min-width: 0;
-    min-height: 0;
-    padding: 0;
-    margin: 0;
-    border-radius: 32px;
-    background-color: rgba(255, 255, 255, 0.01);
-    border: 1px solid rgba(255, 255, 255, 0.44);
-    box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.50);
-}
-
-.velora-liquidGlass-wrapper:hover .velora-liquidGlass-shine {
-    border-radius: 40px;
+    border-radius: 999px;
 }
 
 .velora-liquidGlass-text {
