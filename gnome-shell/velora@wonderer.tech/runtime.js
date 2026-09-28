@@ -25,6 +25,11 @@ const DEFAULT_ORB_ICON = 'start-here-symbolic';
 const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
 const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
+const APP_PREVIEW_MAX_WINDOWS = 4;
+const APP_PREVIEW_GAP = 8;
+const APP_PREVIEW_PADDING = 10;
+const APP_PREVIEW_OFFSET = 14;
+const APP_PREVIEW_HIDE_DELAY = 220;
 const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
 
 export default class VeloraRuntime extends Extension {
@@ -49,6 +54,10 @@ export default class VeloraRuntime extends Extension {
         this._radialActors = [];
         this._closingActors = new Set();
         this._tooltip = null;
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+        this._appPreviewHideTimeoutId = 0;
         this._menuOpen = false;
         this._dragging = false;
         this._openTimeoutId = 0;
@@ -93,6 +102,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
         this._cancelOrbAutoFadeTimer();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(true);
         this._restoreAllAppsTheme();
         this._closeMenu(true);
         this._destroyClosingActors();
@@ -128,6 +139,10 @@ export default class VeloraRuntime extends Extension {
         this._orbMark = null;
         this._panGesture = null;
         this._tooltip = null;
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+        this._appPreviewHideTimeoutId = 0;
         this._radialActors = [];
         this._closingActors.clear();
         this._closingActors = null;
@@ -1020,6 +1035,8 @@ export default class VeloraRuntime extends Extension {
             return;
 
         this._destroyClosingActors();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(true);
 
         const requestedApps = collectDockApps(
             this._appSystem,
@@ -1200,6 +1217,8 @@ export default class VeloraRuntime extends Extension {
         button.connect('notify::hover', () => {
             if (button.get_hover()) {
                 this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+
                 button.ease({
                     scale_x: ICON_HOVER_SCALE,
                     scale_y: ICON_HOVER_SCALE,
@@ -1207,10 +1226,16 @@ export default class VeloraRuntime extends Extension {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 });
 
-                if (this._settings.get_boolean('show-tooltips'))
+                const previewShown = this._showAppPreview(app, button);
+                if (previewShown) {
+                    this._hideTooltip();
+                } else if (this._settings.get_boolean('show-tooltips')) {
                     this._showTooltip(app.get_name(), button);
+                }
             } else {
                 this._hideTooltip();
+                this._scheduleAppPreviewHide();
+
                 button.ease({
                     scale_x: 1,
                     scale_y: 1,
@@ -1223,6 +1248,8 @@ export default class VeloraRuntime extends Extension {
 
         button.connect('clicked', () => {
             this._hideTooltip();
+            this._cancelAppPreviewHide();
+            this._hideAppPreview(true);
             this._closeMenu();
             Main.overview.hide();
             app.activate();
@@ -1234,6 +1261,8 @@ export default class VeloraRuntime extends Extension {
     _closeMenu(immediate = false) {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(immediate);
         this._hideTooltip();
 
         if (!this._menuOpen && this._radialActors.length === 0) {
@@ -1331,6 +1360,312 @@ export default class VeloraRuntime extends Extension {
             width: global.stage.width,
             height: global.stage.height,
         };
+    }
+
+    _showAppPreview(app, anchorActor) {
+        const windows = app.get_windows()
+            .filter(window =>
+                !window.skip_taskbar &&
+                Boolean(window.get_compositor_private?.())
+            )
+            .slice(0, APP_PREVIEW_MAX_WINDOWS);
+
+        if (windows.length === 0) {
+            this._hideAppPreview(true);
+            return false;
+        }
+
+        if (
+            this._appPreview &&
+            this._appPreviewApp === app &&
+            this._appPreviewAnchor === anchorActor
+        ) {
+            this._positionAppPreview(this._appPreview, anchorActor);
+            return true;
+        }
+
+        this._hideAppPreview(true);
+
+        const count = windows.length;
+        const columns = count === 1 ? 1 : 2;
+        const rows = Math.ceil(count / columns);
+
+        const tileWidth =
+            count === 1 ? 280 :
+            count === 2 ? 220 :
+            190;
+        const tileHeight =
+            count === 1 ? 176 :
+            count === 2 ? 140 :
+            120;
+
+        const cardWidth =
+            APP_PREVIEW_PADDING * 2 +
+            columns * tileWidth +
+            Math.max(0, columns - 1) * APP_PREVIEW_GAP;
+        const cardHeight =
+            APP_PREVIEW_PADDING * 2 +
+            rows * tileHeight +
+            Math.max(0, rows - 1) * APP_PREVIEW_GAP;
+
+        const card = new St.Widget({
+            style_class: 'velora-app-preview-card',
+            reactive: true,
+            track_hover: true,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        card.set_size(cardWidth, cardHeight);
+        card.set_pivot_point(0.5, 0.5);
+
+        windows.forEach((window, index) => {
+            const tile = this._createWindowPreviewTile(
+                window,
+                tileWidth,
+                tileHeight
+            );
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+
+            tile.set_position(
+                APP_PREVIEW_PADDING +
+                    column * (tileWidth + APP_PREVIEW_GAP),
+                APP_PREVIEW_PADDING +
+                    row * (tileHeight + APP_PREVIEW_GAP)
+            );
+            card.add_child(tile);
+        });
+
+        card.connect('notify::hover', () => {
+            if (card.get_hover()) {
+                this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+            } else {
+                this._scheduleAppPreviewHide();
+                this._scheduleClose();
+            }
+        });
+
+        this._layer.add_child(card);
+        this._appPreview = card;
+        this._appPreviewApp = app;
+        this._appPreviewAnchor = anchorActor;
+
+        this._positionAppPreview(card, anchorActor);
+
+        card.opacity = 0;
+        card.scale_x = 0.96;
+        card.scale_y = 0.96;
+        card.ease({
+            opacity: 255,
+            scale_x: 1,
+            scale_y: 1,
+            duration: 120,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+
+        return true;
+    }
+
+    _createWindowPreviewTile(window, tileWidth, tileHeight) {
+        const content = new St.Widget({
+            style_class: 'velora-window-preview-content',
+            reactive: false,
+            clip_to_allocation: true,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        content.set_size(tileWidth, tileHeight);
+
+        const previewLayout = new Shell.WindowPreviewLayout();
+        const preview = new Clutter.Actor({
+            reactive: false,
+            clip_to_allocation: true,
+            layout_manager: previewLayout,
+        });
+
+        const frame = window.get_frame_rect();
+        const maxWidth = Math.max(1, tileWidth - 12);
+        const maxHeight = Math.max(1, tileHeight - 12);
+        const frameWidth = Math.max(1, frame.width);
+        const frameHeight = Math.max(1, frame.height);
+        const scale = Math.min(
+            maxWidth / frameWidth,
+            maxHeight / frameHeight,
+            1
+        );
+        const previewWidth = Math.max(1, Math.round(frameWidth * scale));
+        const previewHeight = Math.max(1, Math.round(frameHeight * scale));
+
+        preview.set_size(previewWidth, previewHeight);
+        preview.set_position(
+            Math.round((tileWidth - previewWidth) / 2),
+            Math.round((tileHeight - previewHeight) / 2)
+        );
+
+        previewLayout.add_window(window);
+        content.add_child(preview);
+
+        const tile = new St.Button({
+            style_class: 'velora-window-preview-tile',
+            accessible_name: window.title || 'Window preview',
+            can_focus: true,
+            reactive: true,
+            track_hover: true,
+            child: content,
+        });
+        tile.set_size(tileWidth, tileHeight);
+
+        tile.connect('notify::hover', () => {
+            if (tile.get_hover()) {
+                this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+            }
+        });
+
+        tile.connect('clicked', () => {
+            this._cancelAppPreviewHide();
+            this._hideAppPreview(true);
+            this._closeMenu(true);
+            Main.activateWindow(window);
+        });
+
+        return tile;
+    }
+
+    _positionAppPreview(card, anchorActor) {
+        if (!card || !anchorActor || !this._orb)
+            return;
+
+        const [anchorX, anchorY] = anchorActor.get_position();
+        const anchorWidth = anchorActor.width;
+        const anchorHeight = anchorActor.height;
+        const anchorCenterX = anchorX + anchorWidth / 2;
+        const anchorCenterY = anchorY + anchorHeight / 2;
+
+        const [orbX, orbY] = this._orb.get_position();
+        const orbSize = this._settings.get_int('orb-size');
+        const orbCenterX = orbX + orbSize / 2;
+        const orbCenterY = orbY + orbSize / 2;
+
+        const monitor = this._monitorAt(anchorCenterX, anchorCenterY);
+        const cardWidth = card.width;
+        const cardHeight = card.height;
+
+        const candidates = {
+            right: {
+                x: anchorX + anchorWidth + APP_PREVIEW_OFFSET,
+                y: anchorCenterY - cardHeight / 2,
+            },
+            left: {
+                x: anchorX - cardWidth - APP_PREVIEW_OFFSET,
+                y: anchorCenterY - cardHeight / 2,
+            },
+            bottom: {
+                x: anchorCenterX - cardWidth / 2,
+                y: anchorY + anchorHeight + APP_PREVIEW_OFFSET,
+            },
+            top: {
+                x: anchorCenterX - cardWidth / 2,
+                y: anchorY - cardHeight - APP_PREVIEW_OFFSET,
+            },
+        };
+
+        const dx = anchorCenterX - orbCenterX;
+        const dy = anchorCenterY - orbCenterY;
+        let order;
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            order = dx >= 0
+                ? ['right', 'bottom', 'top', 'left']
+                : ['left', 'bottom', 'top', 'right'];
+        } else {
+            order = dy >= 0
+                ? ['bottom', 'right', 'left', 'top']
+                : ['top', 'right', 'left', 'bottom'];
+        }
+
+        const minX = monitor.x + SCREEN_MARGIN;
+        const maxX =
+            monitor.x + monitor.width - cardWidth - SCREEN_MARGIN;
+        const minY = monitor.y + SCREEN_MARGIN;
+        const maxY =
+            monitor.y + monitor.height - cardHeight - SCREEN_MARGIN;
+
+        const fits = candidate =>
+            candidate.x >= minX &&
+            candidate.x <= maxX &&
+            candidate.y >= minY &&
+            candidate.y <= maxY;
+
+        let target = null;
+        for (const side of order) {
+            if (fits(candidates[side])) {
+                target = candidates[side];
+                break;
+            }
+        }
+
+        target ??= candidates[order[0]];
+
+        card.set_position(
+            Math.round(clamp(target.x, minX, Math.max(minX, maxX))),
+            Math.round(clamp(target.y, minY, Math.max(minY, maxY)))
+        );
+    }
+
+    _scheduleAppPreviewHide() {
+        this._cancelAppPreviewHide();
+
+        if (!this._appPreview)
+            return;
+
+        this._appPreviewHideTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            APP_PREVIEW_HIDE_DELAY,
+            () => {
+                this._appPreviewHideTimeoutId = 0;
+
+                if (this._appPreview?.get_hover())
+                    return GLib.SOURCE_REMOVE;
+
+                this._hideAppPreview();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelAppPreviewHide() {
+        if (!this._appPreviewHideTimeoutId)
+            return;
+
+        GLib.source_remove(this._appPreviewHideTimeoutId);
+        this._appPreviewHideTimeoutId = 0;
+    }
+
+    _hideAppPreview(immediate = false) {
+        const card = this._appPreview;
+
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+
+        if (!card)
+            return;
+
+        card.remove_all_transitions();
+
+        if (immediate) {
+            card.destroy();
+            return;
+        }
+
+        card.ease({
+            opacity: 0,
+            scale_x: 0.97,
+            scale_y: 0.97,
+            duration: 90,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => card.destroy(),
+        });
     }
 
     _showTooltip(text, actor) {
