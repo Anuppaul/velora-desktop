@@ -117,13 +117,24 @@ ensure_bootstrap_active() {
     local loaded_generation
     local loaded_revision
     local runtime_error
+    local enable_output
     local i
 
-    if ! gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}"; then
-        gnome-extensions enable "${UUID}" >/dev/null 2>&1 || return 1
+    if ! gnome-extensions info "${UUID}" >/dev/null 2>&1; then
+        echo "Velora is installed on disk, but this running GNOME Shell session" >&2
+        echo "has not discovered the UUID yet." >&2
+        return 20
     fi
 
-    for ((i = 0; i < 30; i++)); do
+    if ! gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}"; then
+        if ! enable_output="$(gnome-extensions enable "${UUID}" 2>&1)"; then
+            echo "GNOME knows the Velora UUID but could not enable it:" >&2
+            [[ -n "${enable_output}" ]] && echo "  ${enable_output}" >&2
+            return 21
+        fi
+    fi
+
+    for ((i = 0; i < 80; i++)); do
         loaded_generation="$(read_string_setting bootstrap-loaded-generation)"
         loaded_revision="$(read_string_setting runtime-loaded-revision)"
         runtime_error="$(read_string_setting runtime-error)"
@@ -132,7 +143,7 @@ ensure_bootstrap_active() {
               "${loaded_generation}" != "${SOURCE_BOOTSTRAP_GENERATION}" ]]; then
             echo "Running Shell has Velora bootstrap ${loaded_generation}," >&2
             echo "but source requires ${SOURCE_BOOTSTRAP_GENERATION}." >&2
-            return 1
+            return 22
         fi
 
         if [[ "${loaded_generation}" == "${SOURCE_BOOTSTRAP_GENERATION}" &&
@@ -142,13 +153,15 @@ ensure_bootstrap_active() {
 
         if [[ -n "${runtime_error}" ]]; then
             echo "Velora bootstrap runtime error: ${runtime_error}" >&2
-            return 1
+            return 23
         fi
 
         sleep 0.1
     done
 
-    return 1
+    echo "GNOME reports Velora as enabled, but the bootstrap did not acknowledge" >&2
+    echo "generation ${SOURCE_BOOTSTRAP_GENERATION} in this Shell session." >&2
+    return 24
 }
 
 runtime_revision() {
@@ -241,14 +254,44 @@ hot_deploy_runtime() {
 if bootstrap_scaffold_compatible; then
     sync_compatible_scaffold
 
-    if ensure_bootstrap_active; then
+    set +e
+    ensure_bootstrap_active
+    BOOTSTRAP_STATUS=$?
+    set -e
+
+    if [[ "${BOOTSTRAP_STATUS}" -eq 0 ]]; then
         echo "Velora bootstrap is active; using live runtime hot-swap."
         hot_deploy_runtime
         exit $?
     fi
 
-    echo "Velora bootstrap is installed but not active in this Shell session."
-    echo "Falling back to full local install."
+    echo
+    echo "Velora bootstrap on disk is already compatible."
+    echo "The installer will NOT reinstall or disable it."
+
+    case "${BOOTSTRAP_STATUS}" in
+        20)
+            echo "This is the one state that requires a GNOME Shell session restart:"
+            echo "the running Shell has not discovered this local extension UUID yet."
+            echo "Log out and back in once. Then simply run:"
+            echo "  bash gnome-shell/install.sh"
+            ;;
+        21|23|24)
+            echo "GNOME has discovered Velora, so logout is not the correct fix."
+            echo "Run these diagnostics and fix the reported extension/runtime error:"
+            echo "  gnome-extensions info ${UUID}"
+            echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'"
+            ;;
+        22)
+            echo "The running Shell has an older Velora bootstrap generation loaded."
+            echo "A single logout/login is required only for this bootstrap-generation change."
+            ;;
+        *)
+            echo "Velora could not be activated in the current Shell session."
+            ;;
+    esac
+
+    exit "${BOOTSTRAP_STATUS}"
 fi
 
 BUILD_DIR="$(mktemp -d)"
