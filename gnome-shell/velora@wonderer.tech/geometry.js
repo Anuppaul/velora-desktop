@@ -187,13 +187,17 @@ export function arcForPosition(centerX, centerY, outerRadius, iconSize, monitor)
     if (horizontalEdge === 'right' && verticalEdge === 'bottom')
         return {start: 185, end: 275};
     if (verticalEdge === 'top')
-        return {start: 175, end: 365};
+        // Top edge: fill the inward/downward semicircle.
+        // Left -> Bottom -> Right.
+        return {start: 175, end: 5};
     if (verticalEdge === 'bottom')
         return {start: 185, end: 355};
     if (horizontalEdge === 'left')
         return {start: -85, end: 85};
     if (horizontalEdge === 'right')
-        return {start: 265, end: 455};
+        // Right edge: fill the inward/left-facing semicircle.
+        // Top -> Left -> Bottom.
+        return {start: 265, end: 95};
 
     // Fully free space: deterministic circulation starts at the left-most
     // point, crosses the upper half left-to-right, then completes below.
