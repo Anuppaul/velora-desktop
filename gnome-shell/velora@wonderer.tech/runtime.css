@@ -23,7 +23,7 @@
 
 .velora-orb-mark {
     color: #ffffff;
-    icon-shadow: 0 1px 4px rgba(0, 0, 0, 0.48);
+    icon-shadow: none;
 }
 
 .velora-app-button {
