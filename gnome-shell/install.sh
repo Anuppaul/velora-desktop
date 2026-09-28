@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.15"
+INSTALLER_VERSION="2026-09-28.16"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -262,6 +262,24 @@ runtime_revision() {
     } | sha256sum | sed -E 's/^([0-9a-f]{20}).*/\1/'
 }
 
+stage_runtime_revision() {
+    local revision="$1"
+    local runtime_dir
+    local file
+
+    runtime_dir="${TARGET_DIR}/runtime-revisions/${revision}"
+    mkdir -p "${runtime_dir}"
+
+    for file in "${RUNTIME_FILES[@]}"; do
+        cp -f "${SOURCE_DIR}/${file}" "${runtime_dir}/${file}"
+    done
+
+    for file in "${RUNTIME_FILES[@]}"; do
+        [[ -f "${runtime_dir}/${file}" ]] ||
+            fail "Runtime staging is incomplete: ${file}"
+    done
+}
+
 shell_eval() {
     local code="$1"
 
@@ -310,6 +328,12 @@ try_live_register() {
     shell_unsafe_mode_enabled || return 31
 
     runtime_rev="$(runtime_revision)"
+    stage_runtime_revision "${runtime_rev}"
+
+    write_string_setting runtime-error ""
+    write_string_setting runtime-loaded-revision ""
+    write_string_setting runtime-revision "${runtime_rev}"
+
     live_root="${HOME}/.cache/velora-live/${SOURCE_BOOTSTRAP_REVISION}-${runtime_rev}"
     live_dir="${live_root}/${UUID}"
 
@@ -370,7 +394,8 @@ try_live_register() {
             extension.state === ExtensionState.OUT_OF_DATE
         ) {
             throw new Error(
-                `Velora could not be loaded: ${extension.error || extension.state}`
+                'Velora could not be loaded: ' +
+                (extension.error || extension.state)
             );
         }
 
@@ -401,7 +426,9 @@ try_live_register() {
         const current = manager.lookup(uuid);
         if (!current || current.state !== ExtensionState.ACTIVE) {
             throw new Error(
-                `Velora did not reach ACTIVE state: ${current?.state ?? 'missing'} ${current?.error ?? ''}`
+                'Velora did not reach ACTIVE state: ' +
+                (current?.state ?? 'missing') + ' ' +
+                (current?.error ?? '')
             );
         }
 
@@ -531,16 +558,7 @@ hot_deploy_runtime() {
     fi
 
     runtime_dir="${TARGET_DIR}/runtime-revisions/${revision}"
-    mkdir -p "${runtime_dir}"
-
-    for file in "${RUNTIME_FILES[@]}"; do
-        cp -f "${SOURCE_DIR}/${file}" "${runtime_dir}/${file}"
-    done
-
-    for file in "${RUNTIME_FILES[@]}"; do
-        [[ -f "${runtime_dir}/${file}" ]] ||
-            fail "Hot runtime copy is incomplete: ${file}"
-    done
+    stage_runtime_revision "${revision}"
 
     write_string_setting runtime-error ""
     write_string_setting runtime-revision "${revision}"
