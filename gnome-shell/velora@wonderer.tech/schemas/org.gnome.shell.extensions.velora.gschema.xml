@@ -37,6 +37,18 @@
       <default>true</default>
       <summary>Internal saved Ubuntu Dock fixed state</summary>
     </key>
+    <key name="dock-extension-state-captured" type="b">
+      <default>false</default>
+      <summary>Internal flag indicating that Ubuntu Dock extension-list state is saved</summary>
+    </key>
+    <key name="dock-original-enabled-listed" type="b">
+      <default>false</default>
+      <summary>Whether Ubuntu Dock originally appeared in enabled-extensions</summary>
+    </key>
+    <key name="dock-original-disabled-listed" type="b">
+      <default>false</default>
+      <summary>Whether Ubuntu Dock originally appeared in disabled-extensions</summary>
+    </key>
     <key name="ring-mode" type="s">
       <default>'auto'</default>
       <choices>
@@ -53,7 +65,7 @@
       <summary>Floating Velora orb size</summary>
     </key>
     <key name="orb-icon" type="s">
-      <default>'view-app-grid-ubuntu-symbolic'</default>
+      <default>'start-here-symbolic'</default>
       <summary>Themed icon name or absolute SVG/PNG path used inside the Velora orb</summary>
     </key>
     <key name="auto-hide-orb" type="b">
