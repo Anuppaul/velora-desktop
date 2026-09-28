@@ -1348,7 +1348,7 @@ export default class VeloraRuntime extends Extension {
         };
     }
 
-    _showAppPreview(app, anchorActor) {
+    _showAppPreview(app, anchorActor, preferredSide = null) {
         const windows = app.get_windows()
             .filter(window =>
                 !window.skip_taskbar &&
@@ -1364,9 +1364,14 @@ export default class VeloraRuntime extends Extension {
         if (
             this._appPreview &&
             this._appPreviewApp === app &&
-            this._appPreviewAnchor === anchorActor
+            this._appPreviewAnchor === anchorActor &&
+            this._appPreviewPreferredSide === preferredSide
         ) {
-            this._positionAppPreview(this._appPreview, anchorActor);
+            this._positionAppPreview(
+                this._appPreview,
+                anchorActor,
+                preferredSide
+            );
             return true;
         }
 
@@ -1444,18 +1449,24 @@ export default class VeloraRuntime extends Extension {
             }
 
             const anchor = this._appPreviewAnchor;
+            const side = this._appPreviewPreferredSide;
             this._hideAppPreview(true);
 
             if (anchor.get_parent())
-                this._showAppPreview(app, anchor);
+                this._showAppPreview(app, anchor, side);
         }, card);
 
         this._layer.add_child(card);
         this._appPreview = card;
         this._appPreviewApp = app;
         this._appPreviewAnchor = anchorActor;
+        this._appPreviewPreferredSide = preferredSide;
 
-        this._positionAppPreview(card, anchorActor);
+        this._positionAppPreview(
+            card,
+            anchorActor,
+            preferredSide
+        );
 
         card.opacity = 0;
         card.scale_x = 0.96;
@@ -1542,22 +1553,25 @@ export default class VeloraRuntime extends Extension {
         return tile;
     }
 
-    _positionAppPreview(card, anchorActor) {
-        if (!card || !anchorActor || !this._orb)
+    _positionAppPreview(
+        card,
+        anchorActor,
+        preferredSide = null
+    ) {
+        if (!card || !anchorActor)
             return;
 
-        const [anchorX, anchorY] = anchorActor.get_position();
-        const anchorWidth = anchorActor.width;
-        const anchorHeight = anchorActor.height;
+        const [anchorX, anchorY] =
+            anchorActor.get_transformed_position();
+        const [anchorWidth, anchorHeight] =
+            anchorActor.get_transformed_size();
         const anchorCenterX = anchorX + anchorWidth / 2;
         const anchorCenterY = anchorY + anchorHeight / 2;
 
-        const [orbX, orbY] = this._orb.get_position();
-        const orbSize = this._settings.get_int('orb-size');
-        const orbCenterX = orbX + orbSize / 2;
-        const orbCenterY = orbY + orbSize / 2;
-
-        const monitor = this._monitorAt(anchorCenterX, anchorCenterY);
+        const monitor = this._monitorAt(
+            anchorCenterX,
+            anchorCenterY
+        );
         const cardWidth = card.width;
         const cardHeight = card.height;
 
@@ -1580,26 +1594,56 @@ export default class VeloraRuntime extends Extension {
             },
         };
 
-        const dx = anchorCenterX - orbCenterX;
-        const dy = anchorCenterY - orbCenterY;
-        let order;
+        const sideOrders = {
+            top: ['top', 'right', 'left', 'bottom'],
+            bottom: ['bottom', 'right', 'left', 'top'],
+            left: ['left', 'bottom', 'top', 'right'],
+            right: ['right', 'bottom', 'top', 'left'],
+        };
 
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            order = dx >= 0
-                ? ['right', 'bottom', 'top', 'left']
-                : ['left', 'bottom', 'top', 'right'];
-        } else {
-            order = dy >= 0
-                ? ['bottom', 'right', 'left', 'top']
-                : ['top', 'right', 'left', 'bottom'];
+        let order = sideOrders[preferredSide] ?? null;
+
+        if (!order) {
+            let referenceX =
+                monitor.x + monitor.width / 2;
+            let referenceY =
+                monitor.y + monitor.height / 2;
+
+            if (this._orb) {
+                const [orbX, orbY] =
+                    this._orb.get_position();
+                const orbSize =
+                    this._settings.get_int('orb-size');
+                referenceX = orbX + orbSize / 2;
+                referenceY = orbY + orbSize / 2;
+            }
+
+            const dx = anchorCenterX - referenceX;
+            const dy = anchorCenterY - referenceY;
+
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                order = dx >= 0
+                    ? ['right', 'bottom', 'top', 'left']
+                    : ['left', 'bottom', 'top', 'right'];
+            } else {
+                order = dy >= 0
+                    ? ['bottom', 'right', 'left', 'top']
+                    : ['top', 'right', 'left', 'bottom'];
+            }
         }
 
         const minX = monitor.x + SCREEN_MARGIN;
         const maxX =
-            monitor.x + monitor.width - cardWidth - SCREEN_MARGIN;
+            monitor.x +
+            monitor.width -
+            cardWidth -
+            SCREEN_MARGIN;
         const minY = monitor.y + SCREEN_MARGIN;
         const maxY =
-            monitor.y + monitor.height - cardHeight - SCREEN_MARGIN;
+            monitor.y +
+            monitor.height -
+            cardHeight -
+            SCREEN_MARGIN;
 
         const fits = candidate =>
             candidate.x >= minX &&
@@ -1618,8 +1662,20 @@ export default class VeloraRuntime extends Extension {
         target ??= candidates[order[0]];
 
         card.set_position(
-            Math.round(clamp(target.x, minX, Math.max(minX, maxX))),
-            Math.round(clamp(target.y, minY, Math.max(minY, maxY)))
+            Math.round(
+                clamp(
+                    target.x,
+                    minX,
+                    Math.max(minX, maxX)
+                )
+            ),
+            Math.round(
+                clamp(
+                    target.y,
+                    minY,
+                    Math.max(minY, maxY)
+                )
+            )
         );
     }
 
@@ -1658,6 +1714,7 @@ export default class VeloraRuntime extends Extension {
         this._appPreview = null;
         this._appPreviewApp = null;
         this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
 
         if (!card)
             return;
