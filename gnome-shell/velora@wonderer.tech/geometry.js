@@ -119,20 +119,13 @@ export function allocateAcrossRings(appCount, capacities) {
     const counts = Array(capacities.length).fill(0);
     let remaining = Math.min(appCount, totalCapacity(capacities));
 
-    while (remaining > 0) {
-        let progressed = false;
-
-        for (let ring = 0; ring < capacities.length && remaining > 0; ring++) {
-            if (counts[ring] >= capacities[ring])
-                continue;
-
-            counts[ring]++;
-            remaining--;
-            progressed = true;
-        }
-
-        if (!progressed)
-            break;
+    // Keep the radial launcher visually coherent: fill the nearest ring
+    // completely before spilling into the next ring. Round-robin allocation
+    // makes a small app set look scattered across multiple radii.
+    for (let ring = 0; ring < capacities.length && remaining > 0; ring++) {
+        const count = Math.min(remaining, capacities[ring]);
+        counts[ring] = count;
+        remaining -= count;
     }
 
     return counts;
