@@ -202,6 +202,19 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'view-app-grid-ubuntu-symbolic'
         );
 
+        const resetIconRow = new Adw.ActionRow({
+            title: 'Reset Orb icon',
+            subtitle: 'Restores the default Ubuntu symbolic icon.',
+        });
+        const resetIconButton = new Gtk.Button({
+            label: 'Reset',
+            valign: Gtk.Align.CENTER,
+        });
+        resetIconButton.connect('clicked', () => settings.reset('orb-icon'));
+        resetIconRow.add_suffix(resetIconButton);
+        resetIconRow.activatable_widget = resetIconButton;
+        orbGroup.add(resetIconRow);
+
         const positionGroup = new Adw.PreferencesGroup({
             title: 'Orb position',
             description: 'Drag the Orb directly on the desktop. Its normalized position survives resolution changes.',
