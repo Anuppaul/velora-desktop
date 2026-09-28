@@ -275,13 +275,29 @@ export class FloatingDockController {
             )
         );
 
-        for (const actor of [
-            this._glassOverlay,
-            this._glassSpecular,
-        ]) {
-            actor.set_position(0, 0);
-            actor.set_size(width, height);
-        }
+        this._glassOverlay.set_position(0, 0);
+        this._glassOverlay.set_size(width, height);
+
+        // The white specular layer is intentionally inset and shifted
+        // downward so it reads as an internal lens highlight instead of
+        // a second outer capsule.
+        const specularInsetX = 2;
+        const specularOffsetY = 4;
+        const specularBottomInset = 2;
+
+        this._glassSpecular.set_position(
+            specularInsetX,
+            specularOffsetY
+        );
+        this._glassSpecular.set_size(
+            Math.max(1, width - specularInsetX * 2),
+            Math.max(
+                1,
+                height -
+                specularOffsetY -
+                specularBottomInset
+            )
+        );
     }
 
     reposition(animate = false) {
