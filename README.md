@@ -242,3 +242,12 @@ Velora now separates distribution capabilities instead of putting every special 
 - This removes the JVM signature clashes with the generated setters for the `homeTransitionMode` and `transitionSoftness` properties.
 - Colab preflight now rejects stale source trees that still contain the conflicting method names.
 - Colab identifies this source as `beta09-jvmfix` and requires versionCode 30.
+
+
+## Beta 10 signing verification fix
+
+- Velora minSdk is 26, so every supported device supports APK Signature Scheme v2.
+- Phone-test signing now explicitly uses v2 + v3; legacy v1/JAR signing is not required.
+- Colab verifies the APK with apksigner using minSdk 26 and requires v2=true and v3=true.
+- A v1=false result no longer causes a false build failure after a successful Gradle assemble.
+- Colab identifies this source as `beta10-signingfix` and requires versionCode 31.

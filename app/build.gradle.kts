@@ -23,8 +23,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "0.1.0-beta09"
+        versionCode = 31
+        versionName = "0.1.0-beta10"
     }
 
     flavorDimensions += "distribution"
@@ -50,7 +50,7 @@ android {
                 keyAlias = releaseKeyAlias!!
                 keyPassword = releaseKeyPassword!!
                 storeType = "JKS"
-                enableV1Signing = true
+                enableV1Signing = false
                 enableV2Signing = true
                 enableV3Signing = true
                 enableV4Signing = false
