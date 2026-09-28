@@ -10,6 +10,7 @@ Velora Desktop is a GNOME-native adaptation of the Velora launcher concept, not 
 - Drag the Orb anywhere; its position survives resolution changes and is kept on a real monitor.
 - Hover the Orb -> GNOME Favorites + currently running apps.
 - Click the Orb -> toggles the GNOME Applications view open/closed.
+- Minimal All Apps mode restyles GNOME Applications with a pure-black background, compact icons, no window previews and no native Overview Dash.
 - Hover icons use adaptive 2–4 radial layers.
 - Icon size, same-layer icon distance and layer distance are independent.
 - Safe-slot geometry prevents normal and magnified icons from overlapping or leaving the visible monitor.
@@ -139,6 +140,8 @@ Velora exposes:
 - Orb opacity.
 - Custom Orb icon (themed icon name or absolute SVG/PNG path).
 - Auto-hide Orb with configurable delay and edge reveal.
+- Minimal All Apps mode on/off.
+- All Apps icon size (32–72 px).
 - Hover delay.
 - Close delay.
 - Animation duration.
