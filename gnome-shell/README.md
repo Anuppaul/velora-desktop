@@ -15,13 +15,24 @@ Velora Desktop is a GNOME-native adaptation of the Velora launcher concept, not 
 - Safe-slot geometry prevents normal and magnified icons from overlapping or leaving the visible monitor.
 - Native app icons use premium circular glass surfaces, hover magnification and an optional running dot.
 
-## Why local GNOME extensions normally need logout
+## Fresh local activation without logout
 
-GNOME 50's local `gnome-extensions install` command installs a bundle for the **next Shell session**. Its public D-Bus interface still lists `ReloadExtension`, but GNOME 50 implements that method as unsupported.
+GNOME 50's normal `gnome-extensions install` path discovers a newly installed local extension on the next Shell session. Its public `ReloadExtension` D-Bus method is disabled.
 
-Remote extensions from extensions.gnome.org use a different internal install path that can create/load/enable an extension in the running Shell.
+For local Velora development, the installer therefore supports a controlled current-session registration path:
 
-Velora therefore uses a stable bootstrap after the initial local install.
+1. Press `Alt+F2`.
+2. Type `lg` and press Enter.
+3. Open the **Flags** tab.
+4. Enable **unsafe-mode**.
+5. Close Looking Glass.
+6. Run `bash gnome-shell/install.sh`.
+
+The installer clones the installed scaffold to a unique live-load directory so GNOME's JavaScript module cache cannot return an older `extension.js`. It then uses GNOME Shell's internal extension manager to create, load and enable Velora in the current session.
+
+After the live-registration call, the installer turns `unsafe-mode` back **off automatically**.
+
+This path is for local development. It intentionally avoids pretending that GNOME exposes a supported public live-install API for arbitrary local extension bundles.
 
 ## Velora bootstrap + live runtime updates
 
@@ -49,26 +60,11 @@ For ordinary runtime/style updates the installer:
 
 If the new runtime fails, the installer requests the previous revision again and the bootstrap rolls back.
 
-### When logout is still required
+### Bootstrap changes
 
-A logout/login is required only when the **bootstrap scaffold itself** changes:
+Normal runtime, style and preferences changes apply live.
 
-- first-ever local Velora installation;
-- `extension.js` bootstrap changes;
-- `metadata.json` changes;
-- GSettings schema changes;
-- bootstrap `stylesheet.css` changes.
-
-Normal changes to these files apply without Shell logout:
-
-- `runtime.js`
-- `runtime.css`
-- `apps.js`
-- `dock.js`
-- `geometry.js`
-- `prefs.js` (close/reopen the Preferences window if it was already open)
-
-The current migration to this bootstrap architecture therefore needs **one final logout/login**. Once this bootstrap is loaded, future ordinary Velora development updates can be applied live.
+If the bootstrap/schema itself changes, rerun the installer with Looking Glass **unsafe-mode** enabled. The installer live-loads the changed bootstrap from a unique revision path, so a logout is not required for the local development workflow.
 
 ## Install / update
 
@@ -81,18 +77,16 @@ From the repository root:
 
 Do not `chmod +x` the scripts; invoking them with `bash` avoids Git mode-only changes.
 
-### First bootstrap install / scaffold change
+### Fresh install / bootstrap change
 
-The installer prints that the scaffold was installed. Then:
+Enable Looking Glass `unsafe-mode` as described above, then run:
 
-    Log Out
-    Log In
+    bash gnome-shell/install.sh
 
-and:
+Expected successful output ends with:
 
-    gnome-extensions enable velora@wonderer.tech
-
-That loads the stable bootstrap.
+    Velora was registered and activated in the current Shell session.
+    No logout is required.
 
 ### Later runtime-only update
 
