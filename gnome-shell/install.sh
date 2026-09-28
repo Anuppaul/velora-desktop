@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.12"
+INSTALLER_VERSION="2026-09-28.13"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -374,25 +374,27 @@ try_live_register() {
             );
         }
 
-        let enabled = global.settings
+        const shellSettings = new Gio.Settings({
+            schema_id: 'org.gnome.shell',
+        });
+        let enabled = shellSettings
             .get_strv('enabled-extensions')
             .filter(item => item !== uuid);
-        const disabled = global.settings
+        const disabled = shellSettings
             .get_strv('disabled-extensions')
             .filter(item => item !== uuid);
 
         enabled.push(uuid);
-
-        global.settings.delay();
-        global.settings.set_strv('disabled-extensions', disabled);
-        global.settings.set_strv('enabled-extensions', enabled);
 
         manager._enabledExtensions =
             manager._enabledExtensions.filter(item => item !== uuid);
         manager._enabledExtensions.push(uuid);
         extension.enabled = true;
 
-        global.settings.apply();
+        shellSettings.delay();
+        shellSettings.set_strv('disabled-extensions', disabled);
+        shellSettings.set_strv('enabled-extensions', enabled);
+        shellSettings.apply();
 
         await manager._callExtensionEnable(uuid);
 
