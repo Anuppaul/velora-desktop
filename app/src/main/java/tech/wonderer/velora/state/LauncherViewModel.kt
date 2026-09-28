@@ -400,12 +400,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         store.saveWallpaperBlur(wallpaperBlur)
     }
 
-    fun setHomeTransitionMode(mode: HomeTransitionMode) {
+    fun updateHomeTransitionMode(mode: HomeTransitionMode) {
         homeTransitionMode = mode
         store.saveHomeTransitionMode(mode)
     }
 
-    fun setTransitionSoftness(value: Float) {
+    fun updateTransitionSoftness(value: Float) {
         transitionSoftness = value.coerceIn(0f, 1f)
         store.saveTransitionSoftness(transitionSoftness)
     }

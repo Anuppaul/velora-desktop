@@ -233,3 +233,12 @@ Velora now separates distribution capabilities instead of putting every special 
 - All three use one borderless edge-to-edge FullPageLiquidGlass layer while the underlying Home remains blurred.
 - Inner notification/control/action cards keep their local rounded glass treatment.
 - Colab preflight prints NOTEBOOK BUILD: beta08-fullpage and requires versionCode 29.
+
+
+## Beta 09 Kotlin JVM setter-clash fix
+
+- Renamed `LauncherViewModel.setHomeTransitionMode(...)` to `updateHomeTransitionMode(...)`.
+- Renamed `LauncherViewModel.setTransitionSoftness(...)` to `updateTransitionSoftness(...)`.
+- This removes the JVM signature clashes with the generated setters for the `homeTransitionMode` and `transitionSoftness` properties.
+- Colab preflight now rejects stale source trees that still contain the conflicting method names.
+- Colab identifies this source as `beta09-jvmfix` and requires versionCode 30.
