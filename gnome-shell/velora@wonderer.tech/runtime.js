@@ -87,6 +87,7 @@ export default class VeloraRuntime extends Extension {
             hidePreview: this._hideAppPreview.bind(this),
             cancelPreviewHide: this._cancelAppPreviewHide.bind(this),
             schedulePreviewHide: this._scheduleAppPreviewHide.bind(this),
+            isPreviewVisible: () => Boolean(this._appPreview),
             showTooltip: this._showTooltip.bind(this),
             hideTooltip: this._hideTooltip.bind(this),
         });
