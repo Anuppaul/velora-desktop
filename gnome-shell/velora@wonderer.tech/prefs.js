@@ -123,7 +123,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'hide-ubuntu-dock',
             'Hide Ubuntu Dock',
-            'Velora removes fixed dock reservation while hidden, then restores your previous dock state when disabled.'
+            'Velora force-disables Ubuntu Dock while active, removes its reservation, and restores its exact previous state when disabled. Other dock extensions are not affected.'
         );
         addCombo(
             behaviorGroup,
@@ -198,8 +198,8 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'orb-icon',
             'Orb icon',
-            'Themed icon name or absolute SVG/PNG path. Default: view-app-grid-ubuntu-symbolic',
-            'view-app-grid-ubuntu-symbolic'
+            'Themed icon name or absolute SVG/PNG path. Default: start-here-symbolic (Ubuntu logo on Yaru).',
+            'start-here-symbolic'
         );
 
         const resetIconRow = new Adw.ActionRow({
