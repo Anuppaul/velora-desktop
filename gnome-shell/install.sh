@@ -37,7 +37,7 @@ fail() {
 
 for command_name in \
     gnome-shell gnome-extensions glib-compile-schemas gsettings \
-    mktemp sed grep cmp sha256sum mkdir cp sleep cat env; do
+    mktemp sed grep cmp sha256sum mkdir cp sleep cat head env; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found."
 done
