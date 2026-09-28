@@ -66,7 +66,7 @@
         <choice value="3"/>
         <choice value="4"/>
       </choices>
-      <summary>Dock icon ring count mode: auto, 2, 3 or 4</summary>
+      <summary>Dock icon ring count mode: adaptive 1–4, or forced 2, 3 or 4</summary>
     </key>
     <key name="orb-size" type="i">
       <default>44</default>
