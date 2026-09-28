@@ -40,7 +40,9 @@ export default class VeloraRuntime extends Extension {
         this._openTimeoutId = 0;
         this._closeTimeoutId = 0;
         this._orbAutoHideTimeoutId = 0;
+        this._orbAutoFadeTimeoutId = 0;
         this._orbHidden = false;
+        this._orbFaded = false;
         this._suppressClickUntil = 0;
         this._writingOrbPosition = false;
         this._dragCurrentX = 0;
@@ -57,6 +59,7 @@ export default class VeloraRuntime extends Extension {
         this._dock.apply(this._settings.get_boolean('hide-ubuntu-dock'));
         this._syncOrbFromSettings();
         this._scheduleOrbAutoHide();
+        this._scheduleOrbAutoFade();
         this._syncAllAppsTheme();
     }
 
@@ -64,6 +67,7 @@ export default class VeloraRuntime extends Extension {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
         this._restoreAllAppsTheme();
         this._closeMenu(true);
         this._destroyClosingActors();
@@ -147,12 +151,15 @@ export default class VeloraRuntime extends Extension {
                 return;
 
             if (this._orb.get_hover()) {
+                this._cancelOrbAutoFadeTimer();
+                this._restoreOrbOpacity(true);
                 this._revealOrb();
                 this._cancelOrbAutoHideTimer();
                 this._scheduleOpen();
             } else {
                 this._scheduleClose();
                 this._scheduleOrbAutoHide();
+                this._scheduleOrbAutoFade();
             }
         });
 
@@ -160,6 +167,8 @@ export default class VeloraRuntime extends Extension {
             if (GLib.get_monotonic_time() < this._suppressClickUntil)
                 return;
 
+            this._cancelOrbAutoFadeTimer();
+            this._restoreOrbOpacity(true);
             this._revealOrb();
             this._showAllApps();
         });
@@ -177,6 +186,8 @@ export default class VeloraRuntime extends Extension {
             this._cancelOpenTimer();
             this._cancelCloseTimer();
             this._cancelOrbAutoHideTimer();
+            this._cancelOrbAutoFadeTimer();
+            this._restoreOrbOpacity(false);
             this._revealOrb();
             this._closeMenu(true);
             this._orb.fake_release();
@@ -219,6 +230,7 @@ export default class VeloraRuntime extends Extension {
             this._storeOrbPosition();
             this._suppressClickUntil = GLib.get_monotonic_time() + 250000;
             this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
         };
 
         this._panGesture.connect('end', finishDrag);
@@ -244,17 +256,34 @@ export default class VeloraRuntime extends Extension {
             }
 
             if (key === 'auto-hide-orb') {
-                if (this._settings.get_boolean('auto-hide-orb'))
+                if (this._settings.get_boolean('auto-hide-orb')) {
+                    this._cancelOrbAutoFadeTimer();
+                    this._restoreOrbOpacity(false);
                     this._scheduleOrbAutoHide();
-                else {
+                } else {
                     this._cancelOrbAutoHideTimer();
                     this._revealOrb();
+                    this._scheduleOrbAutoFade();
                 }
             }
 
             if (key === 'auto-hide-delay' && this._settings.get_boolean('auto-hide-orb')) {
                 this._cancelOrbAutoHideTimer();
                 this._scheduleOrbAutoHide();
+            }
+
+            if (key === 'auto-fade-orb') {
+                if (this._settings.get_boolean('auto-fade-orb'))
+                    this._scheduleOrbAutoFade();
+                else {
+                    this._cancelOrbAutoFadeTimer();
+                    this._restoreOrbOpacity(true);
+                }
+            }
+
+            if (key === 'auto-fade-delay' && this._settings.get_boolean('auto-fade-orb')) {
+                this._cancelOrbAutoFadeTimer();
+                this._scheduleOrbAutoFade();
             }
 
             if (key === 'minimal-all-apps' || key === 'all-apps-icon-size')
@@ -424,9 +453,11 @@ export default class VeloraRuntime extends Extension {
         const opacity = this._settings.get_int('orb-opacity');
 
         this._orb.set_size(size, size);
-        this._orb.opacity = Math.round(opacity * 2.55);
+        this._orb.opacity = this._orbFaded
+            ? 0
+            : Math.round(opacity * 2.55);
         this._orbMark.set_icon_size(
-            Math.max(18, Math.round(size * 0.44))
+            Math.max(10, Math.round(size * 0.44))
         );
         this._applyOrbIcon();
     }
@@ -532,9 +563,99 @@ export default class VeloraRuntime extends Extension {
         }
     }
 
+    _scheduleOrbAutoFade() {
+        this._cancelOrbAutoFadeTimer();
+
+        if (
+            !this._orb ||
+            !this._settings.get_boolean('auto-fade-orb') ||
+            this._settings.get_boolean('auto-hide-orb') ||
+            this._dragging ||
+            this._menuOpen ||
+            this._orbHidden ||
+            this._orb.get_hover()
+        ) {
+            return;
+        }
+
+        const delay = this._settings.get_int('auto-fade-delay');
+        if (delay <= 0) {
+            this._fadeOrbOut();
+            return;
+        }
+
+        this._orbAutoFadeTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+                this._orbAutoFadeTimeoutId = 0;
+
+                if (
+                    !this._orb ||
+                    !this._settings.get_boolean('auto-fade-orb') ||
+                    this._settings.get_boolean('auto-hide-orb') ||
+                    this._dragging ||
+                    this._menuOpen ||
+                    this._orbHidden ||
+                    this._orb.get_hover()
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                this._fadeOrbOut();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelOrbAutoFadeTimer() {
+        if (this._orbAutoFadeTimeoutId) {
+            GLib.source_remove(this._orbAutoFadeTimeoutId);
+            this._orbAutoFadeTimeoutId = 0;
+        }
+    }
+
+    _fadeOrbOut() {
+        if (!this._orb || this._orbFaded)
+            return;
+
+        this._orbFaded = true;
+        this._orb.remove_transition('opacity');
+        this._orb.ease({
+            opacity: 0,
+            duration: 180,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _restoreOrbOpacity(animate = false) {
+        if (!this._orb)
+            return;
+
+        const target = Math.round(
+            this._settings.get_int('orb-opacity') * 2.55
+        );
+
+        this._orbFaded = false;
+        this._orb.remove_transition('opacity');
+
+        if (animate) {
+            this._orb.ease({
+                opacity: target,
+                duration: 120,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } else {
+            this._orb.opacity = target;
+        }
+    }
+
     _hideOrbToEdge() {
         if (!this._orb || this._orbHidden)
             return;
+
+        this._cancelOrbAutoFadeTimer();
+        this._restoreOrbOpacity(false);
 
         const size = this._settings.get_int('orb-size');
         const [x, y] = this._orb.get_position();
@@ -794,6 +915,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
+        this._restoreOrbOpacity(true);
         this._revealOrb();
 
         if (this._menuOpen || this._dragging)
@@ -929,7 +1052,10 @@ export default class VeloraRuntime extends Extension {
 
     _createAppButton(app, iconSize) {
         const running = app.get_state() !== Shell.AppState.STOPPED;
-        const textureSize = Math.max(20, iconSize - 10);
+        const textureSize = Math.max(
+            12,
+            Math.round(iconSize * 0.72)
+        );
         const content = new St.Widget({
             style_class: 'velora-app-content',
             layout_manager: new Clutter.FixedLayout(),
@@ -947,14 +1073,15 @@ export default class VeloraRuntime extends Extension {
             running &&
             this._settings.get_boolean('show-running-indicator')
         ) {
+            const dotSize = Math.max(3, Math.round(iconSize * 0.09));
             const dot = new St.Widget({
                 style_class: 'velora-running-dot',
                 reactive: false,
             });
-            dot.set_size(5, 5);
+            dot.set_size(dotSize, dotSize);
             dot.set_position(
-                (iconSize - 5) / 2,
-                iconSize - 7
+                (iconSize - dotSize) / 2,
+                iconSize - dotSize - 2
             );
             content.add_child(dot);
         }
@@ -1011,6 +1138,7 @@ export default class VeloraRuntime extends Extension {
 
         if (!this._menuOpen && this._radialActors.length === 0) {
             this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
             return;
         }
 
@@ -1023,6 +1151,7 @@ export default class VeloraRuntime extends Extension {
             for (const actor of actors)
                 actor.destroy();
             this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
             return;
         }
 
@@ -1059,6 +1188,7 @@ export default class VeloraRuntime extends Extension {
         }
 
         this._scheduleOrbAutoHide();
+        this._scheduleOrbAutoFade();
     }
 
     _destroyClosingActors() {
