@@ -106,15 +106,26 @@
     box-shadow: none;
 }
 
+.velora-floating-dock-blur-surface {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.015);
+    border: 0;
+    box-shadow: none;
+}
+
 .velora-floating-dock-glass {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 22px;
-    background-color: rgba(22, 24, 31, 0.70);
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    box-shadow: 0 12px 30px 0 rgba(0, 0, 0, 0.34);
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.26);
+    border: 1px solid rgba(255, 255, 255, 0.64);
+    box-shadow: 0 8px 24px 0 rgba(30, 38, 52, 0.16);
 }
 
 .velora-floating-dock-refraction {
@@ -122,10 +133,10 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 22px;
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    box-shadow: 0 0 12px 0 rgba(100, 180, 255, 0.08);
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: 0 0 10px 0 rgba(255, 255, 255, 0.08);
 }
 
 .velora-floating-dock-sheen {
@@ -169,9 +180,9 @@
 
 .velora-floating-dock-icon:hover,
 .velora-floating-dock-icon:focus {
-    background-color: rgba(255, 255, 255, 0.085);
-    border-color: rgba(255, 255, 255, 0.20);
-    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.18);
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.34);
+    box-shadow: 0 4px 12px 0 rgba(32, 40, 52, 0.12);
 }
 
 .velora-floating-dock-icon-content {
@@ -188,9 +199,9 @@
     padding: 0;
     margin: 0;
     border-radius: 14px;
-    background-color: rgba(255, 255, 255, 0.10);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 16px 0 rgba(110, 175, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 14px 0 rgba(255, 255, 255, 0.10);
 }
 
 .velora-floating-dock-running-dot {
