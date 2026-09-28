@@ -101,10 +101,50 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 20px;
-    background-color: rgba(22, 24, 31, 0.76);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    box-shadow: 0 10px 28px 0 rgba(0, 0, 0, 0.30);
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.velora-floating-dock-glass {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 22px;
+    background-color: rgba(22, 24, 31, 0.70);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: 0 12px 30px 0 rgba(0, 0, 0, 0.34);
+}
+
+.velora-floating-dock-refraction {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 22px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 0 12px 0 rgba(100, 180, 255, 0.08);
+}
+
+.velora-floating-dock-sheen {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.34);
+    box-shadow: 0 0 7px 0 rgba(255, 255, 255, 0.12);
+}
+
+.velora-floating-dock-bottom-shade {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0.22);
 }
 
 .velora-floating-dock-box {
@@ -120,7 +160,7 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 14px;
+    border-radius: 15px;
     background-color: transparent;
     border: 1px solid transparent;
     box-shadow: none;
@@ -129,9 +169,9 @@
 
 .velora-floating-dock-icon:hover,
 .velora-floating-dock-icon:focus {
-    background-color: rgba(255, 255, 255, 0.10);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: none;
+    background-color: rgba(255, 255, 255, 0.085);
+    border-color: rgba(255, 255, 255, 0.20);
+    box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.18);
 }
 
 .velora-floating-dock-icon-content {
@@ -142,13 +182,23 @@
     background-color: transparent;
 }
 
+.velora-floating-dock-icon-halo {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 16px 0 rgba(110, 175, 255, 0.14);
+}
+
 .velora-floating-dock-running-dot {
     min-width: 3px;
     min-height: 3px;
     border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.96);
-    box-shadow:
-        0 0 5px 0 rgba(255, 255, 255, 0.42);
+    background-color: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 0 6px 0 rgba(255, 255, 255, 0.46);
 }
 
 
