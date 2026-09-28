@@ -23,8 +23,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 33
-        versionName = "0.1.0-beta12"
+        versionCode = 34
+        versionName = "0.1.0-beta13"
     }
 
     flavorDimensions += "distribution"
@@ -33,6 +33,12 @@ android {
             dimension = "distribution"
             buildConfigField("boolean", "NOTIFICATION_INTEGRATION", "false")
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"sideload\"")
+        }
+
+        create("personal") {
+            dimension = "distribution"
+            buildConfigField("boolean", "NOTIFICATION_INTEGRATION", "true")
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"personal\"")
         }
 
         create("play") {

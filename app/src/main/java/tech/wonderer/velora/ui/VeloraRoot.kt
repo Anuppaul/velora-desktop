@@ -109,7 +109,6 @@ fun VeloraRoot(
     var homeEditMode by remember { mutableStateOf(false) }
     var pendingHostedWidget by remember { mutableStateOf<PendingHostedWidget?>(null) }
     var currentHomePage by remember { mutableIntStateOf(0) }
-    var recentPackages by remember { mutableStateOf<List<String>>(emptyList()) }
 
     fun setHomePage(page: Int) {
         val next = page.coerceIn(0, HOME_PAGE_COUNT - 1)
@@ -121,8 +120,6 @@ fun VeloraRoot(
     }
 
     fun launchPackage(packageName: String) {
-        recentPackages = (listOf(packageName) + recentPackages.filterNot { it == packageName })
-            .take(8)
         launcher.launch(packageName)
     }
 
@@ -405,7 +402,7 @@ fun VeloraRoot(
 
                 when (overlay) {
                     Overlay.RECENTS -> LauncherRecentsPanel(
-                        recentPackages = recentPackages,
+                        recentPackages = launcher.recentsForDisplay(),
                         labelForPackage = launcher::labelForPackage,
                         onOpen = { packageName ->
                             overlay = Overlay.NONE

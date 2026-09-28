@@ -11,7 +11,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
@@ -48,8 +45,6 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import tech.wonderer.velora.model.HomeWidget
 import tech.wonderer.velora.model.PremiumWidgetType
-import tech.wonderer.velora.ui.components.GlassPanel
-import tech.wonderer.velora.ui.components.LocalVeloraPalette
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,45 +184,38 @@ private fun ClockWidget(modifier: Modifier) {
 @Composable
 private fun CalendarWidget(modifier: Modifier) {
     val now by ticker()
-    val palette = LocalVeloraPalette.current
 
-    GlassPanel(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        contentPadding = PaddingValues(16.dp),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = SimpleDateFormat("dd", Locale.getDefault()).format(now),
-                    color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = SimpleDateFormat("MMM", Locale.getDefault()).format(now).uppercase(),
-                    color = palette.accent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Column {
-                Text(
-                    text = SimpleDateFormat("EEEE", Locale.getDefault()).format(now),
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = "Today",
-                    color = Color.White.copy(alpha = 0.56f),
-                    fontSize = 12.sp,
-                )
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = SimpleDateFormat("dd", Locale.getDefault()).format(now),
+                color = Color.White,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = SimpleDateFormat("MMM", Locale.getDefault()).format(now).uppercase(),
+                color = Color.White.copy(alpha = 0.62f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Column {
+            Text(
+                text = SimpleDateFormat("EEEE", Locale.getDefault()).format(now),
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = "Today",
+                color = Color.White.copy(alpha = 0.54f),
+                fontSize = 12.sp,
+            )
         }
     }
 }
@@ -295,38 +283,29 @@ private fun BatteryWidget(modifier: Modifier) {
 private fun DeviceWidget(modifier: Modifier) {
     val context = LocalContext.current
     val stats = remember { deviceStats(context) }
-    val palette = LocalVeloraPalette.current
 
-    GlassPanel(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        contentPadding = PaddingValues(16.dp),
+    Column(
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
-        Column(
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize(),
+        Text(
+            text = "Device",
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = "Device",
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
+            Metric(
+                label = "Storage",
+                value = stats.first,
             )
-            Spacer(Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Metric(
-                    label = "Storage",
-                    value = stats.first,
-                    accent = palette.accent,
-                )
-                Metric(
-                    label = "Memory",
-                    value = stats.second,
-                    accent = palette.secondary,
-                )
-            }
+            Metric(
+                label = "Memory",
+                value = stats.second,
+            )
         }
     }
 }
@@ -335,12 +314,11 @@ private fun DeviceWidget(modifier: Modifier) {
 private fun Metric(
     label: String,
     value: String,
-    accent: Color,
 ) {
     Column {
         Text(
             text = value,
-            color = accent,
+            color = Color.White.copy(alpha = 0.92f),
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold,
         )

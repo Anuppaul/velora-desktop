@@ -271,3 +271,16 @@ Velora now separates distribution capabilities instead of putting every special 
 - Usage adaptation preserves each app's assigned Home page.
 - Fresh installs seed up to 18 apps across all three Home pages so page swiping is immediately visible.
 - Colab identifies this source as `beta12-gesture-adaptive` and requires versionCode 33.
+
+
+## Beta 13 personal notification build + persistent Recents
+
+- Added `personalRelease` for ADB/private phone testing. It declares NotificationListenerService so Android can show and grant Velora Notification Access.
+- `personalRelease` still excludes AccessibilityService and WRITE_SETTINGS.
+- `sideloadRelease` remains the safest no-special-access APK; `playRelease` remains notification-enabled for Play distribution.
+- Colab now defaults to `BUILD_CHANNEL = 'personal'` for the physical-phone test workflow.
+- Recents are persisted locally across launcher/app restarts.
+- When launch history is empty, Recents falls back to Velora's locally ranked/frequent app list instead of showing an empty panel.
+- Recents now uses the same borderless full-page liquid-glass surface as Notifications, Control Center and All Apps.
+- Clock, Calendar, Battery and Device premium widgets are all transparent/neutral with no rounded palette card behind them.
+- Colab identifies this source as `beta13-personal-notify` and requires versionCode 34.

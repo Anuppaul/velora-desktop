@@ -276,6 +276,24 @@ class LayoutStore(context: Context) {
         prefs.edit().putStringSet(KEY_HIDDEN_PACKAGES, packages).apply()
     }
 
+    fun loadRecentPackages(): List<String> {
+        val raw = prefs.getString(KEY_RECENT_PACKAGES, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                for (index in 0 until array.length()) {
+                    add(array.getString(index))
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun saveRecentPackages(packages: List<String>) {
+        prefs.edit()
+            .putString(KEY_RECENT_PACKAGES, JSONArray(packages).toString())
+            .apply()
+    }
+
     fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
 
     fun setOnboardingComplete(complete: Boolean) {
@@ -298,6 +316,7 @@ class LayoutStore(context: Context) {
         const val KEY_HOME_LABELS = "home_labels"
         const val KEY_HIDDEN_PACKAGES = "hidden_packages"
         const val KEY_APP_USAGE = "app_usage_v1"
+        const val KEY_RECENT_PACKAGES = "recent_packages_v1"
         const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     }
 }

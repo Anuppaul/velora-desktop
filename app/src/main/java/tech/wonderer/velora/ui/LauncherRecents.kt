@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.wonderer.velora.ui.components.FullPageLiquidGlass
 import tech.wonderer.velora.ui.components.LiquidGlassPanel
 
 @Composable
@@ -31,12 +32,14 @@ fun LauncherRecentsPanel(
     onOpen: (String) -> Unit,
     onClose: () -> Unit,
 ) {
-    LiquidGlassPanel(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 52.dp, bottom = 82.dp, start = 10.dp, end = 10.dp),
-        shape = RoundedCornerShape(34.dp),
-        contentPadding = PaddingValues(18.dp),
+    FullPageLiquidGlass(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            top = 68.dp,
+            bottom = 96.dp,
+            start = 18.dp,
+            end = 18.dp,
+        ),
         intensity = 0.74f,
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -47,7 +50,7 @@ fun LauncherRecentsPanel(
                 fontWeight = FontWeight.Light,
             )
             Text(
-                text = "Apps opened from Velora",
+                text = "Recent Velora apps · frequent apps fill empty history",
                 color = Color.White.copy(alpha = 0.54f),
                 fontSize = 11.sp,
             )
@@ -55,7 +58,7 @@ fun LauncherRecentsPanel(
 
             if (recentPackages.isEmpty()) {
                 Text(
-                    text = "No recent Velora apps yet.",
+                    text = "No launchable apps found.",
                     color = Color.White.copy(alpha = 0.62f),
                     modifier = Modifier.padding(vertical = 24.dp),
                 )

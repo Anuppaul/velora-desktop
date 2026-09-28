@@ -127,7 +127,7 @@ fun NotificationCenter(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                text = "This sideload-safe APK does not declare notification access. The Play distribution can enable it through Velora's consent wizard.",
+                                text = "This sideload-safe APK does not declare Notification Listener access. Build/install the personal phone-test release or Play release to enable Velora Notification Access.",
                                 color = Color.White.copy(alpha = 0.60f),
                                 fontSize = 12.sp,
                             )

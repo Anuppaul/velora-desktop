@@ -64,6 +64,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var hiddenPackages by mutableStateOf(store.loadHiddenPackages())
         private set
 
+    var recentPackages by mutableStateOf(store.loadRecentPackages())
+        private set
+
     var onboardingComplete by mutableStateOf(store.isOnboardingComplete())
         private set
 
@@ -110,9 +113,25 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun launch(packageName: String) {
+        recentPackages = (
+            listOf(packageName) + recentPackages.filterNot { it == packageName }
+            ).take(8)
+        store.saveRecentPackages(recentPackages)
         store.recordAppLaunch(packageName)
         applyAdaptiveUsageLayout()
         AppCatalog.launch(getApplication(), packageName)
+    }
+
+    fun recentsForDisplay(): List<String> {
+        val installed = apps.map { it.packageName }.toSet()
+        val persisted = recentPackages.filter {
+            it in installed && it !in hiddenPackages
+        }
+        if (persisted.isNotEmpty()) return persisted
+
+        return visibleApps()
+            .take(8)
+            .map { it.packageName }
     }
 
     fun pinToHome(app: InstalledApp, page: Int = 0) {
