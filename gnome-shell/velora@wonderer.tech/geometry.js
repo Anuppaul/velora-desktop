@@ -38,9 +38,15 @@ function anglesForRing(radius, arc, iconSize, iconGap) {
 
     if (span >= 350 * Math.PI / 180) {
         const count = Math.max(1, Math.floor((2 * Math.PI) / minStep));
+        const circulationStart = Math.PI;
+
+        // Screen-space angles increase clockwise because +Y points downward.
+        // Starting at PI therefore gives the requested deterministic order:
+        // Left -> Top -> Right -> Bottom -> back to Left.
         return Array.from(
             {length: count},
-            (_unused, index) => start + (2 * Math.PI * index / count)
+            (_unused, index) =>
+                circulationStart + (2 * Math.PI * index / count)
         );
     }
 
@@ -131,36 +137,27 @@ export function allocateAcrossRings(appCount, capacities) {
     return counts;
 }
 
-export function selectOrganizedSlots(slots, count, arc, ringIndex = 0) {
+export function selectOrganizedSlots(slots, count, arc) {
     if (count <= 0 || slots.length === 0)
         return [];
 
     if (count >= slots.length)
         return slots;
 
-    if (count === 1)
-        return [slots[Math.floor((slots.length - 1) / 2)]];
-
     const span = Math.abs(arc.end - arc.start);
     const isFullOrbit = span >= 350;
 
     if (isFullOrbit) {
-        // Circular slot arrays wrap: first and last are neighbors, not opposite
-        // ends. Space selected apps around the actual 360-degree orbit.
-        const step = slots.length / count;
-        const phase = ringIndex % 2 === 0 ? 0 : step / 2;
-        const selected = [];
-
-        for (let index = 0; index < count; index++) {
-            const slotIndex = Math.round(phase + index * step) % slots.length;
-            selected.push(slots[slotIndex]);
-        }
-
-        return selected;
+        // Fill one orbit sequentially instead of distributing a small app set
+        // around the whole circle. slotsForRings() already orders a full orbit
+        // as Left -> Top -> Right -> Bottom, so taking the prefix produces the
+        // compact circulation requested by the launcher design.
+        return slots.slice(0, count);
     }
 
-    // On an edge/corner arc, keep small app sets visually grouped instead of
-    // stretching them from one end of the available arc to the other.
+    // Near monitor edges only part of the orbit is available. Keep the same
+    // sequential-fill idea, but center the contiguous run inside that safe arc
+    // so the launcher remains compact and on-screen.
     const start = Math.max(
         0,
         Math.min(
