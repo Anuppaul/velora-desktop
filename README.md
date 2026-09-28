@@ -209,3 +209,17 @@ Play Protect blocking was traced to special-access capabilities in the sideloade
 - Colab release Gradle output now streams live instead of ending with only Python CalledProcessError.
 - On a Gradle failure, the notebook prints the final 220 compiler lines and writes/downloads `Velora-gradle-failure.txt`.
 - Source preflight now requires versionCode 27 so stale beta05 ZIPs cannot be confused with this diagnostic build.
+
+
+## Beta 07 permission and distribution architecture
+
+Velora now separates distribution capabilities instead of putting every special access in one APK.
+
+- `sideloadRelease`: phone-test safe. No NotificationListenerService, AccessibilityService or WRITE_SETTINGS.
+- `playRelease`: adds NotificationListenerService only, for the user-facing Velora Notification Center/media feature.
+- Debug builds retain the development-only Accessibility global navigation and WRITE_SETTINGS integration.
+- First-run setup is now a contextual wizard: Home role -> optional Notification Access -> dev-only Accessibility -> wallpaper -> finish.
+- Notification disclosure states what Velora reads and why before opening Android's native Notification Access screen.
+- Accessibility disclosure appears only in development builds and explains that Velora uses it only for global navigation actions.
+- Settings and Control Center now use granular build capability flags instead of one broad sensitive-integration switch.
+- Colab defaults to `sideloadRelease`. Set `BUILD_CHANNEL = 'play'` only when intentionally building the Play distribution.

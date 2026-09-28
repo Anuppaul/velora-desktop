@@ -556,16 +556,25 @@ fun SettingsPanel(
                 SettingButton("Choose default Home app") {
                     context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
                 }
-                if (BuildConfig.SENSITIVE_INTEGRATIONS) {
+                if (
+                    BuildConfig.NOTIFICATION_INTEGRATION ||
+                    BuildConfig.DEV_ADVANCED_INTEGRATIONS
+                ) {
                     SettingButton("Notification access") {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
-                    SettingButton("Enable Velora navigation controls") {
+                }
+                if (BuildConfig.DEV_ADVANCED_INTEGRATIONS) {
+                    SettingButton("Developer navigation access") {
                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
-                } else {
+                }
+                if (
+                    !BuildConfig.NOTIFICATION_INTEGRATION &&
+                    !BuildConfig.DEV_ADVANCED_INTEGRATIONS
+                ) {
                     Text(
-                        text = "Sideload-safe mode is active: notification reading and Accessibility navigation are not declared in this APK.",
+                        text = "Sideload-safe distribution: notification reading, Accessibility navigation and WRITE_SETTINGS are not declared.",
                         color = Color.White.copy(alpha = 0.54f),
                         fontSize = 11.sp,
                         modifier = Modifier.padding(vertical = 8.dp),

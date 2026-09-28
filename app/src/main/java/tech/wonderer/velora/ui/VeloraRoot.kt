@@ -608,7 +608,7 @@ fun VeloraRoot(
 
                             currentHomePage > 0 -> setHomePage(currentHomePage - 1)
 
-                            BuildConfig.SENSITIVE_INTEGRATIONS -> VeloraNavActions.back()
+                            BuildConfig.DEV_ADVANCED_INTEGRATIONS -> VeloraNavActions.back()
                         }
                     },
                         onSettings = { overlay = Overlay.SETTINGS },

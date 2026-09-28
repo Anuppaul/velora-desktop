@@ -72,11 +72,20 @@ fun ControlCenter(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val sensitiveIntegrations = BuildConfig.SENSITIVE_INTEGRATIONS
-    val mediaAccess =
-        sensitiveIntegrations &&
-            NotificationManagerCompat.getEnabledListenerPackages(context)
-                .contains(context.packageName)
+    val notificationIntegration =
+        BuildConfig.NOTIFICATION_INTEGRATION || BuildConfig.DEV_ADVANCED_INTEGRATIONS
+    val mediaAccess by produceState(
+        initialValue = false,
+        key1 = notificationIntegration,
+    ) {
+        while (true) {
+            value =
+                notificationIntegration &&
+                    NotificationManagerCompat.getEnabledListenerPackages(context)
+                        .contains(context.packageName)
+            delay(1_000)
+        }
+    }
     val now by produceState(initialValue = Date()) {
         while (true) {
             value = Date()
@@ -151,7 +160,7 @@ fun ControlCenter(
 
                 item {
                     when {
-                        !sensitiveIntegrations -> SafeReleaseMediaCard()
+                        !notificationIntegration -> SafeReleaseMediaCard()
                         media != null -> MediaCard(media!!)
                         !mediaAccess -> MediaAccessCard()
                         else -> EmptyMediaCard()
@@ -165,7 +174,9 @@ fun ControlCenter(
 @Composable
 private fun CompactConnectivityRow(context: Context) {
     val controls = listOf(
-        CompactControlSpec("◎", "Internet", "Panel") { openInternetPanel(context) },
+        CompactControlSpec("◎", "Internet", "Panel") {
+            openInternetPanel(context)
+        },
         CompactControlSpec("⌁", "Wi-Fi", "Network") {
             openSystemScreen(context, Intent(Settings.ACTION_WIFI_SETTINGS))
         },
@@ -203,44 +214,75 @@ private fun SectionTitle(title: String) {
 
 @Composable
 private fun NativeSystemControls(context: Context) {
-    val controls = listOf(
-        CompactControlSpec("✈", "Airplane", "Radios") {
-            openSystemScreen(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))
-        },
-        CompactControlSpec("◐", "Focus", "DND") {
-            openSystemScreen(context, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-        },
-        CompactControlSpec("↻", "Display", "Rotate") {
-            openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
-        },
-        CompactControlSpec("◒", "Battery", "Saver") {
-            openSystemScreen(context, Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-        },
-        CompactControlSpec("⌁", "Hotspot", "Tether") {
-            openSystemScreen(context, Intent("android.settings.TETHER_SETTINGS"))
-        },
-        CompactControlSpec("⌖", "Location", "GPS") {
-            openSystemScreen(context, Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-        },
-        CompactControlSpec("◇", "VPN", "Secure") {
-            openSystemScreen(context, Intent(Settings.ACTION_VPN_SETTINGS))
-        },
-        CompactControlSpec("▱", "Cast", "Screen") {
-            openSystemScreen(context, Intent(Settings.ACTION_CAST_SETTINGS))
-        },
-        CompactControlSpec("♪", "Sound", "Audio") {
-            openSystemScreen(context, Intent(Settings.ACTION_SOUND_SETTINGS))
-        },
-        CompactControlSpec("N", "NFC", "Tap") {
-            openSystemScreen(context, Intent(Settings.ACTION_NFC_SETTINGS))
-        },
-        CompactControlSpec("A", "Access", "Services") {
-            openSystemScreen(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        },
-        CompactControlSpec("⚙", "Settings", "System") {
-            openSystemScreen(context, Intent(Settings.ACTION_SETTINGS))
-        },
-    )
+    val controls = buildList {
+        add(
+            CompactControlSpec("✈", "Airplane", "Radios") {
+                openSystemScreen(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("◐", "Focus", "DND") {
+                openSystemScreen(
+                    context,
+                    Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+                )
+            },
+        )
+        add(
+            CompactControlSpec("↻", "Display", "Rotate") {
+                openSystemScreen(context, Intent(Settings.ACTION_DISPLAY_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("◒", "Battery", "Saver") {
+                openSystemScreen(context, Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("⌁", "Hotspot", "Tether") {
+                openSystemScreen(context, Intent("android.settings.TETHER_SETTINGS"))
+            },
+        )
+        add(
+            CompactControlSpec("⌖", "Location", "GPS") {
+                openSystemScreen(context, Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("◇", "VPN", "Secure") {
+                openSystemScreen(context, Intent(Settings.ACTION_VPN_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("▱", "Cast", "Screen") {
+                openSystemScreen(context, Intent(Settings.ACTION_CAST_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("♪", "Sound", "Audio") {
+                openSystemScreen(context, Intent(Settings.ACTION_SOUND_SETTINGS))
+            },
+        )
+        add(
+            CompactControlSpec("N", "NFC", "Tap") {
+                openSystemScreen(context, Intent(Settings.ACTION_NFC_SETTINGS))
+            },
+        )
+
+        if (BuildConfig.DEV_ADVANCED_INTEGRATIONS) {
+            add(
+                CompactControlSpec("A", "Access", "Dev only") {
+                    openSystemScreen(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                },
+            )
+        }
+
+        add(
+            CompactControlSpec("⚙", "Settings", "System") {
+                openSystemScreen(context, Intent(Settings.ACTION_SETTINGS))
+            },
+        )
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         controls.chunked(4).forEach { row ->
@@ -314,7 +356,7 @@ private fun SystemSliders() {
     }
     var brightness by remember { mutableFloatStateOf(readBrightness(context)) }
     val canWriteBrightness =
-        BuildConfig.SENSITIVE_INTEGRATIONS && Settings.System.canWrite(context)
+        BuildConfig.DEV_ADVANCED_INTEGRATIONS && Settings.System.canWrite(context)
 
     LiquidGlassPanel(
         modifier = Modifier.fillMaxWidth(),
@@ -327,7 +369,7 @@ private fun SystemSliders() {
                 label = "Brightness",
                 value = brightness,
                 trailing = ((brightness * 100).toInt()).toString() +
-                    if (BuildConfig.SENSITIVE_INTEGRATIONS) {
+                    if (BuildConfig.DEV_ADVANCED_INTEGRATIONS) {
                         if (canWriteBrightness) "%" else "% · Grant"
                     } else {
                         "% · Local"
@@ -341,7 +383,7 @@ private fun SystemSliders() {
                     }
                 },
                 onTrailingClick = if (
-                    BuildConfig.SENSITIVE_INTEGRATIONS && !canWriteBrightness
+                    BuildConfig.DEV_ADVANCED_INTEGRATIONS && !canWriteBrightness
                 ) {
                     {
                         openSystemScreen(
@@ -485,7 +527,7 @@ private fun SafeReleaseMediaCard() {
         Column {
             Text("Media", color = Color.White, fontWeight = FontWeight.SemiBold)
             Text(
-                "Cross-app media session access is disabled in the sideload-safe release.",
+                "Cross-app media access is not declared in this sideload-safe APK.",
                 color = Color.White.copy(alpha = 0.52f),
                 fontSize = 11.sp,
             )

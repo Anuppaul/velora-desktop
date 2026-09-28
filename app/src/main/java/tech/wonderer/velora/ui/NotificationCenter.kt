@@ -44,12 +44,21 @@ fun NotificationCenter(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val sensitiveIntegrations = BuildConfig.SENSITIVE_INTEGRATIONS
+    val notificationIntegration =
+        BuildConfig.NOTIFICATION_INTEGRATION || BuildConfig.DEV_ADVANCED_INTEGRATIONS
     val notifications by NotificationRepository.notifications.collectAsState()
-    val accessEnabled =
-        sensitiveIntegrations &&
-            NotificationManagerCompat.getEnabledListenerPackages(context)
-                .contains(context.packageName)
+    val accessEnabled by produceState(
+        initialValue = false,
+        key1 = notificationIntegration,
+    ) {
+        while (true) {
+            value =
+                notificationIntegration &&
+                    NotificationManagerCompat.getEnabledListenerPackages(context)
+                        .contains(context.packageName)
+            delay(1_000)
+        }
+    }
     val now by produceState(initialValue = Date()) {
         while (true) {
             value = Date()
@@ -102,7 +111,7 @@ fun NotificationCenter(
             Spacer(Modifier.height(16.dp))
 
             when {
-                !sensitiveIntegrations -> {
+                !notificationIntegration -> {
                     LiquidGlassPanel(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
@@ -110,12 +119,12 @@ fun NotificationCenter(
                     ) {
                         Column {
                             Text(
-                                text = "Sideload-safe release",
+                                text = "Notification access not included",
                                 color = Color.White,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                text = "Notification reading is disabled in this APK so Play Protect does not classify Velora as requesting sensitive notification access.",
+                                text = "This sideload-safe APK does not declare notification access. The Play distribution can enable it through Velora's consent wizard.",
                                 color = Color.White.copy(alpha = 0.60f),
                                 fontSize = 12.sp,
                             )
@@ -142,7 +151,7 @@ fun NotificationCenter(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                text = "Velora needs notification access to show your notifications here.",
+                                text = "Velora reads notification app name, title, text and tap action only to render its Notification Center. Processing stays on this device.",
                                 color = Color.White.copy(alpha = 0.60f),
                                 fontSize = 12.sp,
                             )

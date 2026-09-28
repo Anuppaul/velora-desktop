@@ -23,8 +23,23 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "0.1.0-beta06"
+        versionCode = 28
+        versionName = "0.1.0-beta07"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("sideload") {
+            dimension = "distribution"
+            buildConfigField("boolean", "NOTIFICATION_INTEGRATION", "false")
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"sideload\"")
+        }
+
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "NOTIFICATION_INTEGRATION", "true")
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
+        }
     }
 
     signingConfigs {
@@ -46,11 +61,11 @@ android {
     buildTypes {
         debug {
             isDebuggable = true
-            buildConfigField("boolean", "SENSITIVE_INTEGRATIONS", "true")
+            buildConfigField("boolean", "DEV_ADVANCED_INTEGRATIONS", "true")
         }
 
         release {
-            buildConfigField("boolean", "SENSITIVE_INTEGRATIONS", "false")
+            buildConfigField("boolean", "DEV_ADVANCED_INTEGRATIONS", "false")
             isDebuggable = false
             isMinifyEnabled = false
             isShrinkResources = false
@@ -93,6 +108,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     implementation("androidx.compose.ui:ui")
