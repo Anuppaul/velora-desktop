@@ -96,43 +96,52 @@
     box-shadow: none;
 }
 
-.velora-liquidGlass-wrapper {
+.velora-glass-container {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 999px;
+    border-radius: 32px;
     background-color: transparent;
     border: 0;
-    box-shadow: none;
+    box-shadow: 0 6px 6px rgba(0, 0, 0, 0.20);
     transition-duration: 400ms;
 }
 
-.velora-liquidGlass-tint {
+.velora-glass-filter {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.48);
-    box-shadow:
-        inset 1px 1px 1px 0 rgba(255, 255, 255, 0.52);
+    border-radius: 29px;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 0;
+    box-shadow: none;
 }
 
-.velora-liquidGlass-wrapper:hover .velora-liquidGlass-tint {
-    border-radius: 999px;
-}
-
-.velora-liquidGlass-text {
+.velora-glass-overlay {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
+    border-radius: 32px;
+    background-color: rgba(255, 255, 255, 0.25);
+    border: 0;
+    box-shadow: none;
+}
+
+.velora-glass-specular {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 32px;
     background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: inset 1px 1px 0 0 rgba(255, 255, 255, 0.75);
 }
 
-.velora-dock-content {
+.velora-glass-content {
     min-width: 0;
     min-height: 0;
     padding: 0;
@@ -147,7 +156,7 @@
     margin: 0;
     border-radius: 14px;
     background-color: transparent;
-    border: 1px solid transparent;
+    border: 0;
     box-shadow: none;
     transition-duration: 400ms;
 }
@@ -155,7 +164,7 @@
 .velora-floating-dock-icon:hover,
 .velora-floating-dock-icon:focus {
     background-color: transparent;
-    border-color: transparent;
+    border: 0;
     box-shadow: none;
 }
 
