@@ -49,15 +49,6 @@
       <default>false</default>
       <summary>Whether Ubuntu Dock originally appeared in disabled-extensions</summary>
     </key>
-    <key name="minimal-all-apps" type="b">
-      <default>true</default>
-      <summary>Use Velora's pure-black minimal GNOME Applications view</summary>
-    </key>
-    <key name="all-apps-icon-size" type="i">
-      <default>48</default>
-      <range min="20" max="80"/>
-      <summary>Application icon size in Velora's minimal All Apps view</summary>
-    </key>
     <key name="app-preview-size" type="i">
       <default>100</default>
       <range min="50" max="180"/>
