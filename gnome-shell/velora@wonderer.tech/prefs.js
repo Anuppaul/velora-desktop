@@ -155,7 +155,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         launcherPage.add(motionGroup);
 
         addSpin(motionGroup, settings, 'hover-delay', 'Hover open delay', 'Milliseconds before dock icons expand from the Orb.', 0, 1200, 20);
-        addSpin(motionGroup, settings, 'close-delay', 'Close delay', 'Milliseconds before dock icons collapse after pointer leaves.', 80, 1800, 20);
+        addSpin(motionGroup, settings, 'close-delay', 'Close delay', 'Milliseconds before dock icons collapse after pointer leaves. Set 0 for immediate close.', 0, 1800, 20);
         addSpin(motionGroup, settings, 'animation-ms', 'Animation duration', 'Set to 0 for immediate opening and closing.', 0, 600, 10);
         addSwitch(
             motionGroup,
@@ -170,7 +170,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'auto-hide-delay',
             'Auto-hide delay',
             'Milliseconds before the idle Orb slides to the nearest screen edge.',
-            300,
+            0,
             10000,
             100
         );
@@ -206,8 +206,8 @@ export default class VeloraPreferences extends ExtensionPreferences {
         appearancePage.add(geometryGroup);
 
         addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each clean circular hover app button.', 32, 80, 2);
-        addSpin(geometryGroup, settings, 'icon-gap', 'Icon distance', 'Minimum edge-to-edge distance between neighboring icons in the same layer.', 0, 36, 2);
-        addSpin(geometryGroup, settings, 'ring-gap', 'Layer distance', 'Requested center-to-center distance between radial layers. Velora increases it only when needed to prevent overlap.', 48, 128, 2);
+        addSpin(geometryGroup, settings, 'icon-gap', 'Icon distance', 'Minimum edge-to-edge distance between neighboring icons in the same layer.', 0, 64, 2);
+        addSpin(geometryGroup, settings, 'ring-gap', 'Layer distance', 'Requested center-to-center distance between radial layers. Set 0 for automatic minimum safe spacing.', 0, 160, 2);
 
         const orbGroup = new Adw.PreferencesGroup({
             title: 'Velora Orb',
@@ -216,7 +216,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         appearancePage.add(orbGroup);
 
         addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating black Orb.', 32, 80, 2);
-        addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating Orb.', 35, 100, 1);
+        addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating Orb. 0 is fully transparent.', 0, 100, 1);
         addText(
             orbGroup,
             settings,
