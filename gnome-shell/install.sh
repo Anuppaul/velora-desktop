@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.19"
+INSTALLER_VERSION="2026-09-28.20"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -27,6 +27,7 @@ RUNTIME_FILES=(
     "runtime.css"
     "apps.js"
     "dock.js"
+    "floatingDock.js"
     "geometry.js"
 )
 
@@ -674,6 +675,7 @@ if command -v unzip >/dev/null 2>&1; then
         "runtime.css"
         "apps.js"
         "dock.js"
+        "floatingDock.js"
         "geometry.js"
         "schemas/org.gnome.shell.extensions.velora.gschema.xml"
     )
@@ -709,7 +711,7 @@ record_bootstrap_identity
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
-    runtime.js runtime.css apps.js dock.js geometry.js; do
+    runtime.js runtime.css apps.js dock.js floatingDock.js geometry.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
 done
