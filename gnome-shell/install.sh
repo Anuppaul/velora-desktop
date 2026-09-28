@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.11"
+INSTALLER_VERSION="2026-09-28.12"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -340,29 +340,73 @@ try_live_register() {
 (async () => {
     const Main = await import('resource:///org/gnome/shell/ui/main.js');
     const {default: Gio} = await import('gi://Gio');
-    const {ExtensionType} = await import('resource:///org/gnome/shell/misc/extensionUtils.js');
+    const {
+        ExtensionState,
+        ExtensionType,
+    } = await import('resource:///org/gnome/shell/misc/extensionUtils.js');
 
     const uuid = ${uuid_json};
     const dir = Gio.File.new_for_path(${dir_json});
+    const manager = Main.extensionManager;
 
     try {
-        const existing = Main.extensionManager.lookup(uuid);
-        if (existing)
-            await Main.extensionManager.unloadExtension(existing);
+        if (global.settings.get_boolean('disable-user-extensions'))
+            throw new Error('GNOME user extensions are globally disabled');
 
-        const extension = Main.extensionManager.createExtensionObject(
+        const existing = manager.lookup(uuid);
+        if (existing)
+            await manager.unloadExtension(existing);
+
+        const extension = manager.createExtensionObject(
             uuid,
             dir,
             ExtensionType.PER_USER
         );
 
-        await Main.extensionManager.loadExtension(extension);
+        await manager.loadExtension(extension);
 
-        if (!Main.extensionManager.enableExtension(uuid))
-            throw new Error('GNOME refused to enable Velora');
+        if (
+            extension.state === ExtensionState.ERROR ||
+            extension.state === ExtensionState.OUT_OF_DATE
+        ) {
+            throw new Error(
+                `Velora could not be loaded: ${extension.error || extension.state}`
+            );
+        }
+
+        let enabled = global.settings
+            .get_strv('enabled-extensions')
+            .filter(item => item !== uuid);
+        const disabled = global.settings
+            .get_strv('disabled-extensions')
+            .filter(item => item !== uuid);
+
+        enabled.push(uuid);
+
+        global.settings.delay();
+        global.settings.set_strv('disabled-extensions', disabled);
+        global.settings.set_strv('enabled-extensions', enabled);
+
+        manager._enabledExtensions =
+            manager._enabledExtensions.filter(item => item !== uuid);
+        manager._enabledExtensions.push(uuid);
+        extension.enabled = true;
+
+        global.settings.apply();
+
+        await manager._callExtensionEnable(uuid);
+
+        const current = manager.lookup(uuid);
+        if (!current || current.state !== ExtensionState.ACTIVE) {
+            throw new Error(
+                `Velora did not reach ACTIVE state: ${current?.state ?? 'missing'} ${current?.error ?? ''}`
+            );
+        }
 
         return {
-            path: Main.extensionManager.lookup(uuid)?.path ?? '',
+            state: current.state,
+            path: current.path,
+            error: current.error ?? '',
         };
     } finally {
         global.context.unsafe_mode = false;
@@ -379,30 +423,44 @@ EOF
         return 32
     fi
 
-    if ! wait_for_velora_active; then
-        echo "GNOME accepted the live-load request, but Velora did not become active." >&2
-        echo "Eval result: ${output}" >&2
-        return 33
-    fi
+    local ready=0
+    local i
 
-    loaded_generation="$(read_string_setting bootstrap-loaded-generation)"
-    loaded_bootstrap_revision="$(read_string_setting bootstrap-loaded-revision)"
-    loaded_runtime_revision="$(read_string_setting runtime-loaded-revision)"
-    runtime_error="$(read_string_setting runtime-error)"
+    for ((i = 0; i < 120; i++)); do
+        loaded_generation="$(read_string_setting bootstrap-loaded-generation)"
+        loaded_bootstrap_revision="$(read_string_setting bootstrap-loaded-revision)"
+        loaded_runtime_revision="$(read_string_setting runtime-loaded-revision)"
+        runtime_error="$(read_string_setting runtime-error)"
 
-    if [[ "${loaded_generation}" != "${SOURCE_BOOTSTRAP_GENERATION}" ||
-          "${loaded_bootstrap_revision}" != "${SOURCE_BOOTSTRAP_REVISION}" ||
-          -z "${loaded_runtime_revision}" ]]; then
-        echo "Velora became active, but bootstrap/runtime acknowledgement is stale." >&2
-        echo "Loaded generation: ${loaded_generation}" >&2
-        echo "Loaded bootstrap:  ${loaded_bootstrap_revision}" >&2
-        echo "Loaded runtime:    ${loaded_runtime_revision}" >&2
-        return 34
-    fi
+        if [[ -n "${runtime_error}" ]]; then
+            break
+        fi
+
+        if gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}" &&
+           [[ "${loaded_generation}" == "${SOURCE_BOOTSTRAP_GENERATION}" ]] &&
+           [[ "${loaded_bootstrap_revision}" == "${SOURCE_BOOTSTRAP_REVISION}" ]] &&
+           [[ -n "${loaded_runtime_revision}" ]]; then
+            ready=1
+            break
+        fi
+
+        sleep 0.1
+    done
 
     if [[ -n "${runtime_error}" ]]; then
         echo "Velora became active with runtime error: ${runtime_error}" >&2
         return 35
+    fi
+
+    if [[ "${ready}" -ne 1 ]]; then
+        echo "Velora live registration did not finish its bootstrap/runtime handshake." >&2
+        echo "Source generation: ${SOURCE_BOOTSTRAP_GENERATION}" >&2
+        echo "Loaded generation: ${loaded_generation}" >&2
+        echo "Source bootstrap:  ${SOURCE_BOOTSTRAP_REVISION}" >&2
+        echo "Loaded bootstrap:  ${loaded_bootstrap_revision}" >&2
+        echo "Loaded runtime:    ${loaded_runtime_revision}" >&2
+        echo "Eval result:       ${output}" >&2
+        return 34
     fi
 
     echo "Velora was registered and activated in the current Shell session."
