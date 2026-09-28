@@ -114,7 +114,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const behaviorGroup = new Adw.PreferencesGroup({
             title: 'Velora Orb behavior',
-            description: 'Hover shows dock apps. Click opens all installed applications.',
+            description: 'Hover shows dock apps. Click toggles the GNOME Applications view.',
         });
         launcherPage.add(behaviorGroup);
 
@@ -157,6 +157,23 @@ export default class VeloraPreferences extends ExtensionPreferences {
         addSpin(motionGroup, settings, 'hover-delay', 'Hover open delay', 'Milliseconds before dock icons expand from V.', 0, 1200, 20);
         addSpin(motionGroup, settings, 'close-delay', 'Close delay', 'Milliseconds before dock icons collapse after pointer leaves.', 80, 1800, 20);
         addSpin(motionGroup, settings, 'animation-ms', 'Animation duration', 'Set to 0 for immediate opening and closing.', 0, 600, 10);
+        addSwitch(
+            motionGroup,
+            settings,
+            'auto-hide-orb',
+            'Auto-hide Orb',
+            'Slides the Orb to the nearest screen edge when idle, leaving a small reveal strip.'
+        );
+        addSpin(
+            motionGroup,
+            settings,
+            'auto-hide-delay',
+            'Auto-hide delay',
+            'Milliseconds before the idle Orb slides to the nearest screen edge.',
+            300,
+            10000,
+            100
+        );
 
         const geometryGroup = new Adw.PreferencesGroup({
             title: 'Icon geometry',
@@ -174,27 +191,26 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         appearancePage.add(orbGroup);
 
-        addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating V control.', 36, 96, 2);
-        addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating V control.', 35, 100, 1);
-
-        const colorGroup = new Adw.PreferencesGroup({
-            title: 'Velora accent',
-            description: 'Use six-digit hex colors. Invalid values fall back to Velora defaults.',
-        });
-        appearancePage.add(colorGroup);
-
-        addText(colorGroup, settings, 'accent-start', 'Gradient start', 'Default: #4aa8ff', '#4aa8ff');
-        addText(colorGroup, settings, 'accent-end', 'Gradient end', 'Default: #8b5cf6', '#8b5cf6');
+        addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating black Orb.', 32, 80, 2);
+        addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating Orb.', 35, 100, 1);
+        addText(
+            orbGroup,
+            settings,
+            'orb-icon',
+            'Orb icon',
+            'Themed icon name or absolute SVG/PNG path. Default: view-app-grid-ubuntu-symbolic',
+            'view-app-grid-ubuntu-symbolic'
+        );
 
         const positionGroup = new Adw.PreferencesGroup({
             title: 'Orb position',
-            description: 'Drag V directly on the desktop. Its normalized position survives resolution changes.',
+            description: 'Drag the Orb directly on the desktop. Its normalized position survives resolution changes.',
         });
         appearancePage.add(positionGroup);
 
         const resetRow = new Adw.ActionRow({
             title: 'Reset to top-left',
-            subtitle: 'Returns V to the default Velora position.',
+            subtitle: 'Returns the Orb to the default Velora position.',
         });
         const resetButton = new Gtk.Button({
             label: 'Reset',
