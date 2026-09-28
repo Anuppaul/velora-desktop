@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 SCHEMA_FILE="${SCHEMA_DIR}/org.gnome.shell.extensions.velora.gschema.xml"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
-INSTALLER_VERSION="2026-09-28.6"
+INSTALLER_VERSION="2026-09-28.7"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -258,10 +258,10 @@ try_live_register() {
     shell_unsafe_mode_enabled || return 31
 
     revision="$(runtime_revision)"
-    live_root="${HOME}/.cache/velora-live"
-    live_dir="${live_root}/${SOURCE_BOOTSTRAP_GENERATION}-${revision}"
+    live_root="${HOME}/.cache/velora-live/${SOURCE_BOOTSTRAP_GENERATION}-${revision}"
+    live_dir="${live_root}/${UUID}"
 
-    rm -rf "${live_dir}"
+    rm -rf "${live_root}"
     mkdir -p "${live_dir}"
     cp -a "${TARGET_DIR}/." "${live_dir}/"
 
