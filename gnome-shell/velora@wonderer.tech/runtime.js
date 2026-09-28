@@ -480,9 +480,16 @@ export default class VeloraRuntime extends Extension {
         this._orb.opacity = this._orbFaded
             ? 0
             : Math.round(opacity * 2.55);
-        this._orbMark.set_icon_size(
-            Math.max(10, Math.round(size * 0.44))
+
+        // Keep the child strictly inside the configured Orb diameter. GNOME
+        // theme metrics can otherwise leave a larger button footprint when
+        // the Orb is configured near the 20px minimum.
+        const markSize = Math.max(
+            8,
+            Math.min(size - 4, Math.round(size * 0.44))
         );
+        this._orbMark.set_icon_size(markSize);
+        this._orbMark.set_size(markSize, markSize);
         this._applyOrbIcon();
     }
 
