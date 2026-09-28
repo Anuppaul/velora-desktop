@@ -162,7 +162,24 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'auto-hide-orb',
             'Auto-hide Orb',
-            'Slides the Orb to the nearest screen edge when idle, leaving a small reveal strip.'
+            'Slides the Orb to the nearest screen edge when idle, leaving a small reveal strip. Auto-fade is suspended while this is enabled.'
+        );
+        addSwitch(
+            motionGroup,
+            settings,
+            'auto-fade-orb',
+            'Auto-fade Orb',
+            'Fades the Orb to zero opacity after the idle delay. Hovering the same location restores the configured Orb opacity.'
+        );
+        addSpin(
+            motionGroup,
+            settings,
+            'auto-fade-delay',
+            'Auto-fade delay',
+            'Milliseconds before the idle Orb fades to zero opacity.',
+            0,
+            30000,
+            250
         );
         addSpin(
             motionGroup,
@@ -194,9 +211,9 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'all-apps-icon-size',
             'All Apps icon size',
             'Native GNOME application icon size while Minimal All Apps is active.',
-            32,
-            72,
-            4
+            20,
+            80,
+            2
         );
 
         const geometryGroup = new Adw.PreferencesGroup({
@@ -205,7 +222,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         appearancePage.add(geometryGroup);
 
-        addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each clean circular hover app button.', 32, 80, 2);
+        addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each clean circular hover app button.', 20, 80, 2);
         addSpin(geometryGroup, settings, 'icon-gap', 'Icon distance', 'Minimum edge-to-edge distance between neighboring icons in the same layer.', 0, 64, 2);
         addSpin(geometryGroup, settings, 'ring-gap', 'Layer distance', 'Requested center-to-center distance between radial layers. Set 0 for automatic minimum safe spacing.', 0, 160, 2);
 
@@ -215,7 +232,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         appearancePage.add(orbGroup);
 
-        addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating black Orb.', 32, 80, 2);
+        addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating black Orb.', 20, 80, 2);
         addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating Orb. 0 is fully transparent.', 0, 100, 1);
         addText(
             orbGroup,
