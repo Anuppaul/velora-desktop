@@ -23,8 +23,8 @@ android {
         applicationId = "tech.wonderer.velora"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "0.1.0-beta10"
+        versionCode = 32
+        versionName = "0.1.0-beta11"
     }
 
     flavorDimensions += "distribution"

@@ -251,3 +251,11 @@ Velora now separates distribution capabilities instead of putting every special 
 - Colab verifies the APK with apksigner using minSdk 26 and requires v2=true and v3=true.
 - A v1=false result no longer causes a false build failure after a successful Gradle assemble.
 - Colab identifies this source as `beta10-signingfix` and requires versionCode 31.
+
+
+## Beta 11 verification false-failure fix
+
+- Removed brittle parsing that required a literal `v1=true` line after a successful APK build.
+- Colab now treats `apksigner verify --min-sdk-version 26` exit code 0 as authoritative.
+- v1/v2/v3 lines remain visible for diagnostics only and no longer create a false failure after a valid build.
+- Colab identifies this source as `beta11-verifyfix` and requires versionCode 32.
