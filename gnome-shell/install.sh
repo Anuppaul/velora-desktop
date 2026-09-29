@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-28.20"
+INSTALLER_VERSION="2026-09-29.1"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -28,7 +28,12 @@ RUNTIME_FILES=(
     "apps.js"
     "dock.js"
     "floatingDock.js"
+    "liquidGlassDock.js"
     "geometry.js"
+)
+
+RUNTIME_DIRS=(
+    "vendor/liquid-glass"
 )
 
 fail() {
@@ -38,7 +43,7 @@ fail() {
 
 for command_name in \
     gnome-shell gnome-extensions glib-compile-schemas gsettings gdbus python3 \
-    mktemp sed grep sha256sum mkdir cp rm sleep cat head tr env dirname; do
+    mktemp sed grep sha256sum mkdir cp rm sleep cat head tr env dirname find sort; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found."
 done
@@ -47,6 +52,11 @@ for required_file in \
     "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}" "${RUNTIME_FILES[@]}"; do
     [[ -f "${SOURCE_DIR}/${required_file}" ]] ||
         fail "Required Velora file is missing: ${required_file}"
+done
+
+for required_dir in "${RUNTIME_DIRS[@]}"; do
+    [[ -d "${SOURCE_DIR}/${required_dir}" ]] ||
+        fail "Required Velora runtime directory is missing: ${required_dir}"
 done
 
 GNOME_VERSION="$(gnome-shell --version 2>/dev/null)" ||
@@ -254,11 +264,24 @@ ensure_bootstrap_active() {
 
 runtime_revision() {
     local file
+    local runtime_source
+    local relative
 
     {
         for file in "${RUNTIME_FILES[@]}"; do
             printf '%s\0' "${file}"
             cat "${SOURCE_DIR}/${file}"
+        done
+
+        for runtime_source in "${RUNTIME_DIRS[@]}"; do
+            while IFS= read -r file; do
+                relative="${file#${SOURCE_DIR}/}"
+                printf '%s\0' "${relative}"
+                cat "${file}"
+            done < <(
+                find "${SOURCE_DIR}/${runtime_source}" -type f -print |
+                    LC_ALL=C sort
+            )
         done
     } | sha256sum | sed -E 's/^([0-9a-f]{20}).*/\1/'
 }
@@ -267,6 +290,8 @@ stage_runtime_revision() {
     local revision="$1"
     local runtime_dir
     local file
+    local runtime_source
+    local destination
 
     runtime_dir="${TARGET_DIR}/runtime-revisions/${revision}"
     mkdir -p "${runtime_dir}"
@@ -275,10 +300,29 @@ stage_runtime_revision() {
         cp -f "${SOURCE_DIR}/${file}" "${runtime_dir}/${file}"
     done
 
+    for runtime_source in "${RUNTIME_DIRS[@]}"; do
+        destination="${runtime_dir}/${runtime_source}"
+        rm -rf "${destination}"
+        mkdir -p "$(dirname "${destination}")"
+        cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
+    done
+
     for file in "${RUNTIME_FILES[@]}"; do
         [[ -f "${runtime_dir}/${file}" ]] ||
             fail "Runtime staging is incomplete: ${file}"
     done
+
+    for runtime_source in "${RUNTIME_DIRS[@]}"; do
+        [[ -d "${runtime_dir}/${runtime_source}" ]] ||
+            fail "Runtime staging is incomplete: ${runtime_source}"
+    done
+
+    [[ -f "${runtime_dir}/vendor/liquid-glass/dist/liquidEffect.js" ]] ||
+        fail "Vendored Liquid Glass renderer is missing from staged runtime."
+    [[ -f "${runtime_dir}/vendor/liquid-glass/shaders/glass.frag" ]] ||
+        fail "Vendored Liquid Glass shader is missing from staged runtime."
+    [[ -f "${runtime_dir}/vendor/liquid-glass/LICENSE" ]] ||
+        fail "Vendored Liquid Glass license is missing from staged runtime."
 }
 
 shell_eval() {
@@ -656,6 +700,14 @@ PACK_ARGS=(pack --force --out-dir="${BUILD_DIR}")
 for source_name in "${RUNTIME_FILES[@]}"; do
     PACK_ARGS+=(--extra-source="${source_name}")
 done
+for runtime_source in "${RUNTIME_DIRS[@]}"; do
+    while IFS= read -r source_path; do
+        PACK_ARGS+=(--extra-source="${source_path#${SOURCE_DIR}/}")
+    done < <(
+        find "${SOURCE_DIR}/${runtime_source}" -type f -print |
+            LC_ALL=C sort
+    )
+done
 PACK_ARGS+=("${SOURCE_DIR}")
 
 echo "Building GNOME extension bundle..."
@@ -676,7 +728,11 @@ if command -v unzip >/dev/null 2>&1; then
         "apps.js"
         "dock.js"
         "floatingDock.js"
+        "liquidGlassDock.js"
         "geometry.js"
+        "vendor/liquid-glass/dist/liquidEffect.js"
+        "vendor/liquid-glass/shaders/glass.frag"
+        "vendor/liquid-glass/LICENSE"
         "schemas/org.gnome.shell.extensions.velora.gschema.xml"
     )
 
@@ -706,12 +762,19 @@ for file in "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}" "${RUNTIME_FILES[@]}";
     cp -f "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
 done
 
+for runtime_source in "${RUNTIME_DIRS[@]}"; do
+    destination="${TARGET_DIR}/${runtime_source}"
+    rm -rf "${destination}"
+    mkdir -p "$(dirname "${destination}")"
+    cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
+done
+
 glib-compile-schemas --strict "${TARGET_DIR}/schemas"
 record_bootstrap_identity
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
-    runtime.js runtime.css apps.js dock.js floatingDock.js geometry.js; do
+    runtime.js runtime.css apps.js dock.js floatingDock.js liquidGlassDock.js geometry.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
 done
