@@ -218,6 +218,38 @@ async function importVendorModules(root) {
             utils.releaseAllClonedWindowActors,
     };
 }
+function validateVendorApi(vendor) {
+    const required = [
+        'LiquidEffect',
+        'UnpickableActor',
+        'WindowCloneManager',
+        'DashManager',
+        'OsdManager',
+        'Logger',
+        'setUtilsLogger',
+        'createBackgroundMirror',
+        'getTransformedRect',
+        'resolveMonitorGeometry',
+        'setClipIfChanged',
+        'setPositionIfChanged',
+        'setSizeIfChanged',
+        'setTranslationIfChanged',
+        'destroySharedBackgroundSource',
+        'releaseAllClonedWindowActors',
+    ];
+
+    const missing = required.filter(
+        key => !vendor?.[key]
+    );
+
+    if (missing.length) {
+        throw new Error(
+            'Vendored Liquid Glass API is incomplete: ' +
+            missing.join(', ')
+        );
+    }
+}
+
 
 export async function loadLiquidGlassVendorModules(veloraSettings) {
     if (globalThis[VENDOR_CACHE_KEY])
@@ -288,15 +320,11 @@ export class LiquidGlassIntegration {
         this._cardCssFile = null;
         this._cardCssCounter = 0;
         this._notificationGlassManager = null;
-        this._quickSettingsManager = null;
         this._osdManager = null;
-        this._applicationManager = null;
-        this._windowListService = null;
         this._nativeDashEntries = [];
         this._topPanelManager = null;
         this._topPanelSettingIds = [];
 
-        this._quickSettingsTimeoutId = 0;
         this._dashTimeoutId = 0;
         this._dashReconnectTimeoutId = 0;
         this._monitorsChangedId = 0;
@@ -315,6 +343,7 @@ export class LiquidGlassIntegration {
         this._vendor = await loadLiquidGlassVendorModules(
             this._veloraSettings
         );
+        validateVendorApi(this._vendor);
         this._settings = createLiquidGlassSettings();
         this._ensureFullGlassOpticsProfile();
 
@@ -1254,15 +1283,6 @@ export class LiquidGlassIntegration {
 
         this._enabled = false;
 
-        if (this._quickSettingsTimeoutId) {
-            try {
-                GLib.source_remove(this._quickSettingsTimeoutId);
-            } catch {
-                // Source may already be gone.
-            }
-            this._quickSettingsTimeoutId = 0;
-        }
-
         if (this._monitorsChangedId) {
             try {
                 Main.layoutManager.disconnect(
@@ -1377,7 +1397,6 @@ export class LiquidGlassIntegration {
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
 
-        this._panelMenuManager = null;
         this._notificationGlassManager = null;
         this._osdManager = null;
 
