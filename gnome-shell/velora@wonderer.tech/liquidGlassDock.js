@@ -266,6 +266,8 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._cardAppearanceSettingIds = [];
+        this._cardAppearancePollId = 0;
+        this._lastCardAppearanceSignature = '';
         this._dateMenuChildStyles = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
@@ -583,6 +585,13 @@ export class LiquidGlassIntegration {
     _applySharedCardAppearance() {
         const state = this._readSharedCardAppearance();
 
+        this._lastCardAppearanceSignature =
+            Math.round(state.opacity * 100) +
+            '|' +
+            state.tint +
+            '|' +
+            state.blur;
+
         this._applyNativeDateMenuAppearance(state);
         this._applyAllNativeNotificationAppearances(state);
 
@@ -598,25 +607,60 @@ export class LiquidGlassIntegration {
     }
 
     _setupSharedCardAppearanceSync() {
-        if (
-            !this._veloraSettings ||
-            this._cardAppearanceSettingIds.length > 0
-        ) {
+        if (!this._veloraSettings) {
             this._applySharedCardAppearance();
             return;
         }
 
-        for (const key of [
-            'date-menu-opacity',
-            'date-menu-tint-color',
-            'date-menu-blur',
-        ]) {
+        if (this._cardAppearanceSettingIds.length === 0) {
             this._cardAppearanceSettingIds.push(
                 this._veloraSettings.connect(
-                    'changed::' + key,
-                    () => this._applySharedCardAppearance()
+                    'changed',
+                    (_settings, key) => {
+                        if (![
+                            'date-menu-opacity',
+                            'date-menu-tint-color',
+                            'date-menu-blur',
+                        ].includes(key)) {
+                            return;
+                        }
+
+                        this._applySharedCardAppearance();
+                    }
                 )
             );
+        }
+
+        if (!this._cardAppearancePollId) {
+            this._cardAppearancePollId =
+                GLib.timeout_add(
+                    GLib.PRIORITY_DEFAULT,
+                    100,
+                    () => {
+                        if (!this._enabled)
+                            return GLib.SOURCE_REMOVE;
+
+                        const state =
+                            this._readSharedCardAppearance();
+                        const signature =
+                            Math.round(state.opacity * 100) +
+                            '|' +
+                            state.tint +
+                            '|' +
+                            state.blur;
+
+                        if (
+                            signature !==
+                            this._lastCardAppearanceSignature
+                        ) {
+                            this._lastCardAppearanceSignature =
+                                signature;
+                            this._applySharedCardAppearance();
+                        }
+
+                        return GLib.SOURCE_CONTINUE;
+                    }
+                );
         }
 
         this._applySharedCardAppearance();
@@ -631,6 +675,18 @@ export class LiquidGlassIntegration {
             }
         }
         this._cardAppearanceSettingIds = [];
+
+        if (this._cardAppearancePollId) {
+            try {
+                GLib.source_remove(
+                    this._cardAppearancePollId
+                );
+            } catch {
+                // Poll source may already be gone.
+            }
+        }
+        this._cardAppearancePollId = 0;
+        this._lastCardAppearanceSignature = '';
     }
 
     _applyNativeDateMenuAppearance(
@@ -1713,6 +1769,8 @@ export class LiquidGlassIntegration {
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
         this._cardAppearanceSettingIds = [];
+        this._cardAppearancePollId = 0;
+        this._lastCardAppearanceSignature = '';
         this._notificationOriginalStyles.clear();
         this._notificationBlurEffects.clear();
         this._osdManager = null;
