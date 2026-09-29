@@ -460,7 +460,7 @@ export class LiquidGlassIntegration {
 
         const opacity = clampNumber(
             this._veloraSettings.get_int(
-                'date-menu-opacity'
+                'glass-opacity'
             ),
             0,
             100
@@ -468,13 +468,13 @@ export class LiquidGlassIntegration {
 
         const tint =
             this._veloraSettings.get_string(
-                'date-menu-tint-color'
+                'glass-tint-color'
             );
         const [r, g, b] = parseHexRgb(tint);
 
         const blur = clampNumber(
             this._veloraSettings.get_int(
-                'date-menu-blur'
+                'glass-blur'
             ),
             0,
             80
@@ -539,9 +539,9 @@ export class LiquidGlassIntegration {
                     'changed',
                     (_settings, key) => {
                         if ([
-                            'date-menu-opacity',
-                            'date-menu-tint-color',
-                            'date-menu-blur',
+                            'glass-opacity',
+                            'glass-tint-color',
+                            'glass-blur',
                         ].includes(key)) {
                             this._queueSharedCardAppearanceApply();
                         }
@@ -1204,15 +1204,15 @@ export class LiquidGlassIntegration {
                 ),
                 dateMenuOpacity:
                     this._veloraSettings?.get_int?.(
-                        'date-menu-opacity'
+                        'glass-opacity'
                     ) ?? null,
                 dateMenuTintColor:
                     this._veloraSettings?.get_string?.(
-                        'date-menu-tint-color'
+                        'glass-tint-color'
                     ) ?? null,
                 dateMenuBlur:
                     this._veloraSettings?.get_int?.(
-                        'date-menu-blur'
+                        'glass-blur'
                     ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
