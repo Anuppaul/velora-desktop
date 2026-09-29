@@ -67,7 +67,6 @@ class PopupGlassSurface {
         this._lastSceneY = NaN;
         this._lastSceneScaleX = NaN;
         this._lastSceneScaleY = NaN;
-        this._overlayAllocationId = 0;
         this._openStateId = 0;
         this._lastHostW = 0;
         this._lastHostH = 0;
@@ -180,16 +179,6 @@ class PopupGlassSurface {
             this._openStateId = 0;
         }
 
-        try {
-            this._overlayAllocationId = overlay.connect(
-                'notify::allocation',
-                () => this._syncHostGeometry()
-            );
-        } catch {
-            this._overlayAllocationId = 0;
-        }
-
-        this._syncHostGeometry();
         effect.setLiveGeometryHook?.(() => this._syncPaintGeometry());
         this.updateAppearance(this._manager._appearance);
 
@@ -407,17 +396,6 @@ class PopupGlassSurface {
         } catch {
             // Effect may already be tearing down.
         }
-
-        if (this._overlayAllocationId && this._overlay) {
-            try {
-                this._overlay.disconnect(
-                    this._overlayAllocationId
-                );
-            } catch {
-                // Overlay may already be tearing down.
-            }
-        }
-        this._overlayAllocationId = 0;
 
         if (this._openStateId && this._menu) {
             try {
