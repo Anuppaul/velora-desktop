@@ -375,17 +375,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
             5
         );
 
-        addSpin(
-            glassSurfaceGroup,
-            settings,
-            'notification-panel-scale',
-            'Notification banner scale',
-            'Scale only the temporary notification banner that appears at the top of the screen.',
-            60,
-            180,
-            5
-        );
-
         const notificationRendererRow = new Adw.ActionRow({
             title: 'Notification renderer',
             subtitle: 'Native GNOME notification card with Velora glass styling. No extra FBO, clone tree, or refraction renderer is used for notifications.',
