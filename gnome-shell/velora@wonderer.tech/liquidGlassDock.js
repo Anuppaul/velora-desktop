@@ -168,6 +168,7 @@ async function importVendorModules(root) {
         logger,
         utils,
         background,
+        windowClones,
         actorGeometry,
         actorWrites,
     ] = await Promise.all([
@@ -178,6 +179,7 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
         import(moduleUri(root, 'dist/capture/background.js')),
+        import(moduleUri(root, 'dist/capture/windowClones.js')),
         import(moduleUri(root, 'dist/actors/geometry.js')),
         import(moduleUri(root, 'dist/actors/writes.js')),
     ]);
@@ -196,6 +198,8 @@ async function importVendorModules(root) {
         adaptiveColorTweener: utils.adaptiveColorTweener,
         createBackgroundMirror:
             background.createBackgroundMirror,
+        WindowCloneManager:
+            windowClones.WindowCloneManager,
         getTransformedRect:
             actorGeometry.getTransformedRect,
         resolveMonitorGeometry:
