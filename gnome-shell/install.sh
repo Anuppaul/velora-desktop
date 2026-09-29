@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.21"
+INSTALLER_VERSION="2026-09-29.22"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -39,6 +39,15 @@ RUNTIME_DIRS=(
 fail() {
     echo "ERROR: $*" >&2
     exit 1
+}
+
+refresh_prefs_process() {
+    # GNOME Extensions can keep prefs.js imported from the same URI after
+    # the file changes. Quit the app after prefs/schema sync so the next
+    # preferences window imports the current module.
+    if command -v gapplication >/dev/null 2>&1; then
+        gapplication quit org.gnome.Extensions >/dev/null 2>&1 || true
+    fi
 }
 
 for command_name in \
@@ -242,6 +251,8 @@ sync_hot_aux() {
         glib-compile-schemas --strict             "${live_dir}/vendor/liquid-glass/schemas"
     done
     shopt -u nullglob
+
+    refresh_prefs_process
 }
 
 ensure_bootstrap_active() {
@@ -843,6 +854,7 @@ glib-compile-schemas --strict "${TARGET_DIR}/vendor/liquid-glass/schemas"
 
 glib-compile-schemas --strict "${TARGET_DIR}/schemas"
 record_bootstrap_identity
+refresh_prefs_process
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
