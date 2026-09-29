@@ -2,7 +2,7 @@
 
 Velora is a GNOME Shell 50 Liquid Glass theme/material extension for Ubuntu.
 
-The old custom launcher, radial app rings and floating dock have been retired. The **Velora Orb remains** as a small desktop control; clicking it opens GNOME's native Applications view.
+The floating dock and unrelated launcher-era desktop replacements are retired. The **Velora Orb keeps its full functionality**: click toggles GNOME Applications; hover opens the radial app launcher with tooltips, running indicators and live app previews.
 
 Everything else follows one rule:
 
@@ -50,7 +50,7 @@ Notifications keep the already-proven wallpaper-only Liquid Glass pilot. Their n
 
 ### Orb
 
-The Orb is the only retained launcher-era Velora surface. It remains draggable and supports idle hide/fade. It no longer opens a custom radial launcher; it opens GNOME Applications.
+The Orb remains draggable, multi-monitor aware, auto-hide/auto-fade capable, and retains its radial hover launcher. Click still toggles GNOME Applications.
 
 ## Scope
 
@@ -67,3 +67,10 @@ See:
 
     docs/ARCHITECTURE.md
     gnome-shell/README.md
+
+
+## Full refractive glass
+
+Velora does not use CPU screenshots to fake glass. Standard popup, notification and Shell-card materials compose compositor-native GPU actors: the shared wallpaper source plus live Meta.WindowActor clones. LiquidEffect then performs blur, edge displacement/refraction, chromatic dispersion, rim/specular light, sheen, AO and tint.
+
+The visible GNOME card remains the original actor; only its material paint is replaced. Optical source headroom extends beyond the visible card so edge lensing can bend real scene pixels instead of collapsing to a flat translucent background.
