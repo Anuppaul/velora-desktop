@@ -445,25 +445,6 @@ export class LiquidGlassIntegration {
         this._installDebugState();
     }
 
-    _setupNativeDateMenuStyler() {
-        if (this._dateMenuGlassManager)
-            return;
-
-        this._dateMenuGlassManager =
-            new DateMenuGlassManager({
-                vendor: this._vendor,
-                settings: this._settings,
-                readAppearance: () =>
-                    this._readSharedCardAppearance(),
-            });
-
-        this._dateMenuGlassManager.setup();
-
-        console.log(
-            '[Velora][LiquidGlass] nativeDateMenuStyler active'
-        );
-    }
-
     _readSharedCardAppearance() {
         if (!this._veloraSettings) {
             return {
@@ -514,7 +495,7 @@ export class LiquidGlassIntegration {
     _applySharedCardAppearance() {
         const state = this._readSharedCardAppearance();
 
-        this._applyNativeDateMenuAppearance(state);
+        this._popupGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
 
@@ -600,12 +581,6 @@ export class LiquidGlassIntegration {
         this._unloadCardAppearanceStylesheet();
     }
 
-    _applyNativeDateMenuAppearance(
-        state = this._readSharedCardAppearance()
-    ) {
-        this._dateMenuGlassManager?.updateAppearance(state);
-    }
-
     _getShellTheme() {
         return St.ThemeContext
             .get_for_stage(global.stage)
@@ -677,19 +652,6 @@ export class LiquidGlassIntegration {
         this._cardCssFile = file;
 
         Main.messageTray?._banner?.queue_redraw?.();
-    }
-
-    _cleanupNativeDateMenuStyler() {
-        try {
-            this._dateMenuGlassManager?.cleanup();
-        } catch (error) {
-            console.error(
-                '[Velora][LiquidGlass] Date Menu material cleanup failed: ' +
-                error
-            );
-        }
-
-        this._dateMenuGlassManager = null;
     }
 
     _setupTopPanelGlass() {
@@ -1405,20 +1367,15 @@ export class LiquidGlassIntegration {
         }
         this._nativeDashEntries = [];
 
-        cleanup('panelMenuManager', this._panelMenuManager);
-
         this._cleanupSharedCardAppearanceSync();
-        this._cleanupNativeDateMenuStyler();
-        cleanup('quickSettingsManager', this._quickSettingsManager);
+
+        cleanup('popupGlassManager', this._popupGlassManager);
+        this._popupGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
-
         cleanup('osdManager', this._osdManager);
-        cleanup('applicationManager', this._applicationManager);
-        cleanup('windowListService', this._windowListService);
 
         this._panelMenuManager = null;
-        this._dateMenuGlassManager = null;
         this._quickSettingsManager = null;
         this._notificationGlassManager = null;
         this._osdManager = null;
