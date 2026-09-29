@@ -277,8 +277,6 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalBoxPointerStyle = null;
         this._dateMenuPopupTarget = null;
         this._dateMenuBlurEffect = null;
-        this._dateMenuBlurBackdrop = null;
-        this._dateMenuBackdropBindings = [];
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -517,10 +515,8 @@ export class LiquidGlassIntegration {
             menu.connect(
                 'open-state-changed',
                 (_menu, isOpen) => {
-                    if (!isOpen) {
-                        this._dateMenuBlurBackdrop?.hide?.();
+                    if (!isOpen)
                         return;
-                    }
 
                     this._dateMenuPopupTarget = null;
 
@@ -540,126 +536,6 @@ export class LiquidGlassIntegration {
         console.log(
             '[Velora][LiquidGlass] nativeDateMenuStyler active'
         );
-    }
-
-    _ensureNativeDateMenuBlurBackdrop() {
-        const actor = this._dateMenuActor;
-        const parent = actor?.get_parent?.();
-
-        if (!actor || !parent)
-            return null;
-
-        if (
-            this._dateMenuBlurBackdrop &&
-            this._dateMenuBlurBackdrop.get_parent?.() === parent
-        ) {
-            try {
-                parent.set_child_below_sibling?.(
-                    this._dateMenuBlurBackdrop,
-                    actor
-                );
-            } catch {
-                // Child order will be retried on the next appearance sync.
-            }
-            return this._dateMenuBlurBackdrop;
-        }
-
-        this._destroyNativeDateMenuBlurBackdrop();
-
-        const backdrop = new St.Widget({
-            name: 'velora-date-menu-gaussian-backdrop',
-            reactive: false,
-            visible: false,
-        });
-
-        try {
-            parent.add_child(backdrop);
-            parent.set_child_below_sibling?.(
-                backdrop,
-                actor
-            );
-        } catch (error) {
-            backdrop.destroy?.();
-            console.warn(
-                '[Velora][DateMenu] Gaussian backdrop attach failed: ' +
-                error
-            );
-            return null;
-        }
-
-        const bindings = [];
-        const flags = GObject.BindingFlags.SYNC_CREATE;
-
-        for (const property of [
-            'x',
-            'y',
-            'width',
-            'height',
-            'opacity',
-        ]) {
-            try {
-                bindings.push(
-                    actor.bind_property(
-                        property,
-                        backdrop,
-                        property,
-                        flags
-                    )
-                );
-            } catch {
-                // A missing cosmetic binding must not break the popup.
-            }
-        }
-
-        const effect = new Shell.BlurEffect({
-            mode: Shell.BlurMode.BACKGROUND,
-            brightness: 1.0,
-        });
-
-        backdrop.add_effect_with_name?.(
-            'velora-date-menu-gaussian-blur',
-            effect
-        );
-
-        if (
-            !backdrop.get_effect?.(
-                'velora-date-menu-gaussian-blur'
-            )
-        ) {
-            backdrop.add_effect?.(effect);
-        }
-
-        this._dateMenuBlurBackdrop = backdrop;
-        this._dateMenuBackdropBindings = bindings;
-        this._dateMenuBlurEffect = effect;
-
-        console.log(
-            '[Velora][DateMenu] Gaussian backdrop blur active'
-        );
-
-        return backdrop;
-    }
-
-    _destroyNativeDateMenuBlurBackdrop() {
-        for (const binding of this._dateMenuBackdropBindings ?? []) {
-            try {
-                binding?.unbind?.();
-            } catch {
-                // Binding may already be detached.
-            }
-        }
-        this._dateMenuBackdropBindings = [];
-
-        if (this._dateMenuBlurBackdrop) {
-            try {
-                this._dateMenuBlurBackdrop.destroy?.();
-            } catch {
-                // Backdrop may already be destroyed with the popup group.
-            }
-        }
-
-        this._dateMenuBlurBackdrop = null;
-        this._dateMenuBlurEffect = null;
     }
 
     _readSharedCardAppearance() {
@@ -870,48 +746,42 @@ export class LiquidGlassIntegration {
             );
         }
 
-        // Remove the old same-actor blur path if a hot-swapped revision left
-        // it attached. The Gaussian blur now paints on a dedicated sibling
-        // below the Date Menu, so the popup's own tint cannot cover it.
-        const legacyEffect =
-            box.get_effect?.('velora-date-menu-blur') ?? null;
-        if (legacyEffect) {
-            try {
-                box.remove_effect(legacyEffect);
-            } catch {
-                // Legacy effect may already be detached.
-            }
-        }
-
+        // Blur follows the working reference and stays on menu.box.
         if (blur > 0) {
-            const backdrop =
-                this._ensureNativeDateMenuBlurBackdrop();
-            const effect = this._dateMenuBlurEffect;
+            let effect =
+                box.get_effect?.('velora-date-menu-blur') ??
+                null;
 
-            if (backdrop && effect) {
-                if ('radius' in effect)
-                    effect.radius = Math.round(blur);
-                else if ('sigma' in effect)
-                    effect.sigma = blur / 2;
-
-                effect.brightness = 1.0;
-
-                try {
-                    const parent =
-                        this._dateMenuActor?.get_parent?.();
-                    parent?.set_child_below_sibling?.(
-                        backdrop,
-                        this._dateMenuActor
-                    );
-                } catch {
-                    // Child order will be retried on the next sync.
-                }
-
-                backdrop.show?.();
-                backdrop.queue_redraw?.();
+            if (!effect) {
+                effect = new Shell.BlurEffect({
+                    mode: Shell.BlurMode.BACKGROUND,
+                });
+                box.add_effect_with_name?.(
+                    'velora-date-menu-blur',
+                    effect
+                );
             }
+
+            if ('radius' in effect)
+                effect.radius = Math.round(blur);
+            else if ('sigma' in effect)
+                effect.sigma = blur / 2;
+
+            effect.brightness = 1.0;
+            this._dateMenuBlurEffect = effect;
         } else {
-            this._dateMenuBlurBackdrop?.hide?.();
+            const effect =
+                box.get_effect?.('velora-date-menu-blur') ??
+                this._dateMenuBlurEffect;
+
+            if (effect) {
+                try {
+                    box.remove_effect(effect);
+                } catch {
+                    // Effect may already be detached.
+                }
+            }
+            this._dateMenuBlurEffect = null;
         }
 
         boxPointer?._border?.queue_repaint?.();
@@ -1009,21 +879,17 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuOpenSignalId = 0;
 
-        const legacyEffect =
-            this._dateMenuBox?.get_effect?.(
-                'velora-date-menu-blur'
-            ) ?? null;
-        if (legacyEffect) {
+        if (this._dateMenuBlurEffect && this._dateMenuBox) {
             try {
                 this._dateMenuBox.remove_effect(
-                    legacyEffect
+                    this._dateMenuBlurEffect
                 );
             } catch {
-                // Legacy effect may already be detached.
+                // Effect may already be detached.
             }
         }
+        this._dateMenuBlurEffect = null;
 
-        this._destroyNativeDateMenuBlurBackdrop();
 
         try {
             this._dateMenuBox?.set_style?.(
@@ -1054,8 +920,6 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalBoxPointerStyle = null;
         this._dateMenuPopupTarget = null;
         this._dateMenuBlurEffect = null;
-        this._dateMenuBlurBackdrop = null;
-        this._dateMenuBackdropBindings = [];
     }
 
     _setupTopPanelGlass() {
