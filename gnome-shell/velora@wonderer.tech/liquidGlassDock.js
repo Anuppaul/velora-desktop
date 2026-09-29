@@ -238,11 +238,11 @@ export class LiquidGlassIntegration {
         this._dateMenuOpenSignalId = 0;
         this._dateMenuScaleSettingId = 0;
         this._dateMenuOriginalTransform = null;
+        this._dateMenuOriginalStyle = null;
+        this._dateMenuBlurEffect = null;
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
-        this._notificationScaleSettingId = 0;
-        this._notificationScaledActors = new Map();
         this._quickSettingsManager = null;
         this._osdManager = null;
         this._applicationManager = null;
@@ -453,6 +453,30 @@ export class LiquidGlassIntegration {
             'velora-native-date-menu-glass'
         );
 
+        this._dateMenuOriginalStyle =
+            box.get_style?.() ?? '';
+
+        // Native GNOME card, real background blur. BACKGROUND mode blurs only
+        // what is behind the card; GNOME still owns the card's content,
+        // animation, layout, focus and lifecycle.
+        this._dateMenuBlurEffect = new Shell.BlurEffect({
+            mode: Shell.BlurMode.BACKGROUND,
+            radius: 28,
+            brightness: 0.92,
+        });
+        box.add_effect?.(this._dateMenuBlurEffect);
+
+        // Inline style wins over theme-specific popup-menu selectors and keeps
+        // the native card translucent enough for the background blur to show.
+        box.set_style?.(
+            (this._dateMenuOriginalStyle || '') +
+            '; background-color: rgba(24, 27, 34, 0.62);' +
+            ' background-image: none;' +
+            ' border: 1px solid rgba(255,255,255,0.20);' +
+            ' border-radius: 28px;' +
+            ' box-shadow: none;'
+        );
+
         const apply = () => {
             this._applyNativeDateMenuScale();
 
@@ -463,6 +487,14 @@ export class LiquidGlassIntegration {
             );
             box.add_style_class_name?.(
                 'velora-native-date-menu-glass'
+            );
+            box.set_style?.(
+                (this._dateMenuOriginalStyle || '') +
+                '; background-color: rgba(24, 27, 34, 0.62);' +
+                ' background-image: none;' +
+                ' border: 1px solid rgba(255,255,255,0.20);' +
+                ' border-radius: 28px;' +
+                ' box-shadow: none;'
             );
         };
 
@@ -554,6 +586,23 @@ export class LiquidGlassIntegration {
                 'velora-native-date-menu-glass'
             );
 
+            if (
+                this._dateMenuBlurEffect &&
+                this._dateMenuBox
+            ) {
+                try {
+                    this._dateMenuBox.remove_effect(
+                        this._dateMenuBlurEffect
+                    );
+                } catch {
+                    // Effect or actor may already be destroyed.
+                }
+            }
+
+            this._dateMenuBox?.set_style?.(
+                this._dateMenuOriginalStyle ?? ''
+            );
+
             const original =
                 this._dateMenuOriginalTransform;
             if (this._dateMenuActor && original) {
@@ -573,6 +622,8 @@ export class LiquidGlassIntegration {
         this._dateMenuActor = null;
         this._dateMenuBox = null;
         this._dateMenuOriginalTransform = null;
+        this._dateMenuOriginalStyle = null;
+        this._dateMenuBlurEffect = null;
     }
 
     _setupTopPanelGlass() {
@@ -707,7 +758,6 @@ export class LiquidGlassIntegration {
             actor.add_style_class_name?.(
                 'velora-native-notification-glass'
             );
-            this._applyNotificationPanelScale(actor);
         };
 
         const unstyleBanner = actor => {
@@ -717,7 +767,6 @@ export class LiquidGlassIntegration {
             actor.remove_style_class_name?.(
                 'velora-native-notification-glass'
             );
-            this._restoreNotificationActor(actor);
         };
 
         this._notificationBannerSignals.push({
@@ -758,42 +807,12 @@ export class LiquidGlassIntegration {
         if (currentBanner)
             styleBanner(currentBanner);
 
-        this._notificationScaleSettingId =
-            this._veloraSettings.connect(
-                'changed::notification-panel-scale',
-                () => {
-                    for (const actor of
-                        this._notificationScaledActors.keys()) {
-                        this._applyNotificationPanelScale(actor);
-                    }
-
-                    for (const actor of
-                        bannerBin.get_children?.() ?? []) {
-                        styleBanner(actor);
-                    }
-                }
-            );
-
         console.log(
             '[Velora][LiquidGlass] nativeNotificationStyler active'
         );
     }
 
     _cleanupNativeNotificationStyler() {
-        if (
-            this._notificationScaleSettingId &&
-            this._veloraSettings
-        ) {
-            try {
-                this._veloraSettings.disconnect(
-                    this._notificationScaleSettingId
-                );
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._notificationScaleSettingId = 0;
-
         for (const signal of this._notificationBannerSignals) {
             try {
                 signal.obj.disconnect(signal.id);
@@ -803,10 +822,8 @@ export class LiquidGlassIntegration {
         }
         this._notificationBannerSignals = [];
 
-        const actors = new Set([
-            ...this._notificationScaledActors.keys(),
-            ...(this._notificationBannerBin?.get_children?.() ?? []),
-        ]);
+        const actors =
+            this._notificationBannerBin?.get_children?.() ?? [];
 
         for (const actor of actors) {
             try {
@@ -816,84 +833,9 @@ export class LiquidGlassIntegration {
             } catch {
                 // Actor may already be destroyed.
             }
-            this._restoreNotificationActor(actor);
         }
 
         this._notificationBannerBin = null;
-    }
-
-    _applyNotificationPanelScale(actor) {
-        if (!actor || !this._veloraSettings)
-            return;
-
-        if (!this._notificationScaledActors.has(actor)) {
-            let pivot = [0.5, 0];
-            try {
-                pivot = actor.get_pivot_point();
-            } catch {
-                // Use the top-centre fallback below.
-            }
-
-            this._notificationScaledActors.set(actor, {
-                scaleX: actor.scale_x ?? 1,
-                scaleY: actor.scale_y ?? 1,
-                pivotX: pivot?.[0] ?? 0.5,
-                pivotY: pivot?.[1] ?? 0,
-            });
-        }
-
-        const scale = Math.max(
-            0.6,
-            Math.min(
-                1.8,
-                this._veloraSettings.get_int(
-                    'notification-panel-scale'
-                ) / 100
-            )
-        );
-
-        // GNOME owns the banner actor and its parent animation. Scaling only
-        // the native card here composes with Shell's own entry/exit lifecycle
-        // without introducing a second compositor/rendering tree.
-        actor.set_pivot_point?.(0.5, 0);
-        actor.set_scale?.(scale, scale);
-        actor.queue_relayout?.();
-        actor.queue_redraw?.();
-
-    }
-
-    _restoreNotificationActor(actor) {
-        if (!actor)
-            return;
-
-        const original =
-            this._notificationScaledActors.get(actor);
-        if (!original)
-            return;
-
-        try {
-            actor.set_pivot_point(
-                original.pivotX,
-                original.pivotY
-            );
-            actor.set_scale(
-                original.scaleX,
-                original.scaleY
-            );
-            actor.queue_relayout?.();
-        } catch {
-            // Notification may already have been destroyed.
-        }
-
-        this._notificationScaledActors.delete(actor);
-    }
-
-    _restoreNotificationPanelScale() {
-        for (const actor of [
-            ...this._notificationScaledActors.keys(),
-        ]) {
-            this._restoreNotificationActor(actor);
-        }
     }
 
     _collectNativeDashContainers() {
@@ -1300,10 +1242,9 @@ export class LiquidGlassIntegration {
                 nativeNotificationStyler: Boolean(
                     this._notificationBannerBin
                 ),
-                notificationPanelScale:
-                    this._veloraSettings?.get_int?.(
-                        'notification-panel-scale'
-                    ) ?? null,
+                dateMenuBlur: Boolean(
+                    this._dateMenuBlurEffect
+                ),
                 quickSettingsManager: Boolean(
                     this._quickSettingsManager
                 ),
@@ -1469,7 +1410,6 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
-        this._notificationScaledActors.clear();
         this._osdManager = null;
         this._applicationManager = null;
         this._windowListService = null;
