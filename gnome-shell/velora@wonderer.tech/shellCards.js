@@ -43,6 +43,8 @@ class ShellCardSurface {
         this._settings = manager._settings;
         this._target = target;
         this._parent = target.get_parent?.() ?? null;
+        this._overlay = null;
+        this._wrappedBinParent = null;
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
@@ -98,13 +100,34 @@ class ShellCardSurface {
         material.add_effect(effect);
 
         try {
-            this._parent.insert_child_below(
-                material,
-                this._target
-            );
+            if (
+                this._parent instanceof St.Bin &&
+                this._parent.get_child?.() === this._target
+            ) {
+                const overlay = new St.Widget({
+                    name: 'velora-shell-card-stack',
+                    layout_manager: new Clutter.BinLayout(),
+                    x_expand: true,
+                    y_expand: true,
+                    reactive: false,
+                });
+
+                this._parent.set_child(overlay);
+                overlay.add_child(material);
+                overlay.add_child(this._target);
+
+                this._overlay = overlay;
+                this._wrappedBinParent = this._parent;
+            } else {
+                this._parent.insert_child_below(
+                    material,
+                    this._target
+                );
+            }
         } catch {
             try {
-                this._parent.add_child(material);
+                if (!material.get_parent?.())
+                    this._parent.add_child(material);
                 this._parent.set_child_below_sibling?.(
                     material,
                     this._target
@@ -229,9 +252,12 @@ class ShellCardSurface {
             return;
         }
 
+        const localX = this._overlay ? 0 : x;
+        const localY = this._overlay ? 0 : y;
+
         this._material.set_position(
-            x - OPTICAL_MARGIN,
-            y - OPTICAL_MARGIN
+            localX - OPTICAL_MARGIN,
+            localY - OPTICAL_MARGIN
         );
         this._material.set_size(
             w + OPTICAL_MARGIN * 2,
@@ -346,11 +372,38 @@ class ShellCardSurface {
             this._sceneManager?.destroy?.();
         } catch {}
 
+        if (
+            this._overlay &&
+            this._wrappedBinParent &&
+            this._target
+        ) {
+            try {
+                if (this._target.get_parent?.() === this._overlay)
+                    this._overlay.remove_child(this._target);
+
+                if (!this._target.get_parent?.())
+                    this._wrappedBinParent.set_child(this._target);
+            } catch (error) {
+                console.error(
+                    '[Velora][ShellCards] native Bin restore failed: ' +
+                    error
+                );
+            }
+        }
+
         try {
-            this._material?.destroy?.();
+            this._overlay?.destroy?.();
         } catch {}
 
+        if (!this._overlay) {
+            try {
+                this._material?.destroy?.();
+            } catch {}
+        }
+
         this._manager?._surfaceDestroyed(this._target, this);
+        this._overlay = null;
+        this._wrappedBinParent = null;
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
