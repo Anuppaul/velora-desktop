@@ -1507,7 +1507,7 @@ export class LiquidGlassIntegration {
                     ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
-                    this._notificationBannerBin
+                    this._notificationGlassManager
                 ),
                 quickSettingsManager: Boolean(
                     this._quickSettingsManager
@@ -1674,8 +1674,7 @@ export class LiquidGlassIntegration {
         this._dateMenuActor = null;
         this._dateMenuBox = null;
         this._quickSettingsManager = null;
-        this._notificationBannerBin = null;
-        this._notificationBlurEffects.clear();
+        this._notificationGlassManager = null;
         this._osdManager = null;
         this._applicationManager = null;
         this._windowListService = null;
