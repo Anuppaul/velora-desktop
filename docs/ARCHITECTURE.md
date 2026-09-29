@@ -2,110 +2,99 @@
 
 ## Product contract
 
-Velora does not redesign Ubuntu/GNOME Shell surfaces.
+Velora is a GNOME Shell material replacement, not a replacement desktop UI.
 
-A supported target keeps its existing:
+The Velora Orb remains. The old radial launcher, custom launcher geometry, custom floating dock and app-preview system are retired.
 
-- position and size;
-- content hierarchy;
-- controls and hit targets;
-- native transitions and interaction;
+For every supported Shell surface Velora preserves:
+
+- native geometry and content;
+- native controls and hit targets;
+- native GNOME animation and interaction;
 - accessibility semantics.
 
-Velora changes the visual material underneath that content.
+Velora changes the painted material underneath that content.
 
-The desired result is one Liquid Glass silhouette occupying the same geometry as the original surface.
+## Renderer
 
-## Material pipeline
+The vendored production renderer provides:
 
-For Shell surfaces that do not require live scene capture, the preferred path is:
+- shared wallpaper source through BackgroundMirror;
+- Gaussian and Dual-Kawase blur;
+- half/quarter-resolution blur and cache/reuse;
+- LiquidEffect refraction and chromatic fringe;
+- tint, brightness, contrast and saturation;
+- rim/specular/shadow terms;
+- clipping/culling and GNOME-native actors/effects.
 
-    GNOME target geometry
-            |
-    shared wallpaper source
-            |
-    downscaled blur
-      - Gaussian, or
-      - Dual Kawase
-            |
-      LiquidEffect
-      - refraction
-      - chromatic fringe
-      - tint
-      - saturation
-      - rim/specular
-      - restrained shadow
-            |
-    original GNOME content
+Normal Shell cards prefer the wallpaper-oriented path. Live window/UI cloning is reserved for renderer components that genuinely require dynamic scene capture.
 
-Internal actors are implementation details. They must not appear as a second visible card, border or offset background.
+## Generic PopupMenu adapter
+
+GNOME Shell 50 creates a PopupMenu as:
+
+    menu.actor = BoxPointer
+      -> BoxPointer.bin = St.Bin
+           -> menu.box = St.BoxLayout(.popup-menu-content)
+
+Ubuntu/Yaru paints the normal popup card on .popup-menu-content. Date Menu adds .datemenu-popover primarily for its radius.
+
+Velora therefore does not place a second card in Main.uiGroup and chase popup geometry.
+
+PopupGlassManager patches PopupMenu.PopupMenu.prototype.open. On first open it safely transforms:
+
+    BoxPointer.bin
+      -> original menu.box
+
+into:
+
+    BoxPointer.bin
+      -> overlay (Clutter.BinLayout)
+           -> wallpaper-backed LiquidEffect material
+           -> original menu.box
+
+The original box gets only the velora-liquid-popup-content class, which removes background/border/shadow paint but does not alter radius, padding or content.
+
+Because the material is inside BoxPointer, GNOME automatically carries native position, scale, translation, opacity and open/close animation.
+
+The wallpaper clone is counter-transformed during paint so the sampled wallpaper remains fixed in stage space while the glass surface itself follows BoxPointer animation.
+
+Disable/cleanup first reparents menu.box back into BoxPointer.bin, then destroys the Velora overlay. This prevents native Shell content from being destroyed with the extension actor.
+
+## Coverage
+
+The generic PopupMenu adapter covers:
+
+- Date / Calendar menu;
+- Quick Settings outer menu;
+- panel/status menus;
+- application/context/background menus implemented as PopupMenu;
+- future standard PopupMenu instances created while Velora is enabled.
+
+Nested PopupSubMenu content sits inside the parent glass and receives a light translucent material treatment instead of another expensive blur layer.
+
+Notifications use the proven notificationGlass manager.
+
+Top panel, OSD and native Ubuntu Dock/Dash-to-Dock continue to use the vendored production renderer while their dedicated low-load adapters are refined.
 
 ## Performance rules
 
-Velora should be damage-driven.
+- no permanent JS polling loop for PopupMenu surfaces;
+- shared wallpaper source instead of CPU readback;
+- Dual-Kawase for popup material;
+- renderer downscale/cache settings remain available;
+- property writes are avoided when values have not changed;
+- popup material exists only after a PopupMenu is actually opened;
+- native GNOME animation owns transforms.
 
-- Do not redraw continuously when the source and geometry are unchanged.
-- Reuse the shared wallpaper source.
-- Reuse blur output across frames when the input is unchanged.
-- Prefer half-resolution blur by default and quarter-resolution for low-power mode.
-- Use live window clones only for surfaces that genuinely need dynamic scene content.
-- Coalesce geometry changes to the compositor redraw phase.
-- Avoid CPU readback for routine appearance decisions.
-- Keep adaptive sampling infrequent and event-driven.
+## Orb
 
-## Existing renderer
+orbThemeRuntime.js owns only the Orb and the Liquid Glass integration.
 
-The vendored renderer already provides:
+The Orb is draggable, supports idle hide/fade and opens Main.overview.showApps().
 
-- `BackgroundMirror`: shared wallpaper source;
-- `BlurRenderer`: Gaussian and Dual Kawase blur;
-- configurable blur downscale;
-- cross-frame blur caching;
-- `LiquidEffect`: refraction/material composite;
-- window/UI clone infrastructure for targets that need live scene capture;
-- clipping/culling helpers;
-- notification, menu, Quick Settings, OSD and application managers.
+There is no custom app ring, launcher geometry, floating dock or app preview in the active runtime.
 
-New Shell theming work should reuse these primitives rather than introducing independent blur stacks.
+## GTK/libadwaita boundary
 
-## Surface rollout
-
-The rollout is incremental so a working Shell surface is never replaced globally before the material is proven stable.
-
-Current order:
-
-1. Notification banner
-2. Date / Calendar menu
-3. Quick Settings
-4. Other panel menus
-5. OSD
-6. Top panel and dock
-7. Additional Shell-owned surfaces
-
-A stage is considered successful only when:
-
-- native layout is unchanged;
-- native interaction still works;
-- no duplicate visible background exists;
-- blur/refraction are visually aligned with the target;
-- idle cost is low;
-- cleanup/disable restores the original Shell state.
-
-## Notification pilot
-
-The notification banner is the first production target.
-
-The notification pilot must:
-
-- leave the notification message, buttons, icon, spacing and animation untouched;
-- remove only the native banner background material;
-- attach the Velora Liquid Glass material to the same banner geometry;
-- use the low-load wallpaper-oriented path by default;
-- avoid changing notification center/message-list layout;
-- restore native styling cleanly on disable.
-
-## Scope boundary
-
-GNOME Shell extension code can directly transform Shell/compositor-owned UI.
-
-GTK and libadwaita application content is outside this renderer and requires a separate application-theme layer if Velora later chooses to cover it.
+A GNOME Shell extension cannot transparently replace the internal rendering of arbitrary GTK/libadwaita applications. Velora's Shell material layer covers Shell-owned surfaces. A separate GTK/libadwaita theme layer is required for matching application interiors.
