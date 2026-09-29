@@ -481,6 +481,10 @@ export class LiquidGlassIntegration {
             box.get_style?.() ?? '';
 
         console.log(
+            '[Velora][DateMenu] actor classes: ' +
+            (actor.get_style_class_name?.() ?? '<none>')
+        );
+        console.log(
             '[Velora][DateMenu] content classes: ' +
             (box.get_style_class_name?.() ?? '<none>')
         );
