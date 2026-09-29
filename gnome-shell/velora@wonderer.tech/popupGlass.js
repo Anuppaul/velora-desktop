@@ -341,7 +341,13 @@ class PopupGlassSurface {
             this._lastSceneX !== sceneX ||
             this._lastSceneY !== sceneY
         ) {
-            sceneRoot.set_position(sceneX, sceneY);
+            if (sceneRoot.x !== 0 || sceneRoot.y !== 0)
+                sceneRoot.set_position(0, 0);
+            this._vendor.setTranslationIfChanged(
+                sceneRoot,
+                sceneX,
+                sceneY
+            );
             this._lastSceneX = sceneX;
             this._lastSceneY = sceneY;
         }
