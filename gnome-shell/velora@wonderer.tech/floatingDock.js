@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -13,7 +14,91 @@ const DOCK_PADDING_BOTTOM = 14;
 const DOCK_PADDING_LEFT = 24;
 const DOCK_REVEAL_PX = 7;
 const DOCK_HOVER_SCALE = 0.95;
-const GLASS_FILTER_INSET = 3;
+const GLASS_FILTER_INSET = 0;
+const GLASS_RADIUS = 16;
+const GLASS_BLUR_RADIUS = 11;
+const GLASS_REFRACTION_PX = 10;
+const GLASS_CHROMA_PX = 1.35;
+const GLASS_BEVEL_PX = 14;
+const GLASS_SATURATION = 1.5;
+const GLASS_BRIGHTNESS = 1.1;
+
+const GLASS_SHADER_SOURCE = `
+uniform sampler2D cogl_sampler;
+uniform float u_width;
+uniform float u_height;
+uniform float u_radius;
+uniform float u_bevel;
+uniform float u_refraction;
+uniform float u_chroma;
+uniform float u_saturation;
+uniform float u_brightness;
+
+float veloraRoundedRectSdf(vec2 p, vec2 halfSize, float radius) {
+    vec2 q = abs(p) - (halfSize - vec2(radius));
+    return length(max(q, vec2(0.0))) +
+        min(max(q.x, q.y), 0.0) - radius;
+}
+
+vec2 veloraRoundedRectNormal(vec2 p, vec2 halfSize, float radius) {
+    const float eps = 0.75;
+    float dx = veloraRoundedRectSdf(
+        p + vec2(eps, 0.0), halfSize, radius
+    ) - veloraRoundedRectSdf(
+        p - vec2(eps, 0.0), halfSize, radius
+    );
+    float dy = veloraRoundedRectSdf(
+        p + vec2(0.0, eps), halfSize, radius
+    ) - veloraRoundedRectSdf(
+        p - vec2(0.0, eps), halfSize, radius
+    );
+    vec2 n = vec2(dx, dy);
+    return n / max(length(n), 0.0001);
+}
+
+void main() {
+    vec2 uv = cogl_tex_coord_in[0].st;
+    vec2 safeSize = vec2(max(u_width, 1.0), max(u_height, 1.0));
+    vec2 halfSize = safeSize * 0.5;
+    vec2 p = (uv - vec2(0.5)) * safeSize;
+    float radius = min(u_radius, min(halfSize.x, halfSize.y) - 1.0);
+    float sdf = veloraRoundedRectSdf(p, halfSize, radius);
+    float mask = 1.0 - smoothstep(-0.65, 0.65, sdf);
+    float edge = smoothstep(-u_bevel, 0.0, sdf) * mask;
+    edge = edge * edge * (3.0 - 2.0 * edge);
+
+    vec2 normal = veloraRoundedRectNormal(p, halfSize, radius);
+    vec2 pixel = vec2(1.0) / safeSize;
+    vec2 refractedUv = clamp(
+        uv - normal * (u_refraction * edge) * pixel,
+        pixel * 0.75,
+        vec2(1.0) - pixel * 0.75
+    );
+    vec2 chromaShift = normal * (u_chroma * edge) * pixel;
+
+    vec4 redSample = texture2D(
+        cogl_sampler,
+        clamp(refractedUv - chromaShift, vec2(0.0), vec2(1.0))
+    );
+    vec4 greenSample = texture2D(cogl_sampler, refractedUv);
+    vec4 blueSample = texture2D(
+        cogl_sampler,
+        clamp(refractedUv + chromaShift, vec2(0.0), vec2(1.0))
+    );
+
+    vec3 rgb = vec3(redSample.r, greenSample.g, blueSample.b);
+    float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+    rgb = mix(vec3(luma), rgb, u_saturation) * u_brightness;
+
+    vec2 lightDir = normalize(vec2(-0.72, -1.0));
+    float directionalRim = pow(max(dot(normal, lightDir), 0.0), 2.2);
+    float rim = edge * (0.035 + 0.105 * directionalRim);
+    rgb += vec3(rim);
+
+    float alpha = greenSample.a * mask;
+    cogl_color_out = vec4(rgb * mask, alpha) * cogl_color_in;
+}
+`;
 
 export class FloatingDockController {
     constructor(params) {
@@ -38,6 +123,7 @@ export class FloatingDockController {
         this._hideTimeoutId = 0;
         this._hidden = false;
         this._blurEffect = null;
+        this._refractionEffect = null;
     }
 
     setEnabled(enabled) {
@@ -111,15 +197,7 @@ export class FloatingDockController {
         this._hideTooltip?.();
         this._hidePreview?.(true);
 
-        if (this._blurEffect && this._glassFilter) {
-            try {
-                this._glassFilter.remove_effect(
-                    this._blurEffect
-                );
-            } catch {
-                // The filter actor may already be destroyed.
-            }
-        }
+        this._clearGlassEffects();
 
         this._root?.destroy();
         this._root = null;
@@ -129,6 +207,7 @@ export class FloatingDockController {
         this._box = null;
         this._buttons = [];
         this._blurEffect = null;
+        this._refractionEffect = null;
         this._hidden = false;
     }
 
@@ -282,6 +361,8 @@ export class FloatingDockController {
             actor.set_position(0, 0);
             actor.set_size(width, height);
         }
+
+        this._syncRefractionUniforms();
     }
 
     reposition(animate = false) {
@@ -644,20 +725,92 @@ export class FloatingDockController {
         }
     }
 
+    _clearGlassEffects() {
+        if (!this._glassFilter)
+            return;
+
+        for (const effect of [
+            this._refractionEffect,
+            this._blurEffect,
+        ]) {
+            if (!effect)
+                continue;
+
+            try {
+                this._glassFilter.remove_effect(effect);
+            } catch {
+                // Actor/effect may already be detached during hot reload.
+            }
+        }
+
+        this._refractionEffect = null;
+        this._blurEffect = null;
+    }
+
+    _createRefractionEffect() {
+        const effect = new Clutter.ShaderEffect({
+            shader_type: Clutter.ShaderType.FRAGMENT_SHADER,
+        });
+
+        if (!effect.set_shader_source(GLASS_SHADER_SOURCE))
+            throw new Error('GNOME rejected the liquid-glass shader source');
+
+        return effect;
+    }
+
+    _setRefractionFloat(name, value) {
+        if (!this._refractionEffect)
+            return;
+
+        const uniform = new GObject.Value();
+        uniform.init(GObject.TYPE_FLOAT);
+        uniform.set_float(value);
+        this._refractionEffect.set_uniform_value(name, uniform);
+    }
+
+    _syncRefractionUniforms() {
+        if (!this._refractionEffect || !this._glassFilter)
+            return;
+
+        const width = Math.max(1, this._glassFilter.width);
+        const height = Math.max(1, this._glassFilter.height);
+        const radius = Math.min(
+            GLASS_RADIUS,
+            Math.max(1, Math.min(width, height) / 2 - 1)
+        );
+
+        try {
+            this._setRefractionFloat('u_width', width);
+            this._setRefractionFloat('u_height', height);
+            this._setRefractionFloat('u_radius', radius);
+            this._setRefractionFloat('u_bevel', GLASS_BEVEL_PX);
+            this._setRefractionFloat(
+                'u_refraction',
+                GLASS_REFRACTION_PX
+            );
+            this._setRefractionFloat('u_chroma', GLASS_CHROMA_PX);
+            this._setRefractionFloat(
+                'u_saturation',
+                GLASS_SATURATION
+            );
+            this._setRefractionFloat(
+                'u_brightness',
+                GLASS_BRIGHTNESS
+            );
+            this._refractionEffect.queue_repaint();
+        } catch (error) {
+            logError(
+                error,
+                'Velora Desktop: liquid-glass uniforms unavailable'
+            );
+        }
+    }
+
     _syncBlur() {
         if (!this._glassFilter)
             return;
 
-        if (this._blurEffect) {
-            try {
-                this._glassFilter.remove_effect(
-                    this._blurEffect
-                );
-            } catch {
-                // Effect may already be detached.
-            }
-            this._blurEffect = null;
-        }
+        this._clearGlassEffects();
 
         if (
             !this._settings.get_boolean(
@@ -668,22 +821,36 @@ export class FloatingDockController {
         }
 
         try {
-            // Browser reference uses SVG displacement. GNOME Shell does not
-            // support that filter pipeline, so a tiny native background blur
-            // is the closest lightweight compositor-native equivalent.
             this._blurEffect = new Shell.BlurEffect({
                 brightness: 1.0,
                 mode: Shell.BlurMode.BACKGROUND,
-                radius: 1,
+                radius: GLASS_BLUR_RADIUS,
             });
-            this._glassFilter.add_effect(
-                this._blurEffect
-            );
+            this._glassFilter.add_effect(this._blurEffect);
         } catch (error) {
             this._blurEffect = null;
             logError(
                 error,
-                'Velora Desktop: glass filter unavailable'
+                'Velora Desktop: background blur unavailable'
+            );
+            return;
+        }
+
+        try {
+            // The web reference bends its backdrop with an SVG displacement
+            // map. GNOME cannot execute that browser filter, so process the
+            // compositor-native background blur with an offscreen fragment
+            // shader instead: rounded edge refraction, RGB dispersion,
+            // saturation, brightness and a restrained directional rim.
+            this._refractionEffect = this._createRefractionEffect();
+            this._glassFilter.add_effect(this._refractionEffect);
+            this._syncRefractionUniforms();
+        } catch (error) {
+            // Keep the native background blur as a fully usable fallback.
+            this._refractionEffect = null;
+            logError(
+                error,
+                'Velora Desktop: liquid-glass refraction unavailable'
             );
         }
     }
@@ -692,17 +859,17 @@ export class FloatingDockController {
         if (!this._glassOverlay)
             return;
 
-        // Reference: rgba(255,255,255,0.25). Keep the current opacity
-        // control by mapping its default 76% to the reference alpha.
+        // The reference dock preset uses frost=0.05. Keep that value near
+        // Velora's default opacity while allowing a restrained film range.
         const opacity =
             this._settings.get_int(
                 'floating-dock-opacity'
             ) / 100;
         const alpha = Math.max(
-            0.08,
+            0.005,
             Math.min(
-                0.45,
-                0.25 * (opacity / 0.76)
+                0.075,
+                0.005 + 0.06 * opacity
             )
         );
 
