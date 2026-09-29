@@ -89,7 +89,7 @@ export class NotificationGlassManager {
         }
 
         console.log(
-            '[Velora][NotificationGlass] wallpaper-only material active'
+            '[Velora][NotificationGlass] live refractive material active'
         );
     }
 
@@ -156,11 +156,14 @@ export class NotificationGlassManager {
         liquidBox.set_size(1, 1);
         root.add_child(liquidBox);
 
-        const wallpaper = this._vendor.createBackgroundMirror(
-            'velora-notification-wallpaper'
-        );
-        wallpaper.set_position?.(0, 0);
-        liquidBox.insert_child_at_index(wallpaper, 0);
+        // Live compositor-native scene source: wallpaper + Meta.WindowActor
+        // clones. This stays on the GPU; no screenshot or CPU readback.
+        const sceneManager =
+            new this._vendor.WindowCloneManager(
+                liquidBox,
+                null,
+                'velora-notification-scene'
+            );
 
         // Matches the proven LiquidEffect container pattern used by the
         // vendored managers. It paints nothing; it only avoids a Clutter
@@ -218,7 +221,7 @@ export class NotificationGlassManager {
             bannerRoot,
             root,
             liquidBox,
-            wallpaper,
+            sceneManager,
             effect,
             radius,
             signals: [],
@@ -494,13 +497,7 @@ export class NotificationGlassManager {
             screenH
         );
 
-        this._vendor.setSizeIfChanged(
-            material.wallpaper,
-            global.stage.width,
-            global.stage.height
-        );
-        this._vendor.setTranslationIfChanged(
-            material.wallpaper,
+        material.sceneManager?.setOffset?.(
             -monitorX,
             -monitorY
         );
@@ -524,6 +521,16 @@ export class NotificationGlassManager {
             width + margin * 2,
             height + margin * 2
         );
+
+        const captureRect = [
+            absX - margin,
+            absY - margin,
+            width + margin * 2,
+            height + margin * 2,
+        ];
+        material.sceneManager?.setCullRect?.(captureRect);
+        material.sceneManager?.applyBgCloneClip?.(captureRect);
+        material.sceneManager?.sync?.();
 
         material.effect.setResolution?.(
             screenW,
@@ -571,6 +578,12 @@ export class NotificationGlassManager {
             material.effect?.setLiveGeometryHook?.(null);
         } catch {
             // Effect may already be detached.
+        }
+
+        try {
+            material.sceneManager?.destroy?.();
+        } catch {
+            // Live scene clones may already be destroyed.
         }
 
         try {
