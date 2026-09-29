@@ -270,6 +270,9 @@ export class LiquidGlassIntegration {
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
+        this._notificationAppearanceSettingIds = [];
+        this._notificationOriginalStyles = new Map();
+        this._notificationBlurEffects = new Map();
         this._quickSettingsManager = null;
         this._osdManager = null;
         this._applicationManager = null;
@@ -882,12 +885,14 @@ export class LiquidGlassIntegration {
             actor.add_style_class_name?.(
                 'velora-native-notification-glass'
             );
+            this._applyNativeNotificationAppearance(actor);
         };
 
         const unstyleBanner = actor => {
             if (!actor)
                 return;
 
+            this._restoreNativeNotificationAppearance(actor);
             actor.remove_style_class_name?.(
                 'velora-native-notification-glass'
             );
@@ -931,12 +936,145 @@ export class LiquidGlassIntegration {
         if (currentBanner)
             styleBanner(currentBanner);
 
+        for (const key of [
+            'date-menu-opacity',
+            'date-menu-tint-color',
+            'date-menu-blur',
+        ]) {
+            this._notificationAppearanceSettingIds.push(
+                this._veloraSettings.connect(
+                    'changed::' + key,
+                    () => {
+                        const actors = new Set([
+                            ...(bannerBin.get_children?.() ?? []),
+                            ...(tray?._banner ? [tray._banner] : []),
+                        ]);
+
+                        for (const actor of actors)
+                            this._applyNativeNotificationAppearance(actor);
+                    }
+                )
+            );
+        }
+
         console.log(
             '[Velora][LiquidGlass] nativeNotificationStyler active'
         );
     }
 
+    _applyNativeNotificationAppearance(actor) {
+        if (!actor || !this._veloraSettings)
+            return;
+
+        if (!this._notificationOriginalStyles.has(actor)) {
+            this._notificationOriginalStyles.set(
+                actor,
+                actor.get_style?.() ?? ''
+            );
+        }
+
+        const opacity = clampNumber(
+            this._veloraSettings.get_int(
+                'date-menu-opacity'
+            ),
+            0,
+            100
+        ) / 100;
+
+        const [r, g, b] = parseHexRgb(
+            this._veloraSettings.get_string(
+                'date-menu-tint-color'
+            )
+        );
+
+        const blur = clampNumber(
+            this._veloraSettings.get_int(
+                'date-menu-blur'
+            ),
+            0,
+            80
+        );
+
+        const fill =
+            `rgba(${r},${g},${b},${opacity.toFixed(3)})`;
+        const original =
+            this._notificationOriginalStyles.get(actor) ?? '';
+
+        actor.set_style?.(
+            original +
+            `; background-color: ${fill};` +
+            ' background-image: none;' +
+            ' border-color: rgba(0,0,0,0);' +
+            ' box-shadow: none;'
+        );
+
+        let effect =
+            this._notificationBlurEffects.get(actor) ?? null;
+
+        if (blur > 0) {
+            if (!effect) {
+                effect = new Shell.BlurEffect({
+                    mode: Shell.BlurMode.BACKGROUND,
+                    radius: blur,
+                    brightness: 1.0,
+                });
+                actor.add_effect(effect);
+                this._notificationBlurEffects.set(
+                    actor,
+                    effect
+                );
+            } else {
+                effect.radius = blur;
+            }
+        } else if (effect) {
+            try {
+                actor.remove_effect(effect);
+            } catch {
+                // Banner/effect may already be tearing down.
+            }
+            this._notificationBlurEffects.delete(actor);
+        }
+
+        actor.queue_redraw?.();
+    }
+
+    _restoreNativeNotificationAppearance(actor) {
+        if (!actor)
+            return;
+
+        const effect =
+            this._notificationBlurEffects.get(actor) ?? null;
+        if (effect) {
+            try {
+                actor.remove_effect(effect);
+            } catch {
+                // Banner/effect may already be destroyed.
+            }
+            this._notificationBlurEffects.delete(actor);
+        }
+
+        if (this._notificationOriginalStyles.has(actor)) {
+            try {
+                actor.set_style?.(
+                    this._notificationOriginalStyles.get(actor)
+                );
+            } catch {
+                // Banner may already be destroyed.
+            }
+            this._notificationOriginalStyles.delete(actor);
+        }
+    }
+
     _cleanupNativeNotificationStyler() {
+        for (const id of this._notificationAppearanceSettingIds) {
+            try {
+                this._veloraSettings?.disconnect(id);
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._notificationAppearanceSettingIds = [];
+
         for (const signal of this._notificationBannerSignals) {
             try {
                 signal.obj.disconnect(signal.id);
@@ -946,10 +1084,16 @@ export class LiquidGlassIntegration {
         }
         this._notificationBannerSignals = [];
 
-        const actors =
-            this._notificationBannerBin?.get_children?.() ?? [];
+        const tray = Main.messageTray;
+        const actors = new Set([
+            ...(this._notificationBannerBin?.get_children?.() ?? []),
+            ...(tray?._banner ? [tray._banner] : []),
+            ...this._notificationOriginalStyles.keys(),
+            ...this._notificationBlurEffects.keys(),
+        ]);
 
         for (const actor of actors) {
+            this._restoreNativeNotificationAppearance(actor);
             try {
                 actor.remove_style_class_name?.(
                     'velora-native-notification-glass'
@@ -959,6 +1103,8 @@ export class LiquidGlassIntegration {
             }
         }
 
+        this._notificationOriginalStyles.clear();
+        this._notificationBlurEffects.clear();
         this._notificationBannerBin = null;
     }
 
@@ -1539,6 +1685,9 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
+        this._notificationAppearanceSettingIds = [];
+        this._notificationOriginalStyles.clear();
+        this._notificationBlurEffects.clear();
         this._osdManager = null;
         this._applicationManager = null;
         this._windowListService = null;
