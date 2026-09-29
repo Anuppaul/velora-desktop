@@ -239,6 +239,7 @@ export class DateMenuGlassManager {
             lastShaderW: null,
             lastShaderH: null,
             loggedVisible: false,
+            loggedInvalidGeometry: false,
         };
 
         this._material = material;
@@ -396,8 +397,17 @@ export class DateMenuGlassManager {
 
         const rect = this._vendor.getTransformedRect(box);
         if (!finiteRect(rect)) {
-            if (!shaderOnly)
+            if (!shaderOnly) {
                 material.root.hide?.();
+
+                if (!material.loggedInvalidGeometry) {
+                    material.loggedInvalidGeometry = true;
+                    console.warn(
+                        '[Velora][DateMenuGlass] waiting for valid box geometry: ' +
+                        JSON.stringify(rect)
+                    );
+                }
+            }
 
             if (
                 !shaderOnly &&
@@ -410,14 +420,19 @@ export class DateMenuGlassManager {
         }
 
         const [absX, absY, width, height] = rect;
+
+        // GNOME's PopupMenu content box is not the authoritative mapped
+        // actor. The proven upstream UIManager gates Date Menu glass on
+        // menu.actor.mapped and uses menu.box only for geometry.
+        const visibilityActor = this._actor ?? box;
         const opacity =
-            box.get_paint_opacity?.() ??
-            this._actor?.get_paint_opacity?.() ??
+            visibilityActor.get_paint_opacity?.() ??
+            visibilityActor.opacity ??
             255;
 
         if (
-            !box.mapped ||
-            !box.visible ||
+            !visibilityActor.mapped ||
+            !visibilityActor.visible ||
             opacity <= 0
         ) {
             if (!shaderOnly)
