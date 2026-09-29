@@ -4,7 +4,7 @@
 
 Velora is a GNOME Shell material replacement, not a replacement desktop UI.
 
-The Velora Orb remains. The old radial launcher, custom launcher geometry, custom floating dock and app-preview system are retired.
+The Velora Orb remains with its full radial launcher, tooltips, running indicators, live app previews, drag behavior and idle hide/fade. The separate floating dock and unrelated desktop-replacement paths are retired.
 
 For every supported Shell surface Velora preserves:
 
@@ -102,10 +102,15 @@ Top panel, OSD and native Ubuntu Dock/Dash-to-Dock continue to use the vendored 
 
 orbThemeRuntime.js owns only the Orb and the Liquid Glass integration.
 
-The Orb is draggable, supports idle hide/fade and opens Main.overview.showApps().
-
-There is no custom app ring, launcher geometry, floating dock or app preview in the active runtime.
+The Orb is draggable, supports idle hide/fade, toggles GNOME Applications on click, and opens its radial application launcher on hover. The radial launcher retains tooltips, running indicators and live app previews. There is no separate floating dock.
 
 ## GTK/libadwaita boundary
 
 A GNOME Shell extension cannot transparently replace the internal rendering of arbitrary GTK/libadwaita applications. Velora's Shell material layer covers Shell-owned surfaces. A separate GTK/libadwaita theme layer is required for matching application interiors.
+
+
+## Optical source
+
+Full refraction requires source pixels to bend. Velora does not read the framebuffer back to the CPU and does not create screenshot cards. Popup, notification and generic Shell-card surfaces use the vendored WindowCloneManager, which composes the shared wallpaper mirror with live compositor Meta.WindowActor clones entirely in the Clutter/Mutter GPU scene graph.
+
+LiquidEffect receives optical sampling headroom around the native card. The shader mask still equals the exact native GNOME card bounds, so the extra source region is invisible but allows the edge lens, dispersion, shadow and rim terms to sample beyond the card boundary.
