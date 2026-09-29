@@ -106,28 +106,9 @@ export class DateMenuGlassManager {
             ),
         });
 
-        // Shell/theme changes can alter the native radius without changing
-        // menu structure. Re-read it on style changes and keep one silhouette.
-        try {
-            this._signals.push({
-                obj: box,
-                id: box.connect('style-changed', () => {
-                    if (!this._enabled)
-                        return;
-                    const radius = this._readCornerRadius(box);
-                    if (radius !== this._cornerRadius) {
-                        this._cornerRadius = radius;
-                        if (this._material) {
-                            this._material.radius = radius;
-                            this._material.effect?.setCornerRadius?.(radius);
-                            this._queueSync(this._material);
-                        }
-                    }
-                }),
-            });
-        } catch {
-            // Theme-radius fallback remains valid.
-        }
+        // Keep the radius captured from the native theme before transparency
+        // is applied. Re-reading it afterwards can measure our replacement
+        // class instead of GNOME's original card shape.
 
         const material = this._ensureMaterial();
         this._applyAppearance(material, this._appearance);
@@ -257,6 +238,7 @@ export class DateMenuGlassManager {
             lastShaderY: null,
             lastShaderW: null,
             lastShaderH: null,
+            loggedVisible: false,
         };
 
         this._material = material;
@@ -567,6 +549,21 @@ export class DateMenuGlassManager {
 
         if (!material.root.visible)
             material.root.show?.();
+
+        if (!material.loggedVisible) {
+            material.loggedVisible = true;
+            console.log(
+                '[Velora][DateMenuGlass] visible rect=' +
+                [glassX, glassY, width, height]
+                    .map(value => Math.round(value))
+                    .join(',') +
+                ' blur=' +
+                (this._appearance?.blur ?? 0) +
+                ' tint=' +
+                Math.round((this._appearance?.opacity ?? 0) * 100) +
+                '%'
+            );
+        }
     }
 
     _destroyMaterial() {
