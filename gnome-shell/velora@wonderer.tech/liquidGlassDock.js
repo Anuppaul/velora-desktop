@@ -24,6 +24,32 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
+function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function parseHexRgb(value) {
+    const text = String(value ?? '').trim();
+
+    if (/^#[0-9a-fA-F]{3}$/.test(text)) {
+        return [
+            Number.parseInt(text[1] + text[1], 16),
+            Number.parseInt(text[2] + text[2], 16),
+            Number.parseInt(text[3] + text[3], 16),
+        ];
+    }
+
+    if (/^#[0-9a-fA-F]{6}$/.test(text)) {
+        return [
+            Number.parseInt(text.slice(1, 3), 16),
+            Number.parseInt(text.slice(3, 5), 16),
+            Number.parseInt(text.slice(5, 7), 16),
+        ];
+    }
+
+    return [0, 0, 0];
+}
+
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
         GLib.get_user_data_dir(),
@@ -238,6 +264,8 @@ export class LiquidGlassIntegration {
         this._dateMenuOpenSignalId = 0;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
+        this._dateMenuBlurEffect = null;
+        this._dateMenuAppearanceSettingIds = [];
         this._dateMenuChildStyles = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
@@ -459,10 +487,24 @@ export class LiquidGlassIntegration {
             (box.get_style_class_name?.() ?? '<none>')
         );
 
-        // Keep GNOME's native Date Menu content/animation/input, but remove
-        // every background layer. No blur, no backdrop actor, no tint.
-        this._makeNativeDateMenuTransparent();
+        // Keep GNOME's native Date Menu content/animation/input. Appearance
+        // controls affect only the panel background/tint and optional
+        // BACKGROUND blur; content opacity and layout remain untouched.
+        this._applyNativeDateMenuAppearance();
         this._styleNativeDateMenuChildren();
+
+        for (const key of [
+            'date-menu-opacity',
+            'date-menu-tint-color',
+            'date-menu-blur',
+        ]) {
+            this._dateMenuAppearanceSettingIds.push(
+                this._veloraSettings.connect(
+                    'changed::' + key,
+                    () => this._applyNativeDateMenuAppearance()
+                )
+            );
+        }
 
         const apply = () => {
             actor.add_style_class_name?.(
@@ -471,7 +513,7 @@ export class LiquidGlassIntegration {
             box.add_style_class_name?.(
                 'velora-native-date-menu-glass'
             );
-            this._makeNativeDateMenuTransparent();
+            this._applyNativeDateMenuAppearance();
             this._styleNativeDateMenuChildren();
         };
 
@@ -500,17 +542,42 @@ export class LiquidGlassIntegration {
         );
     }
 
-    _makeNativeDateMenuTransparent() {
+    _applyNativeDateMenuAppearance() {
         const actor = this._dateMenuActor;
         const box = this._dateMenuBox;
-        if (!actor || !box)
+        if (!actor || !box || !this._veloraSettings)
             return;
 
-        // BoxPointer paints its own rounded shell/arrow. Make that fully
-        // transparent while preserving GNOME's native popup actor.
+        const opacity = clampNumber(
+            this._veloraSettings.get_int(
+                'date-menu-opacity'
+            ),
+            0,
+            100
+        ) / 100;
+
+        const [r, g, b] = parseHexRgb(
+            this._veloraSettings.get_string(
+                'date-menu-tint-color'
+            )
+        );
+
+        const blur = clampNumber(
+            this._veloraSettings.get_int(
+                'date-menu-blur'
+            ),
+            0,
+            80
+        );
+
+        const fill =
+            `rgba(${r},${g},${b},${opacity.toFixed(3)})`;
+
+        // BoxPointer paints the outer rounded shell. Tint/opacity are applied
+        // only here; GNOME content actors remain fully opaque.
         actor.set_style?.(
             (this._dateMenuOriginalActorStyle || '') +
-            '; -arrow-background-color: rgba(0,0,0,0);' +
+            `; -arrow-background-color: ${fill};` +
             ' -arrow-border-color: rgba(0,0,0,0);' +
             ' -arrow-border-width: 0px;' +
             ' background-color: rgba(0,0,0,0);' +
@@ -518,7 +585,8 @@ export class LiquidGlassIntegration {
             ' box-shadow: none;'
         );
 
-        // popup-menu-content is the actual Date Menu content container.
+        // Keep popup-menu-content itself transparent so there is only one
+        // controllable tint layer.
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
             '; background-color: rgba(0,0,0,0);' +
@@ -526,6 +594,31 @@ export class LiquidGlassIntegration {
             ' border-color: rgba(0,0,0,0);' +
             ' box-shadow: none;'
         );
+
+        if (blur > 0) {
+            if (!this._dateMenuBlurEffect) {
+                this._dateMenuBlurEffect =
+                    new Shell.BlurEffect({
+                        mode: Shell.BlurMode.BACKGROUND,
+                        radius: blur,
+                        brightness: 1.0,
+                    });
+                actor.add_effect(
+                    this._dateMenuBlurEffect
+                );
+            } else {
+                this._dateMenuBlurEffect.radius = blur;
+            }
+        } else if (this._dateMenuBlurEffect) {
+            try {
+                actor.remove_effect(
+                    this._dateMenuBlurEffect
+                );
+            } catch {
+                // Effect may already be detached while Shell is tearing down.
+            }
+            this._dateMenuBlurEffect = null;
+        }
 
         actor.queue_redraw?.();
         box.queue_redraw?.();
@@ -607,6 +700,26 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuOpenSignalId = 0;
 
+        for (const id of this._dateMenuAppearanceSettingIds) {
+            try {
+                this._veloraSettings?.disconnect(id);
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._dateMenuAppearanceSettingIds = [];
+
+        if (this._dateMenuBlurEffect && this._dateMenuActor) {
+            try {
+                this._dateMenuActor.remove_effect(
+                    this._dateMenuBlurEffect
+                );
+            } catch {
+                // Effect may already be detached.
+            }
+        }
+        this._dateMenuBlurEffect = null;
+
         this._restoreNativeDateMenuChildren();
 
         try {
@@ -632,6 +745,8 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
+        this._dateMenuBlurEffect = null;
+        this._dateMenuAppearanceSettingIds = [];
         this._dateMenuChildStyles.clear();
     }
 
