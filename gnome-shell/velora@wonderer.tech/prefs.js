@@ -353,9 +353,20 @@ export default class VeloraPreferences extends ExtensionPreferences {
         addSpin(
             glassSurfaceGroup,
             settings,
+            'date-menu-panel-scale',
+            'Date / Calendar panel scale',
+            'Scale the complete card opened by clicking the date and clock in the top bar. 100% is GNOME default; values above 100% make the Calendar / Notifications card larger.',
+            60,
+            180,
+            5
+        );
+
+        addSpin(
+            glassSurfaceGroup,
+            settings,
             'notification-panel-scale',
-            'Notification panel scale',
-            'Scale the complete top notification card, including content and Liquid Glass. 100% keeps the GNOME default size.',
+            'Notification banner scale',
+            'Scale only the temporary notification banner that appears at the top of the screen.',
             60,
             180,
             5
