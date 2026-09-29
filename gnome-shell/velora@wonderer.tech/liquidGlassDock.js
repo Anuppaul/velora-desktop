@@ -7,6 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV1';
 const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV1';
+const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV1';
 
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
@@ -221,6 +222,11 @@ export class LiquidGlassDockRenderer {
             return;
 
         this._torndown = false;
+        this._installDebugState();
+        console.log(
+            '[Velora][LiquidGlass] vendor root: ' +
+            this._vendor.root
+        );
 
         const {
             LiquidEffect,
@@ -328,6 +334,51 @@ export class LiquidGlassDockRenderer {
                 return GLib.SOURCE_REMOVE;
             }
         );
+    }
+
+    _installDebugState() {
+        globalThis[DEBUG_STATE_KEY] = {
+            status: () => ({
+                vendorRoot: this._vendor?.root ?? null,
+                destroyed: this._destroyed,
+                targetMapped: Boolean(this._target?.mapped),
+                targetVisible: Boolean(this._target?.visible),
+                targetAllocation: Boolean(
+                    this._target?.has_allocation?.()
+                ),
+                targetGeometry: this._target
+                    ? {
+                        x: this._target.x,
+                        y: this._target.y,
+                        width: this._target.width,
+                        height: this._target.height,
+                        opacity: this._target.opacity,
+                    }
+                    : null,
+                backgroundMapped: Boolean(this._bgActor?.mapped),
+                backgroundVisible: Boolean(this._bgActor?.visible),
+                backgroundAllocation: Boolean(
+                    this._bgActor?.has_allocation?.()
+                ),
+                liquidBoxMapped: Boolean(this._liquidBox?.mapped),
+                liquidBoxAllocation: Boolean(
+                    this._liquidBox?.has_allocation?.()
+                ),
+                liveEffects:
+                    globalThis.global?._lgGlass?.count?.() ?? null,
+            }),
+            dump: () => {
+                const status =
+                    globalThis[DEBUG_STATE_KEY]?.status?.() ?? null;
+                console.log(
+                    '[Velora][LiquidGlass][status] ' +
+                    JSON.stringify(status)
+                );
+                const upstream =
+                    globalThis.global?._lgGlass?.dump?.() ?? null;
+                return {status, upstream};
+            },
+        };
     }
 
     _buildClones() {
@@ -688,5 +739,9 @@ export class LiquidGlassDockRenderer {
         this._settings = null;
         this._lastGeometry = null;
         this._vendor = null;
+
+        const debug = globalThis[DEBUG_STATE_KEY];
+        if (debug)
+            delete globalThis[DEBUG_STATE_KEY];
     }
 }
