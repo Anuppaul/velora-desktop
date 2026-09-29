@@ -122,7 +122,21 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = new LiquidGlassIntegration({
             veloraSettings: this._settings,
         });
-        await this._liquidGlassIntegration.enable();
+
+        try {
+            await this._liquidGlassIntegration.enable();
+        } catch (error) {
+            logError(
+                error,
+                'Velora: Liquid Glass startup failed; keeping full Orb active'
+            );
+            try {
+                this._liquidGlassIntegration.disable();
+            } catch {
+                // Best-effort rollback of a partial material startup.
+            }
+            this._liquidGlassIntegration = null;
+        }
 
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
