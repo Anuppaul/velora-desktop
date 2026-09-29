@@ -43,7 +43,18 @@ const DOCK_POSITIONS = [
     ['right', 'Right'],
 ];
 
+function hasSettingsKey(settings, key) {
+    try {
+        return settings.settings_schema?.has_key?.(key) ?? false;
+    } catch {
+        return false;
+    }
+}
+
 function addSwitch(group, settings, key, title, subtitle) {
+    if (!hasSettingsKey(settings, key))
+        return null;
+
     const row = new Adw.SwitchRow({title, subtitle});
     settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(row);
@@ -79,6 +90,9 @@ function addBackShadowSwitch(group, settings) {
 }
 
 function addSpin(group, settings, key, title, subtitle, min, max, step = 1) {
+    if (!hasSettingsKey(settings, key))
+        return null;
+
     const row = new Adw.ActionRow({title, subtitle});
     const adjustment = new Gtk.Adjustment({
         lower: min,
@@ -109,6 +123,9 @@ function addSpin(group, settings, key, title, subtitle, min, max, step = 1) {
 }
 
 function addText(group, settings, key, title, subtitle, placeholder = '') {
+    if (!hasSettingsKey(settings, key))
+        return null;
+
     const row = new Adw.ActionRow({title, subtitle});
     const entry = new Gtk.Entry({
         text: settings.get_string(key),
@@ -131,6 +148,9 @@ function addText(group, settings, key, title, subtitle, placeholder = '') {
 }
 
 function addCombo(group, settings, key, title, subtitle, options) {
+    if (!hasSettingsKey(settings, key))
+        return null;
+
     const labels = options.map(([, label]) => label);
     const values = options.map(([value]) => value);
     const model = Gtk.StringList.new(labels);
