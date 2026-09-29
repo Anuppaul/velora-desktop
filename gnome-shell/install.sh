@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.12"
+INSTALLER_VERSION="2026-09-29.13"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -757,9 +757,30 @@ PACK_ARGS+=("${SOURCE_DIR}")
 echo "Building GNOME extension bundle..."
 gnome-extensions "${PACK_ARGS[@]}"
 
-PACK_PATH="${BUILD_DIR}/${UUID}.shell-extension.zip"
-[[ -f "${PACK_PATH}" ]] ||
-    fail "gnome-extensions pack did not create ${PACK_PATH}"
+# GNOME versions do not all use the same generated archive basename.
+# The output directory is a fresh mktemp directory, so discover the bundle
+# that pack actually created instead of assuming ${UUID}.shell-extension.zip.
+mapfile -t PACK_CANDIDATES < <(
+    find "${BUILD_DIR}" -maxdepth 1 -type f -name '*.zip' -print |
+        LC_ALL=C sort
+)
+
+if [[ "${#PACK_CANDIDATES[@]}" -eq 0 ]]; then
+    echo "gnome-extensions pack returned success but created no zip in:" >&2
+    echo "  ${BUILD_DIR}" >&2
+    echo "Build directory contents:" >&2
+    find "${BUILD_DIR}" -maxdepth 2 -type f -print >&2 || true
+    fail "GNOME extension bundle was not produced."
+fi
+
+if [[ "${#PACK_CANDIDATES[@]}" -gt 1 ]]; then
+    echo "gnome-extensions pack created multiple zip bundles:" >&2
+    printf '  %s\n' "${PACK_CANDIDATES[@]}" >&2
+    fail "Unable to choose the Velora extension bundle safely."
+fi
+
+PACK_PATH="${PACK_CANDIDATES[0]}"
+echo "Bundle: ${PACK_PATH}"
 
 if command -v unzip >/dev/null 2>&1; then
     REQUIRED_PACKED_FILES=(
