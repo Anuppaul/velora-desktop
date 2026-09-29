@@ -247,7 +247,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const liquidDockGroup = new Adw.PreferencesGroup({
             title: 'Liquid Glass Dock',
-            description: 'Floating dock layout, wallpaper-aware tint, blur and auto-hide.',
+            description: 'Floating dock layout and auto-hide. Use the Liquid Glass Appearance and Rendering pages for material, blur, tint, refraction and lighting.',
         });
         appearancePage.add(liquidDockGroup);
 
@@ -288,30 +288,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
             0,
             64,
             2
-        );
-        addSpin(
-            liquidDockGroup,
-            settings,
-            'floating-dock-opacity',
-            'Glass opacity',
-            'Background opacity of the Liquid Glass surface.',
-            20,
-            100,
-            1
-        );
-        addSwitch(
-            liquidDockGroup,
-            settings,
-            'floating-dock-wallpaper-tint',
-            'Wallpaper-adaptive tint',
-            'Samples the current wallpaper and shifts the glass tint toward its dominant tone.'
-        );
-        addSwitch(
-            liquidDockGroup,
-            settings,
-            'floating-dock-blur',
-            'Background blur',
-            'Uses GNOME native background blur behind the small dock surface when available.'
         );
         addSwitch(
             liquidDockGroup,
