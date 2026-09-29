@@ -13,6 +13,7 @@ const GLASS_SCHEMA =
 const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV2';
 const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV2';
 const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV2';
+const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 
 function canonicalExtensionRoot() {
@@ -156,7 +157,13 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     if (globalThis[VENDOR_PROMISE_KEY])
         return globalThis[VENDOR_PROMISE_KEY];
 
-    let root = globalThis[VENDOR_ROOT_KEY] ?? null;
+    let root =
+        globalThis[VENDOR_ROOT_KEY] ??
+        globalThis[LEGACY_VENDOR_ROOT_KEY] ??
+        null;
+
+    if (root)
+        globalThis[VENDOR_ROOT_KEY] = root;
 
     if (!root) {
         const liquidType = GObject.type_from_name('LiquidGlassEffect');
