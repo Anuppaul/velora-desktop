@@ -63,9 +63,50 @@ function addIntSpin(group, settings, key, title, subtitle, min, max, step) {
     return row;
 }
 
+function addDoubleSpin(
+    group,
+    settings,
+    key,
+    title,
+    subtitle,
+    min,
+    max,
+    step,
+    digits = 2
+) {
+    const row = new Adw.SpinRow({
+        title,
+        subtitle,
+        adjustment: new Gtk.Adjustment({
+            lower: min,
+            upper: max,
+            step_increment: step,
+            page_increment: step * 5,
+            value: settings.get_double(key),
+        }),
+        digits,
+    });
+
+    let syncing = false;
+    const sync = () => {
+        syncing = true;
+        row.value = settings.get_double(key);
+        syncing = false;
+    };
+
+    row.connect('notify::value', () => {
+        if (!syncing)
+            settings.set_double(key, row.value);
+    });
+    settings.connect('changed::' + key, sync);
+    group.add(row);
+    return row;
+}
+
 export default class VeloraPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        const advanced = createLiquidGlassSettings(this.dir);
 
         const page = new Adw.PreferencesPage({
             title: 'Velora',
@@ -105,10 +146,31 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         glass.add(tint);
 
+        addDoubleSpin(
+            glass, advanced, 'glass-displacement-scale',
+            'Refraction', 'Edge lens displacement strength', 0, 60, 0.5, 1
+        );
+        addDoubleSpin(
+            glass, advanced, 'glass-chroma-strength',
+            'Chromatic fringe', 'RGB dispersion at refractive edges (px)', 0, 8, 0.1, 1
+        );
+        addDoubleSpin(
+            glass, advanced, 'glass-specular-intensity',
+            'Specular', 'Directional highlight strength', 0, 2, 0.05, 2
+        );
+        addDoubleSpin(
+            glass, advanced, 'glass-rim-intensity',
+            'Rim light', 'Fresnel edge-light strength', 0, 2, 0.05, 2
+        );
+        addDoubleSpin(
+            glass, advanced, 'glass-sheen-intensity',
+            'Sheen', 'Soft surface sheen across the glass', 0, 1, 0.02, 2
+        );
+
         const orb = new Adw.PreferencesGroup({
             title: 'Orb',
             description:
-                'The Orb is the only retained Velora launcher-era surface. Clicking it opens GNOME Applications.',
+                'Full Velora Orb: click toggles GNOME Applications; hover opens the radial launcher with previews, tooltips and running indicators.',
         });
         page.add(orb);
 
@@ -153,6 +215,67 @@ export default class VeloraPreferences extends ExtensionPreferences {
             orb, settings, 'auto-fade-delay',
             'Auto-fade delay', 'Milliseconds before fading', 0, 30000, 250
         );
+        addIntSpin(
+            orb, settings, 'hover-delay',
+            'Launcher hover delay', 'Milliseconds before the radial launcher opens', 0, 1200, 25
+        );
+        addIntSpin(
+            orb, settings, 'close-delay',
+            'Launcher close delay', 'Milliseconds before the radial launcher closes', 0, 1800, 25
+        );
+        addIntSpin(
+            orb, settings, 'icon-size',
+            'Launcher icon size', 'Application icon button diameter', 20, 80, 1
+        );
+        addIntSpin(
+            orb, settings, 'icon-gap',
+            'Launcher icon gap', 'Minimum edge gap between icons', 0, 64, 1
+        );
+        addIntSpin(
+            orb, settings, 'ring-gap',
+            'Ring gap', 'Distance between radial launcher rings', 0, 160, 2
+        );
+        addIntSpin(
+            orb, settings, 'animation-ms',
+            'Launcher animation', 'Open/close animation duration (ms)', 0, 600, 10
+        );
+        addIntSpin(
+            orb, settings, 'app-preview-size',
+            'App preview size', 'Live window preview size percentage', 50, 180, 5
+        );
+        addSwitch(
+            orb, settings, 'show-tooltips',
+            'Tooltips', 'Show application names on hover'
+        );
+        addSwitch(
+            orb, settings, 'show-running-indicator',
+            'Running indicators', 'Show active application dots'
+        );
+
+        const ringMode = new Adw.ComboRow({
+            title: 'Ring mode',
+            subtitle: 'Automatic or fixed radial launcher ring count',
+            model: Gtk.StringList.new([
+                'Auto',
+                '2 rings',
+                '3 rings',
+                '4 rings',
+            ]),
+        });
+        const ringValues = ['auto', '2', '3', '4'];
+        const syncRing = () => {
+            const value = settings.get_string('ring-mode');
+            ringMode.selected = Math.max(0, ringValues.indexOf(value));
+        };
+        syncRing();
+        ringMode.connect('notify::selected', () => {
+            settings.set_string(
+                'ring-mode',
+                ringValues[ringMode.selected] ?? 'auto'
+            );
+        });
+        settings.connect('changed::ring-mode', syncRing);
+        orb.add(ringMode);
 
         const reset = new Adw.ActionRow({
             title: 'Reset Orb position',
@@ -170,7 +293,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
         reset.activatable_widget = resetButton;
         orb.add(reset);
 
-        const advanced = createLiquidGlassSettings(this.dir);
         buildLiquidGlassPreferences(window, advanced);
     }
 }
