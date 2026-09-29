@@ -173,29 +173,21 @@
     font-weight: 650;
 }
 
-/* Notification layout/content remain native. The runtime manager only
- * replaces the painted background material. */
-.velora-native-date-menu-shell {
+/* PopupGlassManager keeps the original GNOME menu.box as the content layer.
+ * Only its painted card material is removed. */
+.velora-liquid-popup-content {
     background-color: transparent;
     background-image: none;
     border-color: transparent;
     box-shadow: none;
-
-/* PopupGlassManager keeps the original GNOME menu.box as the content layer.
- * Only its painted card material is removed. */
-.velora-liquid-popup-content {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
 }
 
 /* The top panel's native solid paint must not cover its Liquid Glass layer. */
 #panel.velora-liquid-top-panel,
 .velora-liquid-top-panel {
-    background-color: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
 }
 
 /* Nested submenus sit inside the already-glassed parent popup. A translucent
@@ -208,8 +200,8 @@
 
 /* Non-PopupMenu Shell cards discovered by ShellCardGlassManager. */
 .velora-liquid-shell-card {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
 }
