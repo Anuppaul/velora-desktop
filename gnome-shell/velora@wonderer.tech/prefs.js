@@ -20,162 +20,45 @@ function createLiquidGlassSettings(extensionDir) {
         false
     );
     const schema = source.lookup(LIQUID_GLASS_SCHEMA, true);
-    if (!schema) {
-        throw new Error(
-            'Unable to load vendored Liquid Glass settings schema'
-        );
-    }
+    if (!schema)
+        throw new Error('Vendored Liquid Glass schema not found');
 
     return new Gio.Settings({settings_schema: schema});
 }
 
-const RING_MODES = [
-    ['auto', 'Adaptive (1–4 layers)'],
-    ['2', 'Force 2 layers'],
-    ['3', 'Force 3 layers'],
-    ['4', 'Force 4 layers'],
-];
-
-const DOCK_POSITIONS = [
-    ['bottom', 'Bottom'],
-    ['top', 'Top'],
-    ['left', 'Left'],
-    ['right', 'Right'],
-];
-
-function hasSettingsKey(settings, key) {
-    try {
-        return settings.settings_schema?.has_key?.(key) ?? false;
-    } catch {
-        return false;
-    }
-}
-
 function addSwitch(group, settings, key, title, subtitle) {
-    if (!hasSettingsKey(settings, key))
-        return null;
-
     const row = new Adw.SwitchRow({title, subtitle});
     settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
     group.add(row);
     return row;
 }
 
-function addBackShadowSwitch(group, settings) {
-    const row = new Adw.SwitchRow({
-        title: 'Back shadow',
-        subtitle: 'Outer shadow behind Liquid Glass surfaces. Turn this off to remove the shadow completely.',
+function addIntSpin(group, settings, key, title, subtitle, min, max, step) {
+    const row = new Adw.SpinRow({
+        title,
+        subtitle,
+        adjustment: new Gtk.Adjustment({
+            lower: min,
+            upper: max,
+            step_increment: step,
+            page_increment: step * 5,
+            value: settings.get_int(key),
+        }),
+        digits: 0,
     });
 
+    let syncing = false;
     const sync = () => {
-        row.active =
-            settings.get_double('shadow-intensity') > 0.001;
+        syncing = true;
+        row.value = settings.get_int(key);
+        syncing = false;
     };
 
-    sync();
-    row.connect('notify::active', () => {
-        const current =
-            settings.get_double('shadow-intensity');
-        if (row.active) {
-            if (current <= 0.001)
-                settings.set_double('shadow-intensity', 0.22);
-        } else if (current > 0.001) {
-            settings.set_double('shadow-intensity', 0.0);
-        }
+    row.connect('notify::value', () => {
+        if (!syncing)
+            settings.set_int(key, Math.round(row.value));
     });
-    settings.connect('changed::shadow-intensity', sync);
-
-    group.add(row);
-    return row;
-}
-
-function addSpin(group, settings, key, title, subtitle, min, max, step = 1) {
-    if (!hasSettingsKey(settings, key))
-        return null;
-
-    const row = new Adw.ActionRow({title, subtitle});
-    const adjustment = new Gtk.Adjustment({
-        lower: min,
-        upper: max,
-        step_increment: step,
-        page_increment: step * 5,
-        value: settings.get_int(key),
-    });
-    const spin = new Gtk.SpinButton({
-        adjustment,
-        numeric: true,
-        valign: Gtk.Align.CENTER,
-        width_chars: 5,
-    });
-
-    spin.connect('value-changed', () => {
-        settings.set_int(key, spin.get_value_as_int());
-        if (key.startsWith('date-menu-'))
-            Gio.Settings.sync();
-    });
-    settings.connect('changed::' + key, () => {
-        if (spin.get_value_as_int() !== settings.get_int(key))
-            spin.set_value(settings.get_int(key));
-    });
-
-    row.add_suffix(spin);
-    row.activatable_widget = spin;
-    group.add(row);
-    return row;
-}
-
-function addText(group, settings, key, title, subtitle, placeholder = '') {
-    if (!hasSettingsKey(settings, key))
-        return null;
-
-    const row = new Adw.ActionRow({title, subtitle});
-    const entry = new Gtk.Entry({
-        text: settings.get_string(key),
-        placeholder_text: placeholder,
-        valign: Gtk.Align.CENTER,
-        width_chars: 24,
-        hexpand: false,
-    });
-
-    entry.connect('changed', () => {
-        settings.set_string(key, entry.text);
-        if (key.startsWith('date-menu-'))
-            Gio.Settings.sync();
-    });
-    settings.connect('changed::' + key, () => {
-        if (entry.text !== settings.get_string(key))
-            entry.text = settings.get_string(key);
-    });
-
-    row.add_suffix(entry);
-    row.activatable_widget = entry;
-    group.add(row);
-    return row;
-}
-
-function addCombo(group, settings, key, title, subtitle, options) {
-    if (!hasSettingsKey(settings, key))
-        return null;
-
-    const labels = options.map(([, label]) => label);
-    const values = options.map(([value]) => value);
-    const model = Gtk.StringList.new(labels);
-    const row = new Adw.ComboRow({title, subtitle, model});
-
-    const syncFromSettings = () => {
-        const index = Math.max(0, values.indexOf(settings.get_string(key)));
-        if (row.selected !== index)
-            row.selected = index;
-    };
-
-    syncFromSettings();
-    row.connect('notify::selected', () => {
-        const value = values[row.selected] ?? values[0];
-        if (settings.get_string(key) !== value)
-            settings.set_string(key, value);
-    });
-    settings.connect('changed::' + key, syncFromSettings);
-
+    settings.connect('changed::' + key, sync);
     group.add(row);
     return row;
 }
@@ -183,342 +66,97 @@ function addCombo(group, settings, key, title, subtitle, options) {
 export default class VeloraPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        const liquidGlassSettings =
-            createLiquidGlassSettings(this.dir);
-        window._veloraSettings = settings;
-        window._veloraLiquidGlassSettings =
-            liquidGlassSettings;
-        window.set_default_size(720, 760);
 
-        const launcherPage = new Adw.PreferencesPage({
-            title: 'Launcher',
-            icon_name: 'view-app-grid-symbolic',
+        const page = new Adw.PreferencesPage({
+            title: 'Velora',
+            icon_name: 'preferences-desktop-appearance-symbolic',
         });
-        const appearancePage = new Adw.PreferencesPage({
-            title: 'Launcher Style',
-            icon_name: 'applications-graphics-symbolic',
-        });
+        window.add(page);
 
-        window.add(launcherPage);
-        window.add(appearancePage);
-
-        const surfacesGroup = new Adw.PreferencesGroup({
-            title: 'Launcher surfaces',
-            description: 'Orb and Liquid Dock are independent. Enable either one or keep both visible together.',
+        const glass = new Adw.PreferencesGroup({
+            title: 'System Liquid Glass',
+            description:
+                'One material profile for GNOME Shell popups, notifications and supported system surfaces.',
         });
-        launcherPage.add(surfacesGroup);
+        page.add(glass);
+
+        addIntSpin(
+            glass, settings, 'glass-blur',
+            'Blur', 'Dual Kawase blur radius', 0, 80, 1
+        );
+        addIntSpin(
+            glass, settings, 'glass-opacity',
+            'Tint strength', 'White/color tint mixed into the glass', 0, 100, 1
+        );
+
+        const tint = new Adw.EntryRow({
+            title: 'Tint color',
+            text: settings.get_string('glass-tint-color'),
+        });
+        tint.connect('changed', () => {
+            const value = tint.text.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(value))
+                settings.set_string('glass-tint-color', value);
+        });
+        settings.connect('changed::glass-tint-color', () => {
+            const value = settings.get_string('glass-tint-color');
+            if (tint.text !== value)
+                tint.text = value;
+        });
+        glass.add(tint);
+
+        const orb = new Adw.PreferencesGroup({
+            title: 'Orb',
+            description:
+                'The Orb is the only retained Velora launcher-era surface. Clicking it opens GNOME Applications.',
+        });
+        page.add(orb);
 
         addSwitch(
-            surfacesGroup,
-            settings,
-            'orb-enabled',
-            'Velora Orb',
-            'Show the movable Orb with the adaptive circular launcher.'
+            orb, settings, 'orb-enabled',
+            'Show Orb', 'Keep the Velora Orb on the desktop'
         );
-        addSwitch(
-            surfacesGroup,
-            settings,
-            'floating-dock-enabled',
-            'Liquid Glass Dock',
-            'Show the independent floating favorites + running-app dock.'
+        addIntSpin(
+            orb, settings, 'orb-size',
+            'Size', 'Orb diameter in pixels', 20, 80, 1
+        );
+        addIntSpin(
+            orb, settings, 'orb-opacity',
+            'Opacity', 'Orb opacity percentage', 0, 100, 1
         );
 
-        const behaviorGroup = new Adw.PreferencesGroup({
-            title: 'Velora Orb behavior',
-            description: 'Hover shows dock apps. Click toggles the GNOME Applications view.',
+        const icon = new Adw.EntryRow({
+            title: 'Orb icon',
+            text: settings.get_string('orb-icon'),
         });
-        launcherPage.add(behaviorGroup);
-
-        addSwitch(
-            behaviorGroup,
-            settings,
-            'hide-ubuntu-dock',
-            'Hide Ubuntu Dock',
-            'Velora force-disables Ubuntu Dock while active, removes its reservation, and restores its exact previous state when disabled. Other dock extensions are not affected.'
-        );
-        addCombo(
-            behaviorGroup,
-            settings,
-            'ring-mode',
-            'Hover layers',
-            'Adaptive starts with one compact ring and adds more rings only when the app count or screen geometry requires it.',
-            RING_MODES
-        );
-        addSwitch(
-            behaviorGroup,
-            settings,
-            'show-running-indicator',
-            'Running app dot',
-            'Shows a small premium running indicator under active application icons.'
-        );
-        addSwitch(
-            behaviorGroup,
-            settings,
-            'show-tooltips',
-            'App name tooltips',
-            'Shows the application name while hovering a dock icon.'
-        );
-
-        const motionGroup = new Adw.PreferencesGroup({
-            title: 'Interaction',
-            description: 'Tune hover timing and Velora motion.',
-        });
-        launcherPage.add(motionGroup);
-
-        addSpin(motionGroup, settings, 'hover-delay', 'Hover open delay', 'Milliseconds before dock icons expand from the Orb.', 0, 1200, 20);
-        addSpin(motionGroup, settings, 'close-delay', 'Close delay', 'Milliseconds before dock icons collapse after pointer leaves. Set 0 for immediate close.', 0, 1800, 20);
-        addSpin(motionGroup, settings, 'animation-ms', 'Animation duration', 'Set to 0 for immediate opening and closing.', 0, 600, 10);
-        addSwitch(
-            motionGroup,
-            settings,
-            'auto-hide-orb',
-            'Auto-hide Orb',
-            'Slides the Orb to the nearest screen edge when idle, leaving a small reveal strip. Auto-fade is suspended while this is enabled.'
-        );
-        addSwitch(
-            motionGroup,
-            settings,
-            'auto-fade-orb',
-            'Auto-fade Orb',
-            'Fades the Orb to zero opacity after the idle delay. Hovering the same location restores the configured Orb opacity.'
-        );
-        addSpin(
-            motionGroup,
-            settings,
-            'auto-fade-delay',
-            'Auto-fade delay',
-            'Milliseconds before the idle Orb fades to zero opacity.',
-            0,
-            30000,
-            250
-        );
-        addSpin(
-            motionGroup,
-            settings,
-            'auto-hide-delay',
-            'Auto-hide delay',
-            'Milliseconds before the idle Orb slides to the nearest screen edge.',
-            0,
-            10000,
-            100
-        );
-
-        const liquidDockGroup = new Adw.PreferencesGroup({
-            title: 'Liquid Glass Dock',
-            description: 'Floating dock layout and auto-hide. Use the Liquid Glass Appearance and Rendering pages for material, blur, tint, refraction and lighting.',
-        });
-        appearancePage.add(liquidDockGroup);
-
-        addCombo(
-            liquidDockGroup,
-            settings,
-            'floating-dock-position',
-            'Dock position',
-            'Place the independent floating dock on any screen edge.',
-            DOCK_POSITIONS
-        );
-        addSpin(
-            liquidDockGroup,
-            settings,
-            'floating-dock-icon-size',
-            'Dock icon size',
-            'Size of each application icon button.',
-            24,
-            80,
-            2
-        );
-        addSpin(
-            liquidDockGroup,
-            settings,
-            'floating-dock-gap',
-            'Icon gap',
-            'Space between neighboring dock icons.',
-            0,
-            32,
-            1
-        );
-        addSpin(
-            liquidDockGroup,
-            settings,
-            'floating-dock-edge-offset',
-            'Edge distance',
-            'Distance between the floating dock and the selected screen edge.',
-            0,
-            64,
-            2
-        );
-        addSwitch(
-            liquidDockGroup,
-            settings,
-            'floating-dock-auto-hide',
-            'Auto-hide Dock',
-            'Slides the dock to its selected screen edge when idle, leaving a small reveal strip.'
-        );
-        addSpin(
-            liquidDockGroup,
-            settings,
-            'floating-dock-hide-delay',
-            'Auto-hide delay',
-            'Milliseconds before an idle floating dock hides.',
-            0,
-            10000,
-            100
-        );
-
-        const glassSurfaceGroup = new Adw.PreferencesGroup({
-            title: 'Liquid Glass surfaces',
-            description: 'Simple controls for the common surface-level adjustments. Detailed optics remain under Appearance / Effects / Rendering.',
-        });
-        appearancePage.add(glassSurfaceGroup);
-
-        addBackShadowSwitch(
-            glassSurfaceGroup,
-            liquidGlassSettings
-        );
-
-        const dateMenuRendererRow = new Adw.ActionRow({
-            title: 'Date / Calendar renderer',
-            subtitle: 'Native GNOME Date Menu at native size. Use the Notification / Calendar card controls below for opacity, tint and blur.',
-        });
-        const dateMenuRendererState = new Gtk.Label({
-            label: 'Native',
-            valign: Gtk.Align.CENTER,
-        });
-        dateMenuRendererState.add_css_class('success');
-        dateMenuRendererRow.add_suffix(
-            dateMenuRendererState
-        );
-        glassSurfaceGroup.add(dateMenuRendererRow);
-
-        const notificationRendererRow = new Adw.ActionRow({
-            title: 'Notification renderer',
-            subtitle: 'Native GNOME notification banner. It uses the same Opacity, Tint color and Blur values as the Date / Calendar card.',
-        });
-        const notificationRendererState = new Gtk.Label({
-            label: 'Native',
-            valign: Gtk.Align.CENTER,
-        });
-        notificationRendererState.add_css_class('success');
-        notificationRendererRow.add_suffix(
-            notificationRendererState
-        );
-        glassSurfaceGroup.add(notificationRendererRow);
-
-        const topPanelRow = new Adw.ActionRow({
-            title: 'Top panel glass',
-            subtitle: 'Enabled by Velora using the upstream Liquid Glass renderer on the actual GNOME top bar.',
-        });
-        const topPanelState = new Gtk.Label({
-            label: 'Enabled',
-            valign: Gtk.Align.CENTER,
-        });
-        topPanelState.add_css_class('success');
-        topPanelRow.add_suffix(topPanelState);
-        glassSurfaceGroup.add(topPanelRow);
-
-        const dateCardGroup = new Adw.PreferencesGroup({
-            title: 'Date Menu / Notification background',
-            description: 'Controls the large popup background opened from the top-bar date/clock and the temporary notification banner. Inner calendar/event cards keep their native styling.',
-        });
-        appearancePage.add(dateCardGroup);
-
-        addSpin(
-            dateCardGroup,
-            settings,
-            'date-menu-opacity',
-            'Opacity',
-            'Background opacity only. 0% makes the large Date Menu popup and notification banner transparent; text and inner content stay fully opaque.',
-            0,
-            100,
-            1
-        );
-
-        addText(
-            dateCardGroup,
-            settings,
-            'date-menu-tint-color',
-            'Tint color',
-            'Hex tint for the large Date Menu popup background and notification banner, for example #000000 or #1d6fa5.',
-            '#000000'
-        );
-
-        addSpin(
-            dateCardGroup,
-            settings,
-            'date-menu-blur',
-            'Blur',
-            'Background blur radius for the large Date Menu popup and notification banner. Set 0 to disable blur completely.',
-            0,
-            80,
-            1
-        );
-
-        const previewGroup = new Adw.PreferencesGroup({
-            title: 'App window preview',
-            description: 'Customize the live window preview shown when hovering a running app.',
-        });
-        appearancePage.add(previewGroup);
-
-        addSpin(
-            previewGroup,
-            settings,
-            'app-preview-size',
-            'Window preview size',
-            'Scale the live hover preview. 100% is the default size.',
-            50,
-            180,
-            5
-        );
-
-        const geometryGroup = new Adw.PreferencesGroup({
-            title: 'Hover icon geometry',
-            description: 'Hover launcher icon size, icon-to-icon distance and layer distance are independent.',
-        });
-        appearancePage.add(geometryGroup);
-
-        addSpin(geometryGroup, settings, 'icon-size', 'App icon size', 'Diameter of each clean circular hover app button.', 20, 80, 2);
-        addSpin(geometryGroup, settings, 'icon-gap', 'Icon distance', 'Minimum edge-to-edge distance between neighboring icons in the same layer.', 0, 64, 2);
-        addSpin(geometryGroup, settings, 'ring-gap', 'Layer distance', 'Requested center-to-center distance between radial layers. Set 0 for automatic minimum safe spacing.', 0, 160, 2);
-
-        const orbGroup = new Adw.PreferencesGroup({
-            title: 'Velora Orb',
-            description: 'The Orb position and appearance update live.',
-        });
-        appearancePage.add(orbGroup);
-
-        addSpin(orbGroup, settings, 'orb-size', 'Orb size', 'Diameter of the floating black Orb.', 20, 80, 2);
-        addSpin(orbGroup, settings, 'orb-opacity', 'Orb opacity', 'Opacity percentage for the floating Orb. 0 is fully transparent.', 0, 100, 1);
-        addText(
-            orbGroup,
-            settings,
+        settings.bind(
             'orb-icon',
-            'Orb icon',
-            'Themed icon name or absolute SVG/PNG path. Default: start-here-symbolic (Ubuntu logo on Yaru).',
-            'start-here-symbolic'
+            icon,
+            'text',
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        orb.add(icon);
+
+        addSwitch(
+            orb, settings, 'auto-hide-orb',
+            'Auto-hide', 'Slide the Orb to the nearest monitor edge while idle'
+        );
+        addIntSpin(
+            orb, settings, 'auto-hide-delay',
+            'Auto-hide delay', 'Milliseconds before hiding', 0, 10000, 100
+        );
+        addSwitch(
+            orb, settings, 'auto-fade-orb',
+            'Auto-fade', 'Fade the Orb while idle when auto-hide is off'
+        );
+        addIntSpin(
+            orb, settings, 'auto-fade-delay',
+            'Auto-fade delay', 'Milliseconds before fading', 0, 30000, 250
         );
 
-        const resetIconRow = new Adw.ActionRow({
-            title: 'Reset Orb icon',
-            subtitle: 'Restores the default Ubuntu symbolic icon.',
-        });
-        const resetIconButton = new Gtk.Button({
-            label: 'Reset',
-            valign: Gtk.Align.CENTER,
-        });
-        resetIconButton.connect('clicked', () => settings.reset('orb-icon'));
-        resetIconRow.add_suffix(resetIconButton);
-        resetIconRow.activatable_widget = resetIconButton;
-        orbGroup.add(resetIconRow);
-
-        const positionGroup = new Adw.PreferencesGroup({
-            title: 'Orb position',
-            description: 'Drag the Orb directly on the desktop. Its normalized position survives resolution changes.',
-        });
-        appearancePage.add(positionGroup);
-
-        const resetRow = new Adw.ActionRow({
-            title: 'Reset to top-left',
-            subtitle: 'Returns the Orb to the default Velora position.',
+        const reset = new Adw.ActionRow({
+            title: 'Reset Orb position',
+            subtitle: 'Return the Orb to its default position.',
         });
         const resetButton = new Gtk.Button({
             label: 'Reset',
@@ -528,13 +166,11 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings.reset('orb-x');
             settings.reset('orb-y');
         });
-        resetRow.add_suffix(resetButton);
-        resetRow.activatable_widget = resetButton;
-        positionGroup.add(resetRow);
+        reset.add_suffix(resetButton);
+        reset.activatable_widget = resetButton;
+        orb.add(reset);
 
-        buildLiquidGlassPreferences(
-            window,
-            liquidGlassSettings
-        );
+        const advanced = createLiquidGlassSettings(this.dir);
+        buildLiquidGlassPreferences(window, advanced);
     }
 }
