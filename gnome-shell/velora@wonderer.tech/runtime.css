@@ -218,14 +218,18 @@
 /* Notification layout/content remain native. The runtime manager only
  * replaces the painted background material. */
 .velora-native-date-menu-shell {
+    background-color: transparent;
     background-image: none;
-    border: 0;
+    border-color: transparent;
     box-shadow: none;
+    -arrow-background-color: transparent;
+    -arrow-border-color: transparent;
 }
 
 .velora-native-date-menu-glass {
+    background-color: transparent;
     background-image: none;
-    border: 0;
+    border-color: transparent;
     box-shadow: none;
 }
 
