@@ -284,7 +284,6 @@ export class LiquidGlassIntegration {
         this._osdManager = null;
         this._applicationManager = null;
         this._windowListService = null;
-        this._dockManagers = new Set();
         this._nativeDashEntries = [];
         this._topPanelManager = null;
         this._topPanelSettingIds = [];
@@ -955,110 +954,6 @@ export class LiquidGlassIntegration {
         this._dashReconnectTimeoutId = sourceId;
     }
 
-    async attachDock(targetActor) {
-        if (!this._enabled)
-            await this.enable();
-
-        const manager = new this._vendor.DashManager(
-            this._vendor.root,
-            targetActor,
-            this._settings,
-            this._logger
-        );
-
-        // Velora's floating dock already owns an explicit, fixed rectangle.
-        // Upstream DashManager's margin/reference/stabilization corrections
-        // exist for Dash-to-Dock's dynamic actor hierarchy; applying them to
-        // our fixed card can make the glass body breathe by a few pixels as
-        // hover/focus/preview state changes. Freeze its source geometry to the
-        // actual root actor and bypass those Dash-to-Dock-only corrections.
-        const originalStyle = targetActor.get_style?.() ?? '';
-
-        manager._applyMargin = () => {
-            manager._marginValue = 0;
-            if (
-                targetActor.get_style?.() !==
-                originalStyle
-            ) {
-                targetActor.set_style?.(originalStyle);
-            }
-        };
-
-        manager._stabilizeDockBounds =
-            bounds => bounds;
-        manager._findReferenceActor =
-            () => null;
-        manager._applyDockMargin =
-            bounds => bounds;
-
-        manager._readDockBounds = () => {
-            if (!targetActor?.mapped)
-                return null;
-
-            const [baseW, baseH] =
-                targetActor.get_size();
-            const [absX, absY] =
-                targetActor.get_transformed_position();
-
-            if (
-                ![
-                    absX,
-                    absY,
-                    baseW,
-                    baseH,
-                ].every(Number.isFinite) ||
-                baseW <= 0 ||
-                baseH <= 0
-            ) {
-                return null;
-            }
-
-            manager._liveSource = {
-                actor: targetActor,
-                rawX: absX,
-                rawY: absY,
-            };
-
-            return {
-                absX,
-                absY,
-                baseW,
-                baseH,
-            };
-        };
-
-        manager.setup();
-
-        // setup() reads the shared dock-margin setting after _applyMargin().
-        // Force the Velora card back to its own geometry contract.
-        manager._marginValue = 0;
-        manager._glassExpand = 0;
-        manager._lastBaseW = undefined;
-        manager._lastBaseH = undefined;
-        manager._stableDeltaW = 0;
-        manager._stableDeltaH = 0;
-        manager._lastTW = targetActor.width;
-        manager._lastTH = targetActor.height;
-        manager._applyMargin();
-
-        this._dockManagers.add(manager);
-        return manager;
-    }
-
-    detachDock(manager) {
-        if (!manager)
-            return;
-
-        this._dockManagers.delete(manager);
-        try {
-            manager.cleanup();
-        } catch (error) {
-            console.error(
-                '[Velora][LiquidGlass] dock cleanup failed: ' + error
-            );
-        }
-    }
-
     _loadStylesheet() {
         const file = Gio.File.new_for_path(
             GLib.build_filenamev([
@@ -1192,7 +1087,6 @@ export class LiquidGlassIntegration {
                 vendorRoot: this._vendor?.root ?? null,
                 liveEffects:
                     globalThis.global?._lgGlass?.count?.() ?? null,
-                dockManagers: this._dockManagers.size,
                 nativeDashManagers:
                     this._nativeDashEntries.length,
                 topPanel: Boolean(this._topPanelManager),
@@ -1341,10 +1235,6 @@ export class LiquidGlassIntegration {
             }
         };
 
-        for (const manager of [...this._dockManagers])
-            cleanup('dockManager', manager);
-        this._dockManagers.clear();
-
         this._cleanupTopPanelGlass();
 
         for (const entry of [
@@ -1394,48 +1284,3 @@ export class LiquidGlassIntegration {
     }
 }
 
-export class LiquidGlassDockRenderer {
-    constructor(params) {
-        this._integration = params.integration;
-        this._target = params.target;
-        this._manager = null;
-        this._enablePromise = null;
-    }
-
-    enable() {
-        if (this._manager || this._enablePromise)
-            return this._enablePromise;
-
-        if (!this._integration || !this._target)
-            return Promise.resolve();
-
-        this._enablePromise = this._integration
-            .attachDock(this._target)
-            .then(manager => {
-                this._manager = manager;
-            })
-            .finally(() => {
-                this._enablePromise = null;
-            });
-
-        return this._enablePromise;
-    }
-
-    syncSettings() {
-        // Upstream DashManager binds directly to the upstream GSettings
-        // object, so no Velora-side parameter mirroring is required.
-    }
-
-    sync() {
-        // Upstream DashManager owns frame-synced geometry/capture updates.
-    }
-
-    destroy() {
-        if (this._manager)
-            this._integration?.detachDock(this._manager);
-
-        this._manager = null;
-        this._target = null;
-        this._integration = null;
-    }
-}
