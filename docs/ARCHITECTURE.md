@@ -75,7 +75,18 @@ Nested PopupSubMenu content sits inside the parent glass and receives a light tr
 
 Notifications use the proven notificationGlass manager.
 
-Top panel, OSD and native Ubuntu Dock/Dash-to-Dock continue to use the vendored production renderer while their dedicated low-load adapters are refined.
+ShellCardGlassManager recursively watches the Shell UI actor tree through child-added signals (no polling) and applies the same wallpaper-only material to non-PopupMenu Shell cards whose native paint owner is a known GNOME class:
+
+- modal-dialog;
+- switcher-list (Alt-Tab);
+- workspace-switcher;
+- screenshot-ui-panel;
+- app-folder-dialog;
+- resize-popup.
+
+The material is inserted as a no-layout sibling directly below the native actor, so it inherits the same parent transform while leaving native layout untouched.
+
+Top panel, OSD and native Ubuntu Dock/Dash-to-Dock continue to use the vendored production renderer.
 
 ## Performance rules
 
