@@ -10,6 +10,10 @@ import {
     ExtensionState,
 } from 'resource:///org/gnome/shell/misc/extensionUtils.js';
 
+import {
+    NotificationGlassManager,
+} from './notificationGlass.js';
+
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
 
