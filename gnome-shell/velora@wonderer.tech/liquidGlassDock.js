@@ -269,6 +269,7 @@ export class LiquidGlassIntegration {
         this._cardAppearancePollId = 0;
         this._lastCardAppearanceSignature = '';
         this._dateMenuChildStyles = new Map();
+        this._dateMenuChildBlurEffects = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
@@ -620,6 +621,7 @@ export class LiquidGlassIntegration {
             state.blur;
 
         this._applyNativeDateMenuAppearance(state);
+        this._styleNativeDateMenuChildren(state);
         this._applyAllNativeNotificationAppearances(state);
 
         console.log(
@@ -738,55 +740,42 @@ export class LiquidGlassIntegration {
             ' box-shadow: none;'
         );
 
-        // THIS is the exact surface that was previously made transparent:
-        // popup-menu-content / menu.box. Opacity is now just the alpha
-        // component of that same background declaration.
+        // Keep popup-menu-content transparent. The visible material is painted
+        // by GNOME's actual card actors (.calendar, .events-button,
+        // .world-clocks-button, .weather-button, .message), which are styled
+        // separately below.
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
-            `; background-color: ${fill};` +
+            '; background-color: rgba(0,0,0,0);' +
             ' background-image: none;' +
             ' border-color: rgba(0,0,0,0);' +
             ' box-shadow: none;'
         );
 
-        // Blur follows the same popup-menu-content surface. At 0 there is no
-        // effect object at all.
-        if (blur > 0) {
-            if (!this._dateMenuBlurEffect) {
-                this._dateMenuBlurEffect =
-                    new Shell.BlurEffect({
-                        mode: Shell.BlurMode.BACKGROUND,
-                        radius: blur,
-                        brightness: 1.0,
-                    });
-                box.add_effect(
-                    this._dateMenuBlurEffect
-                );
-            } else {
-                this._dateMenuBlurEffect.radius = blur;
-            }
-        } else if (this._dateMenuBlurEffect) {
+        if (this._dateMenuBlurEffect) {
             try {
                 box.remove_effect(
                     this._dateMenuBlurEffect
                 );
             } catch {
-                // Effect may already be detached while Shell is tearing down.
+                // Effect may already be detached.
             }
             this._dateMenuBlurEffect = null;
         }
 
-        // Outer BoxPointer remains transparent; only menu.box needs to repaint
-        // when opacity/tint changes.
         actor._border?.queue_repaint?.();
         actor.queue_redraw?.();
         box.queue_redraw?.();
     }
 
-    _styleNativeDateMenuChildren() {
+    _styleNativeDateMenuChildren(
+        state = this._readSharedCardAppearance()
+    ) {
         const root = this._dateMenuBox;
         if (!root)
             return;
+
+        const {fill, blur} = state;
 
         const cardClasses = new Set([
             'calendar',
@@ -818,11 +807,39 @@ export class LiquidGlassIntegration {
 
                 actor.set_style?.(
                     original +
-                    '; background-color: rgba(0,0,0,0);' +
+                    `; background-color: ${fill};` +
                     ' background-image: none;' +
                     ' border-color: rgba(0,0,0,0);' +
                     ' box-shadow: none;'
                 );
+
+                let effect =
+                    this._dateMenuChildBlurEffects.get(actor) ?? null;
+
+                if (blur > 0) {
+                    if (!effect) {
+                        effect = new Shell.BlurEffect({
+                            mode: Shell.BlurMode.BACKGROUND,
+                            radius: blur,
+                            brightness: 1.0,
+                        });
+                        actor.add_effect(effect);
+                        this._dateMenuChildBlurEffects.set(
+                            actor,
+                            effect
+                        );
+                    } else {
+                        effect.radius = blur;
+                    }
+                } else if (effect) {
+                    try {
+                        actor.remove_effect(effect);
+                    } catch {
+                        // Card/effect may already be tearing down.
+                    }
+                    this._dateMenuChildBlurEffects.delete(actor);
+                }
+
                 actor.queue_redraw?.();
             }
 
@@ -834,6 +851,16 @@ export class LiquidGlassIntegration {
     }
 
     _restoreNativeDateMenuChildren() {
+        for (const [actor, effect] of
+            this._dateMenuChildBlurEffects) {
+            try {
+                actor.remove_effect(effect);
+            } catch {
+                // Actor/effect may already have been destroyed.
+            }
+        }
+        this._dateMenuChildBlurEffects.clear();
+
         for (const [actor, original] of
             this._dateMenuChildStyles) {
             try {
@@ -897,6 +924,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._dateMenuChildStyles.clear();
+        this._dateMenuChildBlurEffects.clear();
     }
 
     _setupTopPanelGlass() {
