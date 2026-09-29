@@ -28,6 +28,15 @@ function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
 
+function backgroundAlpha(widget) {
+    try {
+        return widget?.get_theme_node?.()
+            ?.get_background_color?.().alpha ?? 0;
+    } catch {
+        return 0;
+    }
+}
+
 function parseHexRgb(value) {
     const text = String(value ?? '').trim();
 
@@ -261,9 +270,12 @@ export class LiquidGlassIntegration {
 
         this._dateMenuActor = null;
         this._dateMenuBox = null;
+        this._dateMenuBoxPointer = null;
         this._dateMenuOpenSignalId = 0;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
+        this._dateMenuOriginalBoxPointerStyle = null;
+        this._dateMenuPopupTarget = null;
         this._dateMenuBlurEffect = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
@@ -461,6 +473,7 @@ export class LiquidGlassIntegration {
         const menu = dateMenu?.menu;
         const actor = menu?.actor;
         const box = menu?.box;
+        const boxPointer = menu?._boxPointer ?? actor ?? null;
 
         if (!menu || !actor || !box) {
             throw new Error(
@@ -470,6 +483,7 @@ export class LiquidGlassIntegration {
 
         this._dateMenuActor = actor;
         this._dateMenuBox = box;
+        this._dateMenuBoxPointer = boxPointer;
 
         actor.add_style_class_name?.(
             'velora-native-date-menu-shell'
@@ -482,6 +496,9 @@ export class LiquidGlassIntegration {
             actor.get_style?.() ?? '';
         this._dateMenuOriginalStyle =
             box.get_style?.() ?? '';
+        this._dateMenuOriginalBoxPointerStyle =
+            boxPointer?.get_style?.() ?? '';
+        this._dateMenuPopupTarget = null;
 
         console.log(
             '[Velora][DateMenu] actor classes: ' +
@@ -513,6 +530,8 @@ export class LiquidGlassIntegration {
                 (_menu, isOpen) => {
                     if (!isOpen)
                         return;
+
+                    this._dateMenuPopupTarget = null;
 
                     GLib.idle_add(
                         GLib.PRIORITY_DEFAULT_IDLE,
@@ -671,34 +690,98 @@ export class LiquidGlassIntegration {
     _applyNativeDateMenuAppearance(
         state = this._readSharedCardAppearance()
     ) {
+        const dateMenu = Main.panel?.statusArea?.dateMenu;
+        const menu = dateMenu?.menu;
         const actor = this._dateMenuActor;
         const box = this._dateMenuBox;
-        if (!actor || !box)
+        const boxPointer =
+            this._dateMenuBoxPointer ?? menu?._boxPointer ?? actor;
+
+        if (!menu || !actor || !box)
+            return;
+
+        // Theme-node inspection is reliable while the popup is open. If a
+        // setting changes while closed, open-state-changed reapplies it.
+        if (!menu.isOpen)
             return;
 
         const {fill, blur} = state;
 
-        // Keep only BoxPointer's own shell/arrow transparent. The actual large
-        // Date Menu panel is menu.box (popup-menu-content), so this is the
-        // exact surface controlled by Opacity/Tint/Blur.
-        actor.set_style?.(
-            (this._dateMenuOriginalActorStyle || '') +
-            '; -arrow-background-color: rgba(0,0,0,0);' +
-            ' -arrow-border-color: rgba(0,0,0,0);' +
-            ' -arrow-border-width: 0px;' +
-            ' background-color: rgba(0,0,0,0);' +
-            ' background-image: none;' +
-            ' box-shadow: none;'
-        );
+        // Restore the native theme first, then inspect which GNOME/Yaru layer
+        // is actually painting the popup background. This is the working
+        // strategy from the uploaded glass-datemenu extension.
+        try {
+            box.set_style?.(
+                this._dateMenuOriginalStyle ?? ''
+            );
 
-        box.set_style?.(
-            (this._dateMenuOriginalStyle || '') +
-            `; background-color: ${fill};` +
-            ' background-image: none;' +
-            ' border-color: rgba(0,0,0,0);' +
-            ' box-shadow: none;'
-        );
+            if (boxPointer) {
+                boxPointer.set_style?.(
+                    this._dateMenuOriginalBoxPointerStyle ??
+                    this._dateMenuOriginalActorStyle ??
+                    ''
+                );
+            } else {
+                actor.set_style?.(
+                    this._dateMenuOriginalActorStyle ?? ''
+                );
+            }
+        } catch {
+            // Best-effort reset before theme-node inspection.
+        }
 
+        const boxAlpha = backgroundAlpha(box);
+        let arrowAlpha = 0;
+
+        if (boxPointer) {
+            try {
+                const [ok, color] =
+                    boxPointer.get_theme_node()
+                        .lookup_color(
+                            '-arrow-background-color',
+                            false
+                        );
+                if (ok)
+                    arrowAlpha = color.alpha;
+            } catch {
+                arrowAlpha = 0;
+            }
+        }
+
+        let target;
+
+        if (
+            boxPointer &&
+            arrowAlpha > 0 &&
+            boxAlpha === 0
+        ) {
+            boxPointer.set_style?.(
+                (this._dateMenuOriginalBoxPointerStyle || '') +
+                `; -arrow-background-color: ${fill};`
+            );
+            target = 'boxpointer';
+        } else {
+            box.set_style?.(
+                (this._dateMenuOriginalStyle || '') +
+                `; background-color: ${fill};`
+            );
+            target = 'menu.box';
+        }
+
+        if (this._dateMenuPopupTarget !== target) {
+            this._dateMenuPopupTarget = target;
+            console.log(
+                '[Velora][CardAppearance] popup target=' +
+                target +
+                ' boxAlpha=' +
+                boxAlpha +
+                ' arrowAlpha=' +
+                arrowAlpha
+            );
+        }
+
+        // Blur remains attached to menu.box exactly like the uploaded working
+        // extension, independent of which layer paints the color.
         if (blur > 0) {
             if (!this._dateMenuBlurEffect) {
                 this._dateMenuBlurEffect =
@@ -727,7 +810,9 @@ export class LiquidGlassIntegration {
             this._dateMenuBlurEffect = null;
         }
 
+        boxPointer?._border?.queue_repaint?.();
         actor._border?.queue_repaint?.();
+        boxPointer?.queue_redraw?.();
         actor.queue_redraw?.();
         box.queue_redraw?.();
     }
@@ -842,12 +927,21 @@ export class LiquidGlassIntegration {
                 'velora-native-date-menu-glass'
             );
 
-            this._dateMenuActor?.set_style?.(
-                this._dateMenuOriginalActorStyle ?? ''
-            );
             this._dateMenuBox?.set_style?.(
                 this._dateMenuOriginalStyle ?? ''
             );
+
+            if (this._dateMenuBoxPointer) {
+                this._dateMenuBoxPointer.set_style?.(
+                    this._dateMenuOriginalBoxPointerStyle ??
+                    this._dateMenuOriginalActorStyle ??
+                    ''
+                );
+            } else {
+                this._dateMenuActor?.set_style?.(
+                    this._dateMenuOriginalActorStyle ?? ''
+                );
+            }
 
         } catch {
             // Date Menu may already be destroyed.
@@ -855,8 +949,11 @@ export class LiquidGlassIntegration {
 
         this._dateMenuActor = null;
         this._dateMenuBox = null;
+        this._dateMenuBoxPointer = null;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
+        this._dateMenuOriginalBoxPointerStyle = null;
+        this._dateMenuPopupTarget = null;
         this._dateMenuBlurEffect = null;
     }
 
