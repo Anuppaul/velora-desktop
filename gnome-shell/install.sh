@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.1"
+INSTALLER_VERSION="2026-09-29.2"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -194,10 +194,28 @@ bootstrap_scaffold_compatible() {
 sync_hot_aux() {
     local file
     local live_dir
+    local runtime_source
+    local destination
 
     for file in "${HOT_AUX_FILES[@]}"; do
         cp -f "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
     done
+
+    # Liquid Glass registers GObject classes whose type names live for the
+    # lifetime of the GNOME Shell process. Keep one canonical vendor tree
+    # outside hashed runtime revisions so all later hot-swaps can reuse the
+    # same cached module URI instead of evaluating registerClass() again.
+    for runtime_source in "${RUNTIME_DIRS[@]}"; do
+        destination="${TARGET_DIR}/${runtime_source}"
+        rm -rf "${destination}"
+        mkdir -p "$(dirname "${destination}")"
+        cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
+    done
+
+    [[ -f "${TARGET_DIR}/vendor/liquid-glass/dist/liquidEffect.js" ]] ||
+        fail "Canonical Liquid Glass renderer sync failed."
+    [[ -f "${TARGET_DIR}/vendor/liquid-glass/shaders/glass.frag" ]] ||
+        fail "Canonical Liquid Glass shader sync failed."
 
     shopt -s nullglob
     for live_dir in "${HOME}"/.cache/velora-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
