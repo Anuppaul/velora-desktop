@@ -283,20 +283,30 @@ class ShellCardSurface {
         );
         this._material.opacity = opacity;
         this._material.show?.();
-        this._syncPaint();
+        this._syncSceneLayers();
     }
 
-    _syncPaint() {
+    syncFrame() {
+        if (
+            this._destroyed ||
+            !this._target?.mapped ||
+            !this._target?.visible
+        ) {
+            return;
+        }
+
+        this._sync();
+    }
+
+    _syncSceneLayers() {
         const material = this._material;
         const sceneRoot = this._sceneRoot;
         const sceneManager = this._sceneManager;
-        const effect = this._effect;
         if (
             this._destroyed ||
             !material ||
             !sceneRoot ||
             !sceneManager ||
-            !effect ||
             !material.mapped
         ) {
             return;
@@ -320,20 +330,35 @@ class ShellCardSurface {
         sceneRoot.set_scale(1 / sx, 1 / sy);
         sceneRoot.set_position(-absX / sx, -absY / sy);
 
-        sceneManager.setCullRect?.([
+        const captureRect = [
             absX,
             absY,
             tw,
             th,
-        ]);
-        sceneManager.applyBgCloneClip?.([
-            absX,
-            absY,
-            tw,
-            th,
-        ]);
+        ];
+        sceneManager.setCullRect?.(captureRect);
+        sceneManager.applyBgCloneClip?.(captureRect);
         sceneManager.sync?.();
+    }
 
+    _syncPaint() {
+        const material = this._material;
+        const effect = this._effect;
+        if (
+            this._destroyed ||
+            !material ||
+            !effect ||
+            !material.mapped
+        ) {
+            return;
+        }
+
+        const [w, h] = material.get_size?.() ?? [0, 0];
+        if (w <= 1 || h <= 1)
+            return;
+
+        // Paint hook is uniforms-only; live scene actor writes happen before
+        // update in ShellCardGlassManager.
         const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
         const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
         effect.setResolution?.(w, h);
@@ -424,6 +449,7 @@ export class ShellCardGlassManager {
         this._surfaces = new Map();
         this._watched = new Map();
         this._enabled = false;
+        this._stageSyncId = 0;
     }
 
     setup() {
@@ -432,6 +458,18 @@ export class ShellCardGlassManager {
         this._enabled = true;
         this._appearance = this._readAppearance();
         this._watchTree(Main.uiGroup);
+
+        this._stageSyncId = global.stage.connect(
+            'before-update',
+            () => {
+                if (!this._enabled)
+                    return;
+
+                for (const surface of this._surfaces.values())
+                    surface.syncFrame();
+            }
+        );
+
         console.log(
             '[Velora][ShellCards] event-driven Shell card registry active'
         );
@@ -511,6 +549,15 @@ export class ShellCardGlassManager {
         if (!this._enabled)
             return;
         this._enabled = false;
+
+        if (this._stageSyncId) {
+            try {
+                global.stage.disconnect(this._stageSyncId);
+            } catch {
+                // Stage may already be tearing down.
+            }
+            this._stageSyncId = 0;
+        }
 
         for (const surface of [...this._surfaces.values()])
             surface.destroy(true);
