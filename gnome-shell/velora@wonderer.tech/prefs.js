@@ -372,7 +372,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const dateMenuRendererRow = new Adw.ActionRow({
             title: 'Date / Calendar renderer',
-            subtitle: 'Native GNOME Date Menu with Velora glass styling. No separate FBO, clone tree, or refraction renderer is used for this card.',
+            subtitle: 'Native GNOME Date Menu at native size. Blur/backdrop removed; the panel background is fully transparent.',
         });
         const dateMenuRendererState = new Gtk.Label({
             label: 'Native',
