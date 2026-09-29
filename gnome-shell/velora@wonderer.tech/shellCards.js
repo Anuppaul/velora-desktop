@@ -72,13 +72,6 @@ class ShellCardSurface {
         sceneRoot.set_no_layout?.(true);
         material.add_child(sceneRoot);
 
-        const sceneManager =
-            new this._vendor.WindowCloneManager(
-                sceneRoot,
-                null,
-                'velora-shell-card-scene'
-            );
-
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-shell-card-breaker',
             reactive: false,
@@ -144,7 +137,7 @@ class ShellCardSurface {
 
         this._material = material;
         this._sceneRoot = sceneRoot;
-        this._sceneManager = sceneManager;
+        this._sceneManager = null;
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
@@ -213,6 +206,31 @@ class ShellCardSurface {
         this._material?.queue_redraw?.();
     }
 
+    _ensureSceneManager() {
+        if (this._sceneManager || !this._sceneRoot)
+            return this._sceneManager;
+
+        this._sceneManager =
+            new this._vendor.WindowCloneManager(
+                this._sceneRoot,
+                null,
+                'velora-shell-card-scene'
+            );
+        return this._sceneManager;
+    }
+
+    _releaseSceneManager() {
+        if (!this._sceneManager)
+            return;
+
+        try {
+            this._sceneManager.destroy?.();
+        } catch {
+            // Scene may already be tearing down.
+        }
+        this._sceneManager = null;
+    }
+
     _sync() {
         if (
             this._destroyed ||
@@ -240,6 +258,7 @@ class ShellCardSurface {
             opacity <= 0
         ) {
             this._material.hide?.();
+            this._releaseSceneManager();
             return;
         }
 
@@ -282,6 +301,8 @@ class ShellCardSurface {
             this._material.opacity = opacity;
         if (!this._material.visible)
             this._material.show?.();
+
+        this._ensureSceneManager();
         this._syncSceneLayers();
     }
 
@@ -291,6 +312,7 @@ class ShellCardSurface {
             !this._target?.mapped ||
             !this._target?.visible
         ) {
+            this._releaseSceneManager();
             return;
         }
 
@@ -300,7 +322,7 @@ class ShellCardSurface {
     _syncSceneLayers() {
         const material = this._material;
         const sceneRoot = this._sceneRoot;
-        const sceneManager = this._sceneManager;
+        const sceneManager = this._ensureSceneManager();
         if (
             this._destroyed ||
             !material ||
@@ -407,9 +429,7 @@ class ShellCardSurface {
             } catch {}
         }
 
-        try {
-            this._sceneManager?.destroy?.();
-        } catch {}
+        this._releaseSceneManager();
 
         if (
             removeClass &&
