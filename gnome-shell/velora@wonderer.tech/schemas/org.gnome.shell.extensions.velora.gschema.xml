@@ -105,11 +105,6 @@
       <range min="0" max="10000"/>
       <summary>Milliseconds before the floating dock auto-hides</summary>
     </key>
-    <key name="notification-panel-scale" type="i">
-      <default>100</default>
-      <range min="60" max="180"/>
-      <summary>Scale percentage for the GNOME notification banner card</summary>
-    </key>
     <key name="date-menu-panel-scale" type="i">
       <default>100</default>
       <range min="60" max="180"/>
