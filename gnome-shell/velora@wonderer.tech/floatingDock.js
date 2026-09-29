@@ -19,6 +19,7 @@ const GLASS_FILTER_INSET = 3;
 export class FloatingDockController {
     constructor(params) {
         this._settings = params.settings;
+        this._liquidGlassIntegration = params.liquidGlassIntegration;
         this._appSystem = params.appSystem;
         this._shellSettings = params.shellSettings;
         this._layer = params.layer;
@@ -86,8 +87,7 @@ export class FloatingDockController {
         this._layer.add_child(this._root);
 
         this._liquidGlass = new LiquidGlassDockRenderer({
-            settings: this._settings,
-            layer: this._layer,
+            integration: this._liquidGlassIntegration,
             target: this._root,
         });
         const liquidGlassReady = this._liquidGlass.enable();
@@ -150,6 +150,7 @@ export class FloatingDockController {
         this.disable();
 
         this._isPreviewVisible = null;
+        this._liquidGlassIntegration = null;
         this._settings = null;
         this._appSystem = null;
         this._shellSettings = null;
