@@ -216,10 +216,8 @@
 }
 
 .velora-native-notification-glass {
-    background-color: rgba(24, 27, 34, 0.78) !important;
     background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.20) !important;
-    border-radius: 24px !important;
+    border-radius: 24px;
     box-shadow: none;
     color: #ffffff;
     transition-duration: 120ms;
@@ -227,8 +225,6 @@
 
 .velora-native-notification-glass:hover,
 .velora-native-notification-glass:focus {
-    background-color: rgba(30, 34, 42, 0.84) !important;
-    border-color: rgba(255, 255, 255, 0.28) !important;
     box-shadow: none;
 }
 
