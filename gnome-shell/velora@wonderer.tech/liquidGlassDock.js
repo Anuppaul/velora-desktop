@@ -306,9 +306,7 @@ export class LiquidGlassIntegration {
         this._cardCssFile = null;
         this._cardCssCounter = 0;
         this._panelMenuManager = null;
-        this._notificationBannerBin = null;
-        this._notificationBannerSignals = [];
-        this._notificationBlurEffects = new Map();
+        this._notificationGlassManager = null;
         this._quickSettingsManager = null;
         this._osdManager = null;
         this._applicationManager = null;
@@ -467,7 +465,10 @@ export class LiquidGlassIntegration {
 
         this._monitorsChangedId = Main.layoutManager.connect(
             'monitors-changed',
-            () => this._scheduleNativeDashRescan()
+            () => {
+                this._scheduleNativeDashRescan();
+                this._notificationGlassManager?.updateAppearance();
+            }
         );
 
         this._dashTimeoutId = GLib.timeout_add(
