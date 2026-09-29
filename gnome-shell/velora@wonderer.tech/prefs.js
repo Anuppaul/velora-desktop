@@ -364,17 +364,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
         glassSurfaceGroup.add(dateMenuRendererRow);
 
-        addSpin(
-            glassSurfaceGroup,
-            settings,
-            'date-menu-panel-scale',
-            'Date / Calendar panel scale',
-            'Scale the complete native card opened by clicking the date and clock in the top bar.',
-            60,
-            180,
-            5
-        );
-
         const notificationRendererRow = new Adw.ActionRow({
             title: 'Notification renderer',
             subtitle: 'Native GNOME notification card with Velora glass styling. No extra FBO, clone tree, or refraction renderer is used for notifications.',
