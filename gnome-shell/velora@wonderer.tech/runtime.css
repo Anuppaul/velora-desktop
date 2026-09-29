@@ -216,22 +216,14 @@
 }
 
 .velora-native-notification-glass {
-    background-image: none;
     border-radius: 24px;
-    box-shadow: none;
     color: #ffffff;
     transition-duration: 120ms;
-}
-
-.velora-native-notification-glass:hover,
-.velora-native-notification-glass:focus {
-    box-shadow: none;
 }
 
 .velora-native-notification-glass StButton {
     box-shadow: none;
 }
-
 
 .velora-native-date-menu-shell {
     background-image: none;
@@ -242,27 +234,6 @@
 .velora-native-date-menu-glass {
     background-image: none;
     border: 0;
-    box-shadow: none;
-}
-
-.velora-native-date-menu-glass .calendar,
-.velora-native-date-menu-glass .datemenu-today-button,
-.velora-native-date-menu-glass .events-button,
-.velora-native-date-menu-glass .world-clocks-button,
-.velora-native-date-menu-glass .weather-button,
-.velora-native-date-menu-glass .message,
-.velora-native-date-menu-glass .message-list-controls {
-    background-color: transparent;
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
-}
-
-.velora-native-date-menu-glass .events-button:hover,
-.velora-native-date-menu-glass .world-clocks-button:hover,
-.velora-native-date-menu-glass .weather-button:hover,
-.velora-native-date-menu-glass .message:hover {
-    background-color: transparent;
     box-shadow: none;
 }
 
