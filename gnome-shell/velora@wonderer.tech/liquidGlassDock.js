@@ -454,6 +454,7 @@ export class LiquidGlassIntegration {
             () => {
                 this._scheduleNativeDashRescan();
                 this._notificationGlassManager?.updateAppearance();
+                this._dateMenuGlassManager?.updateAppearance();
             }
         );
 
