@@ -215,16 +215,8 @@
     font-weight: 650;
 }
 
-.velora-native-notification-glass {
-    border-radius: 24px;
-    color: #ffffff;
-    transition-duration: 120ms;
-}
-
-.velora-native-notification-glass StButton {
-    box-shadow: none;
-}
-
+/* Notification layout/content remain native. The runtime manager only
+ * replaces the painted background material. */
 .velora-native-date-menu-shell {
     background-image: none;
     border: 0;
