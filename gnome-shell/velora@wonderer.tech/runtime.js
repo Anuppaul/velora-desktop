@@ -432,10 +432,6 @@ export default class VeloraRuntime extends Extension {
                 this._floatingDock?.syncSettings();
             }
 
-            if (key === 'notification-panel-scale') {
-                // LiquidGlassIntegration owns the live notification transform.
-            }
-
             if (['orb-size', 'orb-opacity', 'orb-icon'].includes(key)) {
                 this._applyOrbAppearance();
                 this._syncOrbFromSettings();
