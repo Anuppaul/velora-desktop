@@ -6,6 +6,12 @@ import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {
+    ExtensionState,
+} from 'resource:///org/gnome/shell/misc/extensionUtils.js';
+
+const UPSTREAM_EXTENSION_UUID =
+    'liquid-glass@thinkingcoding1231.gmail.com';
 
 const GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
@@ -33,6 +39,25 @@ export function canonicalVendorRoot() {
         'vendor',
         'liquid-glass',
     ]);
+}
+
+function activeUpstreamExtensionRoot() {
+    try {
+        const extension = Main.extensionManager.lookup(
+            UPSTREAM_EXTENSION_UUID
+        );
+        if (
+            extension &&
+            extension.state === ExtensionState.ACTIVE &&
+            extension.path
+        ) {
+            return extension.path;
+        }
+    } catch {
+        // Upstream extension is not active/available.
+    }
+
+    return null;
 }
 
 function previousRevisionVendorRoot(settings) {
@@ -162,6 +187,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     let root =
         globalThis[VENDOR_ROOT_KEY] ??
         globalThis[LEGACY_VENDOR_ROOT_KEY] ??
+        activeUpstreamExtensionRoot() ??
         null;
 
     if (root)
@@ -231,6 +257,7 @@ export class LiquidGlassIntegration {
         this._dumpSettingsId = 0;
         this._dumpKeybindingInstalled = false;
         this._enabled = false;
+        this._externalGlobalStack = false;
     }
 
     async enable() {
@@ -244,13 +271,30 @@ export class LiquidGlassIntegration {
         this._logger = new this._vendor.Logger(this._settings);
         this._vendor.setUtilsLogger(this._logger);
 
-        this._loadStylesheet();
+        const externalRoot = activeUpstreamExtensionRoot();
+        this._externalGlobalStack = Boolean(
+            externalRoot &&
+            externalRoot === this._vendor.root
+        );
+
+        if (!this._externalGlobalStack)
+            this._loadStylesheet();
 
         this._enabled = true;
         console.log(
             '[Velora][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
         );
+
+        if (this._externalGlobalStack) {
+            console.warn(
+                '[Velora][LiquidGlass] original Liquid Glass extension is ' +
+                'already active; reusing its global manager stack and ' +
+                'attaching only Velora-specific dock surfaces.'
+            );
+            this._installDebugState();
+            return;
+        }
 
         this._setupDiagnostics();
 
@@ -698,6 +742,8 @@ export class LiquidGlassIntegration {
                 windowListService: Boolean(
                     this._windowListService
                 ),
+                externalGlobalStack:
+                    this._externalGlobalStack,
             }),
             dump: () => {
                 const status =
@@ -864,6 +910,7 @@ export class LiquidGlassIntegration {
         this._logger = null;
         this._settings = null;
         this._vendor = null;
+        this._externalGlobalStack = false;
     }
 }
 
