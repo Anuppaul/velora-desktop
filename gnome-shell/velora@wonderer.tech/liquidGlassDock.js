@@ -29,6 +29,7 @@ const GLASS_SCHEMA =
 const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV3';
 const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV3';
 const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV3';
+const LEGACY_VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV2';
 const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
@@ -257,6 +258,27 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
 
     if (globalThis[VENDOR_PROMISE_KEY])
         return globalThis[VENDOR_PROMISE_KEY];
+
+    // Hot-swap compatibility: reuse the exact vendor module graph already
+    // loaded by the previous V2 runtime. Re-importing the whole vendor tree
+    // from a new URI can collide with process-global GObject registrations.
+    const legacyCache = globalThis[LEGACY_VENDOR_CACHE_KEY] ?? null;
+    if (legacyCache?.root) {
+        if (!legacyCache.WindowCloneManager) {
+            const windowClones = await import(
+                moduleUri(
+                    legacyCache.root,
+                    'dist/capture/windowClones.js'
+                )
+            );
+            legacyCache.WindowCloneManager =
+                windowClones.WindowCloneManager;
+        }
+
+        globalThis[VENDOR_CACHE_KEY] = legacyCache;
+        globalThis[VENDOR_ROOT_KEY] = legacyCache.root;
+        return legacyCache;
+    }
 
     let root =
         globalThis[VENDOR_ROOT_KEY] ??
