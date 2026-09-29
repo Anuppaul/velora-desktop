@@ -372,7 +372,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const dateMenuRendererRow = new Adw.ActionRow({
             title: 'Date / Calendar renderer',
-            subtitle: 'Native GNOME Date Menu at native size. Blur/backdrop removed; the panel background is fully transparent.',
+            subtitle: 'Native GNOME Date Menu at native size. Use the Notification / Calendar card controls below for opacity, tint and blur.',
         });
         const dateMenuRendererState = new Gtk.Label({
             label: 'Native',
@@ -409,6 +409,43 @@ export default class VeloraPreferences extends ExtensionPreferences {
         topPanelState.add_css_class('success');
         topPanelRow.add_suffix(topPanelState);
         glassSurfaceGroup.add(topPanelRow);
+
+        const dateCardGroup = new Adw.PreferencesGroup({
+            title: 'Notification / Calendar card',
+            description: 'Appearance of the native card opened from the top-bar date and clock. These controls do not change text, icons, layout or card size.',
+        });
+        appearancePage.add(dateCardGroup);
+
+        addSpin(
+            dateCardGroup,
+            settings,
+            'date-menu-opacity',
+            'Opacity',
+            'Background/tint opacity only. 0% keeps the current fully transparent card; text and calendar content stay fully opaque.',
+            0,
+            100,
+            1
+        );
+
+        addText(
+            dateCardGroup,
+            settings,
+            'date-menu-tint-color',
+            'Tint color',
+            'Hex color for the card background, for example #000000 or #1d6fa5.',
+            '#000000'
+        );
+
+        addSpin(
+            dateCardGroup,
+            settings,
+            'date-menu-blur',
+            'Blur',
+            'Background blur radius. Set 0 to disable blur completely.',
+            0,
+            80,
+            1
+        );
 
         const previewGroup = new Adw.PreferencesGroup({
             title: 'App window preview',
