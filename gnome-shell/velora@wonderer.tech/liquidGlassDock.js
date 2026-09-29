@@ -594,11 +594,11 @@ export class LiquidGlassIntegration {
         const fill =
             `rgba(${r},${g},${b},${opacity.toFixed(3)})`;
 
-        // BoxPointer paints the outer rounded shell. Tint/opacity are applied
-        // only here; GNOME content actors remain fully opaque.
+        // Keep the outer BoxPointer exactly as in the known-working fully
+        // transparent version. It must never become the opacity surface.
         actor.set_style?.(
             (this._dateMenuOriginalActorStyle || '') +
-            `; -arrow-background-color: ${fill};` +
+            '; -arrow-background-color: rgba(0,0,0,0);' +
             ' -arrow-border-color: rgba(0,0,0,0);' +
             ' -arrow-border-width: 0px;' +
             ' background-color: rgba(0,0,0,0);' +
@@ -606,16 +606,19 @@ export class LiquidGlassIntegration {
             ' box-shadow: none;'
         );
 
-        // Keep popup-menu-content itself transparent so there is only one
-        // controllable tint layer.
+        // THIS is the exact surface that was previously made transparent:
+        // popup-menu-content / menu.box. Opacity is now just the alpha
+        // component of that same background declaration.
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
-            '; background-color: rgba(0,0,0,0);' +
+            `; background-color: ${fill};` +
             ' background-image: none;' +
             ' border-color: rgba(0,0,0,0);' +
             ' box-shadow: none;'
         );
 
+        // Blur follows the same popup-menu-content surface. At 0 there is no
+        // effect object at all.
         if (blur > 0) {
             if (!this._dateMenuBlurEffect) {
                 this._dateMenuBlurEffect =
@@ -624,7 +627,7 @@ export class LiquidGlassIntegration {
                         radius: blur,
                         brightness: 1.0,
                     });
-                actor.add_effect(
+                box.add_effect(
                     this._dateMenuBlurEffect
                 );
             } else {
@@ -632,7 +635,7 @@ export class LiquidGlassIntegration {
             }
         } else if (this._dateMenuBlurEffect) {
             try {
-                actor.remove_effect(
+                box.remove_effect(
                     this._dateMenuBlurEffect
                 );
             } catch {
@@ -641,30 +644,11 @@ export class LiquidGlassIntegration {
             this._dateMenuBlurEffect = null;
         }
 
-        // GNOME BoxPointer renders the visible rounded popup background in
-        // a separate St.DrawingArea (_border). set_style()/queue_redraw() on
-        // the parent does not guarantee that canvas is repainted. Explicitly
-        // invalidate it so live opacity/tint changes become visible.
+        // Outer BoxPointer remains transparent; only menu.box needs to repaint
+        // when opacity/tint changes.
         actor._border?.queue_repaint?.();
-        actor.queue_relayout?.();
         actor.queue_redraw?.();
         box.queue_redraw?.();
-
-        // Repaint again on the next idle after St has resolved the new theme
-        // node; this avoids one-frame use of the previous custom property.
-        GLib.idle_add(
-            GLib.PRIORITY_DEFAULT_IDLE,
-            () => {
-                if (
-                    this._enabled &&
-                    actor === this._dateMenuActor
-                ) {
-                    actor._border?.queue_repaint?.();
-                    actor.queue_redraw?.();
-                }
-                return GLib.SOURCE_REMOVE;
-            }
-        );
     }
 
     _styleNativeDateMenuChildren() {
@@ -752,9 +736,9 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuAppearanceSettingIds = [];
 
-        if (this._dateMenuBlurEffect && this._dateMenuActor) {
+        if (this._dateMenuBlurEffect && this._dateMenuBox) {
             try {
-                this._dateMenuActor.remove_effect(
+                this._dateMenuBox.remove_effect(
                     this._dateMenuBlurEffect
                 );
             } catch {
