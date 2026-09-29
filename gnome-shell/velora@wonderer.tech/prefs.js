@@ -417,8 +417,8 @@ export default class VeloraPreferences extends ExtensionPreferences {
         glassSurfaceGroup.add(topPanelRow);
 
         const dateCardGroup = new Adw.PreferencesGroup({
-            title: 'Notification / Calendar card',
-            description: 'One shared material for both the Date / Calendar panel and temporary notification banner. These controls do not change text, icons, layout or card size.',
+            title: 'Date Menu / Notification background',
+            description: 'Controls the large popup background opened from the top-bar date/clock and the temporary notification banner. Inner calendar/event cards keep their native styling.',
         });
         appearancePage.add(dateCardGroup);
 
@@ -427,7 +427,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'date-menu-opacity',
             'Opacity',
-            'Background/tint opacity only. 0% keeps the current fully transparent card; text and calendar content stay fully opaque.',
+            'Background opacity only. 0% makes the large Date Menu popup and notification banner transparent; text and inner content stay fully opaque.',
             0,
             100,
             1
@@ -438,7 +438,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'date-menu-tint-color',
             'Tint color',
-            'Hex color for the card background, for example #000000 or #1d6fa5.',
+            'Hex tint for the large Date Menu popup background and notification banner, for example #000000 or #1d6fa5.',
             '#000000'
         );
 
@@ -447,7 +447,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'date-menu-blur',
             'Blur',
-            'Background blur radius. Set 0 to disable blur completely.',
+            'Background blur radius for the large Date Menu popup and notification banner. Set 0 to disable blur completely.',
             0,
             80,
             1
