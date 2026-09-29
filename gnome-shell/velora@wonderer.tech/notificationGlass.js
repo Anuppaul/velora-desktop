@@ -162,6 +162,15 @@ export class NotificationGlassManager {
         wallpaper.set_position?.(0, 0);
         liquidBox.insert_child_at_index(wallpaper, 0);
 
+        // Matches the proven LiquidEffect container pattern used by the
+        // vendored managers. It paints nothing; it only avoids a Clutter
+        // offscreen-cache optimization edge case that can produce black frames.
+        const breaker = new this._vendor.UnpickableActor();
+        breaker.set_name('velora-notification-optimization-breaker');
+        breaker.set_size(1, 1);
+        breaker.set_opacity(0);
+        liquidBox.add_child(breaker);
+
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
