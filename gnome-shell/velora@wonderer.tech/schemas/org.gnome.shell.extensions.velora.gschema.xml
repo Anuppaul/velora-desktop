@@ -3,227 +3,85 @@
   <schema id="org.gnome.shell.extensions.velora" path="/org/gnome/shell/extensions/velora/">
     <key name="bootstrap-loaded-generation" type="s">
       <default>''</default>
-      <summary>Internal generation of the bootstrap loaded by the running Shell</summary>
+      <summary>Internal bootstrap generation loaded by GNOME Shell</summary>
     </key>
     <key name="bootstrap-loaded-revision" type="s">
       <default>''</default>
-      <summary>Internal fingerprint of the bootstrap loaded by the running Shell</summary>
+      <summary>Internal bootstrap fingerprint loaded by GNOME Shell</summary>
     </key>
     <key name="runtime-revision" type="s">
       <default>'base'</default>
-      <summary>Internal requested hot-swap runtime revision</summary>
+      <summary>Requested hot-swap runtime revision</summary>
     </key>
     <key name="runtime-loaded-revision" type="s">
       <default>''</default>
-      <summary>Internal runtime revision currently loaded by the bootstrap</summary>
+      <summary>Runtime revision currently loaded by the bootstrap</summary>
     </key>
     <key name="runtime-error" type="s">
       <default>''</default>
-      <summary>Internal runtime hot-swap error status</summary>
+      <summary>Runtime hot-swap error status</summary>
     </key>
-    <key name="hide-ubuntu-dock" type="b">
-      <default>true</default>
-      <summary>Hide Ubuntu Dock while Velora is enabled</summary>
-    </key>
-    <key name="dock-state-captured" type="b">
-      <default>false</default>
-      <summary>Internal flag indicating that the original Ubuntu Dock state is saved</summary>
-    </key>
-    <key name="dock-original-manualhide" type="b">
-      <default>false</default>
-      <summary>Internal saved Ubuntu Dock manual-hide state</summary>
-    </key>
-    <key name="dock-original-fixed" type="b">
-      <default>true</default>
-      <summary>Internal saved Ubuntu Dock fixed state</summary>
-    </key>
-    <key name="dock-extension-state-captured" type="b">
-      <default>false</default>
-      <summary>Internal flag indicating that Ubuntu Dock extension-list state is saved</summary>
-    </key>
-    <key name="dock-original-enabled-listed" type="b">
-      <default>false</default>
-      <summary>Whether Ubuntu Dock originally appeared in enabled-extensions</summary>
-    </key>
-    <key name="dock-original-disabled-listed" type="b">
-      <default>false</default>
-      <summary>Whether Ubuntu Dock originally appeared in disabled-extensions</summary>
-    </key>
-    <key name="app-preview-size" type="i">
-      <default>100</default>
-      <range min="50" max="180"/>
-      <summary>Live app window preview size as a percentage of the default</summary>
-    </key>
-    <key name="floating-dock-enabled" type="b">
-      <default>false</default>
-      <summary>Show the independent Velora Liquid Glass floating dock</summary>
-    </key>
-    <key name="floating-dock-position" type="s">
-      <default>'bottom'</default>
-      <choices>
-        <choice value="bottom"/>
-        <choice value="top"/>
-        <choice value="left"/>
-        <choice value="right"/>
-      </choices>
-      <summary>Screen edge used by the Velora floating dock</summary>
-    </key>
-    <key name="floating-dock-icon-size" type="i">
-      <default>48</default>
-      <range min="24" max="80"/>
-      <summary>Application icon button size in the floating dock</summary>
-    </key>
-    <key name="floating-dock-gap" type="i">
-      <default>8</default>
-      <range min="0" max="32"/>
-      <summary>Gap between application icons in the floating dock</summary>
-    </key>
-    <key name="floating-dock-edge-offset" type="i">
-      <default>16</default>
-      <range min="0" max="64"/>
-      <summary>Distance between the floating dock and its screen edge</summary>
-    </key>
-    <key name="floating-dock-opacity" type="i">
-      <default>76</default>
-      <range min="20" max="100"/>
-      <summary>Liquid Glass dock background opacity percentage</summary>
-    </key>
-    <key name="floating-dock-wallpaper-tint" type="b">
-      <default>true</default>
-      <summary>Adapt the floating dock tint to the current wallpaper</summary>
-    </key>
-    <key name="floating-dock-blur" type="b">
-      <default>true</default>
-      <summary>Use GNOME background blur behind the floating dock when available</summary>
-    </key>
-    <key name="floating-dock-auto-hide" type="b">
-      <default>false</default>
-      <summary>Slide the floating dock to its screen edge when idle</summary>
-    </key>
-    <key name="floating-dock-hide-delay" type="i">
-      <default>1200</default>
-      <range min="0" max="10000"/>
-      <summary>Milliseconds before the floating dock auto-hides</summary>
-    </key>
-    <!--
-      Deprecated compatibility tombstone.
-      This key is intentionally NOT exposed by current preferences and is NOT
-      read by runtime code. GNOME may cache an older prefs.js module for the
-      lifetime of the prefs process; keeping the old key prevents that cached
-      module from crashing after a live schema update.
-    -->
-    <key name="date-menu-panel-scale" type="i">
-      <default>100</default>
-      <range min="60" max="180"/>
-      <summary>Deprecated compatibility key; ignored by current Velora</summary>
-    </key>
-    <key name="date-menu-opacity" type="i">
-      <default>12</default>
-      <range min="0" max="100"/>
-      <summary>Liquid Glass tint strength percentage for native Date / Notification surfaces</summary>
-    </key>
-    <key name="date-menu-tint-color" type="s">
-      <default>'#ffffff'</default>
-      <summary>Tint color for native Date / Notification Liquid Glass surfaces</summary>
-    </key>
-    <key name="date-menu-blur" type="i">
-      <default>20</default>
-      <range min="0" max="80"/>
-      <summary>Background blur radius for native Date / Notification Liquid Glass surfaces</summary>
-    </key>
-    <key name="ring-mode" type="s">
-      <default>'auto'</default>
-      <choices>
-        <choice value="auto"/>
-        <choice value="2"/>
-        <choice value="3"/>
-        <choice value="4"/>
-      </choices>
-      <summary>Dock icon ring count mode: adaptive 1–4, or forced 2, 3 or 4</summary>
-    </key>
+
     <key name="orb-enabled" type="b">
       <default>true</default>
-      <summary>Show the Velora Orb launcher surface</summary>
+      <summary>Show the Velora Orb</summary>
     </key>
     <key name="orb-size" type="i">
       <default>44</default>
       <range min="20" max="80"/>
-      <summary>Floating Velora orb size</summary>
-    </key>
-    <key name="orb-icon" type="s">
-      <default>'start-here-symbolic'</default>
-      <summary>Themed icon name or absolute SVG/PNG path used inside the Velora orb</summary>
-    </key>
-    <key name="auto-hide-orb" type="b">
-      <default>false</default>
-      <summary>Automatically slide the Velora orb to the nearest screen edge when idle</summary>
-    </key>
-    <key name="auto-fade-orb" type="b">
-      <default>true</default>
-      <summary>Fade the Velora orb to zero opacity after an idle delay</summary>
-    </key>
-    <key name="auto-fade-delay" type="i">
-      <default>5000</default>
-      <range min="0" max="30000"/>
-      <summary>Milliseconds before the idle Velora orb fades to zero opacity</summary>
-    </key>
-    <key name="auto-hide-delay" type="i">
-      <default>1400</default>
-      <range min="0" max="10000"/>
-      <summary>Milliseconds before an idle Velora orb auto-hides to the nearest edge</summary>
-    </key>
-    <key name="icon-size" type="i">
-      <default>52</default>
-      <range min="20" max="80"/>
-      <summary>Hover dock application icon button size</summary>
-    </key>
-    <key name="icon-gap" type="i">
-      <default>12</default>
-      <range min="0" max="64"/>
-      <summary>Minimum edge-to-edge distance between neighboring icons</summary>
-    </key>
-    <key name="ring-gap" type="i">
-      <default>80</default>
-      <range min="0" max="160"/>
-      <summary>Requested center-to-center distance between radial layers</summary>
-    </key>
-    <key name="hover-delay" type="i">
-      <default>100</default>
-      <range min="0" max="1200"/>
-      <summary>Hover delay before showing dock applications</summary>
-    </key>
-    <key name="close-delay" type="i">
-      <default>420</default>
-      <range min="0" max="1800"/>
-      <summary>Delay before hiding dock applications after pointer leaves</summary>
-    </key>
-    <key name="animation-ms" type="i">
-      <default>160</default>
-      <range min="0" max="600"/>
-      <summary>Radial open and close animation duration</summary>
+      <summary>Velora Orb size</summary>
     </key>
     <key name="orb-opacity" type="i">
       <default>100</default>
       <range min="0" max="100"/>
-      <summary>Orb opacity percentage</summary>
+      <summary>Velora Orb opacity percentage</summary>
     </key>
-    <key name="show-tooltips" type="b">
-      <default>true</default>
-      <summary>Show app names while hovering dock icons</summary>
-    </key>
-    <key name="show-running-indicator" type="b">
-      <default>true</default>
-      <summary>Show a subtle running dot for active applications</summary>
+    <key name="orb-icon" type="s">
+      <default>'start-here-symbolic'</default>
+      <summary>Themed icon name or absolute SVG/PNG path used by the Orb</summary>
     </key>
     <key name="orb-x" type="d">
       <default>0.015</default>
       <range min="0.0" max="1.0"/>
-      <summary>Normalized horizontal orb position</summary>
+      <summary>Normalized horizontal Orb position</summary>
     </key>
     <key name="orb-y" type="d">
       <default>0.065</default>
       <range min="0.0" max="1.0"/>
-      <summary>Normalized vertical orb position</summary>
+      <summary>Normalized vertical Orb position</summary>
+    </key>
+    <key name="auto-hide-orb" type="b">
+      <default>false</default>
+      <summary>Slide the Orb to the nearest monitor edge while idle</summary>
+    </key>
+    <key name="auto-hide-delay" type="i">
+      <default>1400</default>
+      <range min="0" max="10000"/>
+      <summary>Milliseconds before the idle Orb auto-hides</summary>
+    </key>
+    <key name="auto-fade-orb" type="b">
+      <default>true</default>
+      <summary>Fade the Orb while idle when auto-hide is disabled</summary>
+    </key>
+    <key name="auto-fade-delay" type="i">
+      <default>5000</default>
+      <range min="0" max="30000"/>
+      <summary>Milliseconds before the idle Orb fades</summary>
+    </key>
+
+    <key name="glass-opacity" type="i">
+      <default>12</default>
+      <range min="0" max="100"/>
+      <summary>System Liquid Glass tint strength percentage</summary>
+    </key>
+    <key name="glass-tint-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>System Liquid Glass tint color</summary>
+    </key>
+    <key name="glass-blur" type="i">
+      <default>20</default>
+      <range min="0" max="80"/>
+      <summary>System Liquid Glass blur radius</summary>
     </key>
   </schema>
 </schemalist>
