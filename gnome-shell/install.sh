@@ -852,6 +852,14 @@ for runtime_source in "${RUNTIME_DIRS[@]}"; do
     cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
 done
 
+# Remove launcher-era modules left by older Velora installs.
+rm -f \
+    "${TARGET_DIR}/apps.js" \
+    "${TARGET_DIR}/dock.js" \
+    "${TARGET_DIR}/floatingDock.js" \
+    "${TARGET_DIR}/geometry.js" \
+    "${TARGET_DIR}/dateMenuGlass.js"
+
 glib-compile-schemas --strict "${TARGET_DIR}/vendor/liquid-glass/schemas"
 [[ -f "${TARGET_DIR}/vendor/liquid-glass/schemas/gschemas.compiled" ]] ||
     fail "Installed Liquid Glass GSettings compilation failed."
@@ -862,7 +870,8 @@ refresh_prefs_process
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
-    runtime.js runtime.css apps.js dock.js floatingDock.js liquidGlassDock.js geometry.js; do
+    runtime.js orbThemeRuntime.js runtime.css liquidGlassDock.js \
+    notificationGlass.js popupGlass.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
 done
