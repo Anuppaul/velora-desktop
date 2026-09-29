@@ -1,13 +1,19 @@
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV1';
-const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
-const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV1';
-const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV1';
+const GLASS_SCHEMA =
+    'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
+
+const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV2';
+const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV2';
+const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV2';
+const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
@@ -18,7 +24,7 @@ function canonicalExtensionRoot() {
     ]);
 }
 
-function canonicalVendorRoot() {
+export function canonicalVendorRoot() {
     return GLib.build_filenamev([
         canonicalExtensionRoot(),
         'vendor',
@@ -58,52 +64,92 @@ function moduleUri(root, relativePath) {
     ).get_uri();
 }
 
+export function createLiquidGlassSettings() {
+    const schemaDir = GLib.build_filenamev([
+        canonicalVendorRoot(),
+        'schemas',
+    ]);
+
+    const compiled = Gio.File.new_for_path(
+        GLib.build_filenamev([
+            schemaDir,
+            'gschemas.compiled',
+        ])
+    );
+    if (!compiled.query_exists(null)) {
+        throw new Error(
+            'Vendored Liquid Glass GSettings schema is not compiled: ' +
+            schemaDir
+        );
+    }
+
+    const source = Gio.SettingsSchemaSource.new_from_directory(
+        schemaDir,
+        Gio.SettingsSchemaSource.get_default(),
+        false
+    );
+    const schema = source.lookup(GLASS_SCHEMA, true);
+    if (!schema)
+        throw new Error('Vendored Liquid Glass GSettings schema was not found');
+
+    return new Gio.Settings({settings_schema: schema});
+}
+
 async function importVendorModules(root) {
     const [
         liquidEffect,
         unpickable,
-        uiLayerSampler,
-        windowClones,
-        captureClip,
-        writes,
-        allocation,
-        glassExclusions,
-        frameLoops,
-        frameSync,
-        diagnostics,
+        dockManager,
+        uiManager,
+        panelMenuManager,
+        notificationManager,
+        quickSettingsManager,
+        osdManager,
+        applicationManager,
+        windowListService,
+        logger,
+        utils,
     ] = await Promise.all([
         import(moduleUri(root, 'dist/liquidEffect.js')),
         import(moduleUri(root, 'dist/actors/unpickable.js')),
-        import(moduleUri(root, 'dist/capture/uiLayerSampler.js')),
-        import(moduleUri(root, 'dist/capture/windowClones.js')),
-        import(moduleUri(root, 'dist/capture/clip.js')),
-        import(moduleUri(root, 'dist/actors/writes.js')),
-        import(moduleUri(root, 'dist/actors/allocation.js')),
-        import(moduleUri(root, 'dist/capture/glassExclusions.js')),
-        import(moduleUri(root, 'dist/animation/frameLoops.js')),
-        import(moduleUri(root, 'dist/animation/frameSync.js')),
-        import(moduleUri(root, 'dist/diagnostics/logging.js')),
+        import(moduleUri(root, 'dist/dockManager.js')),
+        import(moduleUri(root, 'dist/uiManager.js')),
+        import(moduleUri(root, 'dist/panelMenuManager.js')),
+        import(moduleUri(root, 'dist/notificationManager.js')),
+        import(moduleUri(root, 'dist/quickSettingsManager.js')),
+        import(moduleUri(root, 'dist/osdManager.js')),
+        import(moduleUri(root, 'dist/applicationManager.js')),
+        import(moduleUri(root, 'dist/windowListService.js')),
+        import(moduleUri(root, 'dist/logger.js')),
+        import(moduleUri(root, 'dist/utils.js')),
     ]);
 
     return {
         root,
         LiquidEffect: liquidEffect.LiquidEffect,
+        startGlassRingSampler: liquidEffect.startGlassRingSampler,
+        stopGlassRingSampler: liquidEffect.stopGlassRingSampler,
+        flushGlassRing: liquidEffect.flushGlassRing,
         UnpickableActor: unpickable.UnpickableActor,
-        UILayerSampler: uiLayerSampler.UILayerSampler,
-        WindowCloneManager: windowClones.WindowCloneManager,
-        syncGlassCaptureClip: captureClip.syncGlassCaptureClip,
-        setClipIfChanged: writes.setClipIfChanged,
-        ensureGlassAllocated: allocation.ensureGlassAllocated,
-        excludeOtherGlass: glassExclusions.excludeOtherGlass,
-        startStageLoop: frameLoops.startStageLoop,
-        stopStageLoop: frameLoops.stopStageLoop,
-        isFrameSyncFrozen: frameSync.isFrameSyncFrozen,
-        SAME_FRAME_WINDOW_US: frameSync.SAME_FRAME_WINDOW_US,
-        reportFrameLoopError: diagnostics.reportFrameLoopError,
+        DashManager: dockManager.DashManager,
+        UIManager: uiManager.UIManager,
+        PanelMenuManager: panelMenuManager.PanelMenuManager,
+        NotificationManager: notificationManager.NotificationManager,
+        QuickSettingsManager: quickSettingsManager.QuickSettingsManager,
+        OsdManager: osdManager.OsdManager,
+        ApplicationManager: applicationManager.ApplicationManager,
+        WindowListService: windowListService.WindowListService,
+        Logger: logger.Logger,
+        setUtilsLogger: utils.setUtilsLogger,
+        adaptiveColorTweener: utils.adaptiveColorTweener,
+        destroySharedBackgroundSource:
+            utils.destroySharedBackgroundSource,
+        releaseAllClonedWindowActors:
+            utils.releaseAllClonedWindowActors,
     };
 }
 
-async function loadVendorModules(settings) {
+export async function loadLiquidGlassVendorModules(veloraSettings) {
     if (globalThis[VENDOR_CACHE_KEY])
         return globalThis[VENDOR_CACHE_KEY];
 
@@ -113,12 +159,6 @@ async function loadVendorModules(settings) {
     let root = globalThis[VENDOR_ROOT_KEY] ?? null;
 
     if (!root) {
-        // GObject classes live for the lifetime of the Shell process. If an
-        // earlier Velora runtime already registered upstream Liquid Glass
-        // types, re-importing the vendored source from a new hashed runtime
-        // URI attempts to register the same GTypes again and fails. Reuse the
-        // exact previous runtime URI in that case so GJS returns its cached
-        // module objects instead of evaluating registerClass() again.
         const liquidType = GObject.type_from_name('LiquidGlassEffect');
         const cloneType = GObject.type_from_name(
             'Gjs_actors_unpickable_UnpickableClone'
@@ -126,7 +166,7 @@ async function loadVendorModules(settings) {
         const alreadyRegistered = Boolean(liquidType || cloneType);
 
         if (alreadyRegistered) {
-            root = previousRevisionVendorRoot(settings);
+            root = previousRevisionVendorRoot(veloraSettings);
             if (!root) {
                 throw new Error(
                     'Liquid Glass GObject types are already registered, ' +
@@ -156,222 +196,328 @@ async function loadVendorModules(settings) {
     return promise;
 }
 
-const SHADER_PADDING = 20;
-const CLIP_PADDING = 200;
-const SHADOW_MAX_RADIUS = CLIP_PADDING - SHADER_PADDING;
-const UPSTREAM_DOCK_BLUR_RADIUS = 2;
-const UPSTREAM_DOCK_TINT_STRENGTH = 0.12;
-const UPSTREAM_DOCK_SATURATION = 1.5;
-const UPSTREAM_DOCK_CORNER_RADIUS = 30;
-const VELORA_REFERENCE_OPACITY = 0.76;
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-export class LiquidGlassDockRenderer {
+export class LiquidGlassIntegration {
     constructor(params) {
-        this._settings = params.settings;
-        this._layer = params.layer;
-        this._target = params.target;
-
-        this._bgActor = null;
-        this._liquidBox = null;
-        this._cloneContainer = null;
-        this._effect = null;
-        this._uiSampler = null;
-        this._windowCloneManager = null;
-        this._targetSignals = [];
-        this._monitorSignal = 0;
-        this._idleId = 0;
-        this._frameSyncId = 0;
-        this._frameSignalId = 0;
-        this._lastTickUs = 0;
-        this._torndown = false;
-        this._lastGeometry = null;
+        this._veloraSettings = params.veloraSettings;
         this._vendor = null;
-        this._enablePromise = null;
-        this._destroyed = false;
+        this._settings = null;
+        this._logger = null;
+        this._stylesheet = null;
+
+        this._uiManager = null;
+        this._panelMenuManager = null;
+        this._notificationManager = null;
+        this._quickSettingsManager = null;
+        this._osdManager = null;
+        this._applicationManager = null;
+        this._windowListService = null;
+        this._dockManagers = new Set();
+
+        this._quickSettingsTimeoutId = 0;
+        this._dumpLoopId = 0;
+        this._dumpSettingsId = 0;
+        this._dumpKeybindingInstalled = false;
+        this._enabled = false;
     }
 
-    enable() {
-        if (this._bgActor || this._enablePromise || !this._target || !this._layer)
-            return this._enablePromise;
-
-        this._destroyed = false;
-        this._enablePromise = this._enableAsync()
-            .catch(error => {
-                if (!this._destroyed) {
-                    logError(
-                        error,
-                        'Velora Desktop: upstream Liquid Glass renderer failed'
-                    );
-                }
-                throw error;
-            })
-            .finally(() => {
-                this._enablePromise = null;
-            });
-
-        return this._enablePromise;
-    }
-
-    async _enableAsync() {
-        this._vendor = await loadVendorModules(this._settings);
-        if (this._destroyed || !this._target || !this._layer)
+    async enable() {
+        if (this._enabled)
             return;
 
-        this._torndown = false;
-        this._installDebugState();
+        this._vendor = await loadLiquidGlassVendorModules(
+            this._veloraSettings
+        );
+        this._settings = createLiquidGlassSettings();
+        this._logger = new this._vendor.Logger(this._settings);
+        this._vendor.setUtilsLogger(this._logger);
+
+        this._loadStylesheet();
+
+        this._enabled = true;
         console.log(
-            '[Velora][LiquidGlass] vendor root: ' +
+            '[Velora][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
         );
 
-        const {
-            LiquidEffect,
-            UnpickableActor,
-            UILayerSampler,
-            WindowCloneManager,
-        } = this._vendor;
+        this._setupDiagnostics();
 
-        this._bgActor = new UnpickableActor();
-        // Keep the upstream actor names: its capture/exclusion utilities use
-        // these names to identify Liquid Glass compositor surfaces.
-        this._bgActor.set_name('liquid-glass-bg-actor');
-        this._bgActor.set_size(1, 1);
+        const start = (name, fn) => {
+            try {
+                fn();
+            } catch (error) {
+                console.error(
+                    '[Velora][LiquidGlass] ' +
+                    name +
+                    ' setup failed: ' +
+                    error +
+                    '\n' +
+                    (error?.stack ?? '')
+                );
+            }
+        };
 
-        this._liquidBox = new UnpickableActor();
-        this._liquidBox.set_name('liquid-box');
-        this._liquidBox.set_clip_to_allocation(true);
-        this._bgActor.add_child(this._liquidBox);
-
-        const dummyBreaker = new UnpickableActor();
-        dummyBreaker.set_name('velora-liquid-glass-optimization-breaker');
-        dummyBreaker.set_size(1, 1);
-        dummyBreaker.set_opacity(0);
-        this._liquidBox.add_child(dummyBreaker);
-
-        this._cloneContainer = new UnpickableActor();
-        this._cloneContainer.set_name('velora-liquid-glass-clone-container');
-        this._liquidBox.add_child(this._cloneContainer);
-
-        // Upstream DockManager deliberately keeps the full-monitor FBO actor
-        // as a direct uiGroup child. Nesting it inside the dock/layer changes
-        // the capture coordinate space and can leave the compositor surface
-        // with nothing useful to paint.
-        const uiGroup = Main.layoutManager.uiGroup;
-        try {
-            uiGroup.insert_child_below(
-                this._bgActor,
-                this._layer
+        start('uiManager', () => {
+            this._uiManager = new this._vendor.UIManager(
+                this._vendor.root,
+                this._settings,
+                this._logger
             );
-        } catch {
-            uiGroup.add_child(this._bgActor);
-            uiGroup.set_child_below_sibling?.(
-                this._bgActor,
-                this._layer
-            );
-        }
-
-        this._effect = new LiquidEffect({
-            extensionPath: this._vendor.root,
-            owner: 'dock',
+            this._uiManager.setup();
         });
-        this._effect.setPadding(SHADER_PADDING);
-        this._effect.setShadowMaxRadius(SHADOW_MAX_RADIUS);
-        this._effect.setTintColor(1.0, 1.0, 1.0);
-        this._effect.setTintStrength(UPSTREAM_DOCK_TINT_STRENGTH);
-        this._effect.setCornerRadius(UPSTREAM_DOCK_CORNER_RADIUS);
-        this._effect.setBrightness(1.0);
-        this._effect.setContrast(1.0);
-        this._effect.setSaturation(UPSTREAM_DOCK_SATURATION);
-        this._effect.setBlurMethod(1);
-        this._effect.setBlurRadius(UPSTREAM_DOCK_BLUR_RADIUS);
-        this._effect.setIsDock(true);
-        this._effect.setLiveGeometryHook(
-            () => this._syncLiveGeometry()
-        );
-        this._liquidBox.add_effect(this._effect);
 
-        this._windowCloneManager = new WindowCloneManager(
-            this._liquidBox,
-            this._cloneContainer,
-            'velora-dock'
-        );
+        start('panelMenuManager', () => {
+            this._panelMenuManager =
+                new this._vendor.PanelMenuManager(
+                    this._vendor.root,
+                    this._settings,
+                    this._logger
+                );
+            this._panelMenuManager.setup();
+        });
 
-        this._uiSampler = new UILayerSampler(
-            this._bgActor,
-            this._liquidBox,
-            [
-                // Exclude the entire Velora UI layer from the backdrop clone.
-                // The target dock lives inside this layer; cloning the layer
-                // would feed the dock back into its own glass capture.
-                this._layer,
-                global.windowGroup,
-                global.window_group,
-            ],
-            this._cloneContainer,
-            'dock',
-            [this._target]
-        );
+        start('notificationManager', () => {
+            this._notificationManager =
+                new this._vendor.NotificationManager(
+                    this._vendor.root,
+                    this._settings,
+                    this._logger
+                );
+            this._notificationManager.setup();
+        });
 
-        this._buildClones();
-        this._connectTargetSignals();
-        this._monitorSignal = Main.layoutManager.connect(
-            'monitors-changed',
-            () => this.sync()
-        );
+        start('osdManager', () => {
+            this._osdManager = new this._vendor.OsdManager(
+                this._vendor.root,
+                this._settings,
+                this._logger
+            );
+            this._osdManager.setup();
+        });
 
-        this.syncSettings();
-        this.sync();
-        this._startFrameSync();
-        this._idleId = GLib.idle_add(
-            GLib.PRIORITY_DEFAULT_IDLE,
+        start('applicationManager', () => {
+            this._applicationManager =
+                new this._vendor.ApplicationManager(
+                    this._vendor.root,
+                    this._settings,
+                    this._logger
+                );
+            this._applicationManager.setup();
+        });
+
+        start('windowListService', () => {
+            this._windowListService =
+                new this._vendor.WindowListService(this._logger);
+            this._windowListService.setup();
+        });
+
+        this._quickSettingsTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1500,
             () => {
-                this._idleId = 0;
-                this.sync();
+                this._quickSettingsTimeoutId = 0;
+                if (!this._enabled)
+                    return GLib.SOURCE_REMOVE;
+
+                start('quickSettingsManager', () => {
+                    this._quickSettingsManager =
+                        new this._vendor.QuickSettingsManager(
+                            this._vendor.root,
+                            this._settings,
+                            this._logger
+                        );
+                    this._quickSettingsManager.setup();
+                });
                 return GLib.SOURCE_REMOVE;
             }
         );
+
+        this._installDebugState();
+    }
+
+    async attachDock(targetActor) {
+        if (!this._enabled)
+            await this.enable();
+
+        const manager = new this._vendor.DashManager(
+            this._vendor.root,
+            targetActor,
+            this._settings,
+            this._logger
+        );
+        manager.setup();
+        this._dockManagers.add(manager);
+        return manager;
+    }
+
+    detachDock(manager) {
+        if (!manager)
+            return;
+
+        this._dockManagers.delete(manager);
+        try {
+            manager.cleanup();
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] dock cleanup failed: ' + error
+            );
+        }
+    }
+
+    _loadStylesheet() {
+        const file = Gio.File.new_for_path(
+            GLib.build_filenamev([
+                this._vendor.root,
+                'stylesheet.css',
+            ])
+        );
+        if (!file.query_exists(null))
+            return;
+
+        const theme = St.ThemeContext
+            .get_for_stage(global.stage)
+            .get_theme();
+        theme.load_stylesheet(file);
+        this._stylesheet = file;
+    }
+
+    _unloadStylesheet() {
+        if (!this._stylesheet)
+            return;
+
+        try {
+            const theme = St.ThemeContext
+                .get_for_stage(global.stage)
+                .get_theme();
+            theme.unload_stylesheet(this._stylesheet);
+        } catch {
+            // Theme may already be tearing down.
+        }
+        this._stylesheet = null;
+    }
+
+    _setupDiagnostics() {
+        try {
+            this._vendor.startGlassRingSampler(50);
+        } catch {
+            // Diagnostics are optional.
+        }
+
+        this._dumpSettingsId = this._settings.connect(
+            'changed::enable-dump-shortcut',
+            () => this._syncDumpKeybinding()
+        );
+        this._syncDumpKeybinding();
+    }
+
+    _syncDumpKeybinding() {
+        const wanted = this._settings.get_boolean(
+            'enable-dump-shortcut'
+        );
+
+        if (wanted && !this._dumpKeybindingInstalled) {
+            Main.wm.addKeybinding(
+                'dump-loop-keybinding',
+                this._settings,
+                Meta.KeyBindingFlags.NONE,
+                Shell.ActionMode.NORMAL |
+                    Shell.ActionMode.OVERVIEW,
+                () => this._toggleDumpLoop()
+            );
+            this._dumpKeybindingInstalled = true;
+        } else if (!wanted && this._dumpKeybindingInstalled) {
+            try {
+                Main.wm.removeKeybinding('dump-loop-keybinding');
+            } catch {
+                // Binding may already be gone.
+            }
+            this._dumpKeybindingInstalled = false;
+            this._stopDumpLoop();
+        }
+    }
+
+    _toggleDumpLoop() {
+        if (this._dumpLoopId) {
+            this._stopDumpLoop();
+            Main.notify('Liquid Glass', 'Diagnostic dump stopped');
+            return;
+        }
+
+        try {
+            this._vendor.flushGlassRing();
+        } catch {
+            // Ring is diagnostic-only.
+        }
+
+        const intervalMs = 100;
+        const ticks = 600;
+        let count = 0;
+
+        this._dumpLoopId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            intervalMs,
+            () => {
+                try {
+                    global._lgGlass?.dump();
+                } catch {
+                    // Keep the diagnostic loop alive.
+                }
+
+                count++;
+                if (count < ticks)
+                    return GLib.SOURCE_CONTINUE;
+
+                this._dumpLoopId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+
+        Main.notify(
+            'Liquid Glass',
+            'Diagnostic dump running for 60 seconds'
+        );
+    }
+
+    _stopDumpLoop() {
+        if (!this._dumpLoopId)
+            return;
+
+        try {
+            GLib.source_remove(this._dumpLoopId);
+        } catch {
+            // Source may have completed already.
+        }
+        this._dumpLoopId = 0;
     }
 
     _installDebugState() {
         globalThis[DEBUG_STATE_KEY] = {
             status: () => ({
+                enabled: this._enabled,
                 vendorRoot: this._vendor?.root ?? null,
-                destroyed: this._destroyed,
-                targetMapped: Boolean(this._target?.mapped),
-                targetVisible: Boolean(this._target?.visible),
-                targetAllocation: Boolean(
-                    this._target?.has_allocation?.()
-                ),
-                targetGeometry: this._target
-                    ? {
-                        x: this._target.x,
-                        y: this._target.y,
-                        width: this._target.width,
-                        height: this._target.height,
-                        opacity: this._target.opacity,
-                    }
-                    : null,
-                backgroundMapped: Boolean(this._bgActor?.mapped),
-                backgroundVisible: Boolean(this._bgActor?.visible),
-                backgroundAllocation: Boolean(
-                    this._bgActor?.has_allocation?.()
-                ),
-                liquidBoxMapped: Boolean(this._liquidBox?.mapped),
-                liquidBoxAllocation: Boolean(
-                    this._liquidBox?.has_allocation?.()
-                ),
                 liveEffects:
                     globalThis.global?._lgGlass?.count?.() ?? null,
+                dockManagers: this._dockManagers.size,
+                uiManager: Boolean(this._uiManager),
+                panelMenuManager: Boolean(this._panelMenuManager),
+                notificationManager: Boolean(
+                    this._notificationManager
+                ),
+                quickSettingsManager: Boolean(
+                    this._quickSettingsManager
+                ),
+                osdManager: Boolean(this._osdManager),
+                applicationManager: Boolean(
+                    this._applicationManager
+                ),
+                windowListService: Boolean(
+                    this._windowListService
+                ),
             }),
             dump: () => {
                 const status =
                     globalThis[DEBUG_STATE_KEY]?.status?.() ?? null;
                 console.log(
-                    '[Velora][LiquidGlass][status] ' +
+                    '[Velora][LiquidGlass][full-status] ' +
                     JSON.stringify(status)
                 );
                 const upstream =
@@ -381,367 +527,162 @@ export class LiquidGlassDockRenderer {
         };
     }
 
-    _buildClones() {
-        if (!this._bgActor)
+    disable() {
+        if (!this._enabled && !this._vendor)
             return;
 
-        this._vendor?.excludeOtherGlass(
-            this._uiSampler,
-            this._bgActor
-        );
-        this._windowCloneManager?.rebuildClones();
-        this._uiSampler?.rebindSelf();
-        this._uiSampler?.refresh();
-    }
+        this._enabled = false;
 
-    get _frameSlot() {
-        return {
-            get: () => this._frameSyncId,
-            set: id => {
-                this._frameSyncId = id;
-            },
-        };
-    }
-
-    get _frameSignalSlot() {
-        return {
-            get: () => this._frameSignalId,
-            set: id => {
-                this._frameSignalId = id;
-            },
-        };
-    }
-
-    _startFrameSync() {
-        if (this._frameSignalId !== 0)
-            return;
-
-        this._buildClones();
-
-        const frameTick = () => {
-            if (
-                this._torndown ||
-                !this._bgActor ||
-                !this._target?.mapped
-            ) {
-                return;
-            }
-
-            if (this._vendor?.isFrameSyncFrozen())
-                return;
-
-            const nowUs = GLib.get_monotonic_time();
-            if (
-                nowUs - this._lastTickUs <
-                (this._vendor?.SAME_FRAME_WINDOW_US ?? 4000)
-            ) {
-                return;
-            }
-            this._lastTickUs = nowUs;
-
+        if (this._quickSettingsTimeoutId) {
             try {
-                this._vendor?.ensureGlassAllocated(this._bgActor);
-                this.sync();
+                GLib.source_remove(this._quickSettingsTimeoutId);
+            } catch {
+                // Source may already be gone.
+            }
+            this._quickSettingsTimeoutId = 0;
+        }
+
+        this._stopDumpLoop();
+
+        if (this._dumpSettingsId && this._settings) {
+            try {
+                this._settings.disconnect(this._dumpSettingsId);
+            } catch {
+                // Settings may already be tearing down.
+            }
+            this._dumpSettingsId = 0;
+        }
+
+        if (this._dumpKeybindingInstalled) {
+            try {
+                Main.wm.removeKeybinding('dump-loop-keybinding');
+            } catch {
+                // Binding may already be gone.
+            }
+            this._dumpKeybindingInstalled = false;
+        }
+
+        try {
+            this._vendor?.stopGlassRingSampler();
+        } catch {
+            // Diagnostic cleanup is best-effort.
+        }
+
+        const cleanup = (name, manager) => {
+            if (!manager)
+                return;
+            try {
+                manager.cleanup();
             } catch (error) {
-                this._vendor?.reportFrameLoopError(
-                    'VeloraLiquidGlassDock',
+                console.error(
+                    '[Velora][LiquidGlass] ' +
+                    name +
+                    ' cleanup failed: ' +
                     error
                 );
             }
         };
 
-        this._vendor?.startStageLoop(
-            this._frameSignalSlot,
-            this._frameSlot,
-            frameTick
-        );
-    }
+        for (const manager of [...this._dockManagers])
+            cleanup('dockManager', manager);
+        this._dockManagers.clear();
 
-    _stopFrameSync() {
-        this._vendor?.stopStageLoop(
-            this._frameSignalSlot,
-            this._frameSlot
-        );
-    }
+        cleanup('panelMenuManager', this._panelMenuManager);
+        cleanup('uiManager', this._uiManager);
+        cleanup('quickSettingsManager', this._quickSettingsManager);
+        cleanup('notificationManager', this._notificationManager);
+        cleanup('osdManager', this._osdManager);
+        cleanup('applicationManager', this._applicationManager);
+        cleanup('windowListService', this._windowListService);
 
-    _connectTargetSignals() {
-        if (!this._target)
-            return;
+        this._panelMenuManager = null;
+        this._uiManager = null;
+        this._quickSettingsManager = null;
+        this._notificationManager = null;
+        this._osdManager = null;
+        this._applicationManager = null;
+        this._windowListService = null;
 
-        for (const signal of [
-            'notify::x',
-            'notify::y',
-            'notify::width',
-            'notify::height',
-            'notify::opacity',
-            'notify::visible',
-            'notify::mapped',
-        ]) {
-            try {
-                const id = this._target.connect(
-                    signal,
-                    () => {
-                        if (
-                            signal === 'notify::mapped'
-                        ) {
-                            if (this._target?.mapped)
-                                this._startFrameSync();
-                            else
-                                this._stopFrameSync();
-                        }
-                        this.sync();
-                    }
-                );
-                this._targetSignals.push(id);
-            } catch {
-                // Some Clutter builds may not expose every notify signal.
-            }
+        try {
+            this._vendor?.adaptiveColorTweener?.stopAll();
+        } catch {
+            // Shared animation cleanup is best-effort.
         }
+        try {
+            this._vendor?.destroySharedBackgroundSource?.();
+        } catch {
+            // Shared background cleanup is best-effort.
+        }
+        try {
+            this._vendor?.releaseAllClonedWindowActors?.();
+        } catch {
+            // Window clone cleanup is best-effort.
+        }
+        try {
+            this._vendor?.setUtilsLogger?.(null);
+        } catch {
+            // Logger may already be detached.
+        }
+
+        try {
+            this._logger?.cleanup?.();
+        } catch {
+            // Logger cleanup is best-effort.
+        }
+
+        this._unloadStylesheet();
+
+        if (globalThis[DEBUG_STATE_KEY])
+            delete globalThis[DEBUG_STATE_KEY];
+
+        this._logger = null;
+        this._settings = null;
+        this._vendor = null;
+    }
+}
+
+export class LiquidGlassDockRenderer {
+    constructor(params) {
+        this._integration = params.integration;
+        this._target = params.target;
+        this._manager = null;
+        this._enablePromise = null;
+    }
+
+    enable() {
+        if (this._manager || this._enablePromise)
+            return this._enablePromise;
+
+        if (!this._integration || !this._target)
+            return Promise.resolve();
+
+        this._enablePromise = this._integration
+            .attachDock(this._target)
+            .then(manager => {
+                this._manager = manager;
+            })
+            .finally(() => {
+                this._enablePromise = null;
+            });
+
+        return this._enablePromise;
     }
 
     syncSettings() {
-        if (!this._effect || !this._settings)
-            return;
-
-        const blurEnabled = this._settings.get_boolean(
-            'floating-dock-blur'
-        );
-        const opacity = clamp(
-            this._settings.get_int('floating-dock-opacity') / 100,
-            0,
-            1
-        );
-        const tintStrength = clamp(
-            UPSTREAM_DOCK_TINT_STRENGTH *
-                (opacity / VELORA_REFERENCE_OPACITY),
-            0,
-            0.30
-        );
-
-        this._effect.setBlurRadius(
-            blurEnabled ? UPSTREAM_DOCK_BLUR_RADIUS : 0
-        );
-        this._effect.setTintStrength(tintStrength);
-        this._effect.setCornerRadius(
-            UPSTREAM_DOCK_CORNER_RADIUS
-        );
-        this._effect.setSaturation(UPSTREAM_DOCK_SATURATION);
-        this._effect.setBrightness(1.0);
-        this._effect.setContrast(1.0);
-        this._effect.setTintColor(1.0, 1.0, 1.0);
-        this._effect.setIsDock(true);
-        this.sync();
+        // Upstream DashManager binds directly to the upstream GSettings
+        // object, so no Velora-side parameter mirroring is required.
     }
 
     sync() {
-        if (
-            !this._bgActor ||
-            !this._liquidBox ||
-            !this._effect ||
-            !this._target
-        ) {
-            return;
-        }
-
-        let monitorIndex = Main.layoutManager.findIndexForActor(
-            this._target
-        );
-        if (monitorIndex < 0)
-            monitorIndex = Main.layoutManager.primaryIndex;
-        const monitor =
-            Main.layoutManager.monitors[monitorIndex] ||
-            Main.layoutManager.primaryMonitor;
-        if (!monitor) {
-            this._bgActor.hide();
-            return;
-        }
-
-        if (!this._target.visible || !this._target.mapped) {
-            this._bgActor.hide();
-            return;
-        }
-
-        const [absX, absY] = this._target.get_transformed_position();
-        const [targetW, targetH] = this._target.get_size();
-        if (
-            !Number.isFinite(absX) ||
-            !Number.isFinite(absY) ||
-            !Number.isFinite(targetW) ||
-            !Number.isFinite(targetH) ||
-            targetW <= 1 ||
-            targetH <= 1
-        ) {
-            this._bgActor.hide();
-            return;
-        }
-
-        const bgW = targetW + SHADER_PADDING * 2;
-        const bgH = targetH + SHADER_PADDING * 2;
-        const bgX = absX - SHADER_PADDING;
-        const bgY = absY - SHADER_PADDING;
-        const localBgX = bgX - monitor.x;
-        const localBgY = bgY - monitor.y;
-
-        this._bgActor.remove_transition('size');
-        this._bgActor.remove_transition('position');
-        this._bgActor.set_position(monitor.x, monitor.y);
-        this._bgActor.set_size(monitor.width, monitor.height);
-        this._bgActor.opacity = this._target.opacity;
-        this._bgActor.show();
-
-        this._liquidBox.set_position(0, 0);
-        this._liquidBox.set_size(
-            monitor.width,
-            monitor.height
-        );
-
-        this._vendor?.setClipIfChanged(
-            this._bgActor,
-            localBgX - CLIP_PADDING,
-            localBgY - CLIP_PADDING,
-            bgW + CLIP_PADDING * 2,
-            bgH + CLIP_PADDING * 2
-        );
-
-        this._effect.setShadowMaxRadius(SHADOW_MAX_RADIUS);
-        this._effect.setResolution(
-            monitor.width,
-            monitor.height
-        );
-        this._effect.setGlassGeometry(
-            localBgX,
-            localBgY,
-            bgW,
-            bgH
-        );
-
-        this._lastGeometry = {
-            targetW,
-            targetH,
-        };
-
-        this._windowCloneManager?.setOffset(
-            -monitor.x,
-            -monitor.y
-        );
-
-        this._vendor?.syncGlassCaptureClip({
-            cloneContainer: this._cloneContainer,
-            effect: this._effect,
-            originX: monitor.x,
-            originY: monitor.y,
-            uiSampler: this._uiSampler,
-            windowCloneManager: this._windowCloneManager,
-        });
-
-        this._uiSampler?.refresh();
-        this._uiSampler?.sync(
-            monitor.x,
-            monitor.y,
-            monitor.width,
-            monitor.height
-        );
-        this._windowCloneManager?.sync();
-    }
-
-    _syncLiveGeometry() {
-        if (!this._effect || !this._target || !this._lastGeometry)
-            return;
-
-        if (!this._target.mapped)
-            return;
-
-        let monitorIndex = Main.layoutManager.findIndexForActor(
-            this._target
-        );
-        if (monitorIndex < 0)
-            monitorIndex = Main.layoutManager.primaryIndex;
-        const monitor =
-            Main.layoutManager.monitors[monitorIndex] ||
-            Main.layoutManager.primaryMonitor;
-        if (!monitor)
-            return;
-
-        const [absX, absY] = this._target.get_transformed_position();
-        if (!Number.isFinite(absX) || !Number.isFinite(absY))
-            return;
-
-        const bgW = this._lastGeometry.targetW + SHADER_PADDING * 2;
-        const bgH = this._lastGeometry.targetH + SHADER_PADDING * 2;
-        const localBgX = absX - SHADER_PADDING - monitor.x;
-        const localBgY = absY - SHADER_PADDING - monitor.y;
-
-        this._effect.setGlassGeometry(
-            localBgX,
-            localBgY,
-            bgW,
-            bgH
-        );
+        // Upstream DashManager owns frame-synced geometry/capture updates.
     }
 
     destroy() {
-        this._destroyed = true;
-        this._torndown = true;
-        this._stopFrameSync();
+        if (this._manager)
+            this._integration?.detachDock(this._manager);
 
-        if (this._idleId) {
-            GLib.source_remove(this._idleId);
-            this._idleId = 0;
-        }
-
-        if (this._target) {
-            for (const id of this._targetSignals) {
-                try {
-                    this._target.disconnect(id);
-                } catch {
-                    // Target may already be destroyed during shell teardown.
-                }
-            }
-        }
-        this._targetSignals = [];
-
-        if (this._monitorSignal) {
-            try {
-                Main.layoutManager.disconnect(this._monitorSignal);
-            } catch {
-                // Layout manager may already be tearing down.
-            }
-            this._monitorSignal = 0;
-        }
-
-        try {
-            this._effect?.cleanup();
-        } catch (error) {
-            logError(error, 'Velora Desktop: Liquid Glass cleanup failed');
-        }
-        this._effect = null;
-
-        try {
-            this._uiSampler?.destroy();
-        } catch (error) {
-            logError(error, 'Velora Desktop: Liquid Glass UI sampler cleanup failed');
-        }
-        this._uiSampler = null;
-
-        try {
-            this._windowCloneManager?.destroy();
-        } catch (error) {
-            logError(error, 'Velora Desktop: Liquid Glass window clone cleanup failed');
-        }
-        this._windowCloneManager = null;
-
-        this._bgActor?.destroy();
-        this._bgActor = null;
-        this._liquidBox = null;
-        this._cloneContainer = null;
+        this._manager = null;
         this._target = null;
-        this._layer = null;
-        this._settings = null;
-        this._lastGeometry = null;
-        this._vendor = null;
-
-        const debug = globalThis[DEBUG_STATE_KEY];
-        if (debug)
-            delete globalThis[DEBUG_STATE_KEY];
+        this._integration = null;
     }
 }
