@@ -103,12 +103,10 @@ export class FloatingDockController {
         this.refresh();
 
         this._root.opacity = 0;
-        this._root.scale_x = 0.97;
-        this._root.scale_y = 0.97;
+        this._root.scale_x = 1;
+        this._root.scale_y = 1;
         this._root.ease({
             opacity: 255,
-            scale_x: 1,
-            scale_y: 1,
             duration: 180,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });

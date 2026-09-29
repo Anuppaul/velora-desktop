@@ -723,7 +723,82 @@ export class LiquidGlassIntegration {
             this._settings,
             this._logger
         );
+
+        // Velora's floating dock already owns an explicit, fixed rectangle.
+        // Upstream DashManager's margin/reference/stabilization corrections
+        // exist for Dash-to-Dock's dynamic actor hierarchy; applying them to
+        // our fixed card can make the glass body breathe by a few pixels as
+        // hover/focus/preview state changes. Freeze its source geometry to the
+        // actual root actor and bypass those Dash-to-Dock-only corrections.
+        const originalStyle = targetActor.get_style?.() ?? '';
+
+        manager._applyMargin = () => {
+            manager._marginValue = 0;
+            if (
+                targetActor.get_style?.() !==
+                originalStyle
+            ) {
+                targetActor.set_style?.(originalStyle);
+            }
+        };
+
+        manager._stabilizeDockBounds =
+            bounds => bounds;
+        manager._findReferenceActor =
+            () => null;
+        manager._applyDockMargin =
+            bounds => bounds;
+
+        manager._readDockBounds = () => {
+            if (!targetActor?.mapped)
+                return null;
+
+            const [baseW, baseH] =
+                targetActor.get_size();
+            const [absX, absY] =
+                targetActor.get_transformed_position();
+
+            if (
+                ![
+                    absX,
+                    absY,
+                    baseW,
+                    baseH,
+                ].every(Number.isFinite) ||
+                baseW <= 0 ||
+                baseH <= 0
+            ) {
+                return null;
+            }
+
+            manager._liveSource = {
+                actor: targetActor,
+                rawX: absX,
+                rawY: absY,
+            };
+
+            return {
+                absX,
+                absY,
+                baseW,
+                baseH,
+            };
+        };
+
         manager.setup();
+
+        // setup() reads the shared dock-margin setting after _applyMargin().
+        // Force the Velora card back to its own geometry contract.
+        manager._marginValue = 0;
+        manager._glassExpand = 0;
+        manager._lastBaseW = undefined;
+        manager._lastBaseH = undefined;
+        manager._stableDeltaW = 0;
+        manager._stableDeltaH = 0;
+        manager._lastTW = targetActor.width;
+        manager._lastTH = targetActor.height;
+        manager._applyMargin();
+
         this._dockManagers.add(manager);
         return manager;
     }
