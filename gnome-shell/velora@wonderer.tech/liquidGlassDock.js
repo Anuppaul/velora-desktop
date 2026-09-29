@@ -257,6 +257,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOpenSignalId = 0;
         this._dateMenuScaleSettingId = 0;
         this._dateMenuOriginalTransform = null;
+        this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._dateMenuMaterialSettingIds = [];
@@ -474,6 +475,8 @@ export class LiquidGlassIntegration {
             'velora-native-date-menu-glass'
         );
 
+        this._dateMenuOriginalActorStyle =
+            actor.get_style?.() ?? '';
         this._dateMenuOriginalStyle =
             box.get_style?.() ?? '';
 
@@ -490,7 +493,7 @@ export class LiquidGlassIntegration {
             radius: 28,
             brightness: 1.0,
         });
-        box.add_effect?.(this._dateMenuBlurEffect);
+        actor.add_effect?.(this._dateMenuBlurEffect);
 
         this._applyNativeDateMenuMaterial();
         this._styleNativeDateMenuChildren();
@@ -557,8 +560,9 @@ export class LiquidGlassIntegration {
     }
 
     _applyNativeDateMenuMaterial() {
+        const actor = this._dateMenuActor;
         const box = this._dateMenuBox;
-        if (!box || !this._settings)
+        if (!actor || !box || !this._settings)
             return;
 
         const [r, g, b] = parseHexRgb(
@@ -611,14 +615,33 @@ export class LiquidGlassIntegration {
             // BlurEffect property access can vary across Shell builds.
         }
 
-        box.set_style?.(
-            (this._dateMenuOriginalStyle || '') +
-            `; background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)});` +
-            ' background-image: none;' +
-            ' border: 1px solid rgba(255,255,255,0.22);' +
-            ' border-radius: 28px;' +
+        const fill =
+            `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
+
+        // BoxPointer paints its own rounded background/arrow in a separate
+        // drawing layer using these custom theme properties. This is the
+        // opaque shell that remained white even after popup-menu-content was
+        // made translucent.
+        actor.set_style?.(
+            (this._dateMenuOriginalActorStyle || '') +
+            `; -arrow-background-color: ${fill};` +
+            ' -arrow-border-color: rgba(255,255,255,0.22);' +
+            ' -arrow-border-width: 1px;' +
+            ' background-color: transparent;' +
             ' box-shadow: none;'
         );
+
+        // popup-menu-content is the native menu.box actor. Keep it transparent
+        // enough for the outer actor's BACKGROUND blur to remain visible.
+        box.set_style?.(
+            (this._dateMenuOriginalStyle || '') +
+            `; background-color: rgba(${r}, ${g}, ${b}, 0.035);` +
+            ' background-image: none;' +
+            ' border-color: transparent;' +
+            ' box-shadow: none;'
+        );
+
+        actor.queue_redraw?.();
         box.queue_redraw?.();
     }
 
@@ -754,10 +777,10 @@ export class LiquidGlassIntegration {
 
             if (
                 this._dateMenuBlurEffect &&
-                this._dateMenuBox
+                this._dateMenuActor
             ) {
                 try {
-                    this._dateMenuBox.remove_effect(
+                    this._dateMenuActor.remove_effect(
                         this._dateMenuBlurEffect
                     );
                 } catch {
@@ -765,6 +788,9 @@ export class LiquidGlassIntegration {
                 }
             }
 
+            this._dateMenuActor?.set_style?.(
+                this._dateMenuOriginalActorStyle ?? ''
+            );
             this._dateMenuBox?.set_style?.(
                 this._dateMenuOriginalStyle ?? ''
             );
@@ -788,6 +814,7 @@ export class LiquidGlassIntegration {
         this._dateMenuActor = null;
         this._dateMenuBox = null;
         this._dateMenuOriginalTransform = null;
+        this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._dateMenuMaterialSettingIds = [];
