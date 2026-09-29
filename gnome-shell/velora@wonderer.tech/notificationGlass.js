@@ -272,6 +272,8 @@ export class NotificationGlassManager {
         for (const target of watched) {
             for (const signal of [
                 'notify::allocation',
+                'notify::x',
+                'notify::y',
                 'notify::translation-x',
                 'notify::translation-y',
                 'notify::scale-x',
