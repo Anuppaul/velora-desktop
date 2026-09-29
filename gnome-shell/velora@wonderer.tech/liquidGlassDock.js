@@ -258,6 +258,7 @@ export class LiquidGlassIntegration {
         this._dumpKeybindingInstalled = false;
         this._enabled = false;
         this._externalGlobalStack = false;
+        this._managerHealth = {};
     }
 
     async enable() {
@@ -303,7 +304,15 @@ export class LiquidGlassIntegration {
         const start = (name, fn) => {
             try {
                 fn();
+                this._managerHealth[name] = true;
+                console.log(
+                    '[Velora][LiquidGlass] ' +
+                    name +
+                    ' active'
+                );
+                return true;
             } catch (error) {
+                this._managerHealth[name] = false;
                 console.error(
                     '[Velora][LiquidGlass] ' +
                     name +
@@ -312,6 +321,7 @@ export class LiquidGlassIntegration {
                     '\n' +
                     (error?.stack ?? '')
                 );
+                return false;
             }
         };
 
@@ -407,6 +417,11 @@ export class LiquidGlassIntegration {
                 }
                 return GLib.SOURCE_REMOVE;
             }
+        );
+
+        console.log(
+            '[Velora][LiquidGlass] immediate manager health: ' +
+            JSON.stringify(this._managerHealth)
         );
 
         this._installDebugState();
@@ -746,6 +761,9 @@ export class LiquidGlassIntegration {
                 ),
                 externalGlobalStack:
                     this._externalGlobalStack,
+                managerHealth: {
+                    ...this._managerHealth,
+                },
             }),
             dump: () => {
                 const status =
@@ -918,6 +936,7 @@ export class LiquidGlassIntegration {
         this._settings = null;
         this._vendor = null;
         this._externalGlobalStack = false;
+        this._managerHealth = {};
     }
 }
 
