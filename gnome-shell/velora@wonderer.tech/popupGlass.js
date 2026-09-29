@@ -56,16 +56,17 @@ class PopupGlassSurface {
 
         this._overlay = null;
         this._material = null;
-        this._wallpaper = null;
+        this._sceneRoot = null;
+        this._sceneManager = null;
         this._effect = null;
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
-        this._lastW = 0;
-        this._lastH = 0;
-        this._lastWallpaperX = NaN;
-        this._lastWallpaperY = NaN;
-        this._lastWallpaperScaleX = NaN;
-        this._lastWallpaperScaleY = NaN;
+        this._lastStageW = 0;
+        this._lastStageH = 0;
+        this._lastSceneX = NaN;
+        this._lastSceneY = NaN;
+        this._lastSceneScaleX = NaN;
+        this._lastSceneScaleY = NaN;
         this._overlayAllocationId = 0;
     }
 
@@ -104,13 +105,22 @@ class PopupGlassSurface {
         material.set_no_layout?.(true);
         material.set_clip_to_allocation(true);
 
-        const wallpaper = this._vendor.createBackgroundMirror(
-            'velora-popup-wallpaper'
-        );
-        // Wallpaper is paint input, never layout input. Its stage-sized source
-        // must not change the popup's preferred size.
-        wallpaper.set_no_layout?.(true);
-        material.add_child(wallpaper);
+        // Build the optical source entirely from compositor-native GPU actors:
+        // a shared wallpaper mirror plus live Meta.WindowActor clones. There is
+        // no CPU screenshot/readback path here.
+        const sceneRoot = new this._vendor.UnpickableActor({
+            name: 'velora-popup-live-scene',
+            reactive: false,
+        });
+        sceneRoot.set_no_layout?.(true);
+        material.add_child(sceneRoot);
+
+        const sceneManager =
+            new this._vendor.WindowCloneManager(
+                sceneRoot,
+                null,
+                'velora-popup-scene'
+            );
 
         // Prevent the offscreen-cache black-frame edge case already handled by
         // the proven notification path and vendored managers.
@@ -147,7 +157,8 @@ class PopupGlassSurface {
 
         this._overlay = overlay;
         this._material = material;
-        this._wallpaper = wallpaper;
+        this._sceneRoot = sceneRoot;
+        this._sceneManager = sceneManager;
         this._effect = effect;
 
         try {
@@ -228,12 +239,14 @@ class PopupGlassSurface {
 
     _syncPaintGeometry() {
         const material = this._material;
-        const wallpaper = this._wallpaper;
+        const sceneRoot = this._sceneRoot;
+        const sceneManager = this._sceneManager;
         const effect = this._effect;
         if (
             this._destroyed ||
             !material ||
-            !wallpaper ||
+            !sceneRoot ||
+            !sceneManager ||
             !effect ||
             !material.mapped
         ) {
@@ -258,35 +271,57 @@ class PopupGlassSurface {
         const scaleY =
             finitePositive(transformedH) ? transformedH / h : 1;
 
-        const wallpaperScaleX = 1 / Math.max(scaleX, 0.001);
-        const wallpaperScaleY = 1 / Math.max(scaleY, 0.001);
-        const wallpaperX = -absX / Math.max(scaleX, 0.001);
-        const wallpaperY = -absY / Math.max(scaleY, 0.001);
+        const sceneScaleX = 1 / Math.max(scaleX, 0.001);
+        const sceneScaleY = 1 / Math.max(scaleY, 0.001);
+        const sceneX = -absX / Math.max(scaleX, 0.001);
+        const sceneY = -absY / Math.max(scaleY, 0.001);
 
-        if (this._lastW !== global.stage.width ||
-            this._lastH !== global.stage.height) {
-            wallpaper.set_size(global.stage.width, global.stage.height);
-            this._lastW = global.stage.width;
-            this._lastH = global.stage.height;
+        if (
+            this._lastStageW !== global.stage.width ||
+            this._lastStageH !== global.stage.height
+        ) {
+            sceneRoot.set_size(
+                global.stage.width,
+                global.stage.height
+            );
+            this._lastStageW = global.stage.width;
+            this._lastStageH = global.stage.height;
         }
 
         if (
-            this._lastWallpaperScaleX !== wallpaperScaleX ||
-            this._lastWallpaperScaleY !== wallpaperScaleY
+            this._lastSceneScaleX !== sceneScaleX ||
+            this._lastSceneScaleY !== sceneScaleY
         ) {
-            wallpaper.set_scale(wallpaperScaleX, wallpaperScaleY);
-            this._lastWallpaperScaleX = wallpaperScaleX;
-            this._lastWallpaperScaleY = wallpaperScaleY;
+            sceneRoot.set_scale(sceneScaleX, sceneScaleY);
+            this._lastSceneScaleX = sceneScaleX;
+            this._lastSceneScaleY = sceneScaleY;
         }
 
         if (
-            this._lastWallpaperX !== wallpaperX ||
-            this._lastWallpaperY !== wallpaperY
+            this._lastSceneX !== sceneX ||
+            this._lastSceneY !== sceneY
         ) {
-            wallpaper.set_position(wallpaperX, wallpaperY);
-            this._lastWallpaperX = wallpaperX;
-            this._lastWallpaperY = wallpaperY;
+            sceneRoot.set_position(sceneX, sceneY);
+            this._lastSceneX = sceneX;
+            this._lastSceneY = sceneY;
         }
+
+        // Cull clone work to the optical FBO footprint. WindowCloneManager
+        // keeps each clone live from Mutter's own window actor; it does not
+        // flatten the desktop into a CPU bitmap.
+        sceneManager.setCullRect?.([
+            absX,
+            absY,
+            transformedW,
+            transformedH,
+        ]);
+        sceneManager.applyBgCloneClip?.([
+            absX,
+            absY,
+            transformedW,
+            transformedH,
+        ]);
+        sceneManager.sync?.();
 
         // The FBO includes optical sampling headroom, while the shader mask is
         // still exactly the native popup rectangle. This is what lets the
@@ -350,6 +385,12 @@ class PopupGlassSurface {
         }
 
         try {
+            this._sceneManager?.destroy?.();
+        } catch {
+            // Scene clones may already be destroyed with the popup.
+        }
+
+        try {
             this._overlay?.destroy?.();
         } catch {
             // Popup may already have destroyed the entire subtree.
@@ -357,7 +398,8 @@ class PopupGlassSurface {
 
         this._overlay = null;
         this._material = null;
-        this._wallpaper = null;
+        this._sceneRoot = null;
+        this._sceneManager = null;
         this._effect = null;
         this._menu = null;
         this._box = null;
