@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.13"
+INSTALLER_VERSION="2026-09-29.14"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -741,17 +741,16 @@ cleanup() {
 trap cleanup EXIT
 
 PACK_ARGS=(pack --force --out-dir="${BUILD_DIR}")
+
+# Only package Velora-owned bootstrap/runtime files. Do NOT pass the vendored
+# upstream extension tree as --extra-source: it contains its own metadata.json
+# and UUID, and GNOME 50 may treat that nested metadata as the package identity.
+# The complete vendor tree is copied deterministically into TARGET_DIR after
+# gnome-extensions install and before Velora is enabled/live-registered.
 for source_name in "${RUNTIME_FILES[@]}"; do
     PACK_ARGS+=(--extra-source="${source_name}")
 done
-for runtime_source in "${RUNTIME_DIRS[@]}"; do
-    while IFS= read -r source_path; do
-        PACK_ARGS+=(--extra-source="${source_path#${SOURCE_DIR}/}")
-    done < <(
-        find "${SOURCE_DIR}/${runtime_source}" -type f -print |
-            LC_ALL=C sort
-    )
-done
+
 PACK_ARGS+=("${SOURCE_DIR}")
 
 echo "Building GNOME extension bundle..."
@@ -795,9 +794,6 @@ if command -v unzip >/dev/null 2>&1; then
         "floatingDock.js"
         "liquidGlassDock.js"
         "geometry.js"
-        "vendor/liquid-glass/dist/liquidEffect.js"
-        "vendor/liquid-glass/shaders/glass.frag"
-        "vendor/liquid-glass/LICENSE"
         "schemas/org.gnome.shell.extensions.velora.gschema.xml"
     )
 
@@ -806,6 +802,13 @@ if command -v unzip >/dev/null 2>&1; then
         grep -Fxq "${packed_file}" <<<"${PACK_LIST}" ||
             fail "Bundle verification failed: ${packed_file} is missing."
     done
+
+    PACK_UUID="$(
+        unzip -p "${PACK_PATH}" metadata.json |
+            python3 -c 'import json,sys; print(json.load(sys.stdin).get("uuid", ""))'
+    )"
+    [[ "${PACK_UUID}" == "${UUID}" ]] ||
+        fail "Bundle UUID mismatch: expected ${UUID}, got ${PACK_UUID:-<empty>}"
 fi
 
 if gnome-extensions info "${UUID}" >/dev/null 2>&1; then
