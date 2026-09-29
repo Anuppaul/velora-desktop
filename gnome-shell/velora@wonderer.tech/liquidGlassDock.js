@@ -591,7 +591,6 @@ export class LiquidGlassDockRenderer {
             monitor.height
         );
         this._windowCloneManager?.sync();
-        this._bgActor.queue_redraw();
     }
 
     _syncLiveGeometry() {
