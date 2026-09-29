@@ -548,8 +548,29 @@ export class LiquidGlassIntegration {
             };
         }
 
+        // Do not trust a long-lived Gio.Settings instance for these controls.
+        // Preferences run in a separate process; if a dconf change
+        // notification is missed, that instance can keep returning the value
+        // it saw when the runtime was created. A new Settings object backed by
+        // the same fixed-path schema reads the current backend value directly.
+        let settings = this._veloraSettings;
+        let freshSettings = null;
+
+        try {
+            freshSettings = new Gio.Settings({
+                settings_schema:
+                    this._veloraSettings.settings_schema,
+            });
+            settings = freshSettings;
+        } catch (error) {
+            console.warn(
+                '[Velora][CardAppearance] fresh settings read fallback: ' +
+                error
+            );
+        }
+
         const opacity = clampNumber(
-            this._veloraSettings.get_int(
+            settings.get_int(
                 'date-menu-opacity'
             ),
             0,
@@ -557,18 +578,24 @@ export class LiquidGlassIntegration {
         ) / 100;
 
         const tint =
-            this._veloraSettings.get_string(
+            settings.get_string(
                 'date-menu-tint-color'
             );
         const [r, g, b] = parseHexRgb(tint);
 
         const blur = clampNumber(
-            this._veloraSettings.get_int(
+            settings.get_int(
                 'date-menu-blur'
             ),
             0,
             80
         );
+
+        try {
+            freshSettings?.run_dispose?.();
+        } catch {
+            // Best-effort release of the short-lived reader.
+        }
 
         return {
             opacity,
@@ -596,7 +623,7 @@ export class LiquidGlassIntegration {
         this._applyAllNativeNotificationAppearances(state);
 
         console.log(
-            '[Velora][CardAppearance] synced ' +
+            '[Velora][CardAppearance] fresh-backend synced ' +
             'opacity=' +
             Math.round(state.opacity * 100) +
             ' tint=' +
@@ -635,7 +662,7 @@ export class LiquidGlassIntegration {
             this._cardAppearancePollId =
                 GLib.timeout_add(
                     GLib.PRIORITY_DEFAULT,
-                    100,
+                    150,
                     () => {
                         if (!this._enabled)
                             return GLib.SOURCE_REMOVE;
