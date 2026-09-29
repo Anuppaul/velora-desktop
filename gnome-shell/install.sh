@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-30.44"
+INSTALLER_VERSION="2026-09-30.45"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -29,6 +29,7 @@ RUNTIME_FILES=(
     "liquidGlassDock.js"
     "notificationGlass.js"
     "popupGlass.js"
+    "shellCards.js"
 )
 
 RUNTIME_DIRS=(
@@ -808,6 +809,7 @@ if command -v unzip >/dev/null 2>&1; then
         "liquidGlassDock.js"
         "notificationGlass.js"
         "popupGlass.js"
+        "shellCards.js"
         "schemas/org.gnome.shell.extensions.velora.gschema.xml"
     )
 
@@ -870,7 +872,7 @@ refresh_prefs_process
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
     runtime.js orbThemeRuntime.js runtime.css liquidGlassDock.js \
-    notificationGlass.js popupGlass.js; do
+    notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
 done
