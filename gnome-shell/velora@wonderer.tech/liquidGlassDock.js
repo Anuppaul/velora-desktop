@@ -504,7 +504,25 @@ export class LiquidGlassIntegration {
             this._dateMenuAppearanceSettingIds.push(
                 this._veloraSettings.connect(
                     'changed::' + key,
-                    () => this._applyNativeDateMenuAppearance()
+                    () => {
+                        console.log(
+                            '[Velora][CardAppearance] changed ' +
+                            key +
+                            ' opacity=' +
+                            this._veloraSettings.get_int(
+                                'date-menu-opacity'
+                            ) +
+                            ' tint=' +
+                            this._veloraSettings.get_string(
+                                'date-menu-tint-color'
+                            ) +
+                            ' blur=' +
+                            this._veloraSettings.get_int(
+                                'date-menu-blur'
+                            )
+                        );
+                        this._applyNativeDateMenuAppearance();
+                    }
                 )
             );
         }
@@ -623,8 +641,30 @@ export class LiquidGlassIntegration {
             this._dateMenuBlurEffect = null;
         }
 
+        // GNOME BoxPointer renders the visible rounded popup background in
+        // a separate St.DrawingArea (_border). set_style()/queue_redraw() on
+        // the parent does not guarantee that canvas is repainted. Explicitly
+        // invalidate it so live opacity/tint changes become visible.
+        actor._border?.queue_repaint?.();
+        actor.queue_relayout?.();
         actor.queue_redraw?.();
         box.queue_redraw?.();
+
+        // Repaint again on the next idle after St has resolved the new theme
+        // node; this avoids one-frame use of the previous custom property.
+        GLib.idle_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            () => {
+                if (
+                    this._enabled &&
+                    actor === this._dateMenuActor
+                ) {
+                    actor._border?.queue_repaint?.();
+                    actor.queue_redraw?.();
+                }
+                return GLib.SOURCE_REMOVE;
+            }
+        );
     }
 
     _styleNativeDateMenuChildren() {
@@ -949,6 +989,11 @@ export class LiquidGlassIntegration {
                             ...(bannerBin.get_children?.() ?? []),
                             ...(tray?._banner ? [tray._banner] : []),
                         ]);
+
+                        console.log(
+                            '[Velora][CardAppearance] notification sync ' +
+                            key
+                        );
 
                         for (const actor of actors)
                             this._applyNativeNotificationAppearance(actor);
