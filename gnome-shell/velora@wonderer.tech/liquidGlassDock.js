@@ -242,7 +242,8 @@ export class LiquidGlassIntegration {
         this._uiManager = null;
         this._dateMenuScaleSettingId = 0;
         this._panelMenuManager = null;
-        this._notificationManager = null;
+        this._notificationBannerBin = null;
+        this._notificationBannerSignals = [];
         this._notificationScaleSettingId = 0;
         this._notificationScaledActors = new Map();
         this._quickSettingsManager = null;
@@ -274,19 +275,6 @@ export class LiquidGlassIntegration {
             this._veloraSettings
         );
         this._settings = createLiquidGlassSettings();
-
-        // Velora uses a slightly larger notification glass by default while
-        // preserving any value the user has already chosen upstream.
-        if (
-            this._settings.get_user_value(
-                'notification-glass-expand'
-            ) === null
-        ) {
-            this._settings.set_int(
-                'notification-glass-expand',
-                20
-            );
-        }
 
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
@@ -419,66 +407,8 @@ export class LiquidGlassIntegration {
             this._panelMenuManager.setup();
         });
 
-        start('notificationManager', () => {
-            this._notificationManager =
-                new this._vendor.NotificationManager(
-                    this._vendor.root,
-                    this._settings,
-                    this._logger
-                );
-
-            const originalSetupBannerEffect =
-                this._notificationManager
-                    ._setupBannerEffect
-                    .bind(this._notificationManager);
-            const originalCleanupCurrentBanner =
-                this._notificationManager
-                    ._cleanupCurrentBanner
-                    .bind(this._notificationManager);
-
-            this._notificationManager._setupBannerEffect =
-                targetActor => {
-                    this._applyNotificationPanelScale(
-                        targetActor
-                    );
-                    originalSetupBannerEffect(targetActor);
-
-                    // Re-assert after GNOME's current layout/animation frame.
-                    GLib.idle_add(
-                        GLib.PRIORITY_DEFAULT_IDLE,
-                        () => {
-                            this._applyNotificationPanelScale(
-                                targetActor
-                            );
-                            return GLib.SOURCE_REMOVE;
-                        }
-                    );
-                };
-
-            this._notificationManager._cleanupCurrentBanner =
-                () => {
-                    const actor =
-                        this._notificationManager?.currentBanner;
-                    this._restoreNotificationActor(actor);
-                    originalCleanupCurrentBanner();
-                };
-
-            this._notificationManager.setup();
-
-            this._notificationScaleSettingId =
-                this._veloraSettings.connect(
-                    'changed::notification-panel-scale',
-                    () => {
-                        this._applyNotificationPanelScale(
-                            this._notificationManager
-                                ?.currentBanner
-                        );
-                    }
-                );
-
-            this._applyNotificationPanelScale(
-                this._notificationManager.currentBanner
-            );
+        start('nativeNotificationStyler', () => {
+            this._setupNativeNotificationStyler();
         });
 
         start('osdManager', () => {
@@ -668,6 +598,139 @@ export class LiquidGlassIntegration {
         this._topPanelManager = null;
     }
 
+    _setupNativeNotificationStyler() {
+        const tray = Main.messageTray;
+        const bannerBin = tray?._bannerBin;
+        if (!bannerBin) {
+            throw new Error(
+                'GNOME MessageTray banner container is unavailable'
+            );
+        }
+
+        this._notificationBannerBin = bannerBin;
+
+        const styleBanner = actor => {
+            if (!actor || actor === bannerBin)
+                return;
+
+            actor.add_style_class_name?.(
+                'velora-native-notification-glass'
+            );
+            this._applyNotificationPanelScale(actor);
+        };
+
+        const unstyleBanner = actor => {
+            if (!actor)
+                return;
+
+            actor.remove_style_class_name?.(
+                'velora-native-notification-glass'
+            );
+            this._restoreNotificationActor(actor);
+        };
+
+        this._notificationBannerSignals.push({
+            obj: bannerBin,
+            id: bannerBin.connect(
+                'child-added',
+                (_container, actor) => {
+                    GLib.idle_add(
+                        GLib.PRIORITY_DEFAULT_IDLE,
+                        () => {
+                            if (
+                                this._enabled &&
+                                actor?.get_parent?.() === bannerBin
+                            ) {
+                                styleBanner(actor);
+                            }
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                }
+            ),
+        });
+
+        this._notificationBannerSignals.push({
+            obj: bannerBin,
+            id: bannerBin.connect(
+                'child-removed',
+                (_container, actor) => {
+                    unstyleBanner(actor);
+                }
+            ),
+        });
+
+        for (const actor of bannerBin.get_children?.() ?? [])
+            styleBanner(actor);
+
+        const currentBanner = tray?._banner;
+        if (currentBanner)
+            styleBanner(currentBanner);
+
+        this._notificationScaleSettingId =
+            this._veloraSettings.connect(
+                'changed::notification-panel-scale',
+                () => {
+                    for (const actor of
+                        this._notificationScaledActors.keys()) {
+                        this._applyNotificationPanelScale(actor);
+                    }
+
+                    for (const actor of
+                        bannerBin.get_children?.() ?? []) {
+                        styleBanner(actor);
+                    }
+                }
+            );
+
+        console.log(
+            '[Velora][LiquidGlass] nativeNotificationStyler active'
+        );
+    }
+
+    _cleanupNativeNotificationStyler() {
+        if (
+            this._notificationScaleSettingId &&
+            this._veloraSettings
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._notificationScaleSettingId
+                );
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._notificationScaleSettingId = 0;
+
+        for (const signal of this._notificationBannerSignals) {
+            try {
+                signal.obj.disconnect(signal.id);
+            } catch {
+                // MessageTray may already be tearing down.
+            }
+        }
+        this._notificationBannerSignals = [];
+
+        const actors = new Set([
+            ...this._notificationScaledActors.keys(),
+            ...(this._notificationBannerBin?.get_children?.() ?? []),
+        ]);
+
+        for (const actor of actors) {
+            try {
+                actor.remove_style_class_name?.(
+                    'velora-native-notification-glass'
+                );
+            } catch {
+                // Actor may already be destroyed.
+            }
+            this._restoreNotificationActor(actor);
+        }
+
+        this._notificationBannerBin = null;
+    }
+
     _applyNotificationPanelScale(actor) {
         if (!actor || !this._veloraSettings)
             return;
@@ -698,16 +761,14 @@ export class LiquidGlassIntegration {
             )
         );
 
-        // GNOME animates the parent banner bin, not the banner actor itself.
-        // Scaling the banner here therefore composes cleanly with Shell's own
-        // entry/exit animation, and upstream NotificationManager sees the same
-        // transformed size through getTransformedRect().
+        // GNOME owns the banner actor and its parent animation. Scaling only
+        // the native card here composes with Shell's own entry/exit lifecycle
+        // without introducing a second compositor/rendering tree.
         actor.set_pivot_point?.(0.5, 0);
         actor.set_scale?.(scale, scale);
         actor.queue_relayout?.();
         actor.queue_redraw?.();
 
-        this._notificationManager?.bgActor?.queue_redraw?.();
     }
 
     _restoreNotificationActor(actor) {
@@ -1143,8 +1204,8 @@ export class LiquidGlassIntegration {
                         'date-menu-panel-scale'
                     ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
-                notificationManager: Boolean(
-                    this._notificationManager
+                nativeNotificationStyler: Boolean(
+                    this._notificationBannerBin
                 ),
                 notificationPanelScale:
                     this._veloraSettings?.get_int?.(
@@ -1318,22 +1379,8 @@ export class LiquidGlassIntegration {
         cleanup('uiManager', this._uiManager);
         cleanup('quickSettingsManager', this._quickSettingsManager);
 
-        if (
-            this._notificationScaleSettingId &&
-            this._veloraSettings
-        ) {
-            try {
-                this._veloraSettings.disconnect(
-                    this._notificationScaleSettingId
-                );
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._notificationScaleSettingId = 0;
-        this._restoreNotificationPanelScale();
+        this._cleanupNativeNotificationStyler();
 
-        cleanup('notificationManager', this._notificationManager);
         cleanup('osdManager', this._osdManager);
         cleanup('applicationManager', this._applicationManager);
         cleanup('windowListService', this._windowListService);
@@ -1341,7 +1388,7 @@ export class LiquidGlassIntegration {
         this._panelMenuManager = null;
         this._uiManager = null;
         this._quickSettingsManager = null;
-        this._notificationManager = null;
+        this._notificationBannerBin = null;
         this._notificationScaledActors.clear();
         this._osdManager = null;
         this._applicationManager = null;
