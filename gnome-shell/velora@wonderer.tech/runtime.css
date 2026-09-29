@@ -217,10 +217,10 @@
 
 .velora-native-notification-glass {
     background-color: rgba(24, 27, 34, 0.78) !important;
-    background-image: none !important;
+    background-image: none;
     border: 1px solid rgba(255, 255, 255, 0.20) !important;
     border-radius: 24px !important;
-    box-shadow: none !important;
+    box-shadow: none;
     color: #ffffff;
     transition-duration: 120ms;
 }
@@ -229,7 +229,7 @@
 .velora-native-notification-glass:focus {
     background-color: rgba(30, 34, 42, 0.84) !important;
     border-color: rgba(255, 255, 255, 0.28) !important;
-    box-shadow: none !important;
+    box-shadow: none;
 }
 
 .velora-native-notification-glass StButton {
@@ -239,8 +239,8 @@
 
 .velora-native-date-menu-shell {
     background-color: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
+    background-image: none;
+    box-shadow: none;
 }
 
 .velora-native-date-menu-glass {
@@ -253,16 +253,16 @@
 .velora-native-date-menu-glass .events-button,
 .velora-native-date-menu-glass .world-clocks-button,
 .velora-native-date-menu-glass .message {
-    background-color: rgba(255, 255, 255, 0.040) !important;
-    background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: none !important;
+    background-color: rgba(255, 255, 255, 0.040);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
 }
 
 .velora-native-date-menu-glass .events-button:hover,
 .velora-native-date-menu-glass .world-clocks-button:hover,
 .velora-native-date-menu-glass .message:hover {
-    background-color: rgba(255, 255, 255, 0.075) !important;
-    box-shadow: none !important;
+    background-color: rgba(255, 255, 255, 0.075);
+    box-shadow: none;
 }
 
