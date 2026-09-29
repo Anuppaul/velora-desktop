@@ -1,25 +1,148 @@
+import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {LiquidEffect} from './vendor/liquid-glass/dist/liquidEffect.js';
-import {UnpickableActor} from './vendor/liquid-glass/dist/actors/unpickable.js';
-import {UILayerSampler} from './vendor/liquid-glass/dist/capture/uiLayerSampler.js';
-import {WindowCloneManager} from './vendor/liquid-glass/dist/capture/windowClones.js';
-import {syncGlassCaptureClip} from './vendor/liquid-glass/dist/capture/clip.js';
-import {setClipIfChanged} from './vendor/liquid-glass/dist/actors/writes.js';
-import {ensureGlassAllocated} from './vendor/liquid-glass/dist/actors/allocation.js';
-import {excludeOtherGlass} from './vendor/liquid-glass/dist/capture/glassExclusions.js';
-import {
-    startStageLoop,
-    stopStageLoop,
-} from './vendor/liquid-glass/dist/animation/frameLoops.js';
-import {
-    isFrameSyncFrozen,
-    SAME_FRAME_WINDOW_US,
-} from './vendor/liquid-glass/dist/animation/frameSync.js';
-import {reportFrameLoopError} from './vendor/liquid-glass/dist/diagnostics/logging.js';
+const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV1';
+const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
+const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV1';
+
+function canonicalExtensionRoot() {
+    return GLib.build_filenamev([
+        GLib.get_user_data_dir(),
+        'gnome-shell',
+        'extensions',
+        'velora@wonderer.tech',
+    ]);
+}
+
+function canonicalVendorRoot() {
+    return GLib.build_filenamev([
+        canonicalExtensionRoot(),
+        'vendor',
+        'liquid-glass',
+    ]);
+}
+
+function previousRevisionVendorRoot(settings) {
+    const revision =
+        settings?.get_string?.('runtime-loaded-revision')?.trim?.() ?? '';
+    if (!revision || revision === 'base')
+        return null;
+
+    const root = GLib.build_filenamev([
+        canonicalExtensionRoot(),
+        'runtime-revisions',
+        revision,
+        'vendor',
+        'liquid-glass',
+    ]);
+    const entry = Gio.File.new_for_path(
+        GLib.build_filenamev([
+            root,
+            'dist',
+            'liquidEffect.js',
+        ])
+    );
+    return entry.query_exists(null) ? root : null;
+}
+
+function moduleUri(root, relativePath) {
+    return Gio.File.new_for_path(
+        GLib.build_filenamev([
+            root,
+            ...relativePath.split('/'),
+        ])
+    ).get_uri();
+}
+
+async function importVendorModules(root) {
+    const [
+        liquidEffect,
+        unpickable,
+        uiLayerSampler,
+        windowClones,
+        captureClip,
+        writes,
+        allocation,
+        glassExclusions,
+        frameLoops,
+        frameSync,
+        diagnostics,
+    ] = await Promise.all([
+        import(moduleUri(root, 'dist/liquidEffect.js')),
+        import(moduleUri(root, 'dist/actors/unpickable.js')),
+        import(moduleUri(root, 'dist/capture/uiLayerSampler.js')),
+        import(moduleUri(root, 'dist/capture/windowClones.js')),
+        import(moduleUri(root, 'dist/capture/clip.js')),
+        import(moduleUri(root, 'dist/actors/writes.js')),
+        import(moduleUri(root, 'dist/actors/allocation.js')),
+        import(moduleUri(root, 'dist/capture/glassExclusions.js')),
+        import(moduleUri(root, 'dist/animation/frameLoops.js')),
+        import(moduleUri(root, 'dist/animation/frameSync.js')),
+        import(moduleUri(root, 'dist/diagnostics/logging.js')),
+    ]);
+
+    return {
+        root,
+        LiquidEffect: liquidEffect.LiquidEffect,
+        UnpickableActor: unpickable.UnpickableActor,
+        UILayerSampler: uiLayerSampler.UILayerSampler,
+        WindowCloneManager: windowClones.WindowCloneManager,
+        syncGlassCaptureClip: captureClip.syncGlassCaptureClip,
+        setClipIfChanged: writes.setClipIfChanged,
+        ensureGlassAllocated: allocation.ensureGlassAllocated,
+        excludeOtherGlass: glassExclusions.excludeOtherGlass,
+        startStageLoop: frameLoops.startStageLoop,
+        stopStageLoop: frameLoops.stopStageLoop,
+        isFrameSyncFrozen: frameSync.isFrameSyncFrozen,
+        SAME_FRAME_WINDOW_US: frameSync.SAME_FRAME_WINDOW_US,
+        reportFrameLoopError: diagnostics.reportFrameLoopError,
+    };
+}
+
+async function loadVendorModules(settings) {
+    if (globalThis[VENDOR_CACHE_KEY])
+        return globalThis[VENDOR_CACHE_KEY];
+
+    if (globalThis[VENDOR_PROMISE_KEY])
+        return globalThis[VENDOR_PROMISE_KEY];
+
+    let root = globalThis[VENDOR_ROOT_KEY] ?? null;
+
+    if (!root) {
+        // GObject classes live for the lifetime of the Shell process. If an
+        // earlier Velora runtime already registered upstream Liquid Glass
+        // types, re-importing the vendored source from a new hashed runtime
+        // URI attempts to register the same GTypes again and fails. Reuse the
+        // exact previous runtime URI in that case so GJS returns its cached
+        // module objects instead of evaluating registerClass() again.
+        const liquidType = GObject.type_from_name('LiquidGlassEffect');
+        const alreadyRegistered = Boolean(liquidType);
+
+        if (alreadyRegistered)
+            root = previousRevisionVendorRoot(settings);
+
+        root ??= canonicalVendorRoot();
+        globalThis[VENDOR_ROOT_KEY] = root;
+    }
+
+    const promise = importVendorModules(root)
+        .then(modules => {
+            globalThis[VENDOR_CACHE_KEY] = modules;
+            return modules;
+        })
+        .catch(error => {
+            delete globalThis[VENDOR_PROMISE_KEY];
+            if (!globalThis[VENDOR_CACHE_KEY])
+                delete globalThis[VENDOR_ROOT_KEY];
+            throw error;
+        });
+
+    globalThis[VENDOR_PROMISE_KEY] = promise;
+    return promise;
+}
 
 const SHADER_PADDING = 20;
 const CLIP_PADDING = 200;
@@ -29,11 +152,6 @@ const UPSTREAM_DOCK_TINT_STRENGTH = 0.12;
 const UPSTREAM_DOCK_SATURATION = 1.5;
 const UPSTREAM_DOCK_CORNER_RADIUS = 30;
 const VELORA_REFERENCE_OPACITY = 0.76;
-
-function moduleDirectory() {
-    const file = Gio.File.new_for_uri(import.meta.url);
-    return file.get_parent()?.get_path() ?? null;
-}
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -59,27 +177,45 @@ export class LiquidGlassDockRenderer {
         this._lastTickUs = 0;
         this._torndown = false;
         this._lastGeometry = null;
-
-        const baseDir = moduleDirectory();
-        this._extensionPath = baseDir
-            ? GLib.build_filenamev([
-                baseDir,
-                'vendor',
-                'liquid-glass',
-            ])
-            : null;
+        this._vendor = null;
+        this._enablePromise = null;
+        this._destroyed = false;
     }
 
     enable() {
-        if (this._bgActor || !this._target || !this._layer)
-            return;
+        if (this._bgActor || this._enablePromise || !this._target || !this._layer)
+            return this._enablePromise;
 
-        if (!this._extensionPath) {
-            log('Velora Desktop: unable to resolve vendored Liquid Glass path');
+        this._destroyed = false;
+        this._enablePromise = this._enableAsync()
+            .catch(error => {
+                if (!this._destroyed) {
+                    logError(
+                        error,
+                        'Velora Desktop: upstream Liquid Glass renderer failed'
+                    );
+                }
+            })
+            .finally(() => {
+                this._enablePromise = null;
+            });
+
+        return this._enablePromise;
+    }
+
+    async _enableAsync() {
+        this._vendor = await loadVendorModules(this._settings);
+        if (this._destroyed || !this._target || !this._layer)
             return;
-        }
 
         this._torndown = false;
+
+        const {
+            LiquidEffect,
+            UnpickableActor,
+            UILayerSampler,
+            WindowCloneManager,
+        } = this._vendor;
 
         this._bgActor = new UnpickableActor();
         // Keep the upstream actor names: its capture/exclusion utilities use
@@ -121,7 +257,7 @@ export class LiquidGlassDockRenderer {
         }
 
         this._effect = new LiquidEffect({
-            extensionPath: this._extensionPath,
+            extensionPath: this._vendor.root,
             owner: 'dock',
         });
         this._effect.setPadding(SHADER_PADDING);
@@ -186,7 +322,10 @@ export class LiquidGlassDockRenderer {
         if (!this._bgActor)
             return;
 
-        excludeOtherGlass(this._uiSampler, this._bgActor);
+        this._vendor?.excludeOtherGlass(
+            this._uiSampler,
+            this._bgActor
+        );
         this._windowCloneManager?.rebuildClones();
         this._uiSampler?.rebindSelf();
         this._uiSampler?.refresh();
@@ -225,26 +364,30 @@ export class LiquidGlassDockRenderer {
                 return;
             }
 
-            if (isFrameSyncFrozen())
+            if (this._vendor?.isFrameSyncFrozen())
                 return;
 
             const nowUs = GLib.get_monotonic_time();
-            if (nowUs - this._lastTickUs < SAME_FRAME_WINDOW_US)
+            if (
+                nowUs - this._lastTickUs <
+                (this._vendor?.SAME_FRAME_WINDOW_US ?? 4000)
+            ) {
                 return;
+            }
             this._lastTickUs = nowUs;
 
             try {
-                ensureGlassAllocated(this._bgActor);
+                this._vendor?.ensureGlassAllocated(this._bgActor);
                 this.sync();
             } catch (error) {
-                reportFrameLoopError(
+                this._vendor?.reportFrameLoopError(
                     'VeloraLiquidGlassDock',
                     error
                 );
             }
         };
 
-        startStageLoop(
+        this._vendor?.startStageLoop(
             this._frameSignalSlot,
             this._frameSlot,
             frameTick
@@ -252,7 +395,7 @@ export class LiquidGlassDockRenderer {
     }
 
     _stopFrameSync() {
-        stopStageLoop(
+        this._vendor?.stopStageLoop(
             this._frameSignalSlot,
             this._frameSlot
         );
@@ -389,7 +532,7 @@ export class LiquidGlassDockRenderer {
             monitor.height
         );
 
-        setClipIfChanged(
+        this._vendor?.setClipIfChanged(
             this._bgActor,
             localBgX - CLIP_PADDING,
             localBgY - CLIP_PADDING,
@@ -419,7 +562,7 @@ export class LiquidGlassDockRenderer {
             -monitor.y
         );
 
-        syncGlassCaptureClip({
+        this._vendor?.syncGlassCaptureClip({
             cloneContainer: this._cloneContainer,
             effect: this._effect,
             originX: monitor.x,
@@ -475,6 +618,7 @@ export class LiquidGlassDockRenderer {
     }
 
     destroy() {
+        this._destroyed = true;
         this._torndown = true;
         this._stopFrameSync();
 
@@ -532,5 +676,6 @@ export class LiquidGlassDockRenderer {
         this._layer = null;
         this._settings = null;
         this._lastGeometry = null;
+        this._vendor = null;
     }
 }
