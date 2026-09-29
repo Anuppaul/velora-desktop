@@ -179,8 +179,9 @@ export class NotificationGlassManager {
 
         // The notification's GNOME bounds are the visible material bounds.
         // Sampling headroom comes from the root clip, not from a larger card.
-        effect.setPadding?.(0);
+        effect.setPadding?.(20);
         effect.setIsDock?.(false);
+        effect.setSurfaceLightEnabled?.(true);
         effect.setCornerRadius?.(radius);
         effect.setBlurMethod?.(1);
         liquidBox.add_effect(effect);
