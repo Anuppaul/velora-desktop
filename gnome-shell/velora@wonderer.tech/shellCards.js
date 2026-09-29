@@ -181,8 +181,8 @@ class ShellCardSurface {
         const box = this._target.get_allocation_box?.();
         const w = box?.get_width?.() ?? this._target.width ?? 0;
         const h = box?.get_height?.() ?? this._target.height ?? 0;
-        const x = this._target.x ?? 0;
-        const y = this._target.y ?? 0;
+        const x = box?.x1 ?? this._target.x ?? 0;
+        const y = box?.y1 ?? this._target.y ?? 0;
         const opacity =
             this._target.get_paint_opacity?.() ??
             this._target.opacity ??
