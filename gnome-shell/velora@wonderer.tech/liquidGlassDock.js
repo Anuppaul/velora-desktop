@@ -13,6 +13,9 @@ import {
 import {
     NotificationGlassManager,
 } from './notificationGlass.js';
+import {
+    DateMenuGlassManager,
+} from './dateMenuGlass.js';
 
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
@@ -292,15 +295,7 @@ export class LiquidGlassIntegration {
         this._logger = null;
         this._stylesheet = null;
 
-        this._dateMenuActor = null;
-        this._dateMenuBox = null;
-        this._dateMenuBoxPointer = null;
-        this._dateMenuOpenSignalId = 0;
-        this._dateMenuOriginalActorStyle = null;
-        this._dateMenuOriginalStyle = null;
-        this._dateMenuOriginalBoxPointerStyle = null;
-        this._dateMenuPopupTarget = null;
-        this._dateMenuBlurEffect = null;
+        this._dateMenuGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
