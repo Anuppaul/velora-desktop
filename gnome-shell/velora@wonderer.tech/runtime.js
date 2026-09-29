@@ -34,7 +34,7 @@ const APP_PREVIEW_HIDE_DELAY = 220;
 const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
 
 export default class VeloraRuntime extends Extension {
-    enable() {
+    async enable() {
         const previousRuntime = globalThis[RUNTIME_SINGLETON_KEY];
         if (previousRuntime && previousRuntime !== this) {
             try {
@@ -95,7 +95,7 @@ export default class VeloraRuntime extends Extension {
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
         );
-        this._floatingDock.setEnabled(
+        await this._floatingDock.setEnabled(
             this._settings.get_boolean('floating-dock-enabled')
         );
 
