@@ -161,11 +161,7 @@ async function importVendorModules(root) {
         liquidEffect,
         unpickable,
         dockManager,
-        panelMenuManager,
-        quickSettingsManager,
         osdManager,
-        applicationManager,
-        windowListService,
         logger,
         utils,
         background,
@@ -175,11 +171,7 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/liquidEffect.js')),
         import(moduleUri(root, 'dist/actors/unpickable.js')),
         import(moduleUri(root, 'dist/dockManager.js')),
-        import(moduleUri(root, 'dist/panelMenuManager.js')),
-        import(moduleUri(root, 'dist/quickSettingsManager.js')),
         import(moduleUri(root, 'dist/osdManager.js')),
-        import(moduleUri(root, 'dist/applicationManager.js')),
-        import(moduleUri(root, 'dist/windowListService.js')),
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
         import(moduleUri(root, 'dist/capture/background.js')),
@@ -195,11 +187,7 @@ async function importVendorModules(root) {
         flushGlassRing: liquidEffect.flushGlassRing,
         UnpickableActor: unpickable.UnpickableActor,
         DashManager: dockManager.DashManager,
-        PanelMenuManager: panelMenuManager.PanelMenuManager,
-        QuickSettingsManager: quickSettingsManager.QuickSettingsManager,
         OsdManager: osdManager.OsdManager,
-        ApplicationManager: applicationManager.ApplicationManager,
-        WindowListService: windowListService.WindowListService,
         Logger: logger.Logger,
         setUtilsLogger: utils.setUtilsLogger,
         adaptiveColorTweener: utils.adaptiveColorTweener,
@@ -1376,11 +1364,8 @@ export class LiquidGlassIntegration {
         cleanup('osdManager', this._osdManager);
 
         this._panelMenuManager = null;
-        this._quickSettingsManager = null;
         this._notificationGlassManager = null;
         this._osdManager = null;
-        this._applicationManager = null;
-        this._windowListService = null;
 
         if (!this._externalGlobalStack) {
             try {
