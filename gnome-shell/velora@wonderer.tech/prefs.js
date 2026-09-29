@@ -3,6 +3,31 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {buildPreferences as buildLiquidGlassPreferences} from './vendor/liquid-glass/preferences/pages.js';
+
+const LIQUID_GLASS_SCHEMA =
+    'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
+
+function createLiquidGlassSettings(extensionDir) {
+    const schemaDir = extensionDir
+        .get_child('vendor')
+        .get_child('liquid-glass')
+        .get_child('schemas');
+
+    const source = Gio.SettingsSchemaSource.new_from_directory(
+        schemaDir.get_path(),
+        Gio.SettingsSchemaSource.get_default(),
+        false
+    );
+    const schema = source.lookup(LIQUID_GLASS_SCHEMA, true);
+    if (!schema) {
+        throw new Error(
+            'Unable to load vendored Liquid Glass settings schema'
+        );
+    }
+
+    return new Gio.Settings({settings_schema: schema});
+}
 
 const RING_MODES = [
     ['auto', 'Adaptive (1–4 layers)'],
@@ -112,7 +137,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             icon_name: 'view-app-grid-symbolic',
         });
         const appearancePage = new Adw.PreferencesPage({
-            title: 'Appearance',
+            title: 'Launcher Style',
             icon_name: 'applications-graphics-symbolic',
         });
 
@@ -384,5 +409,14 @@ export default class VeloraPreferences extends ExtensionPreferences {
         resetRow.add_suffix(resetButton);
         resetRow.activatable_widget = resetButton;
         positionGroup.add(resetRow);
+
+        const liquidGlassSettings =
+            createLiquidGlassSettings(this.dir);
+        window._veloraLiquidGlassSettings =
+            liquidGlassSettings;
+        buildLiquidGlassPreferences(
+            window,
+            liquidGlassSettings
+        );
     }
 }
