@@ -128,7 +128,6 @@ async function importVendorModules(root) {
         liquidEffect,
         unpickable,
         dockManager,
-        uiManager,
         panelMenuManager,
         quickSettingsManager,
         osdManager,
@@ -140,7 +139,6 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/liquidEffect.js')),
         import(moduleUri(root, 'dist/actors/unpickable.js')),
         import(moduleUri(root, 'dist/dockManager.js')),
-        import(moduleUri(root, 'dist/uiManager.js')),
         import(moduleUri(root, 'dist/panelMenuManager.js')),
         import(moduleUri(root, 'dist/quickSettingsManager.js')),
         import(moduleUri(root, 'dist/osdManager.js')),
@@ -158,7 +156,6 @@ async function importVendorModules(root) {
         flushGlassRing: liquidEffect.flushGlassRing,
         UnpickableActor: unpickable.UnpickableActor,
         DashManager: dockManager.DashManager,
-        UIManager: uiManager.UIManager,
         PanelMenuManager: panelMenuManager.PanelMenuManager,
         QuickSettingsManager: quickSettingsManager.QuickSettingsManager,
         OsdManager: osdManager.OsdManager,
@@ -236,8 +233,11 @@ export class LiquidGlassIntegration {
         this._logger = null;
         this._stylesheet = null;
 
-        this._uiManager = null;
+        this._dateMenuActor = null;
+        this._dateMenuBox = null;
+        this._dateMenuOpenSignalId = 0;
         this._dateMenuScaleSettingId = 0;
+        this._dateMenuOriginalTransform = null;
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
@@ -333,65 +333,8 @@ export class LiquidGlassIntegration {
             }
         };
 
-        start('uiManager', () => {
-            this._uiManager = new this._vendor.UIManager(
-                this._vendor.root,
-                this._settings,
-                this._logger
-            );
-
-            const upstreamApplyMenuScale =
-                this._uiManager._applyMenuScale
-                    .bind(this._uiManager);
-
-            this._uiManager._applyMenuScale = () => {
-                // Upstream intentionally clamps the Date Menu to <= 1.0.
-                // Keep its own calculation first, then apply Velora's
-                // independent multiplier so the card can also be enlarged.
-                upstreamApplyMenuScale();
-
-                const actor = this._uiManager?.targetActor;
-                if (!actor || !this._veloraSettings)
-                    return;
-
-                const multiplier = Math.max(
-                    0.6,
-                    Math.min(
-                        1.8,
-                        this._veloraSettings.get_int(
-                            'date-menu-panel-scale'
-                        ) / 100
-                    )
-                );
-
-                const baseScaleX =
-                    Number.isFinite(actor.scale_x)
-                        ? actor.scale_x
-                        : 1;
-                const baseScaleY =
-                    Number.isFinite(actor.scale_y)
-                        ? actor.scale_y
-                        : 1;
-
-                actor.set_pivot_point(0.5, 0);
-                actor.set_scale(
-                    baseScaleX * multiplier,
-                    baseScaleY * multiplier
-                );
-                actor.queue_relayout?.();
-                actor.queue_redraw?.();
-                this._uiManager?.bgActor?.queue_redraw?.();
-            };
-
-            this._uiManager.setup();
-
-            this._dateMenuScaleSettingId =
-                this._veloraSettings.connect(
-                    'changed::date-menu-panel-scale',
-                    () => {
-                        this._uiManager?._applyMenuScale?.();
-                    }
-                );
+        start('nativeDateMenuStyler', () => {
+            this._setupNativeDateMenuStyler();
         });
 
         start('panelMenuManager', () => {
@@ -479,6 +422,157 @@ export class LiquidGlassIntegration {
         );
 
         this._installDebugState();
+    }
+
+    _setupNativeDateMenuStyler() {
+        const dateMenu = Main.panel?.statusArea?.dateMenu;
+        const menu = dateMenu?.menu;
+        const actor = menu?.actor;
+        const box = menu?.box;
+
+        if (!menu || !actor || !box) {
+            throw new Error(
+                'GNOME Date Menu actors are unavailable'
+            );
+        }
+
+        this._dateMenuActor = actor;
+        this._dateMenuBox = box;
+
+        this._dateMenuOriginalTransform = {
+            scaleX: actor.scale_x ?? 1,
+            scaleY: actor.scale_y ?? 1,
+            pivotX: actor.get_pivot_point?.()?.[0] ?? 0.5,
+            pivotY: actor.get_pivot_point?.()?.[1] ?? 0,
+        };
+
+        actor.add_style_class_name?.(
+            'velora-native-date-menu-shell'
+        );
+        box.add_style_class_name?.(
+            'velora-native-date-menu-glass'
+        );
+
+        const apply = () => {
+            this._applyNativeDateMenuScale();
+
+            // Theme/popup setup can restyle the box when it opens. Re-assert
+            // the native glass class without replacing GNOME's own actor tree.
+            actor.add_style_class_name?.(
+                'velora-native-date-menu-shell'
+            );
+            box.add_style_class_name?.(
+                'velora-native-date-menu-glass'
+            );
+        };
+
+        this._dateMenuOpenSignalId =
+            menu.connect(
+                'open-state-changed',
+                (_menu, isOpen) => {
+                    if (!isOpen)
+                        return;
+
+                    GLib.idle_add(
+                        GLib.PRIORITY_DEFAULT_IDLE,
+                        () => {
+                            if (this._enabled)
+                                apply();
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
+                }
+            );
+
+        this._dateMenuScaleSettingId =
+            this._veloraSettings.connect(
+                'changed::date-menu-panel-scale',
+                apply
+            );
+
+        apply();
+
+        console.log(
+            '[Velora][LiquidGlass] nativeDateMenuStyler active'
+        );
+    }
+
+    _applyNativeDateMenuScale() {
+        const actor = this._dateMenuActor;
+        if (!actor || !this._veloraSettings)
+            return;
+
+        const scale = Math.max(
+            0.6,
+            Math.min(
+                1.8,
+                this._veloraSettings.get_int(
+                    'date-menu-panel-scale'
+                ) / 100
+            )
+        );
+
+        actor.set_pivot_point?.(0.5, 0);
+        actor.set_scale?.(scale, scale);
+        actor.queue_relayout?.();
+        actor.queue_redraw?.();
+    }
+
+    _cleanupNativeDateMenuStyler() {
+        if (
+            this._dateMenuScaleSettingId &&
+            this._veloraSettings
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._dateMenuScaleSettingId
+                );
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._dateMenuScaleSettingId = 0;
+
+        const dateMenu = Main.panel?.statusArea?.dateMenu;
+        const menu = dateMenu?.menu;
+        if (this._dateMenuOpenSignalId && menu) {
+            try {
+                menu.disconnect(
+                    this._dateMenuOpenSignalId
+                );
+            } catch {
+                // Menu may already be tearing down.
+            }
+        }
+        this._dateMenuOpenSignalId = 0;
+
+        try {
+            this._dateMenuActor?.remove_style_class_name?.(
+                'velora-native-date-menu-shell'
+            );
+            this._dateMenuBox?.remove_style_class_name?.(
+                'velora-native-date-menu-glass'
+            );
+
+            const original =
+                this._dateMenuOriginalTransform;
+            if (this._dateMenuActor && original) {
+                this._dateMenuActor.set_pivot_point?.(
+                    original.pivotX,
+                    original.pivotY
+                );
+                this._dateMenuActor.set_scale?.(
+                    original.scaleX,
+                    original.scaleY
+                );
+            }
+        } catch {
+            // Date Menu may already be destroyed.
+        }
+
+        this._dateMenuActor = null;
+        this._dateMenuBox = null;
+        this._dateMenuOriginalTransform = null;
     }
 
     _setupTopPanelGlass() {
@@ -1195,7 +1289,9 @@ export class LiquidGlassIntegration {
                 nativeDashManagers:
                     this._nativeDashEntries.length,
                 topPanel: Boolean(this._topPanelManager),
-                uiManager: Boolean(this._uiManager),
+                nativeDateMenuStyler: Boolean(
+                    this._dateMenuActor
+                ),
                 dateMenuPanelScale:
                     this._veloraSettings?.get_int?.(
                         'date-menu-panel-scale'
@@ -1359,21 +1455,7 @@ export class LiquidGlassIntegration {
 
         cleanup('panelMenuManager', this._panelMenuManager);
 
-        if (
-            this._dateMenuScaleSettingId &&
-            this._veloraSettings
-        ) {
-            try {
-                this._veloraSettings.disconnect(
-                    this._dateMenuScaleSettingId
-                );
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._dateMenuScaleSettingId = 0;
-
-        cleanup('uiManager', this._uiManager);
+        this._cleanupNativeDateMenuStyler();
         cleanup('quickSettingsManager', this._quickSettingsManager);
 
         this._cleanupNativeNotificationStyler();
@@ -1383,7 +1465,8 @@ export class LiquidGlassIntegration {
         cleanup('windowListService', this._windowListService);
 
         this._panelMenuManager = null;
-        this._uiManager = null;
+        this._dateMenuActor = null;
+        this._dateMenuBox = null;
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
         this._notificationScaledActors.clear();
