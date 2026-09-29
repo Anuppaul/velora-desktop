@@ -236,3 +236,35 @@
     box-shadow: none;
 }
 
+
+.velora-native-date-menu-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.velora-native-date-menu-glass {
+    background-color: rgba(24, 27, 34, 0.78) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-radius: 28px !important;
+    box-shadow: none !important;
+}
+
+.velora-native-date-menu-glass .calendar,
+.velora-native-date-menu-glass .events-button,
+.velora-native-date-menu-glass .world-clocks-button,
+.velora-native-date-menu-glass .message {
+    background-color: rgba(255, 255, 255, 0.055) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+}
+
+.velora-native-date-menu-glass .events-button:hover,
+.velora-native-date-menu-glass .world-clocks-button:hover,
+.velora-native-date-menu-glass .message:hover {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    box-shadow: none !important;
+}
+
