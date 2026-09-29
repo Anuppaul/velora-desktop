@@ -38,6 +38,72 @@ After the live-registration call, the installer turns `unsafe-mode` back **off a
 
 This path is for local development. It intentionally avoids pretending that GNOME exposes a supported public live-install API for arbitrary local extension bundles.
 
+## Full Liquid Glass integration
+
+Velora vendors the upstream GNOME Liquid Glass implementation from:
+
+    https://github.com/ryohsuke1231/liquid-glass
+
+Pinned upstream source revision:
+
+    8b216405aff906e56204fc0fa747e7ff69fe4451
+
+The vendored source, compiled GJS runtime and shaders are kept under:
+
+    velora@wonderer.tech/vendor/liquid-glass/
+
+Velora does not rewrite the upstream renderer. The integration layer loads and
+uses the upstream managers directly:
+
+- DashManager for the Velora floating dock and any detected Dash-to-Dock / Ubuntu Dock container.
+- UIManager for the calendar/date menu.
+- PanelMenuManager for other top-bar menus.
+- NotificationManager for notification banners.
+- QuickSettingsManager for whole-panel or per-toggle Quick Settings glass.
+- OsdManager for volume/brightness OSD surfaces.
+- ApplicationManager for application windows and the desktop context menu.
+- WindowListService for the application picker used by preferences.
+
+The upstream Appearance, Effects and Rendering preference pages are also
+embedded in the Velora preferences window. Their settings use the original
+upstream schema and defaults.
+
+The upstream code is MIT licensed. The retained upstream LICENSE and source
+notice live in:
+
+    velora@wonderer.tech/vendor/liquid-glass/
+
+### Hot-swap safety
+
+Several upstream modules register process-global GObject types. GObject types
+cannot be unregistered during the lifetime of a GNOME Shell process, so Velora
+loads Liquid Glass from one stable module URI and reuses the cached module
+objects across hashed Velora runtime revisions. This prevents duplicate GType
+registration during live runtime hot-swap.
+
+If the original Liquid Glass extension is already active, Velora reuses its
+loaded module root and leaves its global manager stack untouched; Velora only
+attaches its own floating dock surface.
+
+### Runtime health
+
+A healthy startup logs one line per upstream manager, for example:
+
+    [Velora][LiquidGlass] uiManager active
+    [Velora][LiquidGlass] panelMenuManager active
+    [Velora][LiquidGlass] notificationManager active
+    [Velora][LiquidGlass] osdManager active
+    [Velora][LiquidGlass] applicationManager active
+    [Velora][LiquidGlass] windowListService active
+
+Quick Settings is intentionally attached about 1.5 seconds later and logs its
+own active line.
+
+Useful journal filter:
+
+    journalctl -b --since "2 minutes ago" -o cat /usr/bin/gnome-shell \
+      | grep -i -E 'velora|liquid glass|liquidglass|GType|shader|cogl|allocation'
+
 ## Velora bootstrap + live runtime updates
 
 Velora is split into:
