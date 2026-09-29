@@ -11,6 +11,7 @@ import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js'
 import {collectDockApps} from './apps.js';
 import {DockController} from './dock.js';
 import {FloatingDockController} from './floatingDock.js';
+import {LiquidGlassIntegration} from './liquidGlassDock.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -74,12 +75,19 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentY = 0;
         this._dragGrab = null;
         this._floatingDock = null;
+        this._liquidGlassIntegration = null;
 
         this._removeStaleLayers();
         this._createLayer();
 
+        this._liquidGlassIntegration = new LiquidGlassIntegration({
+            veloraSettings: this._settings,
+        });
+        await this._liquidGlassIntegration.enable();
+
         this._floatingDock = new FloatingDockController({
             settings: this._settings,
+            liquidGlassIntegration: this._liquidGlassIntegration,
             appSystem: this._appSystem,
             shellSettings: this._shellSettings,
             layer: this._layer,
@@ -123,6 +131,7 @@ export default class VeloraRuntime extends Extension {
         this._closeMenu(true);
         this._destroyClosingActors();
         this._floatingDock?.destroy();
+        this._liquidGlassIntegration?.disable();
         this._dock?.destroy();
 
         if (this._settings && this._settingsChangedId)
@@ -160,6 +169,7 @@ export default class VeloraRuntime extends Extension {
         this._closingActors.clear();
         this._closingActors = null;
         this._floatingDock = null;
+        this._liquidGlassIntegration = null;
         this._dock = null;
         this._appSystem = null;
         this._shellSettings = null;
