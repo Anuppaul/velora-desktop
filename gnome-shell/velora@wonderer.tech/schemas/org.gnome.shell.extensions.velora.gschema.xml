@@ -68,7 +68,65 @@
       <range min="0" max="30000"/>
       <summary>Milliseconds before the idle Orb fades</summary>
     </key>
+    <key name="ring-mode" type="s">
+      <default>'auto'</default>
+      <choices>
+        <choice value="auto"/>
+        <choice value="2"/>
+        <choice value="3"/>
+        <choice value="4"/>
+      </choices>
+      <summary>Orb radial launcher ring count</summary>
+    </key>
+    <key name="icon-size" type="i">
+      <default>52</default>
+      <range min="20" max="80"/>
+      <summary>Orb radial launcher icon size</summary>
+    </key>
+    <key name="icon-gap" type="i">
+      <default>12</default>
+      <range min="0" max="64"/>
+      <summary>Minimum gap between Orb launcher icons</summary>
+    </key>
+    <key name="ring-gap" type="i">
+      <default>80</default>
+      <range min="0" max="160"/>
+      <summary>Distance between Orb radial launcher rings</summary>
+    </key>
+    <key name="hover-delay" type="i">
+      <default>100</default>
+      <range min="0" max="1200"/>
+      <summary>Hover delay before the Orb radial launcher opens</summary>
+    </key>
+    <key name="close-delay" type="i">
+      <default>420</default>
+      <range min="0" max="1800"/>
+      <summary>Delay before the Orb radial launcher closes</summary>
+    </key>
+    <key name="animation-ms" type="i">
+      <default>160</default>
+      <range min="0" max="600"/>
+      <summary>Orb radial launcher animation duration</summary>
+    </key>
+    <key name="show-tooltips" type="b">
+      <default>true</default>
+      <summary>Show application names around the Orb launcher</summary>
+    </key>
+    <key name="show-running-indicator" type="b">
+      <default>true</default>
+      <summary>Show running indicators on Orb launcher applications</summary>
+    </key>
+    <key name="app-preview-size" type="i">
+      <default>100</default>
+      <range min="50" max="180"/>
+      <summary>Live Orb application preview size percentage</summary>
+    </key>
 
+    <key name="glass-optics-profile-version" type="i">
+      <default>0</default>
+      <range min="0" max="100"/>
+      <summary>Internal Velora full-glass optics profile version</summary>
+    </key>
     <key name="glass-opacity" type="i">
       <default>12</default>
       <range min="0" max="100"/>
