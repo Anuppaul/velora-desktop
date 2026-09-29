@@ -68,6 +68,7 @@ class PopupGlassSurface {
         this._lastSceneScaleX = NaN;
         this._lastSceneScaleY = NaN;
         this._overlayAllocationId = 0;
+        this._openStateId = 0;
         this._lastHostW = 0;
         this._lastHostH = 0;
     }
@@ -164,6 +165,22 @@ class PopupGlassSurface {
         this._effect = effect;
 
         try {
+            this._openStateId = this._menu.connect(
+                'open-state-changed',
+                (_menu, isOpen) => {
+                    if (isOpen) {
+                        this._ensureSceneManager();
+                        this._material?.queue_redraw?.();
+                    } else {
+                        this._releaseSceneManager();
+                    }
+                }
+            );
+        } catch {
+            this._openStateId = 0;
+        }
+
+        try {
             this._overlayAllocationId = overlay.connect(
                 'notify::allocation',
                 () => this._syncHostGeometry()
@@ -245,6 +262,31 @@ class PopupGlassSurface {
         material.queue_redraw?.();
     }
 
+    _ensureSceneManager() {
+        if (this._sceneManager || !this._sceneRoot)
+            return this._sceneManager;
+
+        this._sceneManager =
+            new this._vendor.WindowCloneManager(
+                this._sceneRoot,
+                null,
+                'velora-popup-scene'
+            );
+        return this._sceneManager;
+    }
+
+    _releaseSceneManager() {
+        if (!this._sceneManager)
+            return;
+
+        try {
+            this._sceneManager.destroy?.();
+        } catch {
+            // Scene clones may already be tearing down.
+        }
+        this._sceneManager = null;
+    }
+
     syncFrame() {
         if (
             this._destroyed ||
@@ -254,6 +296,7 @@ class PopupGlassSurface {
             return;
         }
 
+        this._ensureSceneManager();
         this._syncHostGeometry();
         this._syncSceneLayers();
     }
@@ -261,7 +304,7 @@ class PopupGlassSurface {
     _syncSceneLayers() {
         const material = this._material;
         const sceneRoot = this._sceneRoot;
-        const sceneManager = this._sceneManager;
+        const sceneManager = this._ensureSceneManager();
         if (!material || !sceneRoot || !sceneManager)
             return;
 
@@ -376,6 +419,16 @@ class PopupGlassSurface {
         }
         this._overlayAllocationId = 0;
 
+        if (this._openStateId && this._menu) {
+            try {
+                this._menu.disconnect(this._openStateId);
+            } catch {
+                // Menu may already be tearing down.
+            }
+        }
+        this._openStateId = 0;
+        this._releaseSceneManager();
+
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
         } catch {
@@ -398,12 +451,6 @@ class PopupGlassSurface {
                     error
                 );
             }
-        }
-
-        try {
-            this._sceneManager?.destroy?.();
-        } catch {
-            // Scene clones may already be destroyed with the popup.
         }
 
         try {
