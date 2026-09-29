@@ -27,6 +27,7 @@ export class DateMenuGlassManager {
         this._material = null;
         this._signals = [];
         this._appearance = null;
+        this._openSettleFrames = 0;
         this._cornerRadius = DEFAULT_RADIUS;
     }
 
@@ -74,9 +75,15 @@ export class DateMenuGlassManager {
                         return;
 
                     if (!isOpen) {
+                        this._openSettleFrames = 0;
                         this._material?.root?.hide?.();
                         return;
                     }
+
+                    // Date Menu geometry is still moving when open-state-changed
+                    // fires. Follow only the short native open animation, then
+                    // stop; this is not a permanent frame loop.
+                    this._openSettleFrames = 18;
 
                     GLib.idle_add(
                         GLib.PRIORITY_DEFAULT_IDLE,
@@ -122,10 +129,14 @@ export class DateMenuGlassManager {
             // Theme-radius fallback remains valid.
         }
 
+        const material = this._ensureMaterial();
+        this._applyAppearance(material, this._appearance);
+
         if (menu.isOpen) {
-            const material = this._ensureMaterial();
-            this._applyAppearance(material, this._appearance);
+            this._openSettleFrames = 18;
             this._queueSync(material);
+        } else {
+            material?.root?.hide?.();
         }
 
         console.log(
@@ -377,6 +388,11 @@ export class DateMenuGlassManager {
                     this._menu?.isOpen
                 ) {
                     this._sync(material, false);
+
+                    if (this._openSettleFrames > 0) {
+                        this._openSettleFrames--;
+                        this._queueSync(material);
+                    }
                 }
 
                 return GLib.SOURCE_REMOVE;
@@ -400,6 +416,14 @@ export class DateMenuGlassManager {
         if (!finiteRect(rect)) {
             if (!shaderOnly)
                 material.root.hide?.();
+
+            if (
+                !shaderOnly &&
+                this._openSettleFrames <= 0 &&
+                this._menu?.isOpen
+            ) {
+                this._openSettleFrames = 6;
+            }
             return;
         }
 
@@ -416,6 +440,14 @@ export class DateMenuGlassManager {
         ) {
             if (!shaderOnly)
                 material.root.hide?.();
+
+            if (
+                !shaderOnly &&
+                this._openSettleFrames <= 0 &&
+                this._menu?.isOpen
+            ) {
+                this._openSettleFrames = 6;
+            }
             return;
         }
 
