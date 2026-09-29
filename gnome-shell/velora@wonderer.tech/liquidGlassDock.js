@@ -9,6 +9,17 @@ import {UILayerSampler} from './vendor/liquid-glass/dist/capture/uiLayerSampler.
 import {WindowCloneManager} from './vendor/liquid-glass/dist/capture/windowClones.js';
 import {syncGlassCaptureClip} from './vendor/liquid-glass/dist/capture/clip.js';
 import {setClipIfChanged} from './vendor/liquid-glass/dist/actors/writes.js';
+import {ensureGlassAllocated} from './vendor/liquid-glass/dist/actors/allocation.js';
+import {excludeOtherGlass} from './vendor/liquid-glass/dist/capture/glassExclusions.js';
+import {
+    startStageLoop,
+    stopStageLoop,
+} from './vendor/liquid-glass/dist/animation/frameLoops.js';
+import {
+    isFrameSyncFrozen,
+    SAME_FRAME_WINDOW_US,
+} from './vendor/liquid-glass/dist/animation/frameSync.js';
+import {reportFrameLoopError} from './vendor/liquid-glass/dist/diagnostics/logging.js';
 
 const SHADER_PADDING = 20;
 const CLIP_PADDING = 200;
@@ -16,7 +27,7 @@ const SHADOW_MAX_RADIUS = CLIP_PADDING - SHADER_PADDING;
 const UPSTREAM_DOCK_BLUR_RADIUS = 2;
 const UPSTREAM_DOCK_TINT_STRENGTH = 0.12;
 const UPSTREAM_DOCK_SATURATION = 1.5;
-const VELORA_REFERENCE_CORNER_RADIUS = 16;
+const UPSTREAM_DOCK_CORNER_RADIUS = 30;
 const VELORA_REFERENCE_OPACITY = 0.76;
 
 function moduleDirectory() {
@@ -43,6 +54,10 @@ export class LiquidGlassDockRenderer {
         this._targetSignals = [];
         this._monitorSignal = 0;
         this._idleId = 0;
+        this._frameSyncId = 0;
+        this._frameSignalId = 0;
+        this._lastTickUs = 0;
+        this._torndown = false;
         this._lastGeometry = null;
 
         const baseDir = moduleDirectory();
@@ -64,12 +79,16 @@ export class LiquidGlassDockRenderer {
             return;
         }
 
+        this._torndown = false;
+
         this._bgActor = new UnpickableActor();
-        this._bgActor.set_name('velora-liquid-glass-bg-actor');
+        // Keep the upstream actor names: its capture/exclusion utilities use
+        // these names to identify Liquid Glass compositor surfaces.
+        this._bgActor.set_name('liquid-glass-bg-actor');
         this._bgActor.set_size(1, 1);
 
         this._liquidBox = new UnpickableActor();
-        this._liquidBox.set_name('velora-liquid-glass-box');
+        this._liquidBox.set_name('liquid-box');
         this._liquidBox.set_clip_to_allocation(true);
         this._bgActor.add_child(this._liquidBox);
 
@@ -83,16 +102,21 @@ export class LiquidGlassDockRenderer {
         this._cloneContainer.set_name('velora-liquid-glass-clone-container');
         this._liquidBox.add_child(this._cloneContainer);
 
+        // Upstream DockManager deliberately keeps the full-monitor FBO actor
+        // as a direct uiGroup child. Nesting it inside the dock/layer changes
+        // the capture coordinate space and can leave the compositor surface
+        // with nothing useful to paint.
+        const uiGroup = Main.layoutManager.uiGroup;
         try {
-            this._layer.insert_child_below(
+            uiGroup.insert_child_below(
                 this._bgActor,
-                this._target
+                this._layer
             );
         } catch {
-            this._layer.add_child(this._bgActor);
-            this._layer.set_child_below_sibling?.(
+            uiGroup.add_child(this._bgActor);
+            uiGroup.set_child_below_sibling?.(
                 this._bgActor,
-                this._target
+                this._layer
             );
         }
 
@@ -104,7 +128,7 @@ export class LiquidGlassDockRenderer {
         this._effect.setShadowMaxRadius(SHADOW_MAX_RADIUS);
         this._effect.setTintColor(1.0, 1.0, 1.0);
         this._effect.setTintStrength(UPSTREAM_DOCK_TINT_STRENGTH);
-        this._effect.setCornerRadius(VELORA_REFERENCE_CORNER_RADIUS);
+        this._effect.setCornerRadius(UPSTREAM_DOCK_CORNER_RADIUS);
         this._effect.setBrightness(1.0);
         this._effect.setContrast(1.0);
         this._effect.setSaturation(UPSTREAM_DOCK_SATURATION);
@@ -126,7 +150,10 @@ export class LiquidGlassDockRenderer {
             this._bgActor,
             this._liquidBox,
             [
-                this._target,
+                // Exclude the entire Velora UI layer from the backdrop clone.
+                // The target dock lives inside this layer; cloning the layer
+                // would feed the dock back into its own glass capture.
+                this._layer,
                 global.windowGroup,
                 global.window_group,
             ],
@@ -135,6 +162,7 @@ export class LiquidGlassDockRenderer {
             [this._target]
         );
 
+        this._buildClones();
         this._connectTargetSignals();
         this._monitorSignal = Main.layoutManager.connect(
             'monitors-changed',
@@ -143,6 +171,7 @@ export class LiquidGlassDockRenderer {
 
         this.syncSettings();
         this.sync();
+        this._startFrameSync();
         this._idleId = GLib.idle_add(
             GLib.PRIORITY_DEFAULT_IDLE,
             () => {
@@ -150,6 +179,82 @@ export class LiquidGlassDockRenderer {
                 this.sync();
                 return GLib.SOURCE_REMOVE;
             }
+        );
+    }
+
+    _buildClones() {
+        if (!this._bgActor)
+            return;
+
+        excludeOtherGlass(this._uiSampler, this._bgActor);
+        this._windowCloneManager?.rebuildClones();
+        this._uiSampler?.rebindSelf();
+        this._uiSampler?.refresh();
+    }
+
+    get _frameSlot() {
+        return {
+            get: () => this._frameSyncId,
+            set: id => {
+                this._frameSyncId = id;
+            },
+        };
+    }
+
+    get _frameSignalSlot() {
+        return {
+            get: () => this._frameSignalId,
+            set: id => {
+                this._frameSignalId = id;
+            },
+        };
+    }
+
+    _startFrameSync() {
+        if (this._frameSignalId !== 0)
+            return;
+
+        this._buildClones();
+
+        const frameTick = () => {
+            if (
+                this._torndown ||
+                !this._bgActor ||
+                !this._target?.mapped
+            ) {
+                return;
+            }
+
+            if (isFrameSyncFrozen())
+                return;
+
+            const nowUs = GLib.get_monotonic_time();
+            if (nowUs - this._lastTickUs < SAME_FRAME_WINDOW_US)
+                return;
+            this._lastTickUs = nowUs;
+
+            try {
+                ensureGlassAllocated(this._bgActor);
+                this.sync();
+            } catch (error) {
+                reportFrameLoopError(
+                    'VeloraLiquidGlassDock',
+                    error
+                );
+            }
+        };
+
+        startStageLoop(
+            this._frameSignalSlot,
+            this._frameSlot,
+            frameTick
+        );
+    }
+
+    _stopFrameSync() {
+        stopStageLoop(
+            this._frameSignalSlot,
+            this._frameSlot
         );
     }
 
@@ -169,7 +274,17 @@ export class LiquidGlassDockRenderer {
             try {
                 const id = this._target.connect(
                     signal,
-                    () => this.sync()
+                    () => {
+                        if (
+                            signal === 'notify::mapped'
+                        ) {
+                            if (this._target?.mapped)
+                                this._startFrameSync();
+                            else
+                                this._stopFrameSync();
+                        }
+                        this.sync();
+                    }
                 );
                 this._targetSignals.push(id);
             } catch {
@@ -202,7 +317,7 @@ export class LiquidGlassDockRenderer {
         );
         this._effect.setTintStrength(tintStrength);
         this._effect.setCornerRadius(
-            VELORA_REFERENCE_CORNER_RADIUS
+            UPSTREAM_DOCK_CORNER_RADIUS
         );
         this._effect.setSaturation(UPSTREAM_DOCK_SATURATION);
         this._effect.setBrightness(1.0);
@@ -222,7 +337,14 @@ export class LiquidGlassDockRenderer {
             return;
         }
 
-        const monitor = Main.layoutManager.primaryMonitor;
+        let monitorIndex = Main.layoutManager.findIndexForActor(
+            this._target
+        );
+        if (monitorIndex < 0)
+            monitorIndex = Main.layoutManager.primaryIndex;
+        const monitor =
+            Main.layoutManager.monitors[monitorIndex] ||
+            Main.layoutManager.primaryMonitor;
         if (!monitor) {
             this._bgActor.hide();
             return;
@@ -314,6 +436,7 @@ export class LiquidGlassDockRenderer {
             monitor.height
         );
         this._windowCloneManager?.sync();
+        this._bgActor.queue_redraw();
     }
 
     _syncLiveGeometry() {
@@ -323,7 +446,14 @@ export class LiquidGlassDockRenderer {
         if (!this._target.mapped)
             return;
 
-        const monitor = Main.layoutManager.primaryMonitor;
+        let monitorIndex = Main.layoutManager.findIndexForActor(
+            this._target
+        );
+        if (monitorIndex < 0)
+            monitorIndex = Main.layoutManager.primaryIndex;
+        const monitor =
+            Main.layoutManager.monitors[monitorIndex] ||
+            Main.layoutManager.primaryMonitor;
         if (!monitor)
             return;
 
@@ -345,6 +475,9 @@ export class LiquidGlassDockRenderer {
     }
 
     destroy() {
+        this._torndown = true;
+        this._stopFrameSync();
+
         if (this._idleId) {
             GLib.source_remove(this._idleId);
             this._idleId = 0;
