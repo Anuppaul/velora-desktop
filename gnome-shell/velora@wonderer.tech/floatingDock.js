@@ -42,14 +42,14 @@ export class FloatingDockController {
         this._liquidGlass = null;
     }
 
-    setEnabled(enabled) {
+    async setEnabled(enabled) {
         if (enabled)
-            this.enable();
-        else
-            this.disable();
+            return this.enable();
+
+        this.disable();
     }
 
-    enable() {
+    async enable() {
         if (this._root)
             return;
 
@@ -90,7 +90,7 @@ export class FloatingDockController {
             layer: this._layer,
             target: this._root,
         });
-        this._liquidGlass.enable();
+        const liquidGlassReady = this._liquidGlass.enable();
 
         this._root.connect('notify::hover', () => {
             if (this._root.get_hover()) {
@@ -113,6 +113,8 @@ export class FloatingDockController {
             duration: 180,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
+
+        await liquidGlassReady;
     }
 
     disable() {
