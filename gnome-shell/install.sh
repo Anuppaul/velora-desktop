@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.42"
+INSTALLER_VERSION="2026-09-30.43"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -24,14 +24,11 @@ HOT_AUX_FILES=(
 
 RUNTIME_FILES=(
     "runtime.js"
+    "orbThemeRuntime.js"
     "runtime.css"
-    "apps.js"
-    "dock.js"
-    "floatingDock.js"
     "liquidGlassDock.js"
     "notificationGlass.js"
-    "dateMenuGlass.js"
-    "geometry.js"
+    "popupGlass.js"
 )
 
 RUNTIME_DIRS=(
