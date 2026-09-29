@@ -1,15 +1,17 @@
 # Velora engineering rules
 
-- `main` contains the GNOME 50 Velora Desktop implementation plus the platform-neutral Liquid Glass concept.
-- Do not restore the removed Android launcher, Gradle/APK tooling, Android services, phone navigation, notifications, widgets or Control Center code to `main` without an explicit product decision.
+- Velora is a GNOME Shell Liquid Glass material project. Do not reintroduce the removed Android launcher/product architecture.
+- Preserve the existing GNOME surface design, geometry, content, input and native interaction unless a task explicitly requires otherwise.
+- Apply Liquid Glass as a material treatment, not as a replacement UI and not as a second visible card behind the target.
+- Roll out system-wide theming surface-by-surface. Stabilize one target before extending the material to the next.
+- Prefer the shared wallpaper/background source for Shell UI when live window capture is not required.
+- Prefer cached, damage-driven rendering over timers or unconditional per-frame redraw.
+- Prefer Dual Kawase or downscaled Gaussian blur for low-load paths; every expensive effect needs a lightweight fallback.
+- Use refraction, tint, saturation, rim/specular and shadow conservatively so readability remains native-quality.
+- Preserve notification layout/content/animation while notification glass is under test.
 - Keep GNOME implementation work inside `gnome-shell/`.
-- Preserve the Liquid Glass identity: wallpaper-aware color, layered translucency, luminous edges, restrained blur, refraction and depth.
-- Preserve Orb and Liquid Glass Dock as independent launcher surfaces; either may be enabled alone or both may coexist.
 - Prefer native GNOME/Clutter/St capabilities over heavyweight dependencies.
-- Every expensive visual effect needs a lightweight fallback.
-- Do not require continuous GPU-heavy blur or animation for the design to look correct.
-- Keep the GNOME installer deterministic and do not reintroduce stale JavaScript module assumptions.
-- Runtime-only Velora updates should use the bootstrap hot-swap path instead of forcing a Shell session restart.
-- Bootstrap/schema changes must be fingerprinted and must not be treated as runtime-only changes.
+- Keep the installer deterministic and preserve runtime hot-swap safety.
+- Runtime-only updates should use the bootstrap hot-swap path. Bootstrap/schema changes must remain fingerprinted.
 - Do not add analytics, tracking, ads, account requirements or cloud dependencies.
-- Treat readability, contrast, frame stability, battery use and accessibility as product requirements.
+- Treat contrast, accessibility, frame stability, GPU cost and battery use as product requirements.
