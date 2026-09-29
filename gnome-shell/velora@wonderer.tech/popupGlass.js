@@ -157,6 +157,10 @@ class PopupGlassSurface {
         if (!this._effect || !state)
             return;
 
+        // Our class does not override border-radius, so this remains the
+        // current Yaru/Adwaita/custom-theme radius even after glass is active.
+        this._radius = readRadius(this._box);
+
         this._effect.setTintColor?.(
             (state.r ?? 255) / 255,
             (state.g ?? 255) / 255,
