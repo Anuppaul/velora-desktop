@@ -105,11 +105,6 @@
       <range min="0" max="10000"/>
       <summary>Milliseconds before the floating dock auto-hides</summary>
     </key>
-    <key name="date-menu-panel-scale" type="i">
-      <default>100</default>
-      <range min="60" max="180"/>
-      <summary>Scale percentage for the GNOME Date Menu / Calendar panel</summary>
-    </key>
     <key name="ring-mode" type="s">
       <default>'auto'</default>
       <choices>
