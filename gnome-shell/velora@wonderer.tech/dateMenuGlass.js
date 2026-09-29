@@ -14,6 +14,31 @@ function finiteRect(values) {
         values[3] > 1;
 }
 
+function allocatedSize(actor) {
+    try {
+        const box = actor?.get_allocation_box?.();
+        const width = box?.get_width?.() ?? 0;
+        const height = box?.get_height?.() ?? 0;
+        if (
+            Number.isFinite(width) &&
+            Number.isFinite(height) &&
+            width > 1 &&
+            height > 1
+        ) {
+            return [width, height];
+        }
+    } catch {
+        // Fall through to the preferred-size fallback.
+    }
+
+    try {
+        const [width, height] = actor?.get_size?.() ?? [0, 0];
+        return [width, height];
+    } catch {
+        return [0, 0];
+    }
+}
+
 export class DateMenuGlassManager {
     constructor(params) {
         this._vendor = params.vendor;
@@ -395,7 +420,39 @@ export class DateMenuGlassManager {
             return;
         }
 
-        const rect = this._vendor.getTransformedRect(box);
+        let rect = this._vendor.getTransformedRect(box);
+
+        if (!finiteRect(rect)) {
+            // Match the geometry strategy already proven by the vendored
+            // UIManager: allocation supplies stable content size while the
+            // content actor's transformed position supplies stage origin.
+            try {
+                const [width, height] = allocatedSize(box);
+                const [x, y] = box.get_transformed_position();
+
+                const actorScale =
+                    this._actor?.get_scale?.() ?? [1, 1];
+                const boxScale =
+                    box.get_scale?.() ?? [1, 1];
+
+                const scaleX =
+                    (Number.isFinite(actorScale[0]) ? actorScale[0] : 1) *
+                    (Number.isFinite(boxScale[0]) ? boxScale[0] : 1);
+                const scaleY =
+                    (Number.isFinite(actorScale[1]) ? actorScale[1] : 1) *
+                    (Number.isFinite(boxScale[1]) ? boxScale[1] : 1);
+
+                rect = [
+                    x,
+                    y,
+                    width * scaleX,
+                    height * scaleY,
+                ];
+            } catch {
+                // Keep the original invalid rect for diagnostics below.
+            }
+        }
+
         if (!finiteRect(rect)) {
             if (!shaderOnly) {
                 material.root.hide?.();
