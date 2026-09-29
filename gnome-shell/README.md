@@ -2,7 +2,7 @@
 
 Velora keeps the native Ubuntu/GNOME desktop UI and replaces supported Shell surface materials with Liquid Glass.
 
-The old custom radial launcher and floating dock are removed. The Velora Orb remains and opens GNOME's native Applications view.
+The separate floating dock is removed. The Velora Orb keeps its full behavior: click toggles GNOME Applications and hover opens the radial launcher with previews, tooltips and running indicators.
 
 ## Active runtime
 
