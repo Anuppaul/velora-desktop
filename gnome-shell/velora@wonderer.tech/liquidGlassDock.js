@@ -24,6 +24,25 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
+function parseHexRgb(hex) {
+    if (
+        typeof hex !== 'string' ||
+        !/^#[0-9a-fA-F]{6}$/.test(hex)
+    ) {
+        return [255, 255, 255];
+    }
+
+    return [
+        Number.parseInt(hex.slice(1, 3), 16),
+        Number.parseInt(hex.slice(3, 5), 16),
+        Number.parseInt(hex.slice(5, 7), 16),
+    ];
+}
+
+function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
         GLib.get_user_data_dir(),
@@ -240,6 +259,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalTransform = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
+        this._dateMenuMaterialSettingIds = [];
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
@@ -462,20 +482,26 @@ export class LiquidGlassIntegration {
         this._dateMenuBlurEffect = new Shell.BlurEffect({
             mode: Shell.BlurMode.BACKGROUND,
             radius: 28,
-            brightness: 0.92,
+            brightness: 1.0,
         });
         box.add_effect?.(this._dateMenuBlurEffect);
 
-        // Inline style wins over theme-specific popup-menu selectors and keeps
-        // the native card translucent enough for the background blur to show.
-        box.set_style?.(
-            (this._dateMenuOriginalStyle || '') +
-            '; background-color: rgba(24, 27, 34, 0.62);' +
-            ' background-image: none;' +
-            ' border: 1px solid rgba(255,255,255,0.20);' +
-            ' border-radius: 28px;' +
-            ' box-shadow: none;'
-        );
+        this._applyNativeDateMenuMaterial();
+
+        // Follow the same upstream material controls that drive the top panel.
+        for (const key of [
+            'dock-tint-color',
+            'dock-tint-strength',
+            'dock-blur-radius',
+            'dock-brightness',
+        ]) {
+            this._dateMenuMaterialSettingIds.push(
+                this._settings.connect(
+                    'changed::' + key,
+                    () => this._applyNativeDateMenuMaterial()
+                )
+            );
+        }
 
         const apply = () => {
             this._applyNativeDateMenuScale();
@@ -488,14 +514,7 @@ export class LiquidGlassIntegration {
             box.add_style_class_name?.(
                 'velora-native-date-menu-glass'
             );
-            box.set_style?.(
-                (this._dateMenuOriginalStyle || '') +
-                '; background-color: rgba(24, 27, 34, 0.62);' +
-                ' background-image: none;' +
-                ' border: 1px solid rgba(255,255,255,0.20);' +
-                ' border-radius: 28px;' +
-                ' box-shadow: none;'
-            );
+            this._applyNativeDateMenuMaterial();
         };
 
         this._dateMenuOpenSignalId =
@@ -527,6 +546,72 @@ export class LiquidGlassIntegration {
         console.log(
             '[Velora][LiquidGlass] nativeDateMenuStyler active'
         );
+    }
+
+    _applyNativeDateMenuMaterial() {
+        const box = this._dateMenuBox;
+        if (!box || !this._settings)
+            return;
+
+        const [r, g, b] = parseHexRgb(
+            this._settings.get_string(
+                'dock-tint-color'
+            )
+        );
+        const tintStrength = clampNumber(
+            this._settings.get_double(
+                'dock-tint-strength'
+            ),
+            0,
+            1
+        );
+        const brightness = clampNumber(
+            this._settings.get_double(
+                'dock-brightness'
+            ),
+            0.4,
+            1.6
+        );
+        const dockBlur = Math.max(
+            0,
+            this._settings.get_int(
+                'dock-blur-radius'
+            )
+        );
+
+        const alpha = clampNumber(
+            0.055 + tintStrength * 0.42,
+            0.055,
+            0.22
+        );
+        const blurRadius = Math.round(
+            clampNumber(
+                20 + dockBlur * 4,
+                20,
+                48
+            )
+        );
+
+        try {
+            if (this._dateMenuBlurEffect) {
+                this._dateMenuBlurEffect.radius =
+                    blurRadius;
+                this._dateMenuBlurEffect.brightness =
+                    brightness;
+            }
+        } catch {
+            // BlurEffect property access can vary across Shell builds.
+        }
+
+        box.set_style?.(
+            (this._dateMenuOriginalStyle || '') +
+            `; background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)}) !important;` +
+            ' background-image: none !important;' +
+            ' border: 1px solid rgba(255,255,255,0.22) !important;' +
+            ' border-radius: 28px !important;' +
+            ' box-shadow: none !important;'
+        );
+        box.queue_redraw?.();
     }
 
     _applyNativeDateMenuScale() {
@@ -564,6 +649,15 @@ export class LiquidGlassIntegration {
             }
         }
         this._dateMenuScaleSettingId = 0;
+
+        for (const id of this._dateMenuMaterialSettingIds) {
+            try {
+                this._settings?.disconnect(id);
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._dateMenuMaterialSettingIds = [];
 
         const dateMenu = Main.panel?.statusArea?.dateMenu;
         const menu = dateMenu?.menu;
@@ -624,6 +718,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalTransform = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
+        this._dateMenuMaterialSettingIds = [];
     }
 
     _setupTopPanelGlass() {
