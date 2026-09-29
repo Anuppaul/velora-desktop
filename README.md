@@ -1,71 +1,69 @@
 # Velora
 
-Velora is a GNOME Shell visual-material project for Ubuntu/GNOME 50.
+Velora is a GNOME Shell 50 Liquid Glass theme/material extension for Ubuntu.
 
-Its goal is simple: keep the desktop's existing interaction model, layout, controls, menus and content exactly where they already are, and progressively replace supported Shell surface backgrounds with a low-load Liquid Glass material.
+The old custom launcher, radial app rings and floating dock have been retired. The **Velora Orb remains** as a small desktop control; clicking it opens GNOME's native Applications view.
 
-Velora is not an Android launcher port and it is no longer defined by the earlier Orb/launcher concept documents.
+Everything else follows one rule:
 
-## Current direction
+> Keep GNOME/Ubuntu's existing design, layout, controls, content and animation. Replace only the supported Shell surface material with Velora Liquid Glass.
 
-Velora applies Liquid Glass one Shell surface at a time without redesigning that surface.
+## Current architecture
 
-The current rollout order is intentionally incremental:
-
-1. notification banners;
-2. Date / Calendar menu;
-3. Quick Settings;
-4. other top-panel menus;
-5. OSD surfaces;
-6. panel and dock surfaces;
-7. additional Shell-owned surfaces after each earlier stage is stable.
-
-For each target:
-
-- preserve native GNOME geometry, content, input and animation;
-- remove only the original opaque/background material;
-- render one glass silhouette matching the target's existing shape;
-- prefer the shared wallpaper source instead of live full-screen/window capture where possible;
-- use low-resolution blur and cached rendering;
-- add restrained refraction, tint, saturation, rim light and specular response;
-- avoid continuous repaint work while the source and geometry are unchanged;
-- keep a cheap fallback path.
-
-## Rendering engine
-
-Velora vendors and extends the Liquid Glass renderer under:
+Velora keeps the production renderer under:
 
     gnome-shell/velora@wonderer.tech/vendor/liquid-glass/
 
-The renderer already contains the main production primitives needed for the theme:
+The renderer provides shared wallpaper mirroring, Gaussian/Dual-Kawase blur, downscaled blur, cache/reuse, refraction, chromatic fringe, tint/saturation and rim/specular terms.
 
-- shared wallpaper mirroring;
-- Gaussian and Dual Kawase blur;
-- half- and quarter-resolution blur;
-- cross-frame blur reuse;
-- refraction and chromatic fringe;
-- tint, saturation, rim/specular and shadow terms;
-- capture clipping and culling;
-- GNOME/Clutter-native actors and effects.
+The active runtime is intentionally small:
 
-The implementation target is not an extra visible card behind a GNOME card. Rendering actors may exist internally, but the user should see a single material surface matching the original GNOME shape.
+    runtime.js
+      -> orbThemeRuntime.js
+      -> liquidGlassDock.js
+           -> popupGlass.js
+           -> notificationGlass.js
+           -> vendored panel / OSD / native-dock renderer
 
-## Repository
+### Popup surfaces
 
-Active GNOME implementation:
+GNOME Shell 50 popup geometry is owned by BoxPointer:
 
-    gnome-shell/
+    BoxPointer
+      -> BoxPointer.bin
+           -> menu.box (.popup-menu-content)
 
-Current architecture:
+Velora's generic PopupGlassManager patches PopupMenu.open() and replaces the St.Bin child with an in-tree overlay:
 
-    docs/ARCHITECTURE.md
+    BoxPointer.bin
+      -> Velora overlay
+           -> Liquid Glass material
+           -> original menu.box
 
-Installation and development workflow:
+The original menu content remains the top layer. GNOME continues to own positioning, scale, opacity and open/close animation. Velora only makes the original card paint transparent.
 
-    gnome-shell/README.md
+This single adapter covers Date/Calendar, Quick Settings outer surfaces, panel dropdowns and other GNOME PopupMenu instances.
+
+### Notifications
+
+Notifications keep the already-proven wallpaper-only Liquid Glass pilot. Their native icon, text, actions, spacing and animation are unchanged.
+
+### Orb
+
+The Orb is the only retained launcher-era Velora surface. It remains draggable and supports idle hide/fade. It no longer opens a custom radial launcher; it opens GNOME Applications.
 
 ## Scope
 
-Velora can directly theme GNOME Shell/compositor-owned surfaces such as notifications, panel menus, Quick Settings, OSDs, panel/dock surfaces and other Shell UI.
+Velora directly themes GNOME Shell/compositor-owned UI. GTK/libadwaita application interiors are a separate theming domain and require a separate GTK/libadwaita theme layer for true whole-desktop consistency.
 
-GTK/libadwaita application content is a separate theming domain and is not automatically transformed by a GNOME Shell extension.
+## Install
+
+    git pull --ff-only origin main
+    bash gnome-shell/install.sh
+
+The installer targets GNOME Shell 50 and uses Velora's stable-bootstrap/runtime hot-swap mechanism.
+
+See:
+
+    docs/ARCHITECTURE.md
+    gnome-shell/README.md
