@@ -26,9 +26,9 @@ const UPSTREAM_EXTENSION_UUID =
 const GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
-const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV2';
-const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV2';
-const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV2';
+const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV3';
+const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV3';
+const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV3';
 const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
