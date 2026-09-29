@@ -82,9 +82,30 @@ class PopupGlassSurface {
             return Boolean(this._overlay);
         }
 
+        // Recover a stale Velora wrapper left by a failed hot-swap before
+        // deciding that another extension owns this Bin.
+        const currentChild = this._bin.get_child?.() ?? null;
+        if (
+            currentChild !== this._box &&
+            currentChild?.get_name?.() === 'velora-popup-glass-stack' &&
+            this._box.get_parent?.() === currentChild
+        ) {
+            try {
+                currentChild.remove_child(this._box);
+                this._bin.set_child(this._box);
+                currentChild.destroy?.();
+            } catch (error) {
+                console.error(
+                    '[Velora][PopupGlass] stale stack recovery failed: ' +
+                    error
+                );
+                return false;
+            }
+        }
+
         // Only touch the canonical GNOME hierarchy. If another extension has
-        // already replaced the St.Bin child, fail closed instead of reparenting
-        // an unknown tree.
+        // replaced the St.Bin child, fail closed instead of reparenting an
+        // unknown tree.
         if (this._bin.get_child?.() !== this._box)
             return false;
 
@@ -478,8 +499,14 @@ export class PopupGlassManager {
         this._appearance = this._readAppearance();
 
         const prototype = PopupMenu.PopupMenu.prototype;
-        this._originalOpen = prototype.open;
-        this._originalDestroy = prototype.destroy;
+
+        this._originalOpen =
+            prototype.open?._veloraOriginalOpen ??
+            prototype.open;
+        this._originalDestroy =
+            prototype.destroy?._veloraOriginalDestroy ??
+            prototype.destroy;
+
         const manager = this;
 
         this._patchedOpen = function (...args) {
@@ -492,6 +519,11 @@ export class PopupGlassManager {
             manager.detach(this, {restore: true});
             return manager._originalDestroy.apply(this, args);
         };
+
+        this._patchedOpen._veloraOriginalOpen =
+            this._originalOpen;
+        this._patchedDestroy._veloraOriginalDestroy =
+            this._originalDestroy;
 
         prototype.open = this._patchedOpen;
         prototype.destroy = this._patchedDestroy;
