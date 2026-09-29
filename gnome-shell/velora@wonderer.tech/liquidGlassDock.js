@@ -24,16 +24,6 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
-const CARD_SCOPE_CLASS = 'velora-card-appearance-scope';
-const CARD_SELECTORS = [
-    '.message',
-    '.calendar',
-    '.datemenu-today-button',
-    '.events-button',
-    '.world-clocks-button',
-    '.weather-button',
-];
-
 function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -487,9 +477,6 @@ export class LiquidGlassIntegration {
         box.add_style_class_name?.(
             'velora-native-date-menu-glass'
         );
-        box.add_style_class_name?.(
-            CARD_SCOPE_CLASS
-        );
 
         this._dateMenuOriginalActorStyle =
             actor.get_style?.() ?? '';
@@ -689,11 +676,11 @@ export class LiquidGlassIntegration {
         if (!actor || !box)
             return;
 
-        const {blur} = state;
+        const {fill, blur} = state;
 
-        // Match the uploaded working extension: popup shell/content are kept
-        // transparent; actual card material is supplied by a generated theme
-        // stylesheet targeting the GNOME style classes.
+        // Keep only BoxPointer's own shell/arrow transparent. The actual large
+        // Date Menu panel is menu.box (popup-menu-content), so this is the
+        // exact surface controlled by Opacity/Tint/Blur.
         actor.set_style?.(
             (this._dateMenuOriginalActorStyle || '') +
             '; -arrow-background-color: rgba(0,0,0,0);' +
@@ -706,7 +693,7 @@ export class LiquidGlassIntegration {
 
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
-            '; background-color: rgba(0,0,0,0);' +
+            `; background-color: ${fill};` +
             ' background-image: none;' +
             ' border-color: rgba(0,0,0,0);' +
             ' box-shadow: none;'
@@ -779,28 +766,17 @@ export class LiquidGlassIntegration {
         state = this._readSharedCardAppearance()
     ) {
         const {fill} = state;
-        const scope = selector =>
-            `.${CARD_SCOPE_CLASS} ${selector}`;
 
-        const cardSelectors =
-            CARD_SELECTORS.map(scope).join(',\n');
-
-        // Date Menu cards are scoped below menu.box. Temporary notification
-        // banners receive our own class when GNOME creates them. A unique CSS
-        // filename is loaded for every material change so St cannot retain an
-        // older parsed stylesheet from cache.
+        // The Date Menu outer panel is styled directly through menu.box.
+        // Generated CSS is kept only for GNOME's temporary notification
+        // banner, whose material comes from the Shell theme.
         const css =
-            `${cardSelectors},\n` +
-            '.velora-native-notification-glass {\n' +
-            `  background-color: ${fill} !important;\n` +
-            '  background-image: none !important;\n' +
-            '  border-color: transparent !important;\n' +
-            '  box-shadow: none !important;\n' +
-            '}\n\n' +
-            `${cardSelectors.split(',\n').map(s => s + ':hover').join(',\n')},\n` +
+            '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
             '.velora-native-notification-glass:focus {\n' +
             `  background-color: ${fill} !important;\n` +
+            '  background-image: none !important;\n' +
+            '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n';
 
@@ -864,9 +840,6 @@ export class LiquidGlassIntegration {
             );
             this._dateMenuBox?.remove_style_class_name?.(
                 'velora-native-date-menu-glass'
-            );
-            this._dateMenuBox?.remove_style_class_name?.(
-                CARD_SCOPE_CLASS
             );
 
             this._dateMenuActor?.set_style?.(
