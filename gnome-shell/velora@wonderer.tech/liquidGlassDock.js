@@ -1062,74 +1062,18 @@ export class LiquidGlassIntegration {
     }
 
     _setupNativeNotificationStyler() {
-        const tray = Main.messageTray;
-        const bannerBin = tray?._bannerBin;
-        if (!bannerBin) {
-            throw new Error(
-                'GNOME MessageTray banner container is unavailable'
-            );
-        }
+        if (this._notificationGlassManager)
+            return;
 
-        this._notificationBannerBin = bannerBin;
+        this._notificationGlassManager =
+            new NotificationGlassManager({
+                vendor: this._vendor,
+                settings: this._settings,
+                readAppearance: () =>
+                    this._readSharedCardAppearance(),
+            });
 
-        const styleBanner = actor => {
-            if (!actor || actor === bannerBin)
-                return;
-
-            actor.add_style_class_name?.(
-                'velora-native-notification-glass'
-            );
-            this._applyNativeNotificationAppearance(actor);
-            actor.queue_redraw?.();
-        };
-
-        const unstyleBanner = actor => {
-            if (!actor)
-                return;
-
-            this._restoreNativeNotificationAppearance(actor);
-            actor.remove_style_class_name?.(
-                'velora-native-notification-glass'
-            );
-        };
-
-        this._notificationBannerSignals.push({
-            obj: bannerBin,
-            id: bannerBin.connect(
-                'child-added',
-                (_container, actor) => {
-                    GLib.idle_add(
-                        GLib.PRIORITY_DEFAULT_IDLE,
-                        () => {
-                            if (
-                                this._enabled &&
-                                actor?.get_parent?.() === bannerBin
-                            ) {
-                                styleBanner(actor);
-                            }
-                            return GLib.SOURCE_REMOVE;
-                        }
-                    );
-                }
-            ),
-        });
-
-        this._notificationBannerSignals.push({
-            obj: bannerBin,
-            id: bannerBin.connect(
-                'child-removed',
-                (_container, actor) => {
-                    unstyleBanner(actor);
-                }
-            ),
-        });
-
-        for (const actor of bannerBin.get_children?.() ?? [])
-            styleBanner(actor);
-
-        const currentBanner = tray?._banner;
-        if (currentBanner)
-            styleBanner(currentBanner);
+        this._notificationGlassManager.setup();
 
         console.log(
             '[Velora][LiquidGlass] nativeNotificationStyler active'
@@ -1139,101 +1083,20 @@ export class LiquidGlassIntegration {
     _applyAllNativeNotificationAppearances(
         state = this._readSharedCardAppearance()
     ) {
-        const tray = Main.messageTray;
-        const actors = new Set([
-            ...(this._notificationBannerBin?.get_children?.() ?? []),
-            ...(tray?._banner ? [tray._banner] : []),
-        ]);
-
-        for (const actor of actors)
-            this._applyNativeNotificationAppearance(actor, state);
-    }
-
-    _applyNativeNotificationAppearance(
-        actor,
-        state = this._readSharedCardAppearance()
-    ) {
-        if (!actor)
-            return;
-
-        const {blur} = state;
-
-        let effect =
-            this._notificationBlurEffects.get(actor) ?? null;
-
-        if (blur > 0) {
-            if (!effect) {
-                effect = new Shell.BlurEffect({
-                    mode: Shell.BlurMode.BACKGROUND,
-                    radius: blur,
-                    brightness: 1.0,
-                });
-                actor.add_effect(effect);
-                this._notificationBlurEffects.set(
-                    actor,
-                    effect
-                );
-            } else {
-                effect.radius = blur;
-            }
-        } else if (effect) {
-            try {
-                actor.remove_effect(effect);
-            } catch {
-                // Banner/effect may already be tearing down.
-            }
-            this._notificationBlurEffects.delete(actor);
-        }
-
-        actor.queue_redraw?.();
-    }
-
-    _restoreNativeNotificationAppearance(actor) {
-        if (!actor)
-            return;
-
-        const effect =
-            this._notificationBlurEffects.get(actor) ?? null;
-        if (effect) {
-            try {
-                actor.remove_effect(effect);
-            } catch {
-                // Banner/effect may already be destroyed.
-            }
-            this._notificationBlurEffects.delete(actor);
-        }
+        this._notificationGlassManager?.updateAppearance(state);
     }
 
     _cleanupNativeNotificationStyler() {
-        for (const signal of this._notificationBannerSignals) {
-            try {
-                signal.obj.disconnect(signal.id);
-            } catch {
-                // MessageTray may already be tearing down.
-            }
-        }
-        this._notificationBannerSignals = [];
-
-        const tray = Main.messageTray;
-        const actors = new Set([
-            ...(this._notificationBannerBin?.get_children?.() ?? []),
-            ...(tray?._banner ? [tray._banner] : []),
-            ...this._notificationBlurEffects.keys(),
-        ]);
-
-        for (const actor of actors) {
-            this._restoreNativeNotificationAppearance(actor);
-            try {
-                actor.remove_style_class_name?.(
-                    'velora-native-notification-glass'
-                );
-            } catch {
-                // Actor may already be destroyed.
-            }
+        try {
+            this._notificationGlassManager?.cleanup();
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] notification material cleanup failed: ' +
+                error
+            );
         }
 
-        this._notificationBlurEffects.clear();
-        this._notificationBannerBin = null;
+        this._notificationGlassManager = null;
     }
 
     _collectNativeDashContainers() {
