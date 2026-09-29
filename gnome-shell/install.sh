@@ -228,6 +228,18 @@ sync_hot_aux() {
         for file in "${HOT_AUX_FILES[@]}"; do
             cp -f "${SOURCE_DIR}/${file}" "${live_dir}/${file}"
         done
+
+        # prefs.js imports the upstream preference implementation relative to
+        # the extension root. A developer live-registration uses live_dir as
+        # that root, so mirror the vendored tree there as well.
+        for runtime_source in "${RUNTIME_DIRS[@]}"; do
+            destination="${live_dir}/${runtime_source}"
+            rm -rf "${destination}"
+            mkdir -p "$(dirname "${destination}")"
+            cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
+        done
+
+        glib-compile-schemas --strict             "${live_dir}/vendor/liquid-glass/schemas"
     done
     shopt -u nullglob
 }
@@ -415,6 +427,15 @@ try_live_register() {
         mkdir -p "${parent}"
         cp -f "${TARGET_DIR}/${file}" "${live_dir}/${file}"
     done
+
+    for runtime_source in "${RUNTIME_DIRS[@]}"; do
+        destination="${live_dir}/${runtime_source}"
+        rm -rf "${destination}"
+        mkdir -p "$(dirname "${destination}")"
+        cp -a "${TARGET_DIR}/${runtime_source}" "${destination}"
+    done
+
+    glib-compile-schemas --strict         "${live_dir}/vendor/liquid-glass/schemas"
 
     cp -f "${BOOTSTRAP_MARKER}" "${live_dir}/.velora-bootstrap-generation"
     cp -f "${BOOTSTRAP_REVISION_MARKER}" "${live_dir}/.velora-bootstrap-revision"
