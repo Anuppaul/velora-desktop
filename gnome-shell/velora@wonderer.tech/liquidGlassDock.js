@@ -16,6 +16,9 @@ import {
 import {
     PopupGlassManager,
 } from './popupGlass.js';
+import {
+    ShellCardGlassManager,
+} from './shellCards.js';
 
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
@@ -275,6 +278,7 @@ export class LiquidGlassIntegration {
         this._stylesheet = null;
 
         this._popupGlassManager = null;
+        this._shellCardGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -380,6 +384,17 @@ export class LiquidGlassIntegration {
             this._popupGlassManager.setup();
         });
 
+        start('shellCardGlassManager', () => {
+            this._shellCardGlassManager =
+                new ShellCardGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._shellCardGlassManager.setup();
+        });
+
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
@@ -406,6 +421,7 @@ export class LiquidGlassIntegration {
                 this._scheduleNativeDashRescan();
                 this._notificationGlassManager?.updateAppearance();
                 this._popupGlassManager?.updateAppearance();
+                this._shellCardGlassManager?.updateAppearance();
             }
         );
 
@@ -482,6 +498,7 @@ export class LiquidGlassIntegration {
         const state = this._readSharedCardAppearance();
 
         this._popupGlassManager?.updateAppearance(state);
+        this._shellCardGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
 
@@ -1093,6 +1110,9 @@ export class LiquidGlassIntegration {
                 popupGlassManager: Boolean(
                     this._popupGlassManager
                 ),
+                shellCardGlassManager: Boolean(
+                    this._shellCardGlassManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -1248,6 +1268,12 @@ export class LiquidGlassIntegration {
 
         cleanup('popupGlassManager', this._popupGlassManager);
         this._popupGlassManager = null;
+
+        cleanup(
+            'shellCardGlassManager',
+            this._shellCardGlassManager
+        );
+        this._shellCardGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
