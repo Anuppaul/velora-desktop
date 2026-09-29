@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.3"
+INSTALLER_VERSION="2026-09-29.4"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -217,7 +217,7 @@ sync_hot_aux() {
     [[ -f "${TARGET_DIR}/vendor/liquid-glass/shaders/glass.frag" ]] ||
         fail "Canonical Liquid Glass shader sync failed."
 
-    glib-compile-schemas --strict         "${TARGET_DIR}/vendor/liquid-glass/schemas"
+    glib-compile-schemas --strict "${TARGET_DIR}/vendor/liquid-glass/schemas"
 
     [[ -f "${TARGET_DIR}/vendor/liquid-glass/schemas/gschemas.compiled" ]] ||
         fail "Canonical Liquid Glass GSettings compilation failed."
@@ -792,7 +792,10 @@ for runtime_source in "${RUNTIME_DIRS[@]}"; do
     cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
 done
 
-glib-compile-schemas --strict     "${TARGET_DIR}/vendor/liquid-glass/schemas"
+glib-compile-schemas --strict "${TARGET_DIR}/vendor/liquid-glass/schemas"
+[[ -f "${TARGET_DIR}/vendor/liquid-glass/schemas/gschemas.compiled" ]] ||
+    fail "Installed Liquid Glass GSettings compilation failed."
+
 glib-compile-schemas --strict "${TARGET_DIR}/schemas"
 record_bootstrap_identity
 
