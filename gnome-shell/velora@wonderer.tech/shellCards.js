@@ -3,6 +3,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
+const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -80,8 +81,10 @@ class ShellCardSurface {
             settings: this._settings,
             owner: 'velora-shell-card',
         });
-        effect.setPadding?.(0);
+        effect.setPadding?.(20);
+        effect.setShadowMaxRadius?.(OPTICAL_MARGIN - 8);
         effect.setIsDock?.(false);
+        effect.setSurfaceLightEnabled?.(true);
         effect.setBlurMethod?.(1);
         material.add_effect(effect);
 
@@ -166,6 +169,19 @@ class ShellCardSurface {
         this._effect.setBlurRadius?.(state.blur ?? 20);
         this._effect.setCornerRadius?.(radius);
         this._effect.setBlurMethod?.(1);
+        try {
+            this._effect.setBrightness?.(
+                this._settings.get_double('menu-brightness')
+            );
+            this._effect.setContrast?.(
+                this._settings.get_double('menu-contrast')
+            );
+            this._effect.setSaturation?.(
+                this._settings.get_double('menu-saturation')
+            );
+        } catch {
+            // Renderer defaults remain valid.
+        }
         this._material?.queue_redraw?.();
     }
 
@@ -199,8 +215,14 @@ class ShellCardSurface {
             return;
         }
 
-        this._material.set_position(x, y);
-        this._material.set_size(w, h);
+        this._material.set_position(
+            x - OPTICAL_MARGIN,
+            y - OPTICAL_MARGIN
+        );
+        this._material.set_size(
+            w + OPTICAL_MARGIN * 2,
+            h + OPTICAL_MARGIN * 2
+        );
         this._material.opacity = opacity;
         this._material.show?.();
         this._syncPaint();
@@ -235,8 +257,15 @@ class ShellCardSurface {
         wallpaper.set_scale(1 / sx, 1 / sy);
         wallpaper.set_position(-absX / sx, -absY / sy);
 
+        const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
+        const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
         effect.setResolution?.(w, h);
-        effect.setGlassGeometry?.(0, 0, w, h);
+        effect.setGlassGeometry?.(
+            OPTICAL_MARGIN,
+            OPTICAL_MARGIN,
+            glassW,
+            glassH
+        );
     }
 
     destroy(removeClass = true) {
