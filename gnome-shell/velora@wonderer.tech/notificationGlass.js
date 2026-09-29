@@ -25,6 +25,7 @@ export class NotificationGlassManager {
         this._settingsSignals = [];
         this._materials = new Map();
         this._appearance = null;
+        this._stageSyncId = 0;
     }
 
     setup() {
@@ -87,6 +88,35 @@ export class NotificationGlassManager {
                 // The pilot must not fail because an optional setting is absent.
             }
         }
+
+        this._stageSyncId = global.stage.connect(
+            'before-update',
+            () => {
+                if (!this._enabled)
+                    return;
+
+                for (const [actor, material] of [...this._materials]) {
+                    if (
+                        !actor?.mapped ||
+                        !actor?.visible
+                    ) {
+                        continue;
+                    }
+
+                    try {
+                        this._sync(material, false);
+                    } catch (error) {
+                        console.error(
+                            '[Velora][NotificationGlass] frame sync failed; restoring native banner: ' +
+                            error +
+                            '\n' +
+                            (error?.stack ?? '')
+                        );
+                        this._detach(actor);
+                    }
+                }
+            }
+        );
 
         console.log(
             '[Velora][NotificationGlass] live refractive material active'
@@ -603,6 +633,15 @@ export class NotificationGlassManager {
 
     cleanup() {
         this._enabled = false;
+
+        if (this._stageSyncId) {
+            try {
+                global.stage.disconnect(this._stageSyncId);
+            } catch {
+                // Stage may already be tearing down.
+            }
+            this._stageSyncId = 0;
+        }
 
         for (const signal of this._signals) {
             try {
