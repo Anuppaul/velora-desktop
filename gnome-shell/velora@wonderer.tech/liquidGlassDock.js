@@ -378,6 +378,10 @@ export class LiquidGlassIntegration {
                 this._notificationManager
                     ._setupBannerEffect
                     .bind(this._notificationManager);
+            const originalCleanupCurrentBanner =
+                this._notificationManager
+                    ._cleanupCurrentBanner
+                    .bind(this._notificationManager);
 
             this._notificationManager._setupBannerEffect =
                 targetActor => {
@@ -396,6 +400,14 @@ export class LiquidGlassIntegration {
                             return GLib.SOURCE_REMOVE;
                         }
                     );
+                };
+
+            this._notificationManager._cleanupCurrentBanner =
+                () => {
+                    const actor =
+                        this._notificationManager?.currentBanner;
+                    this._restoreNotificationActor(actor);
+                    originalCleanupCurrentBanner();
                 };
 
             this._notificationManager.setup();
@@ -645,24 +657,38 @@ export class LiquidGlassIntegration {
         this._notificationManager?.bgActor?.queue_redraw?.();
     }
 
-    _restoreNotificationPanelScale() {
-        for (const [actor, original] of
-            this._notificationScaledActors) {
-            try {
-                actor.set_pivot_point(
-                    original.pivotX,
-                    original.pivotY
-                );
-                actor.set_scale(
-                    original.scaleX,
-                    original.scaleY
-                );
-                actor.queue_relayout?.();
-            } catch {
-                // Notification may already have been destroyed.
-            }
+    _restoreNotificationActor(actor) {
+        if (!actor)
+            return;
+
+        const original =
+            this._notificationScaledActors.get(actor);
+        if (!original)
+            return;
+
+        try {
+            actor.set_pivot_point(
+                original.pivotX,
+                original.pivotY
+            );
+            actor.set_scale(
+                original.scaleX,
+                original.scaleY
+            );
+            actor.queue_relayout?.();
+        } catch {
+            // Notification may already have been destroyed.
         }
-        this._notificationScaledActors.clear();
+
+        this._notificationScaledActors.delete(actor);
+    }
+
+    _restoreNotificationPanelScale() {
+        for (const actor of [
+            ...this._notificationScaledActors.keys(),
+        ]) {
+            this._restoreNotificationActor(actor);
+        }
     }
 
     _collectNativeDashContainers() {
