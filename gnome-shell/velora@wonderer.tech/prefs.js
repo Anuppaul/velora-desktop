@@ -110,6 +110,8 @@ function addSpin(group, settings, key, title, subtitle, min, max, step = 1) {
 
     spin.connect('value-changed', () => {
         settings.set_int(key, spin.get_value_as_int());
+        if (key.startsWith('date-menu-'))
+            Gio.Settings.sync();
     });
     settings.connect('changed::' + key, () => {
         if (spin.get_value_as_int() !== settings.get_int(key))
@@ -135,7 +137,11 @@ function addText(group, settings, key, title, subtitle, placeholder = '') {
         hexpand: false,
     });
 
-    entry.connect('changed', () => settings.set_string(key, entry.text));
+    entry.connect('changed', () => {
+        settings.set_string(key, entry.text);
+        if (key.startsWith('date-menu-'))
+            Gio.Settings.sync();
+    });
     settings.connect('changed::' + key, () => {
         if (entry.text !== settings.get_string(key))
             entry.text = settings.get_string(key);
