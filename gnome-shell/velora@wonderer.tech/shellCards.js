@@ -148,28 +148,18 @@ class ShellCardSurface {
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
-        const sync = () => this._sync();
-        for (const signal of [
-            'notify::allocation',
-            'notify::x',
-            'notify::y',
-            'notify::opacity',
-            'notify::translation-x',
-            'notify::translation-y',
-            'notify::scale-x',
-            'notify::scale-y',
-            'notify::visible',
-            'notify::mapped',
-            'style-changed',
-        ]) {
-            try {
-                this._signals.push({
-                    obj: this._target,
-                    id: this._target.connect(signal, sync),
-                });
-            } catch {
-                // Optional actor signal.
-            }
+        try {
+            this._signals.push({
+                obj: this._target,
+                id: this._target.connect(
+                    'style-changed',
+                    () => this.updateAppearance(
+                        this._manager?._appearance
+                    )
+                ),
+            });
+        } catch {
+            // Optional style signal.
         }
 
         try {
