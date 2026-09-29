@@ -352,10 +352,21 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         addSpin(
             glassSurfaceGroup,
+            settings,
+            'notification-panel-scale',
+            'Notification panel scale',
+            'Scale the complete top notification card, including content and Liquid Glass. 100% keeps the GNOME default size.',
+            60,
+            180,
+            5
+        );
+
+        addSpin(
+            glassSurfaceGroup,
             liquidGlassSettings,
             'notification-glass-expand',
-            'Notification panel size',
-            'Extra glass area around notification banners. Increase this to make the notification panel visually larger.',
+            'Notification glass padding',
+            'Extra glass-only area around the notification card. This does not change the notification content size.',
             0,
             80,
             2
