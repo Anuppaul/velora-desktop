@@ -255,8 +255,6 @@ export class LiquidGlassIntegration {
         this._dateMenuActor = null;
         this._dateMenuBox = null;
         this._dateMenuOpenSignalId = 0;
-        this._dateMenuScaleSettingId = 0;
-        this._dateMenuOriginalTransform = null;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
@@ -461,13 +459,6 @@ export class LiquidGlassIntegration {
         this._dateMenuActor = actor;
         this._dateMenuBox = box;
 
-        this._dateMenuOriginalTransform = {
-            scaleX: actor.scale_x ?? 1,
-            scaleY: actor.scale_y ?? 1,
-            pivotX: actor.get_pivot_point?.()?.[0] ?? 0.5,
-            pivotY: actor.get_pivot_point?.()?.[1] ?? 0,
-        };
-
         actor.add_style_class_name?.(
             'velora-native-date-menu-shell'
         );
@@ -518,8 +509,6 @@ export class LiquidGlassIntegration {
         }
 
         const apply = () => {
-            this._applyNativeDateMenuScale();
-
             // Theme/popup setup can restyle the box when it opens. Re-assert
             // the native glass class without replacing GNOME's own actor tree.
             actor.add_style_class_name?.(
@@ -548,12 +537,6 @@ export class LiquidGlassIntegration {
                         }
                     );
                 }
-            );
-
-        this._dateMenuScaleSettingId =
-            this._veloraSettings.connect(
-                'changed::date-menu-panel-scale',
-                apply
             );
 
         apply();
@@ -711,42 +694,7 @@ export class LiquidGlassIntegration {
         this._dateMenuChildStyles.clear();
     }
 
-    _applyNativeDateMenuScale() {
-        const actor = this._dateMenuActor;
-        if (!actor || !this._veloraSettings)
-            return;
-
-        const scale = Math.max(
-            0.6,
-            Math.min(
-                1.8,
-                this._veloraSettings.get_int(
-                    'date-menu-panel-scale'
-                ) / 100
-            )
-        );
-
-        actor.set_pivot_point?.(0.5, 0);
-        actor.set_scale?.(scale, scale);
-        actor.queue_relayout?.();
-        actor.queue_redraw?.();
-    }
-
     _cleanupNativeDateMenuStyler() {
-        if (
-            this._dateMenuScaleSettingId &&
-            this._veloraSettings
-        ) {
-            try {
-                this._veloraSettings.disconnect(
-                    this._dateMenuScaleSettingId
-                );
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._dateMenuScaleSettingId = 0;
-
         for (const id of this._dateMenuMaterialSettingIds) {
             try {
                 this._settings?.disconnect(id);
@@ -799,25 +747,12 @@ export class LiquidGlassIntegration {
                 this._dateMenuOriginalStyle ?? ''
             );
 
-            const original =
-                this._dateMenuOriginalTransform;
-            if (this._dateMenuActor && original) {
-                this._dateMenuActor.set_pivot_point?.(
-                    original.pivotX,
-                    original.pivotY
-                );
-                this._dateMenuActor.set_scale?.(
-                    original.scaleX,
-                    original.scaleY
-                );
-            }
         } catch {
             // Date Menu may already be destroyed.
         }
 
         this._dateMenuActor = null;
         this._dateMenuBox = null;
-        this._dateMenuOriginalTransform = null;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
@@ -1433,10 +1368,6 @@ export class LiquidGlassIntegration {
                 nativeDateMenuStyler: Boolean(
                     this._dateMenuActor
                 ),
-                dateMenuPanelScale:
-                    this._veloraSettings?.get_int?.(
-                        'date-menu-panel-scale'
-                    ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
                     this._notificationBannerBin
