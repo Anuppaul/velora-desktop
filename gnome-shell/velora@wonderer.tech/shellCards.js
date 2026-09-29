@@ -499,8 +499,20 @@ export class ShellCardGlassManager {
                 if (!this._enabled)
                     return;
 
-                for (const surface of this._surfaces.values())
-                    surface.syncFrame();
+                for (const [actor, surface] of [...this._surfaces]) {
+                    try {
+                        surface.syncFrame();
+                    } catch (error) {
+                        console.error(
+                            '[Velora][ShellCards] frame sync failed; restoring native card: ' +
+                            error +
+                            '\n' +
+                            (error?.stack ?? '')
+                        );
+                        this._surfaces.delete(actor);
+                        surface.destroy(true);
+                    }
+                }
             }
         );
 
