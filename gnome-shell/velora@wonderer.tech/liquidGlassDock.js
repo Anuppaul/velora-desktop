@@ -1199,35 +1199,25 @@ export class LiquidGlassIntegration {
                 nativeDashManagers:
                     this._nativeDashEntries.length,
                 topPanel: Boolean(this._topPanelManager),
-                nativeDateMenuStyler: Boolean(
-                    this._dateMenuGlassManager
+                popupGlassManager: Boolean(
+                    this._popupGlassManager
                 ),
-                dateMenuOpacity:
+                glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
                     ) ?? null,
-                dateMenuTintColor:
+                glassTintColor:
                     this._veloraSettings?.get_string?.(
                         'glass-tint-color'
                     ) ?? null,
-                dateMenuBlur:
+                glassBlur:
                     this._veloraSettings?.get_int?.(
                         'glass-blur'
                     ) ?? null,
-                panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
                     this._notificationGlassManager
                 ),
-                quickSettingsManager: Boolean(
-                    this._quickSettingsManager
-                ),
                 osdManager: Boolean(this._osdManager),
-                applicationManager: Boolean(
-                    this._applicationManager
-                ),
-                windowListService: Boolean(
-                    this._windowListService
-                ),
                 externalGlobalStack:
                     this._externalGlobalStack,
                 managerHealth: {
