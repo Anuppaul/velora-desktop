@@ -489,69 +489,18 @@ export class LiquidGlassIntegration {
     }
 
     _setupNativeDateMenuStyler() {
-        const dateMenu = Main.panel?.statusArea?.dateMenu;
-        const menu = dateMenu?.menu;
-        const actor = menu?.actor;
-        const box = menu?.box;
-        const boxPointer = menu?._boxPointer ?? actor ?? null;
+        if (this._dateMenuGlassManager)
+            return;
 
-        if (!menu || !actor || !box) {
-            throw new Error(
-                'GNOME Date Menu actors are unavailable'
-            );
-        }
+        this._dateMenuGlassManager =
+            new DateMenuGlassManager({
+                vendor: this._vendor,
+                settings: this._settings,
+                readAppearance: () =>
+                    this._readSharedCardAppearance(),
+            });
 
-        this._dateMenuActor = actor;
-        this._dateMenuBox = box;
-        this._dateMenuBoxPointer = boxPointer;
-
-        this._dateMenuOriginalActorStyle =
-            actor.get_style?.() ?? '';
-        this._dateMenuOriginalStyle =
-            box.get_style?.() ?? '';
-        this._dateMenuOriginalBoxPointerStyle =
-            boxPointer?.get_style?.() ?? '';
-        this._dateMenuPopupTarget = null;
-
-        console.log(
-            '[Velora][DateMenu] actor classes: ' +
-            (actor.get_style_class_name?.() ?? '<none>')
-        );
-        console.log(
-            '[Velora][DateMenu] content classes: ' +
-            (box.get_style_class_name?.() ?? '<none>')
-        );
-
-        // Keep GNOME's native Date Menu content/animation/input. Appearance
-        // controls affect only the panel background/tint and optional
-        // BACKGROUND blur; content opacity and layout remain untouched.
-        this._applyNativeDateMenuAppearance();
-
-        const apply = () => {
-            this._applyNativeDateMenuAppearance();
-        };
-
-        this._dateMenuOpenSignalId =
-            menu.connect(
-                'open-state-changed',
-                (_menu, isOpen) => {
-                    if (!isOpen)
-                        return;
-
-                    this._dateMenuPopupTarget = null;
-
-                    GLib.idle_add(
-                        GLib.PRIORITY_DEFAULT_IDLE,
-                        () => {
-                            if (this._enabled)
-                                apply();
-                            return GLib.SOURCE_REMOVE;
-                        }
-                    );
-                }
-            );
-
-        apply();
+        this._dateMenuGlassManager.setup();
 
         console.log(
             '[Velora][LiquidGlass] nativeDateMenuStyler active'
@@ -697,116 +646,7 @@ export class LiquidGlassIntegration {
     _applyNativeDateMenuAppearance(
         state = this._readSharedCardAppearance()
     ) {
-        const dateMenu = Main.panel?.statusArea?.dateMenu;
-        const menu = dateMenu?.menu;
-        const box = menu?.box ?? this._dateMenuBox;
-        const boxPointer =
-            menu?._boxPointer ??
-            this._dateMenuBoxPointer ??
-            null;
-
-        if (!menu || !box || !menu.isOpen)
-            return;
-
-        const {fill, blur} = state;
-
-        // Match the uploaded working extension exactly: remove every inline
-        // override first, let GNOME/Yaru resolve the native theme, then detect
-        // whether the white popup is painted by menu.box or BoxPointer.
-        box.set_style?.(null);
-        boxPointer?.set_style?.(null);
-
-        const boxAlpha = backgroundAlpha(box);
-        let arrowAlpha = 0;
-
-        if (boxPointer) {
-            try {
-                const [ok, color] =
-                    boxPointer.get_theme_node()
-                        .lookup_color(
-                            '-arrow-background-color',
-                            false
-                        );
-                if (ok)
-                    arrowAlpha = color.alpha;
-            } catch {
-                arrowAlpha = 0;
-            }
-        }
-
-        let target;
-        if (
-            boxPointer &&
-            arrowAlpha > 0 &&
-            boxAlpha === 0
-        ) {
-            boxPointer.set_style?.(
-                `-arrow-background-color: ${fill};`
-            );
-            target =
-                'boxpointer (-arrow-background-color)';
-        } else {
-            box.set_style?.(
-                `background-color: ${fill};`
-            );
-            target =
-                'menu.box (background-color)';
-        }
-
-        if (this._dateMenuPopupTarget !== target) {
-            this._dateMenuPopupTarget = target;
-            console.log(
-                '[Velora][CardAppearance] popup bg target: ' +
-                target +
-                ' (boxA=' +
-                boxAlpha +
-                ', arrowA=' +
-                arrowAlpha +
-                ')'
-            );
-        }
-
-        // Blur follows the working reference and stays on menu.box.
-        if (blur > 0) {
-            let effect =
-                box.get_effect?.('velora-date-menu-blur') ??
-                null;
-
-            if (!effect) {
-                effect = new Shell.BlurEffect({
-                    mode: Shell.BlurMode.BACKGROUND,
-                });
-                box.add_effect_with_name?.(
-                    'velora-date-menu-blur',
-                    effect
-                );
-            }
-
-            if ('radius' in effect)
-                effect.radius = Math.round(blur);
-            else if ('sigma' in effect)
-                effect.sigma = blur / 2;
-
-            effect.brightness = 1.0;
-            this._dateMenuBlurEffect = effect;
-        } else {
-            const effect =
-                box.get_effect?.('velora-date-menu-blur') ??
-                this._dateMenuBlurEffect;
-
-            if (effect) {
-                try {
-                    box.remove_effect(effect);
-                } catch {
-                    // Effect may already be detached.
-                }
-            }
-            this._dateMenuBlurEffect = null;
-        }
-
-        boxPointer?._border?.queue_repaint?.();
-        boxPointer?.queue_redraw?.();
-        box.queue_redraw?.();
+        this._dateMenuGlassManager?.updateAppearance(state);
     }
 
     _getShellTheme() {
@@ -884,60 +724,16 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupNativeDateMenuStyler() {
-        const dateMenu = Main.panel?.statusArea?.dateMenu;
-        const menu = dateMenu?.menu;
-        if (this._dateMenuOpenSignalId && menu) {
-            try {
-                menu.disconnect(
-                    this._dateMenuOpenSignalId
-                );
-            } catch {
-                // Menu may already be tearing down.
-            }
-        }
-        this._dateMenuOpenSignalId = 0;
-
-        if (this._dateMenuBlurEffect && this._dateMenuBox) {
-            try {
-                this._dateMenuBox.remove_effect(
-                    this._dateMenuBlurEffect
-                );
-            } catch {
-                // Effect may already be detached.
-            }
-        }
-        this._dateMenuBlurEffect = null;
-
-
         try {
-            this._dateMenuBox?.set_style?.(
-                this._dateMenuOriginalStyle ?? ''
+            this._dateMenuGlassManager?.cleanup();
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] Date Menu material cleanup failed: ' +
+                error
             );
-
-            if (this._dateMenuBoxPointer) {
-                this._dateMenuBoxPointer.set_style?.(
-                    this._dateMenuOriginalBoxPointerStyle ??
-                    this._dateMenuOriginalActorStyle ??
-                    ''
-                );
-            } else {
-                this._dateMenuActor?.set_style?.(
-                    this._dateMenuOriginalActorStyle ?? ''
-                );
-            }
-
-        } catch {
-            // Date Menu may already be destroyed.
         }
 
-        this._dateMenuActor = null;
-        this._dateMenuBox = null;
-        this._dateMenuBoxPointer = null;
-        this._dateMenuOriginalActorStyle = null;
-        this._dateMenuOriginalStyle = null;
-        this._dateMenuOriginalBoxPointerStyle = null;
-        this._dateMenuPopupTarget = null;
-        this._dateMenuBlurEffect = null;
+        this._dateMenuGlassManager = null;
     }
 
     _setupTopPanelGlass() {
