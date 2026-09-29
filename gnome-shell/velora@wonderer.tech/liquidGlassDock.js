@@ -119,12 +119,23 @@ async function loadVendorModules(settings) {
         // exact previous runtime URI in that case so GJS returns its cached
         // module objects instead of evaluating registerClass() again.
         const liquidType = GObject.type_from_name('LiquidGlassEffect');
-        const alreadyRegistered = Boolean(liquidType);
+        const cloneType = GObject.type_from_name(
+            'Gjs_actors_unpickable_UnpickableClone'
+        );
+        const alreadyRegistered = Boolean(liquidType || cloneType);
 
-        if (alreadyRegistered)
+        if (alreadyRegistered) {
             root = previousRevisionVendorRoot(settings);
+            if (!root) {
+                throw new Error(
+                    'Liquid Glass GObject types are already registered, ' +
+                    'but the previously loaded Velora vendor revision is unavailable'
+                );
+            }
+        } else {
+            root = canonicalVendorRoot();
+        }
 
-        root ??= canonicalVendorRoot();
         globalThis[VENDOR_ROOT_KEY] = root;
     }
 
@@ -195,6 +206,7 @@ export class LiquidGlassDockRenderer {
                         'Velora Desktop: upstream Liquid Glass renderer failed'
                     );
                 }
+                throw error;
             })
             .finally(() => {
                 this._enablePromise = null;
