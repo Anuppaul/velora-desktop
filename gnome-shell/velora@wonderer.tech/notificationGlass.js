@@ -424,6 +424,34 @@ export class NotificationGlassManager {
         );
     }
 
+    _ensureSceneManager(material) {
+        if (!material)
+            return null;
+
+        if (material.sceneManager)
+            return material.sceneManager;
+
+        material.sceneManager =
+            new this._vendor.WindowCloneManager(
+                material.liquidBox,
+                null,
+                'velora-notification-scene'
+            );
+        return material.sceneManager;
+    }
+
+    _releaseSceneManager(material) {
+        if (!material?.sceneManager)
+            return;
+
+        try {
+            material.sceneManager.destroy?.();
+        } catch {
+            // Scene may already be tearing down.
+        }
+        material.sceneManager = null;
+    }
+
     _sync(material, shaderOnly) {
         const actor = material?.actor;
         if (
@@ -451,8 +479,10 @@ export class NotificationGlassManager {
             !actor.visible ||
             opacity <= 0
         ) {
-            if (!shaderOnly)
+            if (!shaderOnly) {
                 material.root.hide?.();
+                this._releaseSceneManager(material);
+            }
             return;
         }
 
@@ -527,7 +557,8 @@ export class NotificationGlassManager {
             screenH
         );
 
-        material.sceneManager?.setOffset?.(
+        const sceneManager = this._ensureSceneManager(material);
+        sceneManager?.setOffset?.(
             -monitorX,
             -monitorY
         );
@@ -558,9 +589,9 @@ export class NotificationGlassManager {
             width + margin * 2,
             height + margin * 2,
         ];
-        material.sceneManager?.setCullRect?.(captureRect);
-        material.sceneManager?.applyBgCloneClip?.(captureRect);
-        material.sceneManager?.sync?.();
+        sceneManager?.setCullRect?.(captureRect);
+        sceneManager?.applyBgCloneClip?.(captureRect);
+        sceneManager?.sync?.();
 
         material.effect.setResolution?.(
             screenW,
@@ -610,11 +641,7 @@ export class NotificationGlassManager {
             // Effect may already be detached.
         }
 
-        try {
-            material.sceneManager?.destroy?.();
-        } catch {
-            // Live scene clones may already be destroyed.
-        }
+        this._releaseSceneManager(material);
 
         try {
             material.root?.destroy?.();
