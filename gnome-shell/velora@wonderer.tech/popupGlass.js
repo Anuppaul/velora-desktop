@@ -68,6 +68,8 @@ class PopupGlassSurface {
         this._lastSceneScaleX = NaN;
         this._lastSceneScaleY = NaN;
         this._overlayAllocationId = 0;
+        this._lastHostW = 0;
+        this._lastHostH = 0;
     }
 
     attach() {
@@ -226,6 +228,12 @@ class PopupGlassSurface {
         if (!finitePositive(w) || !finitePositive(h))
             return;
 
+        if (this._lastHostW === w && this._lastHostH === h)
+            return;
+
+        this._lastHostW = w;
+        this._lastHostH = h;
+
         material.set_position(
             -OPTICAL_MARGIN,
             -OPTICAL_MARGIN
@@ -237,30 +245,30 @@ class PopupGlassSurface {
         material.queue_redraw?.();
     }
 
-    _syncPaintGeometry() {
-        const material = this._material;
-        const sceneRoot = this._sceneRoot;
-        const sceneManager = this._sceneManager;
-        const effect = this._effect;
+    syncFrame() {
         if (
             this._destroyed ||
-            !material ||
-            !sceneRoot ||
-            !sceneManager ||
-            !effect ||
-            !material.mapped
+            !this._menu?.isOpen ||
+            !this._material?.mapped
         ) {
             return;
         }
+
+        this._syncHostGeometry();
+        this._syncSceneLayers();
+    }
+
+    _syncSceneLayers() {
+        const material = this._material;
+        const sceneRoot = this._sceneRoot;
+        const sceneManager = this._sceneManager;
+        if (!material || !sceneRoot || !sceneManager)
+            return;
 
         const [w, h] = material.get_size?.() ?? [0, 0];
         if (!finitePositive(w) || !finitePositive(h))
             return;
 
-        // The material lives inside BoxPointer and therefore inherits GNOME's
-        // native popup scale/translation animation. Counter-transform only the
-        // wallpaper sample so the scene behind the moving glass stays fixed in
-        // stage space instead of zooming with the popup.
         const [absX, absY] =
             material.get_transformed_position?.() ?? [0, 0];
         const [transformedW, transformedH] =
@@ -306,27 +314,35 @@ class PopupGlassSurface {
             this._lastSceneY = sceneY;
         }
 
-        // Cull clone work to the optical FBO footprint. WindowCloneManager
-        // keeps each clone live from Mutter's own window actor; it does not
-        // flatten the desktop into a CPU bitmap.
-        sceneManager.setCullRect?.([
+        const captureRect = [
             absX,
             absY,
             transformedW,
             transformedH,
-        ]);
-        sceneManager.applyBgCloneClip?.([
-            absX,
-            absY,
-            transformedW,
-            transformedH,
-        ]);
+        ];
+        sceneManager.setCullRect?.(captureRect);
+        sceneManager.applyBgCloneClip?.(captureRect);
         sceneManager.sync?.();
+    }
 
-        // The FBO includes optical sampling headroom, while the shader mask is
-        // still exactly the native popup rectangle. This is what lets the
-        // bevel/lens bend pixels at the rim instead of collapsing to a flat
-        // translucent fill at the allocation boundary.
+    _syncPaintGeometry() {
+        const material = this._material;
+        const effect = this._effect;
+        if (
+            this._destroyed ||
+            !material ||
+            !effect ||
+            !material.mapped
+        ) {
+            return;
+        }
+
+        const [w, h] = material.get_size?.() ?? [0, 0];
+        if (!finitePositive(w) || !finitePositive(h))
+            return;
+
+        // Paint-time hook is uniforms-only. Actor/clone mutations happen in
+        // PopupGlassManager's stage before-update loop.
         const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
         const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
         effect.setResolution?.(w, h);
@@ -420,6 +436,7 @@ export class PopupGlassManager {
         this._patchedOpen = null;
         this._patchedDestroy = null;
         this._appearance = null;
+        this._stageSyncId = 0;
     }
 
     setup() {
@@ -447,6 +464,17 @@ export class PopupGlassManager {
 
         prototype.open = this._patchedOpen;
         prototype.destroy = this._patchedDestroy;
+
+        this._stageSyncId = global.stage.connect(
+            'before-update',
+            () => {
+                if (!this._enabled)
+                    return;
+
+                for (const surface of this._surfaces.values())
+                    surface.syncFrame();
+            }
+        );
 
         console.log(
             '[Velora][PopupGlass] global PopupMenu adapter active'
@@ -507,6 +535,15 @@ export class PopupGlassManager {
             return;
 
         this._enabled = false;
+
+        if (this._stageSyncId) {
+            try {
+                global.stage.disconnect(this._stageSyncId);
+            } catch {
+                // Stage may already be tearing down.
+            }
+            this._stageSyncId = 0;
+        }
 
         const prototype = PopupMenu.PopupMenu.prototype;
         if (prototype.open === this._patchedOpen)
