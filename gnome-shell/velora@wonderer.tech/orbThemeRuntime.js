@@ -1,436 +1,1764 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js';
 
+import {collectDockApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
+import {
+    allocateAcrossRings,
+    arcForPosition,
+    clamp,
+    effectiveRingGap,
+    ICON_HOVER_SCALE,
+    selectOrganizedSlots,
+    slotsForRings,
+    totalCapacity,
+} from './geometry.js';
 
-const SINGLETON = '__veloraDesktopActiveRuntime';
-const SCHEMA = 'org.gnome.shell.extensions.velora';
-const DEFAULT_ICON = 'start-here-symbolic';
-const FALLBACK_ICON = 'view-app-grid-symbolic';
-const REVEAL = 7;
+const DEFAULT_ORB_ICON = 'start-here-symbolic';
+const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
+const ORB_AUTO_HIDE_REVEAL_PX = 7;
+const SCREEN_MARGIN = 8;
+const APP_PREVIEW_MAX_WINDOWS = 4;
+const APP_PREVIEW_GAP = 8;
+const APP_PREVIEW_PADDING = 10;
+const APP_PREVIEW_OFFSET = 14;
+const APP_PREVIEW_HIDE_DELAY = 220;
+const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
+const VELORA_SCHEMA_ID = 'org.gnome.shell.extensions.velora';
 
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-
-function settingsFor(uuid) {
-    const dir = GLib.build_filenamev([
-        GLib.get_user_data_dir(), 'gnome-shell', 'extensions',
-        uuid, 'schemas',
+function createCanonicalVeloraSettings(uuid) {
+    const schemaDir = GLib.build_filenamev([
+        GLib.get_user_data_dir(),
+        'gnome-shell',
+        'extensions',
+        uuid,
+        'schemas',
     ]);
+
     const source = Gio.SettingsSchemaSource.new_from_directory(
-        dir, Gio.SettingsSchemaSource.get_default(), false);
-    const schema = source.lookup(SCHEMA, true);
-    if (!schema)
-        throw new Error('Velora canonical schema not found');
+        schemaDir,
+        Gio.SettingsSchemaSource.get_default(),
+        false
+    );
+    const schema = source.lookup(VELORA_SCHEMA_ID, true);
+
+    if (!schema) {
+        throw new Error(
+            'Velora canonical GSettings schema was not found: ' +
+            schemaDir
+        );
+    }
+
     return new Gio.Settings({settings_schema: schema});
 }
 
 export default class VeloraRuntime extends Extension {
     async enable() {
-        globalThis[SINGLETON]?.disable?.();
+        const previousRuntime = globalThis[RUNTIME_SINGLETON_KEY];
+        if (previousRuntime && previousRuntime !== this) {
+            try {
+                previousRuntime.disable();
+            } catch (error) {
+                logError(
+                    error,
+                    'Velora Desktop: failed to retire duplicate runtime'
+                );
+            }
+        }
 
-        this._settings = settingsFor(this.uuid);
+        this._disabled = false;
+
+        // Runtime revisions are hot-swapped without reloading the stable
+        // bootstrap extension. Extension.getSettings() can therefore retain
+        // the schema snapshot that existed when the bootstrap was loaded.
+        // Always load the canonical compiled schema afresh so newly added
+        // runtime/prefs keys bind immediately in the current Shell session.
+        try {
+            this._settings =
+                createCanonicalVeloraSettings(this.uuid);
+        } catch (error) {
+            logError(
+                error,
+                'Velora Desktop: canonical settings load failed; using bootstrap schema'
+            );
+            this._settings = this.getSettings();
+        }
+
+        this._shellSettings = new Gio.Settings({schema_id: 'org.gnome.shell'});
+        this._appSystem = Shell.AppSystem.get_default();
+        this._radialActors = [];
+        this._closingActors = new Set();
+        this._tooltip = null;
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
+        this._appPreviewHideTimeoutId = 0;
+        this._menuOpen = false;
         this._dragging = false;
-        this._hidden = false;
-        this._faded = false;
-        this._writingPosition = false;
+        this._openTimeoutId = 0;
+        this._closeTimeoutId = 0;
+        this._orbAutoHideTimeoutId = 0;
+        this._orbAutoFadeTimeoutId = 0;
+        this._orbHidden = false;
+        this._orbFaded = false;
         this._suppressClickUntil = 0;
-        this._hideId = 0;
-        this._fadeId = 0;
-        this._settingsId = 0;
-        this._monitorsId = 0;
-        this._grab = null;
+        this._writingOrbPosition = false;
+        this._dragCurrentX = 0;
+        this._dragCurrentY = 0;
+        this._dragGrab = null;
+        this._liquidGlassIntegration = null;
 
-        this._removeStaleLayer();
-        this._layer = new St.Widget({
-            name: 'velora-desktop-layer',
-            reactive: false,
-            layout_manager: new Clutter.FixedLayout(),
-        });
-        Main.uiGroup.add_child(this._layer);
-        this._syncLayer();
+        this._removeStaleLayers();
+        this._createLayer();
 
-        this._glass = new LiquidGlassIntegration({
+        this._liquidGlassIntegration = new LiquidGlassIntegration({
             veloraSettings: this._settings,
         });
-        await this._glass.enable();
+        await this._liquidGlassIntegration.enable();
 
-        this._setOrbEnabled(this._settings.get_boolean('orb-enabled'));
-        this._connect();
+        this._setOrbEnabled(
+            this._settings.get_boolean('orb-enabled')
+        );
+        this._connectSignals();
 
-        globalThis[SINGLETON] = this;
-        console.log('[Velora] Orb + Liquid Glass theme active');
+        globalThis[RUNTIME_SINGLETON_KEY] = this;
+        console.log(
+            '[Velora] Full Orb + system Liquid Glass runtime active'
+        );
     }
 
     disable() {
-        if (globalThis[SINGLETON] === this)
-            delete globalThis[SINGLETON];
+        if (this._disabled)
+            return;
 
-        this._cancelTimers();
+        this._disabled = true;
 
-        if (this._settingsId)
-            try { this._settings.disconnect(this._settingsId); } catch {}
-        if (this._monitorsId)
-            try { Main.layoutManager.disconnect(this._monitorsId); } catch {}
+        if (globalThis[RUNTIME_SINGLETON_KEY] === this)
+            delete globalThis[RUNTIME_SINGLETON_KEY];
 
-        try { this._grab?.dismiss?.(); } catch {}
-        this._grab = null;
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(true);
+        this._closeMenu(true);
+        this._destroyClosingActors();
+        this._liquidGlassIntegration?.disable();
 
-        try { this._glass?.disable?.(); } catch (e) {
-            logError(e, 'Velora: Liquid Glass cleanup failed');
+        if (this._settings && this._settingsChangedId)
+            this._settings.disconnect(this._settingsChangedId);
+        if (this._shellSettings && this._favoritesChangedId)
+            this._shellSettings.disconnect(this._favoritesChangedId);
+        if (this._appSystem && this._installedChangedId)
+            this._appSystem.disconnect(this._installedChangedId);
+        if (this._appSystem && this._appStateChangedId)
+            this._appSystem.disconnect(this._appStateChangedId);
+        if (this._monitorsChangedId)
+            Main.layoutManager.disconnect(this._monitorsChangedId);
+
+        if (this._dragGrab) {
+            const dragGrab = this._dragGrab;
+            this._dragGrab = null;
+            this._dragging = false;
+            dragGrab.dismiss();
         }
-        try { this._layer?.destroy?.(); } catch {}
 
+        this._layer?.destroy();
         this._layer = null;
         this._orb = null;
-        this._face = null;
-        this._mark = null;
-        this._glass = null;
+        this._orbContent = null;
+        this._orbFace = null;
+        this._orbMark = null;
+        this._panGesture = null;
+        this._tooltip = null;
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
+        this._appPreviewHideTimeoutId = 0;
+        this._radialActors = [];
+        this._closingActors.clear();
+        this._closingActors = null;
+        this._liquidGlassIntegration = null;
+        this._appSystem = null;
+        this._shellSettings = null;
         this._settings = null;
     }
 
-    _removeStaleLayer() {
+    _removeStaleLayers() {
         for (const actor of Main.uiGroup.get_children()) {
-            if (actor.get_name?.() === 'velora-desktop-layer')
-                try { actor.destroy(); } catch {}
+            if (actor.get_name?.() === 'velora-desktop-layer') {
+                try {
+                    actor.destroy();
+                } catch (error) {
+                    logError(
+                        error,
+                        'Velora Desktop: stale layer cleanup failed'
+                    );
+                }
+            }
         }
     }
 
-    _connect() {
-        this._settingsId = this._settings.connect(
-            'changed', (_settings, key) => {
-                if (key === 'orb-enabled') {
-                    this._setOrbEnabled(
-                        this._settings.get_boolean('orb-enabled'));
-                } else if (key === 'orb-x' || key === 'orb-y') {
-                    if (!this._writingPosition)
-                        this._syncOrb();
-                } else if ([
-                    'orb-size', 'orb-opacity', 'orb-icon',
-                ].includes(key)) {
-                    this._applyOrb();
-                    this._syncOrb();
-                } else if ([
-                    'auto-hide-orb', 'auto-hide-delay',
-                    'auto-fade-orb', 'auto-fade-delay',
-                ].includes(key)) {
-                    this._reveal();
-                    this._restoreOpacity(false);
-                    this._scheduleTimers();
-                }
-            });
-
-        this._monitorsId = Main.layoutManager.connect(
-            'monitors-changed', () => {
-                this._syncLayer();
-                this._syncOrb();
-            });
-    }
-
-    _syncLayer() {
-        this._layer?.set_size(global.stage.width, global.stage.height);
+    _createLayer() {
+        this._layer = new St.Widget({
+            name: 'velora-desktop-layer',
+            reactive: false,
+            x: 0,
+            y: 0,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        Main.uiGroup.add_child(this._layer);
+        this._syncLayerSize();
     }
 
     _setOrbEnabled(enabled) {
-        if (!enabled) {
-            this._cancelTimers();
-            try { this._grab?.dismiss?.(); } catch {}
-            this._grab = null;
-            this._orb?.destroy?.();
-            this._orb = this._face = this._mark = null;
+        if (enabled) {
+            if (this._orb)
+                return;
+
+            this._createOrb();
+            this._syncOrbFromSettings();
+            this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
             return;
         }
-        if (this._orb)
+
+        if (!this._orb)
             return;
 
-        const content = new St.Widget({
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
+        this._closeMenu(true);
+
+        if (this._dragGrab) {
+            this._dragGrab.dismiss();
+            this._dragGrab = null;
+        }
+
+        this._dragging = false;
+        this._orb.destroy();
+        this._orb = null;
+        this._orbContent = null;
+        this._orbFace = null;
+        this._orbMark = null;
+        this._panGesture = null;
+        this._orbHidden = false;
+        this._orbFaded = false;
+    }
+
+    _createOrb() {
+        this._orbContent = new St.Widget({
             style_class: 'velora-orb-content-v2',
-            layout_manager: new Clutter.FixedLayout(),
             reactive: false,
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.FILL,
+            y_align: Clutter.ActorAlign.FILL,
+            layout_manager: new Clutter.FixedLayout(),
         });
-        this._face = new St.Widget({
+
+        this._orbFace = new St.Widget({
             style_class: 'velora-orb-face-v2',
             reactive: false,
         });
-        this._mark = new St.Icon({
-            icon_name: DEFAULT_ICON,
-            fallback_icon_name: FALLBACK_ICON,
+
+        this._orbMark = new St.Icon({
+            icon_name: DEFAULT_ORB_ICON,
+            fallback_icon_name: FALLBACK_ORB_ICON,
+            icon_size: 24,
             style_class: 'velora-orb-glyph-v2',
             reactive: false,
         });
-        content.add_child(this._face);
-        content.add_child(this._mark);
+
+        this._orbContent.add_child(this._orbFace);
+        this._orbContent.add_child(this._orbMark);
 
         this._orb = new St.Button({
             style_class: 'velora-orb-hitbox-v2',
             accessible_name: 'Velora',
-            reactive: true,
             can_focus: true,
+            reactive: true,
             track_hover: true,
-            child: content,
+            child: this._orbContent,
         });
-        this._content = content;
+
         this._layer.add_child(this._orb);
-        this._applyOrb();
-        this._syncOrb();
+        this._applyOrbAppearance();
+
+        this._orb.connect('notify::hover', () => {
+            if (this._dragging)
+                return;
+
+            const hovering = this._orb.get_hover();
+            this._setOrbVisualPseudoClass('hover', hovering);
+
+            if (hovering) {
+                this._cancelOrbAutoFadeTimer();
+                this._restoreOrbOpacity(true);
+                this._revealOrb();
+                this._cancelOrbAutoHideTimer();
+                this._scheduleOpen();
+            } else {
+                this._scheduleClose();
+                this._scheduleOrbAutoHide();
+                this._scheduleOrbAutoFade();
+            }
+        });
 
         this._orb.connect('clicked', () => {
-            if (
-                !this._dragging &&
-                GLib.get_monotonic_time() >=
-                    this._suppressClickUntil
-            ) {
-                Main.overview.showApps();
-            }
-        });
-        this._orb.connect('notify::hover', () => {
-            if (this._orb.get_hover()) {
-                this._cancelTimers();
-                this._reveal();
-                this._restoreOpacity(true);
-            } else {
-                this._scheduleTimers();
-            }
+            if (GLib.get_monotonic_time() < this._suppressClickUntil)
+                return;
+
+            this._cancelOrbAutoFadeTimer();
+            this._restoreOrbOpacity(true);
+            this._revealOrb();
+            this._showAllApps();
         });
 
-        const pan = new Clutter.PanGesture();
-        pan.set_required_button(Clutter.BUTTON_PRIMARY);
-        pan.set_begin_threshold(2);
-        this._orb.add_action(pan);
+        this._panGesture = new Clutter.PanGesture();
+        this._panGesture.set_required_button(Clutter.BUTTON_PRIMARY);
+        this._panGesture.set_begin_threshold(2);
+        this._orb.add_action(this._panGesture);
 
-        pan.connect('recognize', () => {
+        this._panGesture.connect('recognize', () => {
+            const [x, y] = this._orb.get_position();
+            this._dragCurrentX = x;
+            this._dragCurrentY = y;
             this._dragging = true;
-            this._cancelTimers();
-            this._reveal();
-            this._restoreOpacity(false);
-            [this._dragX, this._dragY] = this._orb.get_position();
-            this._grab = global.stage.grab(this._orb);
-            this._face.add_style_pseudo_class('dragging');
+            this._cancelOpenTimer();
+            this._cancelCloseTimer();
+            this._cancelOrbAutoHideTimer();
+            this._cancelOrbAutoFadeTimer();
+            this._restoreOrbOpacity(false);
+            this._revealOrb();
+            this._closeMenu(true);
+            this._orb.fake_release();
+            this._dragGrab = global.stage.grab(this._orb);
+            this._setOrbVisualPseudoClass('dragging', true);
             return Clutter.EVENT_STOP;
         });
-        pan.connect('pan-update', gesture => {
-            if (!this._dragging)
-                return;
-            const d = gesture.get_delta_abs();
-            const size = this._settings.get_int('orb-size');
-            [this._dragX, this._dragY] = this._clampToMonitor(
-                this._dragX + d.get_x(), this._dragY + d.get_y(), size);
-            this._orb.set_position(this._dragX, this._dragY);
-        });
-        const finish = () => {
-            if (!this._dragging)
-                return;
-            this._dragging = false;
-            try { this._grab?.dismiss?.(); } catch {}
-            this._grab = null;
-            this._face.remove_style_pseudo_class('dragging');
-            this._storePosition();
-            this._suppressClickUntil =
-                GLib.get_monotonic_time() + 250000;
-            this._scheduleTimers();
-        };
-        pan.connect('end', finish);
-        pan.connect('cancel', finish);
 
-        this._scheduleTimers();
+        this._panGesture.connect('pan-update', gesture => {
+            if (!this._dragging)
+                return;
+
+            const delta = gesture.get_delta_abs();
+            const size = this._settings.get_int('orb-size');
+
+            const [nextX, nextY] = this._clampPositionToVisibleMonitor(
+                this._dragCurrentX + delta.get_x(),
+                this._dragCurrentY + delta.get_y(),
+                size
+            );
+
+            this._dragCurrentX = nextX;
+            this._dragCurrentY = nextY;
+            this._orb.set_position(nextX, nextY);
+        });
+
+        const finishDrag = () => {
+            if (!this._dragging)
+                return;
+
+            this._dragging = false;
+
+            if (this._dragGrab) {
+                this._dragGrab.dismiss();
+                this._dragGrab = null;
+            }
+
+            this._setOrbVisualPseudoClass('dragging', false);
+            this._clampOrbToStage();
+            this._storeOrbPosition();
+            this._suppressClickUntil = GLib.get_monotonic_time() + 250000;
+            this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
+        };
+
+        this._panGesture.connect('end', finishDrag);
+        this._panGesture.connect('cancel', finishDrag);
     }
 
-    _applyOrb() {
-        if (!this._orb)
+    _setOrbVisualPseudoClass(name, enabled) {
+        if (!this._orbFace)
             return;
+
+        if (enabled)
+            this._orbFace.add_style_pseudo_class(name);
+        else
+            this._orbFace.remove_style_pseudo_class(name);
+    }
+
+    _connectSignals() {
+        this._settingsChangedId = this._settings.connect('changed', (_settings, key) => {
+            if (key === 'orb-x' || key === 'orb-y') {
+                if (!this._writingOrbPosition) {
+                    this._syncOrbFromSettings();
+                    this._refreshOpenMenu();
+                }
+                return;
+            }
+
+            if (key === 'orb-enabled') {
+                this._setOrbEnabled(
+                    this._settings.get_boolean('orb-enabled')
+                );
+                return;
+            }
+
+            if (['orb-size', 'orb-opacity', 'orb-icon'].includes(key)) {
+                this._applyOrbAppearance();
+                this._syncOrbFromSettings();
+            }
+
+            if (key === 'auto-hide-orb') {
+                if (this._settings.get_boolean('auto-hide-orb')) {
+                    this._cancelOrbAutoFadeTimer();
+                    this._restoreOrbOpacity(false);
+                    this._scheduleOrbAutoHide();
+                } else {
+                    this._cancelOrbAutoHideTimer();
+                    this._revealOrb();
+                    this._scheduleOrbAutoFade();
+                }
+            }
+
+            if (key === 'auto-hide-delay' && this._settings.get_boolean('auto-hide-orb')) {
+                this._cancelOrbAutoHideTimer();
+                this._scheduleOrbAutoHide();
+            }
+
+            if (key === 'auto-fade-orb') {
+                if (this._settings.get_boolean('auto-fade-orb'))
+                    this._scheduleOrbAutoFade();
+                else {
+                    this._cancelOrbAutoFadeTimer();
+                    this._restoreOrbOpacity(true);
+                }
+            }
+
+            if (key === 'auto-fade-delay' && this._settings.get_boolean('auto-fade-orb')) {
+                this._cancelOrbAutoFadeTimer();
+                this._scheduleOrbAutoFade();
+            }
+
+            if (
+                key === 'app-preview-size' &&
+                this._appPreviewApp &&
+                this._appPreviewAnchor
+            ) {
+                const app = this._appPreviewApp;
+                const anchor = this._appPreviewAnchor;
+                const side = this._appPreviewPreferredSide;
+                this._hideAppPreview(true);
+
+                if (anchor.get_parent())
+                    this._showAppPreview(app, anchor, side);
+            }
+
+            if ([
+                'ring-mode',
+                'orb-size',
+                'icon-size',
+                'icon-gap',
+                'ring-gap',
+                'show-tooltips',
+                'show-running-indicator',
+                'animation-ms',
+            ].includes(key) && this._menuOpen) {
+                this._reopenMenu();
+            }
+        });
+
+        const refreshLaunchers = () => {
+            this._refreshOpenMenu();
+        };
+
+        this._favoritesChangedId = this._shellSettings.connect(
+            'changed::favorite-apps',
+            refreshLaunchers
+        );
+        this._installedChangedId = this._appSystem.connect(
+            'installed-changed',
+            refreshLaunchers
+        );
+        this._appStateChangedId = this._appSystem.connect(
+            'app-state-changed',
+            refreshLaunchers
+        );
+        this._monitorsChangedId = Main.layoutManager.connect(
+            'monitors-changed',
+            () => {
+                this._syncLayerSize();
+                this._syncOrbFromSettings();
+                this._refreshOpenMenu();
+            }
+        );
+
+    }
+
+    _syncLayerSize() {
+        if (this._layer)
+            this._layer.set_size(global.stage.width, global.stage.height);
+    }
+
+    _applyOrbAppearance() {
+        if (
+            !this._orb ||
+            !this._orbContent ||
+            !this._orbFace ||
+            !this._orbMark
+        ) {
+            return;
+        }
+
         const size = this._settings.get_int('orb-size');
         const opacity = this._settings.get_int('orb-opacity');
-        const icon = this._settings.get_string('orb-icon').trim();
 
         this._orb.set_size(size, size);
-        this._content.set_size(size, size);
-        this._face.set_size(size, size);
+        this._orbContent.set_size(size, size);
+        this._orbFace.set_position(0, 0);
+        this._orbFace.set_size(size, size);
 
-        const markSize = Math.max(8, Math.min(size - 6, Math.round(size * .44)));
-        const offset = Math.round((size - markSize) / 2);
-        this._mark.set_size(markSize, markSize);
-        this._mark.set_icon_size(markSize);
-        this._mark.set_position(offset, offset);
-        this._orb.opacity = this._faded ? 0 : Math.round(opacity * 2.55);
+        this._orb.opacity = this._orbFaded
+            ? 0
+            : Math.round(opacity * 2.55);
 
-        this._mark.gicon = null;
-        this._mark.icon_name = icon || DEFAULT_ICON;
-        if (icon.startsWith('/') || icon.startsWith('file://')) {
-            const file = icon.startsWith('/')
-                ? Gio.File.new_for_path(icon)
-                : Gio.File.new_for_uri(icon);
+        const markSize = Math.max(
+            8,
+            Math.min(size - 6, Math.round(size * 0.44))
+        );
+        const markOffset = Math.round((size - markSize) / 2);
+
+        this._orbMark.set_icon_size(markSize);
+        this._orbMark.set_size(markSize, markSize);
+        this._orbMark.set_position(markOffset, markOffset);
+
+        this._applyOrbIcon();
+    }
+
+    _applyOrbIcon() {
+        if (!this._orbMark)
+            return;
+
+        const configured =
+            this._settings.get_string('orb-icon').trim() || DEFAULT_ORB_ICON;
+
+        this._orbMark.fallback_icon_name = FALLBACK_ORB_ICON;
+
+        if (configured.startsWith('/')) {
+            const file = Gio.File.new_for_path(configured);
             if (file.query_exists(null)) {
-                this._mark.icon_name = null;
-                this._mark.gicon = new Gio.FileIcon({file});
-            } else {
-                this._mark.icon_name = DEFAULT_ICON;
+                this._orbMark.icon_name = null;
+                this._orbMark.gicon = new Gio.FileIcon({file});
+                return;
             }
+
+            this._orbMark.gicon = null;
+            this._orbMark.icon_name = DEFAULT_ORB_ICON;
+            return;
         }
+
+        if (configured.startsWith('file://')) {
+            const file = Gio.File.new_for_uri(configured);
+            if (file.query_exists(null)) {
+                this._orbMark.icon_name = null;
+                this._orbMark.gicon = new Gio.FileIcon({file});
+                return;
+            }
+
+            this._orbMark.gicon = null;
+            this._orbMark.icon_name = DEFAULT_ORB_ICON;
+            return;
+        }
+
+        this._orbMark.gicon = null;
+        this._orbMark.icon_name = configured;
     }
 
-    _syncOrb() {
+    _syncOrbFromSettings() {
         if (!this._orb)
             return;
+
         const size = this._settings.get_int('orb-size');
-        const x = clamp(this._settings.get_double('orb-x'), 0, 1) *
-            Math.max(0, global.stage.width - size);
-        const y = clamp(this._settings.get_double('orb-y'), 0, 1) *
-            Math.max(0, global.stage.height - size);
-        const [cx, cy] = this._clampToMonitor(x, y, size);
-        this._orb.set_position(cx, cy);
-        if (this._hidden)
-            this._hideToEdge(false);
+        const maxX = Math.max(0, global.stage.width - size);
+        const maxY = Math.max(0, global.stage.height - size);
+
+        const desiredX =
+            clamp(this._settings.get_double('orb-x'), 0, 1) * maxX;
+        const desiredY =
+            clamp(this._settings.get_double('orb-y'), 0, 1) * maxY;
+        const [x, y] = this._clampPositionToVisibleMonitor(
+            desiredX,
+            desiredY,
+            size
+        );
+
+        this._orb.set_position(x, y);
+
+        if (this._orbHidden)
+            this._applyOrbHiddenPosition(x, y, size, false);
     }
 
-    _nearestMonitor(x, y) {
-        const monitors = Main.layoutManager.monitors ?? [];
-        if (!monitors.length)
-            return {x: 0, y: 0, width: global.stage.width, height: global.stage.height};
-        let best = monitors[0];
-        let score = Infinity;
-        for (const m of monitors) {
-            const dx = x < m.x ? m.x - x :
-                x > m.x + m.width ? x - (m.x + m.width) : 0;
-            const dy = y < m.y ? m.y - y :
-                y > m.y + m.height ? y - (m.y + m.height) : 0;
-            const d = dx * dx + dy * dy;
-            if (d < score) {
-                best = m;
-                score = d;
-            }
-        }
-        return best;
-    }
+    _scheduleOrbAutoHide() {
+        this._cancelOrbAutoHideTimer();
 
-    _clampToMonitor(x, y, size) {
-        const m = this._nearestMonitor(x + size / 2, y + size / 2);
-        return [
-            clamp(x, m.x, Math.max(m.x, m.x + m.width - size)),
-            clamp(y, m.y, Math.max(m.y, m.y + m.height - size)),
-        ];
-    }
-
-    _storePosition() {
-        if (!this._orb)
+        if (
+            !this._orb ||
+            !this._settings.get_boolean('auto-hide-orb') ||
+            this._dragging ||
+            this._menuOpen ||
+            this._orb.get_hover()
+        ) {
             return;
-        const [x, y] = this._orb.get_position();
-        const size = this._settings.get_int('orb-size');
-        this._writingPosition = true;
-        try {
-            this._settings.set_double('orb-x',
-                clamp(x / Math.max(1, global.stage.width - size), 0, 1));
-            this._settings.set_double('orb-y',
-                clamp(y / Math.max(1, global.stage.height - size), 0, 1));
-        } finally {
-            this._writingPosition = false;
         }
-    }
 
-    _scheduleTimers() {
-        this._cancelTimers();
-        if (!this._orb || this._orb.get_hover() || this._dragging)
-            return;
+        const delay = this._settings.get_int('auto-hide-delay');
+        this._orbAutoHideTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+                this._orbAutoHideTimeoutId = 0;
 
-        if (this._settings.get_boolean('auto-hide-orb')) {
-            this._hideId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                this._settings.get_int('auto-hide-delay'),
-                () => {
-                    this._hideId = 0;
-                    if (this._orb && !this._orb.get_hover() && !this._dragging)
-                        this._hideToEdge(true);
+                if (
+                    !this._orb ||
+                    !this._settings.get_boolean('auto-hide-orb') ||
+                    this._dragging ||
+                    this._menuOpen ||
+                    this._orb.get_hover()
+                ) {
                     return GLib.SOURCE_REMOVE;
-                });
-            return;
-        }
+                }
 
-        if (this._settings.get_boolean('auto-fade-orb')) {
-            this._fadeId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                this._settings.get_int('auto-fade-delay'),
-                () => {
-                    this._fadeId = 0;
-                    if (this._orb && !this._orb.get_hover() && !this._dragging)
-                        this._fadeOut();
-                    return GLib.SOURCE_REMOVE;
-                });
-        }
-    }
-
-    _cancelTimers() {
-        for (const key of ['_hideId', '_fadeId']) {
-            if (this[key]) {
-                try { GLib.source_remove(this[key]); } catch {}
-                this[key] = 0;
+                this._hideOrbToEdge();
+                return GLib.SOURCE_REMOVE;
             }
+        );
+    }
+
+    _cancelOrbAutoHideTimer() {
+        if (this._orbAutoHideTimeoutId) {
+            GLib.source_remove(this._orbAutoHideTimeoutId);
+            this._orbAutoHideTimeoutId = 0;
         }
     }
 
-    _hideToEdge(animate) {
-        if (!this._orb)
+    _scheduleOrbAutoFade() {
+        this._cancelOrbAutoFadeTimer();
+
+        if (
+            !this._orb ||
+            !this._settings.get_boolean('auto-fade-orb') ||
+            this._settings.get_boolean('auto-hide-orb') ||
+            this._dragging ||
+            this._menuOpen ||
+            this._orbHidden ||
+            this._orb.get_hover()
+        ) {
             return;
-        this._hidden = true;
-        const size = this._settings.get_int('orb-size');
-        const [x, y] = this._orb.get_position();
-        const m = this._nearestMonitor(x + size / 2, y + size / 2);
-        const distances = [
-            ['left', Math.abs(x - m.x)],
-            ['right', Math.abs(m.x + m.width - (x + size))],
-            ['bottom', Math.abs(m.y + m.height - (y + size))],
-        ].sort((a, b) => a[1] - b[1]);
-        const edge = distances[0][0];
-        let tx = x;
-        let ty = y;
-        if (edge === 'left') tx = m.x - size + REVEAL;
-        if (edge === 'right') tx = m.x + m.width - REVEAL;
-        if (edge === 'bottom') ty = m.y + m.height - REVEAL;
-        this._orb.remove_all_transitions();
-        if (animate) {
-            this._orb.ease({
-                x: tx, y: ty, duration: 150,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        } else {
-            this._orb.set_position(tx, ty);
+        }
+
+        const delay = this._settings.get_int('auto-fade-delay');
+        if (delay <= 0) {
+            this._fadeOrbOut();
+            return;
+        }
+
+        this._orbAutoFadeTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+                this._orbAutoFadeTimeoutId = 0;
+
+                if (
+                    !this._orb ||
+                    !this._settings.get_boolean('auto-fade-orb') ||
+                    this._settings.get_boolean('auto-hide-orb') ||
+                    this._dragging ||
+                    this._menuOpen ||
+                    this._orbHidden ||
+                    this._orb.get_hover()
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                this._fadeOrbOut();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelOrbAutoFadeTimer() {
+        if (this._orbAutoFadeTimeoutId) {
+            GLib.source_remove(this._orbAutoFadeTimeoutId);
+            this._orbAutoFadeTimeoutId = 0;
         }
     }
 
-    _reveal() {
-        if (!this._orb || !this._hidden)
+    _fadeOrbOut() {
+        if (!this._orb || this._orbFaded)
             return;
-        this._hidden = false;
-        this._orb.remove_all_transitions();
-        this._syncOrb();
-    }
 
-    _fadeOut() {
-        if (!this._orb)
-            return;
-        this._faded = true;
+        this._orbFaded = true;
+        this._orb.remove_transition('opacity');
         this._orb.ease({
-            opacity: 0, duration: 180,
+            opacity: 0,
+            duration: 180,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
     }
 
-    _restoreOpacity(animate) {
+    _restoreOrbOpacity(animate = false) {
         if (!this._orb)
             return;
-        this._faded = false;
-        const opacity = Math.round(
-            this._settings.get_int('orb-opacity') * 2.55);
+
+        const target = Math.round(
+            this._settings.get_int('orb-opacity') * 2.55
+        );
+
+        this._orbFaded = false;
         this._orb.remove_transition('opacity');
+
         if (animate) {
             this._orb.ease({
-                opacity, duration: 120,
+                opacity: target,
+                duration: 120,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             });
         } else {
-            this._orb.opacity = opacity;
+            this._orb.opacity = target;
         }
+    }
+
+    _hideOrbToEdge() {
+        if (!this._orb || this._orbHidden)
+            return;
+
+        this._cancelOrbAutoFadeTimer();
+        this._restoreOrbOpacity(false);
+
+        const size = this._settings.get_int('orb-size');
+        const [x, y] = this._orb.get_position();
+
+        this._orb.remove_all_transitions();
+        this._orbHidden = true;
+        this._applyOrbHiddenPosition(x, y, size, true);
+    }
+
+    _applyOrbHiddenPosition(x, y, size, animate = false) {
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        const monitor = this._nearestMonitor(centerX, centerY);
+
+        const candidates = [
+            {
+                edge: 'left',
+                x: monitor.x - size + ORB_AUTO_HIDE_REVEAL_PX,
+                y,
+                distance: Math.abs(centerX - monitor.x),
+            },
+            {
+                edge: 'right',
+                x: monitor.x + monitor.width - ORB_AUTO_HIDE_REVEAL_PX,
+                y,
+                distance: Math.abs(monitor.x + monitor.width - centerX),
+            },
+            {
+                edge: 'bottom',
+                x,
+                y: monitor.y + monitor.height - ORB_AUTO_HIDE_REVEAL_PX,
+                distance: Math.abs(monitor.y + monitor.height - centerY),
+            },
+        ];
+
+        for (const candidate of candidates) {
+            candidate.visibleArea = this._visibleAreaAcrossMonitors(
+                candidate.x,
+                candidate.y,
+                size
+            );
+        }
+
+        candidates.sort((a, b) =>
+            a.visibleArea - b.visibleArea ||
+            a.distance - b.distance
+        );
+
+        const target = candidates[0];
+
+        this._orb.remove_all_transitions();
+
+        if (animate) {
+            this._orb.ease({
+                x: target.x,
+                y: target.y,
+                duration: 150,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        } else {
+            this._orb.set_position(target.x, target.y);
+        }
+    }
+
+    _visibleAreaAcrossMonitors(x, y, size) {
+        let visibleArea = 0;
+
+        for (const monitor of Main.layoutManager.monitors) {
+            const left = Math.max(x, monitor.x);
+            const top = Math.max(y, monitor.y);
+            const right = Math.min(x + size, monitor.x + monitor.width);
+            const bottom = Math.min(y + size, monitor.y + monitor.height);
+
+            if (right > left && bottom > top)
+                visibleArea += (right - left) * (bottom - top);
+        }
+
+        return visibleArea;
+    }
+
+    _revealOrb() {
+        if (!this._orb || !this._orbHidden)
+            return;
+
+        this._orb.remove_all_transitions();
+        this._orbHidden = false;
+        this._syncOrbFromSettings();
+    }
+
+    _clampOrbToStage() {
+        const [x, y] = this._orb.get_position();
+        const size = this._settings.get_int('orb-size');
+        const [safeX, safeY] = this._clampPositionToVisibleMonitor(
+            x,
+            y,
+            size
+        );
+
+        this._orb.set_position(safeX, safeY);
+    }
+
+    _clampPositionToVisibleMonitor(x, y, size) {
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        const monitor = this._nearestMonitor(centerX, centerY);
+
+        const minX = monitor.x;
+        const minY = monitor.y;
+        const maxX = Math.max(minX, monitor.x + monitor.width - size);
+        const maxY = Math.max(minY, monitor.y + monitor.height - size);
+
+        return [
+            clamp(x, minX, maxX),
+            clamp(y, minY, maxY),
+        ];
+    }
+
+    _nearestMonitor(x, y) {
+        const monitors = Main.layoutManager.monitors;
+        if (!monitors || monitors.length === 0) {
+            return {
+                x: 0,
+                y: 0,
+                width: global.stage.width,
+                height: global.stage.height,
+            };
+        }
+
+        let nearest = monitors[0];
+        let nearestDistance = Number.POSITIVE_INFINITY;
+
+        for (const monitor of monitors) {
+            if (
+                x >= monitor.x &&
+                x < monitor.x + monitor.width &&
+                y >= monitor.y &&
+                y < monitor.y + monitor.height
+            ) {
+                return monitor;
+            }
+
+            const dx =
+                x < monitor.x
+                    ? monitor.x - x
+                    : x >= monitor.x + monitor.width
+                        ? x - (monitor.x + monitor.width)
+                        : 0;
+            const dy =
+                y < monitor.y
+                    ? monitor.y - y
+                    : y >= monitor.y + monitor.height
+                        ? y - (monitor.y + monitor.height)
+                        : 0;
+            const distance = dx * dx + dy * dy;
+
+            if (distance < nearestDistance) {
+                nearest = monitor;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearest;
+    }
+
+    _storeOrbPosition() {
+        const [x, y] = this._orb.get_position();
+        const size = this._settings.get_int('orb-size');
+        const maxX = Math.max(1, global.stage.width - size);
+        const maxY = Math.max(1, global.stage.height - size);
+
+        this._writingOrbPosition = true;
+        try {
+            this._settings.set_double('orb-x', clamp(x / maxX, 0, 1));
+            this._settings.set_double('orb-y', clamp(y / maxY, 0, 1));
+        } finally {
+            this._writingOrbPosition = false;
+        }
+    }
+
+    _showAllApps() {
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._closeMenu(true);
+
+        const showAppsButton = Main.overview?.dash?.showAppsButton;
+        if (!showAppsButton) {
+            logError(
+                new Error('GNOME Applications button is unavailable'),
+                'Velora Desktop: failed to open Applications view'
+            );
+            return;
+        }
+
+        if (Main.overview.visible && showAppsButton.checked) {
+            showAppsButton.checked = false;
+            Main.overview.hide();
+            return;
+        }
+
+        Main.overview.show(ControlsState.APP_GRID);
+    }
+
+    _scheduleOpen() {
+        this._cancelCloseTimer();
+        if (this._menuOpen || this._openTimeoutId)
+            return;
+
+        const delay = this._settings.get_int('hover-delay');
+        if (delay <= 0) {
+            this._openMenu();
+            return;
+        }
+
+        this._openTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delay,
+            () => {
+                this._openTimeoutId = 0;
+                if (!this._dragging && this._orb?.get_hover())
+                    this._openMenu();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _scheduleClose() {
+        this._cancelOpenTimer();
+        if (!this._menuOpen || this._closeTimeoutId)
+            return;
+
+        this._closeTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            this._settings.get_int('close-delay'),
+            () => {
+                this._closeTimeoutId = 0;
+                this._closeMenu();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelOpenTimer() {
+        if (this._openTimeoutId) {
+            GLib.source_remove(this._openTimeoutId);
+            this._openTimeoutId = 0;
+        }
+    }
+
+    _cancelCloseTimer() {
+        if (this._closeTimeoutId) {
+            GLib.source_remove(this._closeTimeoutId);
+            this._closeTimeoutId = 0;
+        }
+    }
+
+    _openMenu() {
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._cancelOrbAutoHideTimer();
+        this._cancelOrbAutoFadeTimer();
+        this._restoreOrbOpacity(true);
+        this._revealOrb();
+
+        if (this._menuOpen || this._dragging)
+            return;
+
+        this._destroyClosingActors();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(true);
+
+        const requestedApps = collectDockApps(
+            this._appSystem,
+            this._shellSettings
+        );
+        if (requestedApps.length === 0)
+            return;
+
+        this._menuOpen = true;
+        this._setOrbVisualPseudoClass('open', true);
+
+        const orbSize = this._settings.get_int('orb-size');
+        const iconSize = this._settings.get_int('icon-size');
+        const iconGap = this._settings.get_int('icon-gap');
+        const ringGap = effectiveRingGap(
+            iconSize,
+            this._settings.get_int('ring-gap')
+        );
+        const animationMs = this._settings.get_int('animation-ms');
+        const [orbX, orbY] = this._orb.get_position();
+        const centerX = orbX + orbSize / 2;
+        const centerY = orbY + orbSize / 2;
+        const monitor = this._monitorAt(centerX, centerY);
+        const configuredRingMode = this._settings.get_string('ring-mode');
+        const ringMode = ['auto', '2', '3', '4'].includes(configuredRingMode)
+            ? configuredRingMode
+            : 'auto';
+
+        let rings = ringMode === 'auto' ? 1 : Number(ringMode);
+        let slotRings = null;
+        let capacities = null;
+        let layoutArc = null;
+
+        for (let candidate = rings; candidate <= 4; candidate++) {
+            const outerRadius = orbSize / 2 + candidate * ringGap;
+            const candidateArc = arcForPosition(
+                centerX,
+                centerY,
+                outerRadius,
+                iconSize,
+                monitor
+            );
+            const candidateSlotRings = slotsForRings(
+                centerX,
+                centerY,
+                orbSize,
+                ringGap,
+                candidate,
+                candidateArc,
+                iconSize,
+                iconGap,
+                monitor,
+                SCREEN_MARGIN
+            );
+            const candidateCapacities = candidateSlotRings.map(
+                slots => slots.length
+            );
+
+            rings = candidate;
+            slotRings = candidateSlotRings;
+            capacities = candidateCapacities;
+            layoutArc = candidateArc;
+
+            if (
+                ringMode !== 'auto' ||
+                totalCapacity(capacities) >= requestedApps.length
+            ) {
+                break;
+            }
+        }
+
+        const visibleCapacity = totalCapacity(capacities);
+        if (visibleCapacity === 0) {
+            this._menuOpen = false;
+            this._setOrbVisualPseudoClass('open', false);
+            return;
+        }
+
+        const apps = requestedApps.slice(0, visibleCapacity);
+        const counts = allocateAcrossRings(apps.length, capacities);
+
+        let appIndex = 0;
+        for (let ring = 0; ring < rings; ring++) {
+            const count = counts[ring];
+            const selectedSlots = selectOrganizedSlots(
+                slotRings[ring],
+                count,
+                layoutArc
+            );
+
+            for (const slot of selectedSlots) {
+                if (appIndex >= apps.length)
+                    break;
+
+                const actor = this._createAppButton(
+                    apps[appIndex],
+                    iconSize
+                );
+                actor.set_position(
+                    centerX - iconSize / 2,
+                    centerY - iconSize / 2
+                );
+                actor.opacity = 0;
+                actor.scale_x = 0.35;
+                actor.scale_y = 0.35;
+                this._layer.add_child(actor);
+                this._radialActors.push(actor);
+
+                if (animationMs <= 0) {
+                    actor.set_position(slot.x, slot.y);
+                    actor.opacity = 255;
+                    actor.scale_x = 1;
+                    actor.scale_y = 1;
+                } else {
+                    actor.ease({
+                        x: slot.x,
+                        y: slot.y,
+                        opacity: 255,
+                        scale_x: 1,
+                        scale_y: 1,
+                        duration: animationMs,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
+                }
+
+                appIndex++;
+            }
+        }
+    }
+
+    _createAppButton(app, iconSize) {
+        const running = app.get_state() !== Shell.AppState.STOPPED;
+        const textureSize = Math.max(
+            12,
+            Math.round(iconSize * 0.72)
+        );
+        const content = new St.Widget({
+            style_class: 'velora-app-content',
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        content.set_size(iconSize, iconSize);
+
+        const icon = app.create_icon_texture(textureSize);
+        icon.set_position(
+            (iconSize - textureSize) / 2,
+            (iconSize - textureSize) / 2 - 1
+        );
+        content.add_child(icon);
+
+        if (
+            running &&
+            this._settings.get_boolean('show-running-indicator')
+        ) {
+            const dotSize = Math.max(3, Math.round(iconSize * 0.09));
+            const dot = new St.Widget({
+                style_class: 'velora-running-dot',
+                reactive: false,
+            });
+            dot.set_size(dotSize, dotSize);
+            dot.set_position(
+                (iconSize - dotSize) / 2,
+                iconSize - dotSize - 2
+            );
+            content.add_child(dot);
+        }
+
+        const button = new St.Button({
+            style_class: 'velora-app-button',
+            accessible_name: app.get_name(),
+            can_focus: true,
+            reactive: true,
+            track_hover: true,
+            child: content,
+        });
+        button.set_size(iconSize, iconSize);
+        button.set_pivot_point(0.5, 0.5);
+
+        button.connect('notify::hover', () => {
+            if (button.get_hover()) {
+                this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+
+                button.ease({
+                    scale_x: ICON_HOVER_SCALE,
+                    scale_y: ICON_HOVER_SCALE,
+                    duration: 110,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+
+                const previewShown = this._showAppPreview(app, button);
+                if (previewShown) {
+                    this._hideTooltip();
+                } else if (this._settings.get_boolean('show-tooltips')) {
+                    this._showTooltip(app.get_name(), button);
+                }
+            } else {
+                this._hideTooltip();
+                this._scheduleAppPreviewHide();
+
+                button.ease({
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: 110,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+                this._scheduleClose();
+            }
+        });
+
+        button.connect('clicked', () => {
+            this._hideTooltip();
+            this._cancelAppPreviewHide();
+            this._hideAppPreview(true);
+            this._closeMenu();
+            Main.overview.hide();
+            app.activate();
+        });
+
+        return button;
+    }
+
+    _closeMenu(immediate = false) {
+        this._cancelOpenTimer();
+        this._cancelCloseTimer();
+        this._cancelAppPreviewHide();
+        this._hideAppPreview(immediate);
+        this._hideTooltip();
+
+        if (!this._menuOpen && this._radialActors.length === 0) {
+            this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
+            return;
+        }
+
+        this._menuOpen = false;
+        this._setOrbVisualPseudoClass('open', false);
+        const actors = this._radialActors;
+        this._radialActors = [];
+
+        if (!this._orb || immediate) {
+            for (const actor of actors)
+                actor.destroy();
+            this._scheduleOrbAutoHide();
+            this._scheduleOrbAutoFade();
+            return;
+        }
+
+        const duration = Math.min(
+            150,
+            this._settings.get_int('animation-ms')
+        );
+        const orbSize = this._settings.get_int('orb-size');
+        const iconSize = this._settings.get_int('icon-size');
+        const [orbX, orbY] = this._orb.get_position();
+        const targetX = orbX + orbSize / 2 - iconSize / 2;
+        const targetY = orbY + orbSize / 2 - iconSize / 2;
+
+        for (const actor of actors) {
+            if (duration <= 0) {
+                actor.destroy();
+                continue;
+            }
+
+            this._closingActors.add(actor);
+            actor.ease({
+                x: targetX,
+                y: targetY,
+                opacity: 0,
+                scale_x: 0.35,
+                scale_y: 0.35,
+                duration,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onComplete: () => {
+                    this._closingActors?.delete(actor);
+                    actor.destroy();
+                },
+            });
+        }
+
+        this._scheduleOrbAutoHide();
+        this._scheduleOrbAutoFade();
+    }
+
+    _destroyClosingActors() {
+        if (!this._closingActors || this._closingActors.size === 0)
+            return;
+
+        for (const actor of this._closingActors) {
+            actor.remove_all_transitions();
+            actor.destroy();
+        }
+
+        this._closingActors.clear();
+    }
+
+    _reopenMenu() {
+        this._closeMenu(true);
+        this._openMenu();
+    }
+
+    _refreshOpenMenu() {
+        if (this._menuOpen)
+            this._reopenMenu();
+    }
+
+    _monitorAt(x, y) {
+        for (const monitor of Main.layoutManager.monitors) {
+            if (
+                x >= monitor.x &&
+                x < monitor.x + monitor.width &&
+                y >= monitor.y &&
+                y < monitor.y + monitor.height
+            ) {
+                return monitor;
+            }
+        }
+
+        return Main.layoutManager.primaryMonitor ?? {
+            x: 0,
+            y: 0,
+            width: global.stage.width,
+            height: global.stage.height,
+        };
+    }
+
+    _showAppPreview(app, anchorActor, preferredSide = null) {
+        const windows = app.get_windows()
+            .filter(window =>
+                !window.skip_taskbar &&
+                Boolean(window.get_compositor_private?.())
+            )
+            .slice(0, APP_PREVIEW_MAX_WINDOWS);
+
+        if (windows.length === 0) {
+            this._hideAppPreview(true);
+            return false;
+        }
+
+        if (
+            this._appPreview &&
+            this._appPreviewApp === app &&
+            this._appPreviewAnchor === anchorActor &&
+            this._appPreviewPreferredSide === preferredSide
+        ) {
+            this._positionAppPreview(
+                this._appPreview,
+                anchorActor,
+                preferredSide
+            );
+            return true;
+        }
+
+        this._hideAppPreview(true);
+
+        const count = windows.length;
+        const columns = count === 1 ? 1 : 2;
+        const rows = Math.ceil(count / columns);
+
+        const previewScale =
+            this._settings.get_int('app-preview-size') / 100;
+        const baseTileWidth =
+            count === 1 ? 280 :
+            count === 2 ? 220 :
+            190;
+        const baseTileHeight =
+            count === 1 ? 176 :
+            count === 2 ? 140 :
+            120;
+        const tileWidth = Math.round(baseTileWidth * previewScale);
+        const tileHeight = Math.round(baseTileHeight * previewScale);
+
+        const cardWidth =
+            APP_PREVIEW_PADDING * 2 +
+            columns * tileWidth +
+            Math.max(0, columns - 1) * APP_PREVIEW_GAP;
+        const cardHeight =
+            APP_PREVIEW_PADDING * 2 +
+            rows * tileHeight +
+            Math.max(0, rows - 1) * APP_PREVIEW_GAP;
+
+        const card = new St.Widget({
+            style_class: 'velora-app-preview-card',
+            reactive: true,
+            track_hover: true,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        card.set_size(cardWidth, cardHeight);
+        card.set_pivot_point(0.5, 0.5);
+
+        windows.forEach((window, index) => {
+            const tile = this._createWindowPreviewTile(
+                window,
+                tileWidth,
+                tileHeight
+            );
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+
+            tile.set_position(
+                APP_PREVIEW_PADDING +
+                    column * (tileWidth + APP_PREVIEW_GAP),
+                APP_PREVIEW_PADDING +
+                    row * (tileHeight + APP_PREVIEW_GAP)
+            );
+            card.add_child(tile);
+        });
+
+        card.connect('notify::hover', () => {
+            if (card.get_hover()) {
+                this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+            } else {
+                this._scheduleAppPreviewHide();
+                this._scheduleClose();
+            }
+        });
+
+        app.connectObject('windows-changed', () => {
+            if (
+                this._appPreviewApp !== app ||
+                !this._appPreviewAnchor
+            ) {
+                return;
+            }
+
+            const anchor = this._appPreviewAnchor;
+            const side = this._appPreviewPreferredSide;
+            this._hideAppPreview(true);
+
+            if (anchor.get_parent())
+                this._showAppPreview(app, anchor, side);
+        }, card);
+
+        this._layer.add_child(card);
+        this._appPreview = card;
+        this._appPreviewApp = app;
+        this._appPreviewAnchor = anchorActor;
+        this._appPreviewPreferredSide = preferredSide;
+
+        this._positionAppPreview(
+            card,
+            anchorActor,
+            preferredSide
+        );
+
+        card.opacity = 0;
+        card.scale_x = 0.96;
+        card.scale_y = 0.96;
+        card.ease({
+            opacity: 255,
+            scale_x: 1,
+            scale_y: 1,
+            duration: 120,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+
+        return true;
+    }
+
+    _createWindowPreviewTile(window, tileWidth, tileHeight) {
+        const content = new St.Widget({
+            style_class: 'velora-window-preview-content',
+            reactive: false,
+            clip_to_allocation: true,
+            layout_manager: new Clutter.FixedLayout(),
+        });
+        content.set_size(tileWidth, tileHeight);
+
+        const previewLayout = new Shell.WindowPreviewLayout();
+        const preview = new Clutter.Actor({
+            reactive: false,
+            clip_to_allocation: true,
+        });
+        // Shell.WindowPreviewLayout tracks its container. GNOME Shell itself
+        // assigns it after actor construction to avoid GJS container setup
+        // issues during initialization.
+        preview.layout_manager = previewLayout;
+
+        const frame = window.get_frame_rect();
+        const maxWidth = Math.max(1, tileWidth - 12);
+        const maxHeight = Math.max(1, tileHeight - 12);
+        const frameWidth = Math.max(1, frame.width);
+        const frameHeight = Math.max(1, frame.height);
+        const scale = Math.min(
+            maxWidth / frameWidth,
+            maxHeight / frameHeight,
+            1
+        );
+        const previewWidth = Math.max(1, Math.round(frameWidth * scale));
+        const previewHeight = Math.max(1, Math.round(frameHeight * scale));
+
+        preview.set_size(previewWidth, previewHeight);
+        preview.set_position(
+            Math.round((tileWidth - previewWidth) / 2),
+            Math.round((tileHeight - previewHeight) / 2)
+        );
+
+        previewLayout.add_window(window);
+        content.add_child(preview);
+
+        const tile = new St.Button({
+            style_class: 'velora-window-preview-tile',
+            accessible_name: window.title || 'Window preview',
+            can_focus: true,
+            reactive: true,
+            track_hover: true,
+            child: content,
+        });
+        tile.set_size(tileWidth, tileHeight);
+
+        tile.connect('notify::hover', () => {
+            if (tile.get_hover()) {
+                this._cancelCloseTimer();
+                this._cancelAppPreviewHide();
+            } else {
+                this._scheduleAppPreviewHide();
+                this._scheduleClose();
+            }
+        });
+
+        tile.connect('clicked', () => {
+            this._cancelAppPreviewHide();
+            this._hideAppPreview(true);
+            this._closeMenu(true);
+            Main.activateWindow(window);
+        });
+
+        return tile;
+    }
+
+    _positionAppPreview(
+        card,
+        anchorActor,
+        preferredSide = null
+    ) {
+        if (!card || !anchorActor)
+            return;
+
+        const [anchorX, anchorY] =
+            anchorActor.get_transformed_position();
+        const [anchorWidth, anchorHeight] =
+            anchorActor.get_transformed_size();
+        const anchorCenterX = anchorX + anchorWidth / 2;
+        const anchorCenterY = anchorY + anchorHeight / 2;
+
+        const monitor = this._monitorAt(
+            anchorCenterX,
+            anchorCenterY
+        );
+        const cardWidth = card.width;
+        const cardHeight = card.height;
+
+        const candidates = {
+            right: {
+                x: anchorX + anchorWidth + APP_PREVIEW_OFFSET,
+                y: anchorCenterY - cardHeight / 2,
+            },
+            left: {
+                x: anchorX - cardWidth - APP_PREVIEW_OFFSET,
+                y: anchorCenterY - cardHeight / 2,
+            },
+            bottom: {
+                x: anchorCenterX - cardWidth / 2,
+                y: anchorY + anchorHeight + APP_PREVIEW_OFFSET,
+            },
+            top: {
+                x: anchorCenterX - cardWidth / 2,
+                y: anchorY - cardHeight - APP_PREVIEW_OFFSET,
+            },
+        };
+
+        const sideOrders = {
+            top: ['top', 'right', 'left', 'bottom'],
+            bottom: ['bottom', 'right', 'left', 'top'],
+            left: ['left', 'bottom', 'top', 'right'],
+            right: ['right', 'bottom', 'top', 'left'],
+        };
+
+        let order = sideOrders[preferredSide] ?? null;
+
+        if (!order) {
+            let referenceX =
+                monitor.x + monitor.width / 2;
+            let referenceY =
+                monitor.y + monitor.height / 2;
+
+            if (this._orb) {
+                const [orbX, orbY] =
+                    this._orb.get_position();
+                const orbSize =
+                    this._settings.get_int('orb-size');
+                referenceX = orbX + orbSize / 2;
+                referenceY = orbY + orbSize / 2;
+            }
+
+            const dx = anchorCenterX - referenceX;
+            const dy = anchorCenterY - referenceY;
+
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                order = dx >= 0
+                    ? ['right', 'bottom', 'top', 'left']
+                    : ['left', 'bottom', 'top', 'right'];
+            } else {
+                order = dy >= 0
+                    ? ['bottom', 'right', 'left', 'top']
+                    : ['top', 'right', 'left', 'bottom'];
+            }
+        }
+
+        const minX = monitor.x + SCREEN_MARGIN;
+        const maxX =
+            monitor.x +
+            monitor.width -
+            cardWidth -
+            SCREEN_MARGIN;
+        const minY = monitor.y + SCREEN_MARGIN;
+        const maxY =
+            monitor.y +
+            monitor.height -
+            cardHeight -
+            SCREEN_MARGIN;
+
+        const fits = candidate =>
+            candidate.x >= minX &&
+            candidate.x <= maxX &&
+            candidate.y >= minY &&
+            candidate.y <= maxY;
+
+        let target = null;
+        for (const side of order) {
+            if (fits(candidates[side])) {
+                target = candidates[side];
+                break;
+            }
+        }
+
+        target ??= candidates[order[0]];
+
+        card.set_position(
+            Math.round(
+                clamp(
+                    target.x,
+                    minX,
+                    Math.max(minX, maxX)
+                )
+            ),
+            Math.round(
+                clamp(
+                    target.y,
+                    minY,
+                    Math.max(minY, maxY)
+                )
+            )
+        );
+    }
+
+    _scheduleAppPreviewHide() {
+        this._cancelAppPreviewHide();
+
+        if (!this._appPreview)
+            return;
+
+        this._appPreviewHideTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            APP_PREVIEW_HIDE_DELAY,
+            () => {
+                this._appPreviewHideTimeoutId = 0;
+
+                if (this._appPreview?.get_hover())
+                    return GLib.SOURCE_REMOVE;
+
+                this._hideAppPreview();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _cancelAppPreviewHide() {
+        if (!this._appPreviewHideTimeoutId)
+            return;
+
+        GLib.source_remove(this._appPreviewHideTimeoutId);
+        this._appPreviewHideTimeoutId = 0;
+    }
+
+    _hideAppPreview(immediate = false) {
+        const card = this._appPreview;
+
+        this._appPreview = null;
+        this._appPreviewApp = null;
+        this._appPreviewAnchor = null;
+        this._appPreviewPreferredSide = null;
+
+        if (!card)
+            return;
+
+        card.remove_all_transitions();
+
+        if (immediate) {
+            card.destroy();
+            return;
+        }
+
+        card.ease({
+            opacity: 0,
+            scale_x: 0.97,
+            scale_y: 0.97,
+            duration: 90,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => card.destroy(),
+        });
+    }
+
+    _showTooltip(text, actor) {
+        this._hideTooltip();
+
+        this._tooltip = new St.Label({
+            text,
+            style_class: 'velora-tooltip',
+            reactive: false,
+        });
+        this._layer.add_child(this._tooltip);
+
+        const [x, y] = actor.get_transformed_position();
+        const [, width] = this._tooltip.get_preferred_width(-1);
+
+        this._tooltip.set_position(
+            clamp(
+                x + actor.width / 2 - width / 2,
+                SCREEN_MARGIN,
+                global.stage.width - width - SCREEN_MARGIN
+            ),
+            clamp(
+                y + actor.height + 8,
+                SCREEN_MARGIN,
+                global.stage.height - 38
+            )
+        );
+    }
+
+    _hideTooltip() {
+        this._tooltip?.destroy();
+        this._tooltip = null;
     }
 }
