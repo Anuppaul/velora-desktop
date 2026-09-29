@@ -44,7 +44,8 @@ class ShellCardSurface {
         this._target = target;
         this._parent = target.get_parent?.() ?? null;
         this._material = null;
-        this._wallpaper = null;
+        this._sceneRoot = null;
+        this._sceneManager = null;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -61,11 +62,19 @@ class ShellCardSurface {
         material.set_no_layout?.(true);
         material.set_clip_to_allocation(true);
 
-        const wallpaper = this._vendor.createBackgroundMirror(
-            'velora-shell-card-wallpaper'
-        );
-        wallpaper.set_no_layout?.(true);
-        material.add_child(wallpaper);
+        const sceneRoot = new this._vendor.UnpickableActor({
+            name: 'velora-shell-card-live-scene',
+            reactive: false,
+        });
+        sceneRoot.set_no_layout?.(true);
+        material.add_child(sceneRoot);
+
+        const sceneManager =
+            new this._vendor.WindowCloneManager(
+                sceneRoot,
+                null,
+                'velora-shell-card-scene'
+            );
 
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-shell-card-breaker',
@@ -110,7 +119,8 @@ class ShellCardSurface {
         }
 
         this._material = material;
-        this._wallpaper = wallpaper;
+        this._sceneRoot = sceneRoot;
+        this._sceneManager = sceneManager;
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
@@ -120,6 +130,10 @@ class ShellCardSurface {
             'notify::x',
             'notify::y',
             'notify::opacity',
+            'notify::translation-x',
+            'notify::translation-y',
+            'notify::scale-x',
+            'notify::scale-y',
             'notify::visible',
             'notify::mapped',
             'style-changed',
@@ -223,6 +237,23 @@ class ShellCardSurface {
             w + OPTICAL_MARGIN * 2,
             h + OPTICAL_MARGIN * 2
         );
+        const scaleX = this._target.scale_x ?? 1;
+        const scaleY = this._target.scale_y ?? 1;
+        const [pivotX, pivotY] =
+            this._target.get_pivot_point?.() ?? [0.5, 0.5];
+        const materialW = w + OPTICAL_MARGIN * 2;
+        const materialH = h + OPTICAL_MARGIN * 2;
+
+        this._material.set_pivot_point(
+            (OPTICAL_MARGIN + pivotX * w) / materialW,
+            (OPTICAL_MARGIN + pivotY * h) / materialH
+        );
+        this._material.set_scale(scaleX, scaleY);
+        this._material.set_translation(
+            this._target.translation_x ?? 0,
+            this._target.translation_y ?? 0,
+            0
+        );
         this._material.opacity = opacity;
         this._material.show?.();
         this._syncPaint();
@@ -230,12 +261,14 @@ class ShellCardSurface {
 
     _syncPaint() {
         const material = this._material;
-        const wallpaper = this._wallpaper;
+        const sceneRoot = this._sceneRoot;
+        const sceneManager = this._sceneManager;
         const effect = this._effect;
         if (
             this._destroyed ||
             !material ||
-            !wallpaper ||
+            !sceneRoot ||
+            !sceneManager ||
             !effect ||
             !material.mapped
         ) {
@@ -253,9 +286,26 @@ class ShellCardSurface {
         const sx = Math.max(tw / w, .001);
         const sy = Math.max(th / h, .001);
 
-        wallpaper.set_size(global.stage.width, global.stage.height);
-        wallpaper.set_scale(1 / sx, 1 / sy);
-        wallpaper.set_position(-absX / sx, -absY / sy);
+        sceneRoot.set_size(
+            global.stage.width,
+            global.stage.height
+        );
+        sceneRoot.set_scale(1 / sx, 1 / sy);
+        sceneRoot.set_position(-absX / sx, -absY / sy);
+
+        sceneManager.setCullRect?.([
+            absX,
+            absY,
+            tw,
+            th,
+        ]);
+        sceneManager.applyBgCloneClip?.([
+            absX,
+            absY,
+            tw,
+            th,
+        ]);
+        sceneManager.sync?.();
 
         const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
         const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
@@ -293,12 +343,17 @@ class ShellCardSurface {
         }
 
         try {
+            this._sceneManager?.destroy?.();
+        } catch {}
+
+        try {
             this._material?.destroy?.();
         } catch {}
 
         this._manager?._surfaceDestroyed(this._target, this);
         this._material = null;
-        this._wallpaper = null;
+        this._sceneRoot = null;
+        this._sceneManager = null;
         this._effect = null;
         this._target = null;
         this._parent = null;
