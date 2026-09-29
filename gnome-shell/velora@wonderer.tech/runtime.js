@@ -33,6 +33,33 @@ const APP_PREVIEW_PADDING = 10;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
+const VELORA_SCHEMA_ID = 'org.gnome.shell.extensions.velora';
+
+function createCanonicalVeloraSettings(uuid) {
+    const schemaDir = GLib.build_filenamev([
+        GLib.get_user_data_dir(),
+        'gnome-shell',
+        'extensions',
+        uuid,
+        'schemas',
+    ]);
+
+    const source = Gio.SettingsSchemaSource.new_from_directory(
+        schemaDir,
+        Gio.SettingsSchemaSource.get_default(),
+        false
+    );
+    const schema = source.lookup(VELORA_SCHEMA_ID, true);
+
+    if (!schema) {
+        throw new Error(
+            'Velora canonical GSettings schema was not found: ' +
+            schemaDir
+        );
+    }
+
+    return new Gio.Settings({settings_schema: schema});
+}
 
 export default class VeloraRuntime extends Extension {
     async enable() {
@@ -49,7 +76,23 @@ export default class VeloraRuntime extends Extension {
         }
 
         this._disabled = false;
-        this._settings = this.getSettings();
+
+        // Runtime revisions are hot-swapped without reloading the stable
+        // bootstrap extension. Extension.getSettings() can therefore retain
+        // the schema snapshot that existed when the bootstrap was loaded.
+        // Always load the canonical compiled schema afresh so newly added
+        // runtime/prefs keys bind immediately in the current Shell session.
+        try {
+            this._settings =
+                createCanonicalVeloraSettings(this.uuid);
+        } catch (error) {
+            logError(
+                error,
+                'Velora Desktop: canonical settings load failed; using bootstrap schema'
+            );
+            this._settings = this.getSettings();
+        }
+
         this._shellSettings = new Gio.Settings({schema_id: 'org.gnome.shell'});
         this._appSystem = Shell.AppSystem.get_default();
         this._dock = new DockController(this._settings);
