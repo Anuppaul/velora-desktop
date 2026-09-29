@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-30.46"
+INSTALLER_VERSION="2026-09-30.47"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -26,6 +26,8 @@ RUNTIME_FILES=(
     "runtime.js"
     "orbThemeRuntime.js"
     "runtime.css"
+    "apps.js"
+    "geometry.js"
     "liquidGlassDock.js"
     "notificationGlass.js"
     "popupGlass.js"
@@ -806,6 +808,8 @@ if command -v unzip >/dev/null 2>&1; then
         "runtime.js"
         "orbThemeRuntime.js"
         "runtime.css"
+        "apps.js"
+        "geometry.js"
         "liquidGlassDock.js"
         "notificationGlass.js"
         "popupGlass.js"
@@ -855,10 +859,8 @@ done
 
 # Remove launcher-era modules left by older Velora installs.
 rm -f \
-    "${TARGET_DIR}/apps.js" \
     "${TARGET_DIR}/dock.js" \
     "${TARGET_DIR}/floatingDock.js" \
-    "${TARGET_DIR}/geometry.js" \
     "${TARGET_DIR}/dateMenuGlass.js"
 
 glib-compile-schemas --strict "${TARGET_DIR}/vendor/liquid-glass/schemas"
@@ -871,8 +873,8 @@ refresh_prefs_process
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
-    runtime.js orbThemeRuntime.js runtime.css liquidGlassDock.js \
-    notificationGlass.js popupGlass.js shellCards.js; do
+    runtime.js orbThemeRuntime.js runtime.css apps.js geometry.js \
+    liquidGlassDock.js notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
 done
