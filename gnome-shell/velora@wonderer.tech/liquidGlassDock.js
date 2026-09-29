@@ -35,15 +35,6 @@ function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
 
-function backgroundAlpha(widget) {
-    try {
-        return widget?.get_theme_node?.()
-            ?.get_background_color?.().alpha ?? 0;
-    } catch {
-        return 0;
-    }
-}
-
 function parseHexRgb(value) {
     const text = String(value ?? '').trim();
 
@@ -719,7 +710,6 @@ export class LiquidGlassIntegration {
         this._getShellTheme().load_stylesheet(file);
         this._cardCssFile = file;
 
-        this._dateMenuBox?.queue_redraw?.();
         Main.messageTray?._banner?.queue_redraw?.();
     }
 
@@ -1282,7 +1272,7 @@ export class LiquidGlassIntegration {
                     this._nativeDashEntries.length,
                 topPanel: Boolean(this._topPanelManager),
                 nativeDateMenuStyler: Boolean(
-                    this._dateMenuActor
+                    this._dateMenuGlassManager
                 ),
                 dateMenuOpacity:
                     this._veloraSettings?.get_int?.(
@@ -1462,8 +1452,7 @@ export class LiquidGlassIntegration {
         cleanup('windowListService', this._windowListService);
 
         this._panelMenuManager = null;
-        this._dateMenuActor = null;
-        this._dateMenuBox = null;
+        this._dateMenuGlassManager = null;
         this._quickSettingsManager = null;
         this._notificationGlassManager = null;
         this._osdManager = null;
