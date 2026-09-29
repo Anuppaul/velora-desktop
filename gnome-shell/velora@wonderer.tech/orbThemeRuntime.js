@@ -38,6 +38,7 @@ export default class VeloraRuntime extends Extension {
         this._hidden = false;
         this._faded = false;
         this._writingPosition = false;
+        this._suppressClickUntil = 0;
         this._hideId = 0;
         this._fadeId = 0;
         this._settingsId = 0;
@@ -178,8 +179,13 @@ export default class VeloraRuntime extends Extension {
         this._syncOrb();
 
         this._orb.connect('clicked', () => {
-            if (!this._dragging)
+            if (
+                !this._dragging &&
+                GLib.get_monotonic_time() >=
+                    this._suppressClickUntil
+            ) {
                 Main.overview.showApps();
+            }
         });
         this._orb.connect('notify::hover', () => {
             if (this._orb.get_hover()) {
@@ -223,6 +229,8 @@ export default class VeloraRuntime extends Extension {
             this._grab = null;
             this._face.remove_style_pseudo_class('dragging');
             this._storePosition();
+            this._suppressClickUntil =
+                GLib.get_monotonic_time() + 250000;
             this._scheduleTimers();
         };
         pan.connect('end', finish);
