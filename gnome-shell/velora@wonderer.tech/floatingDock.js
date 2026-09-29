@@ -13,7 +13,6 @@ const DOCK_PADDING_RIGHT = 24;
 const DOCK_PADDING_BOTTOM = 14;
 const DOCK_PADDING_LEFT = 24;
 const DOCK_REVEAL_PX = 7;
-const DOCK_HOVER_SCALE = 0.95;
 const GLASS_FILTER_INSET = 3;
 
 export class FloatingDockController {
@@ -465,14 +464,8 @@ export class FloatingDockController {
                 this._cancelHide();
                 this._cancelPreviewHide?.();
 
-                button.ease({
-                    scale_x: DOCK_HOVER_SCALE,
-                    scale_y: DOCK_HOVER_SCALE,
-                    duration: 400,
-                    mode:
-                        Clutter.AnimationMode
-                            .EASE_OUT_BACK,
-                });
+                // Keep dock icon geometry stable on hover. Preview/tooltip
+                // feedback is sufficient; scaling caused visible size jitter.
 
                 const previewShown =
                     this._showPreview?.(
@@ -497,14 +490,8 @@ export class FloatingDockController {
                 this._hideTooltip?.();
                 this._schedulePreviewHide?.();
 
-                button.ease({
-                    scale_x: 1,
-                    scale_y: 1,
-                    duration: 400,
-                    mode:
-                        Clutter.AnimationMode
-                            .EASE_OUT_BACK,
-                });
+                // No hover scale transition: preserve the exact configured
+                // icon size while the pointer enters/leaves the button.
 
                 this._scheduleHide();
             }

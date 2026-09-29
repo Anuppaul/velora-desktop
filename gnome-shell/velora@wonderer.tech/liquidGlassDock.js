@@ -248,6 +248,8 @@ export class LiquidGlassIntegration {
         this._windowListService = null;
         this._dockManagers = new Set();
         this._nativeDashEntries = [];
+        this._topPanelManager = null;
+        this._topPanelSettingIds = [];
 
         this._quickSettingsTimeoutId = 0;
         this._dashTimeoutId = 0;
@@ -270,6 +272,19 @@ export class LiquidGlassIntegration {
         );
         this._settings = createLiquidGlassSettings();
 
+        // Velora uses a slightly larger notification glass by default while
+        // preserving any value the user has already chosen upstream.
+        if (
+            this._settings.get_user_value(
+                'notification-glass-expand'
+            ) === null
+        ) {
+            this._settings.set_int(
+                'notification-glass-expand',
+                20
+            );
+        }
+
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
             externalRoot &&
@@ -288,6 +303,11 @@ export class LiquidGlassIntegration {
             '[Velora][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
         );
+
+        // The upstream extension styles panel dropdowns, not the actual
+        // GNOME top bar. Attach the same upstream DashManager rendering
+        // pipeline to Main.panel so the top panel itself receives glass.
+        this._setupTopPanelGlass();
 
         if (this._externalGlobalStack) {
             console.warn(
@@ -425,6 +445,120 @@ export class LiquidGlassIntegration {
         );
 
         this._installDebugState();
+    }
+
+    _setupTopPanelGlass() {
+        if (this._topPanelManager || !Main.panel)
+            return;
+
+        try {
+            const manager = new this._vendor.DashManager(
+                this._vendor.root,
+                Main.panel,
+                this._settings,
+                this._logger
+            );
+            manager.setup();
+
+            // Top-panel glass is a Velora surface of its own. Keep it active
+            // even if the upstream Dock surface switch is off.
+            if (!manager.effect)
+                manager._applyEffect?.();
+
+            this._topPanelManager = manager;
+            this._applyTopPanelOverrides();
+
+            for (const key of [
+                'dock-margin-bottom',
+                'dock-glass-expand',
+                'dock-corner-radius',
+                'enable-dock-glass',
+            ]) {
+                this._topPanelSettingIds.push(
+                    this._settings.connect(
+                        'changed::' + key,
+                        () => {
+                            GLib.idle_add(
+                                GLib.PRIORITY_DEFAULT_IDLE,
+                                () => {
+                                    if (
+                                        this._enabled &&
+                                        this._topPanelManager
+                                    ) {
+                                        if (
+                                            !this._topPanelManager.effect
+                                        ) {
+                                            this._topPanelManager
+                                                ._applyEffect?.();
+                                        }
+                                        this._applyTopPanelOverrides();
+                                    }
+                                    return GLib.SOURCE_REMOVE;
+                                }
+                            );
+                        }
+                    )
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] topPanel active'
+            );
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] topPanel setup failed: ' +
+                error +
+                '\n' +
+                (error?.stack ?? '')
+            );
+        }
+    }
+
+    _applyTopPanelOverrides() {
+        const manager = this._topPanelManager;
+        if (!manager)
+            return;
+
+        // DashManager normally adds a dock edge margin. A system top bar must
+        // stay pinned to y=0, so remove that inline margin immediately.
+        manager._marginValue = 0;
+        manager._glassExpand = 0;
+        manager._currentMarginStyle = '';
+
+        if (
+            manager.targetActor &&
+            manager._originalStyle !== undefined
+        ) {
+            manager.targetActor.set_style(
+                manager._originalStyle
+            );
+        }
+
+        // A full-width top bar should meet the screen edges cleanly.
+        manager.effect?.setCornerRadius(0);
+    }
+
+    _cleanupTopPanelGlass() {
+        for (const id of this._topPanelSettingIds) {
+            try {
+                this._settings?.disconnect(id);
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._topPanelSettingIds = [];
+
+        if (this._topPanelManager) {
+            try {
+                this._topPanelManager.cleanup();
+            } catch (error) {
+                console.error(
+                    '[Velora][LiquidGlass] topPanel cleanup failed: ' +
+                    error
+                );
+            }
+        }
+        this._topPanelManager = null;
     }
 
     _collectNativeDashContainers() {
@@ -744,6 +878,7 @@ export class LiquidGlassIntegration {
                 dockManagers: this._dockManagers.size,
                 nativeDashManagers:
                     this._nativeDashEntries.length,
+                topPanel: Boolean(this._topPanelManager),
                 uiManager: Boolean(this._uiManager),
                 panelMenuManager: Boolean(this._panelMenuManager),
                 notificationManager: Boolean(
@@ -888,6 +1023,8 @@ export class LiquidGlassIntegration {
         for (const manager of [...this._dockManagers])
             cleanup('dockManager', manager);
         this._dockManagers.clear();
+
+        this._cleanupTopPanelGlass();
 
         for (const entry of [
             ...this._nativeDashEntries,

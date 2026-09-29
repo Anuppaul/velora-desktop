@@ -50,6 +50,34 @@ function addSwitch(group, settings, key, title, subtitle) {
     return row;
 }
 
+function addBackShadowSwitch(group, settings) {
+    const row = new Adw.SwitchRow({
+        title: 'Back shadow',
+        subtitle: 'Outer shadow behind Liquid Glass surfaces. Turn this off to remove the shadow completely.',
+    });
+
+    const sync = () => {
+        row.active =
+            settings.get_double('shadow-intensity') > 0.001;
+    };
+
+    sync();
+    row.connect('notify::active', () => {
+        const current =
+            settings.get_double('shadow-intensity');
+        if (row.active) {
+            if (current <= 0.001)
+                settings.set_double('shadow-intensity', 0.22);
+        } else if (current > 0.001) {
+            settings.set_double('shadow-intensity', 0.0);
+        }
+    });
+    settings.connect('changed::shadow-intensity', sync);
+
+    group.add(row);
+    return row;
+}
+
 function addSpin(group, settings, key, title, subtitle, min, max, step = 1) {
     const row = new Adw.ActionRow({title, subtitle});
     const adjustment = new Gtk.Adjustment({
@@ -129,7 +157,11 @@ function addCombo(group, settings, key, title, subtitle, options) {
 export default class VeloraPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        const liquidGlassSettings =
+            createLiquidGlassSettings(this.dir);
         window._veloraSettings = settings;
+        window._veloraLiquidGlassSettings =
+            liquidGlassSettings;
         window.set_default_size(720, 760);
 
         const launcherPage = new Adw.PreferencesPage({
@@ -307,6 +339,40 @@ export default class VeloraPreferences extends ExtensionPreferences {
             100
         );
 
+        const glassSurfaceGroup = new Adw.PreferencesGroup({
+            title: 'Liquid Glass surfaces',
+            description: 'Simple controls for the common surface-level adjustments. Detailed optics remain under Appearance / Effects / Rendering.',
+        });
+        appearancePage.add(glassSurfaceGroup);
+
+        addBackShadowSwitch(
+            glassSurfaceGroup,
+            liquidGlassSettings
+        );
+
+        addSpin(
+            glassSurfaceGroup,
+            liquidGlassSettings,
+            'notification-glass-expand',
+            'Notification panel size',
+            'Extra glass area around notification banners. Increase this to make the notification panel visually larger.',
+            0,
+            80,
+            2
+        );
+
+        const topPanelRow = new Adw.ActionRow({
+            title: 'Top panel glass',
+            subtitle: 'Enabled by Velora using the upstream Liquid Glass renderer on the actual GNOME top bar.',
+        });
+        const topPanelState = new Gtk.Label({
+            label: 'Enabled',
+            valign: Gtk.Align.CENTER,
+        });
+        topPanelState.add_css_class('success');
+        topPanelRow.add_suffix(topPanelState);
+        glassSurfaceGroup.add(topPanelRow);
+
         const previewGroup = new Adw.PreferencesGroup({
             title: 'App window preview',
             description: 'Customize the live window preview shown when hovering a running app.',
@@ -386,10 +452,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
         resetRow.activatable_widget = resetButton;
         positionGroup.add(resetRow);
 
-        const liquidGlassSettings =
-            createLiquidGlassSettings(this.dir);
-        window._veloraLiquidGlassSettings =
-            liquidGlassSettings;
         buildLiquidGlassPreferences(
             window,
             liquidGlassSettings

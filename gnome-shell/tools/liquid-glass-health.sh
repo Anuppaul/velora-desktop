@@ -34,7 +34,7 @@ checked=0
 mismatches=0
 while read -r expected relative; do
     [[ -n "${expected:-}" ]] || continue
-    [[ "${expected}" == #* ]] && continue
+    [[ "${expected:0:1}" == "#" ]] && continue
 
     file="${VENDOR_DIR}/${relative}"
     if [[ ! -f "${file}" ]]; then
