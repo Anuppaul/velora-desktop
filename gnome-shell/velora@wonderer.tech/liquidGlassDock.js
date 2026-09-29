@@ -174,6 +174,9 @@ async function importVendorModules(root) {
         windowListService,
         logger,
         utils,
+        background,
+        actorGeometry,
+        actorWrites,
     ] = await Promise.all([
         import(moduleUri(root, 'dist/liquidEffect.js')),
         import(moduleUri(root, 'dist/actors/unpickable.js')),
@@ -185,6 +188,9 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/windowListService.js')),
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
+        import(moduleUri(root, 'dist/capture/background.js')),
+        import(moduleUri(root, 'dist/actors/geometry.js')),
+        import(moduleUri(root, 'dist/actors/writes.js')),
     ]);
 
     return {
@@ -203,6 +209,20 @@ async function importVendorModules(root) {
         Logger: logger.Logger,
         setUtilsLogger: utils.setUtilsLogger,
         adaptiveColorTweener: utils.adaptiveColorTweener,
+        createBackgroundMirror:
+            background.createBackgroundMirror,
+        getTransformedRect:
+            actorGeometry.getTransformedRect,
+        resolveMonitorGeometry:
+            actorGeometry.resolveMonitorGeometry,
+        setClipIfChanged:
+            actorWrites.setClipIfChanged,
+        setPositionIfChanged:
+            actorWrites.setPositionIfChanged,
+        setSizeIfChanged:
+            actorWrites.setSizeIfChanged,
+        setTranslationIfChanged:
+            actorWrites.setTranslationIfChanged,
         destroySharedBackgroundSource:
             utils.destroySharedBackgroundSource,
         releaseAllClonedWindowActors:
