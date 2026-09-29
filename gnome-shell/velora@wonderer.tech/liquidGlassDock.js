@@ -485,13 +485,6 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = box;
         this._dateMenuBoxPointer = boxPointer;
 
-        actor.add_style_class_name?.(
-            'velora-native-date-menu-shell'
-        );
-        box.add_style_class_name?.(
-            'velora-native-date-menu-glass'
-        );
-
         this._dateMenuOriginalActorStyle =
             actor.get_style?.() ?? '';
         this._dateMenuOriginalStyle =
@@ -515,12 +508,6 @@ export class LiquidGlassIntegration {
         this._applyNativeDateMenuAppearance();
 
         const apply = () => {
-            actor.add_style_class_name?.(
-                'velora-native-date-menu-shell'
-            );
-            box.add_style_class_name?.(
-                'velora-native-date-menu-glass'
-            );
             this._applyNativeDateMenuAppearance();
         };
 
@@ -692,43 +679,22 @@ export class LiquidGlassIntegration {
     ) {
         const dateMenu = Main.panel?.statusArea?.dateMenu;
         const menu = dateMenu?.menu;
-        const actor = this._dateMenuActor;
-        const box = this._dateMenuBox;
+        const box = menu?.box ?? this._dateMenuBox;
         const boxPointer =
-            this._dateMenuBoxPointer ?? menu?._boxPointer ?? actor;
+            menu?._boxPointer ??
+            this._dateMenuBoxPointer ??
+            null;
 
-        if (!menu || !actor || !box)
-            return;
-
-        // Theme-node inspection is reliable while the popup is open. If a
-        // setting changes while closed, open-state-changed reapplies it.
-        if (!menu.isOpen)
+        if (!menu || !box || !menu.isOpen)
             return;
 
         const {fill, blur} = state;
 
-        // Restore the native theme first, then inspect which GNOME/Yaru layer
-        // is actually painting the popup background. This is the working
-        // strategy from the uploaded glass-datemenu extension.
-        try {
-            box.set_style?.(
-                this._dateMenuOriginalStyle ?? ''
-            );
-
-            if (boxPointer) {
-                boxPointer.set_style?.(
-                    this._dateMenuOriginalBoxPointerStyle ??
-                    this._dateMenuOriginalActorStyle ??
-                    ''
-                );
-            } else {
-                actor.set_style?.(
-                    this._dateMenuOriginalActorStyle ?? ''
-                );
-            }
-        } catch {
-            // Best-effort reset before theme-node inspection.
-        }
+        // Match the uploaded working extension exactly: remove every inline
+        // override first, let GNOME/Yaru resolve the native theme, then detect
+        // whether the white popup is painted by menu.box or BoxPointer.
+        box.set_style?.(null);
+        boxPointer?.set_style?.(null);
 
         const boxAlpha = backgroundAlpha(box);
         let arrowAlpha = 0;
@@ -749,71 +715,77 @@ export class LiquidGlassIntegration {
         }
 
         let target;
-
         if (
             boxPointer &&
             arrowAlpha > 0 &&
             boxAlpha === 0
         ) {
             boxPointer.set_style?.(
-                (this._dateMenuOriginalBoxPointerStyle || '') +
-                `; -arrow-background-color: ${fill};`
+                `-arrow-background-color: ${fill};`
             );
-            target = 'boxpointer';
+            target =
+                'boxpointer (-arrow-background-color)';
         } else {
             box.set_style?.(
-                (this._dateMenuOriginalStyle || '') +
-                `; background-color: ${fill};`
+                `background-color: ${fill};`
             );
-            target = 'menu.box';
+            target =
+                'menu.box (background-color)';
         }
 
         if (this._dateMenuPopupTarget !== target) {
             this._dateMenuPopupTarget = target;
             console.log(
-                '[Velora][CardAppearance] popup target=' +
+                '[Velora][CardAppearance] popup bg target: ' +
                 target +
-                ' boxAlpha=' +
+                ' (boxA=' +
                 boxAlpha +
-                ' arrowAlpha=' +
-                arrowAlpha
+                ', arrowA=' +
+                arrowAlpha +
+                ')'
             );
         }
 
-        // Blur remains attached to menu.box exactly like the uploaded working
-        // extension, independent of which layer paints the color.
+        // Blur follows the working reference and stays on menu.box.
         if (blur > 0) {
-            if (!this._dateMenuBlurEffect) {
-                this._dateMenuBlurEffect =
-                    new Shell.BlurEffect({
-                        mode: Shell.BlurMode.BACKGROUND,
-                        radius: blur,
-                        brightness: 1.0,
-                    });
+            let effect =
+                box.get_effect?.('velora-date-menu-blur') ??
+                null;
+
+            if (!effect) {
+                effect = new Shell.BlurEffect({
+                    mode: Shell.BlurMode.BACKGROUND,
+                });
                 box.add_effect_with_name?.(
                     'velora-date-menu-blur',
-                    this._dateMenuBlurEffect
+                    effect
                 );
-                if (!box.get_effect?.('velora-date-menu-blur'))
-                    box.add_effect?.(this._dateMenuBlurEffect);
-            } else {
-                this._dateMenuBlurEffect.radius = blur;
             }
-        } else if (this._dateMenuBlurEffect) {
-            try {
-                box.remove_effect(
-                    this._dateMenuBlurEffect
-                );
-            } catch {
-                // Effect may already be detached.
+
+            if ('radius' in effect)
+                effect.radius = Math.round(blur);
+            else if ('sigma' in effect)
+                effect.sigma = blur / 2;
+
+            effect.brightness = 1.0;
+            this._dateMenuBlurEffect = effect;
+        } else {
+            const effect =
+                box.get_effect?.('velora-date-menu-blur') ??
+                this._dateMenuBlurEffect;
+
+            if (effect) {
+                try {
+                    box.remove_effect(effect);
+                } catch {
+                    // Effect may already be detached.
+                }
             }
             this._dateMenuBlurEffect = null;
         }
 
         boxPointer?._border?.queue_repaint?.();
-        actor._border?.queue_repaint?.();
         boxPointer?.queue_redraw?.();
-        actor.queue_redraw?.();
         box.queue_redraw?.();
     }
 
@@ -920,13 +892,6 @@ export class LiquidGlassIntegration {
 
 
         try {
-            this._dateMenuActor?.remove_style_class_name?.(
-                'velora-native-date-menu-shell'
-            );
-            this._dateMenuBox?.remove_style_class_name?.(
-                'velora-native-date-menu-glass'
-            );
-
             this._dateMenuBox?.set_style?.(
                 this._dateMenuOriginalStyle ?? ''
             );
