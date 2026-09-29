@@ -1358,6 +1358,18 @@ export class LiquidGlassIntegration {
                 nativeDateMenuStyler: Boolean(
                     this._dateMenuActor
                 ),
+                dateMenuOpacity:
+                    this._veloraSettings?.get_int?.(
+                        'date-menu-opacity'
+                    ) ?? null,
+                dateMenuTintColor:
+                    this._veloraSettings?.get_string?.(
+                        'date-menu-tint-color'
+                    ) ?? null,
+                dateMenuBlur:
+                    this._veloraSettings?.get_int?.(
+                        'date-menu-blur'
+                    ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
                     this._notificationBannerBin
