@@ -845,18 +845,16 @@ export class LiquidGlassIntegration {
     }
 
     _applyCardAppearanceStylesheet(
-        state = this._readSharedCardAppearance()
+        _state = this._readSharedCardAppearance()
     ) {
-        const {fill} = state;
-
-        // The Date Menu outer panel is styled directly through menu.box.
-        // Generated CSS is kept only for GNOME's temporary notification
-        // banner, whose material comes from the Shell theme.
+        // The notification's color/blur/refraction now comes from the
+        // LiquidEffect material. Keep the real Shell notification content
+        // actor, but remove only its native painted card background.
         const css =
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
             '.velora-native-notification-glass:focus {\n' +
-            `  background-color: ${fill} !important;\n` +
+            '  background-color: transparent !important;\n' +
             '  background-image: none !important;\n' +
             '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
