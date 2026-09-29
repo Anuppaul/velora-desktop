@@ -275,12 +275,13 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
-        this._cardAppearanceSettingIds = [];
-        this._cardAppearancePollId = 0;
-        this._lastCardAppearanceSignature = '';
+        this._cardAppearanceSettingId = 0;
+        this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
         this._cardCssCounter = 0;
         this._panelMenuManager = null;
+        this._cardAppearanceSettingId = 0;
+        this._cardAppearanceApplyId = 0;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
         this._notificationBlurEffects = new Map();
@@ -559,29 +560,8 @@ export class LiquidGlassIntegration {
             };
         }
 
-        // Do not trust a long-lived Gio.Settings instance for these controls.
-        // Preferences run in a separate process; if a dconf change
-        // notification is missed, that instance can keep returning the value
-        // it saw when the runtime was created. A new Settings object backed by
-        // the same fixed-path schema reads the current backend value directly.
-        let settings = this._veloraSettings;
-        let freshSettings = null;
-
-        try {
-            freshSettings = new Gio.Settings({
-                settings_schema:
-                    this._veloraSettings.settings_schema,
-            });
-            settings = freshSettings;
-        } catch (error) {
-            console.warn(
-                '[Velora][CardAppearance] fresh settings read fallback: ' +
-                error
-            );
-        }
-
         const opacity = clampNumber(
-            settings.get_int(
+            this._veloraSettings.get_int(
                 'date-menu-opacity'
             ),
             0,
@@ -589,24 +569,18 @@ export class LiquidGlassIntegration {
         ) / 100;
 
         const tint =
-            settings.get_string(
+            this._veloraSettings.get_string(
                 'date-menu-tint-color'
             );
         const [r, g, b] = parseHexRgb(tint);
 
         const blur = clampNumber(
-            settings.get_int(
+            this._veloraSettings.get_int(
                 'date-menu-blur'
             ),
             0,
             80
         );
-
-        try {
-            freshSettings?.run_dispose?.();
-        } catch {
-            // Best-effort release of the short-lived reader.
-        }
 
         return {
             opacity,
@@ -616,26 +590,19 @@ export class LiquidGlassIntegration {
             b,
             blur,
             fill:
-                `rgba(${r},${g},${b},${opacity.toFixed(3)})`,
+                `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(2)})`,
         };
     }
 
     _applySharedCardAppearance() {
         const state = this._readSharedCardAppearance();
 
-        this._lastCardAppearanceSignature =
-            Math.round(state.opacity * 100) +
-            '|' +
-            state.tint +
-            '|' +
-            state.blur;
-
         this._applyNativeDateMenuAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
 
         console.log(
-            '[Velora][CardAppearance] fresh-backend synced ' +
+            '[Velora][CardAppearance] applied ' +
             'opacity=' +
             Math.round(state.opacity * 100) +
             ' tint=' +
@@ -645,59 +612,41 @@ export class LiquidGlassIntegration {
         );
     }
 
+    _queueSharedCardAppearanceApply() {
+        if (this._cardAppearanceApplyId)
+            return;
+
+        this._cardAppearanceApplyId =
+            GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                80,
+                () => {
+                    this._cardAppearanceApplyId = 0;
+                    if (this._enabled)
+                        this._applySharedCardAppearance();
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+    }
+
     _setupSharedCardAppearanceSync() {
         if (!this._veloraSettings) {
             this._applySharedCardAppearance();
             return;
         }
 
-        if (this._cardAppearanceSettingIds.length === 0) {
-            this._cardAppearanceSettingIds.push(
+        if (!this._cardAppearanceSettingId) {
+            this._cardAppearanceSettingId =
                 this._veloraSettings.connect(
                     'changed',
                     (_settings, key) => {
-                        if (![
+                        if ([
                             'date-menu-opacity',
                             'date-menu-tint-color',
                             'date-menu-blur',
                         ].includes(key)) {
-                            return;
+                            this._queueSharedCardAppearanceApply();
                         }
-
-                        this._applySharedCardAppearance();
-                    }
-                )
-            );
-        }
-
-        if (!this._cardAppearancePollId) {
-            this._cardAppearancePollId =
-                GLib.timeout_add(
-                    GLib.PRIORITY_DEFAULT,
-                    150,
-                    () => {
-                        if (!this._enabled)
-                            return GLib.SOURCE_REMOVE;
-
-                        const state =
-                            this._readSharedCardAppearance();
-                        const signature =
-                            Math.round(state.opacity * 100) +
-                            '|' +
-                            state.tint +
-                            '|' +
-                            state.blur;
-
-                        if (
-                            signature !==
-                            this._lastCardAppearanceSignature
-                        ) {
-                            this._lastCardAppearanceSignature =
-                                signature;
-                            this._applySharedCardAppearance();
-                        }
-
-                        return GLib.SOURCE_CONTINUE;
                     }
                 );
         }
@@ -706,26 +655,31 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupSharedCardAppearanceSync() {
-        for (const id of this._cardAppearanceSettingIds) {
+        if (
+            this._cardAppearanceSettingId &&
+            this._veloraSettings
+        ) {
             try {
-                this._veloraSettings?.disconnect(id);
+                this._veloraSettings.disconnect(
+                    this._cardAppearanceSettingId
+                );
             } catch {
                 // Settings may already be tearing down.
             }
         }
-        this._cardAppearanceSettingIds = [];
+        this._cardAppearanceSettingId = 0;
 
-        if (this._cardAppearancePollId) {
+        if (this._cardAppearanceApplyId) {
             try {
                 GLib.source_remove(
-                    this._cardAppearancePollId
+                    this._cardAppearanceApplyId
                 );
             } catch {
-                // Poll source may already be gone.
+                // Debounce source may already be gone.
             }
         }
-        this._cardAppearancePollId = 0;
-        this._lastCardAppearanceSignature = '';
+        this._cardAppearanceApplyId = 0;
+
         this._unloadCardAppearanceStylesheet();
     }
 
@@ -1802,9 +1756,6 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
-        this._cardAppearanceSettingIds = [];
-        this._cardAppearancePollId = 0;
-        this._lastCardAppearanceSignature = '';
         this._notificationBlurEffects.clear();
         this._osdManager = null;
         this._applicationManager = null;
