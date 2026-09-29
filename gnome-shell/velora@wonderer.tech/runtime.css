@@ -75,3 +75,11 @@
     border-color: rgba(255, 255, 255, 0.10);
     box-shadow: none;
 }
+
+/* Non-PopupMenu Shell cards discovered by ShellCardGlassManager. */
+.velora-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
