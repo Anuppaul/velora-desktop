@@ -803,12 +803,11 @@ if command -v unzip >/dev/null 2>&1; then
         "prefs.js"
         "stylesheet.css"
         "runtime.js"
+        "orbThemeRuntime.js"
         "runtime.css"
-        "apps.js"
-        "dock.js"
-        "floatingDock.js"
         "liquidGlassDock.js"
-        "geometry.js"
+        "notificationGlass.js"
+        "popupGlass.js"
         "schemas/org.gnome.shell.extensions.velora.gschema.xml"
     )
 
