@@ -5,6 +5,9 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const DEFAULT_RADIUS = 18;
+// glass.frag's edge lens can reach ~96px beyond the visible rim. Keep source
+// pixels around the native popup without enlarging the visible card itself.
+const OPTICAL_MARGIN = 104;
 
 function finitePositive(value) {
     return Number.isFinite(value) && value > 0;
@@ -63,6 +66,7 @@ class PopupGlassSurface {
         this._lastWallpaperY = NaN;
         this._lastWallpaperScaleX = NaN;
         this._lastWallpaperScaleY = NaN;
+        this._overlayAllocationId = 0;
     }
 
     attach() {
@@ -93,10 +97,11 @@ class PopupGlassSurface {
 
         const material = new this._vendor.UnpickableActor({
             name: 'velora-popup-glass-material',
-            x_expand: true,
-            y_expand: true,
             reactive: false,
         });
+        // The material is manually allocated larger than the visible popup.
+        // It is paint input only and must never influence GNOME's layout.
+        material.set_no_layout?.(true);
         material.set_clip_to_allocation(true);
 
         const wallpaper = this._vendor.createBackgroundMirror(
@@ -123,8 +128,10 @@ class PopupGlassSurface {
             settings: this._settings,
             owner: 'velora-popup',
         });
-        effect.setPadding?.(0);
+        effect.setPadding?.(20);
+        effect.setShadowMaxRadius?.(OPTICAL_MARGIN - 8);
         effect.setIsDock?.(false);
+        effect.setSurfaceLightEnabled?.(true);
         effect.setCornerRadius?.(this._radius);
         effect.setBlurMethod?.(1);
         material.add_effect(effect);
@@ -143,6 +150,16 @@ class PopupGlassSurface {
         this._wallpaper = wallpaper;
         this._effect = effect;
 
+        try {
+            this._overlayAllocationId = overlay.connect(
+                'notify::allocation',
+                () => this._syncHostGeometry()
+            );
+        } catch {
+            this._overlayAllocationId = 0;
+        }
+
+        this._syncHostGeometry();
         effect.setLiveGeometryHook?.(() => this._syncPaintGeometry());
         this.updateAppearance(this._manager._appearance);
 
@@ -186,6 +203,27 @@ class PopupGlassSurface {
         }
 
         this._material?.queue_redraw?.();
+    }
+
+    _syncHostGeometry() {
+        const overlay = this._overlay;
+        const material = this._material;
+        if (!overlay || !material)
+            return;
+
+        const [w, h] = overlay.get_size?.() ?? [0, 0];
+        if (!finitePositive(w) || !finitePositive(h))
+            return;
+
+        material.set_position(
+            -OPTICAL_MARGIN,
+            -OPTICAL_MARGIN
+        );
+        material.set_size(
+            w + OPTICAL_MARGIN * 2,
+            h + OPTICAL_MARGIN * 2
+        );
+        material.queue_redraw?.();
     }
 
     _syncPaintGeometry() {
@@ -250,10 +288,19 @@ class PopupGlassSurface {
             this._lastWallpaperY = wallpaperY;
         }
 
-        // The effect's FBO is local to the popup. No stage geometry chasing:
-        // one glass region exactly equals the native menu content allocation.
+        // The FBO includes optical sampling headroom, while the shader mask is
+        // still exactly the native popup rectangle. This is what lets the
+        // bevel/lens bend pixels at the rim instead of collapsing to a flat
+        // translucent fill at the allocation boundary.
+        const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
+        const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
         effect.setResolution?.(w, h);
-        effect.setGlassGeometry?.(0, 0, w, h);
+        effect.setGlassGeometry?.(
+            OPTICAL_MARGIN,
+            OPTICAL_MARGIN,
+            glassW,
+            glassH
+        );
     }
 
     detach({restore = true} = {}) {
@@ -266,6 +313,17 @@ class PopupGlassSurface {
         } catch {
             // Effect may already be tearing down.
         }
+
+        if (this._overlayAllocationId && this._overlay) {
+            try {
+                this._overlay.disconnect(
+                    this._overlayAllocationId
+                );
+            } catch {
+                // Overlay may already be tearing down.
+            }
+        }
+        this._overlayAllocationId = 0;
 
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
