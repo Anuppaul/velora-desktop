@@ -673,6 +673,9 @@ export class LiquidGlassIntegration {
                 manager._applyEffect?.();
 
             this._topPanelManager = manager;
+            Main.panel.add_style_class_name?.(
+                'velora-liquid-top-panel'
+            );
             this._applyTopPanelOverrides();
 
             for (const key of [
@@ -764,6 +767,13 @@ export class LiquidGlassIntegration {
                     error
                 );
             }
+        }
+        try {
+            Main.panel?.remove_style_class_name?.(
+                'velora-liquid-top-panel'
+            );
+        } catch {
+            // Panel may already be tearing down.
         }
         this._topPanelManager = null;
     }
