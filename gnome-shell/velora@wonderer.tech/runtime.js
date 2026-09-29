@@ -394,11 +394,17 @@ export default class VeloraRuntime extends Extension {
             }
 
             if (key === 'floating-dock-enabled') {
-                this._floatingDock?.setEnabled(
+                const update = this._floatingDock?.setEnabled(
                     this._settings.get_boolean(
                         'floating-dock-enabled'
                     )
                 );
+                update?.catch?.(error => {
+                    logError(
+                        error,
+                        'Velora Desktop: floating dock toggle failed'
+                    );
+                });
                 return;
             }
 
