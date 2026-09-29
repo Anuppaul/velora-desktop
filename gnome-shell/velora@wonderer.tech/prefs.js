@@ -350,12 +350,26 @@ export default class VeloraPreferences extends ExtensionPreferences {
             liquidGlassSettings
         );
 
+        const dateMenuRendererRow = new Adw.ActionRow({
+            title: 'Date / Calendar renderer',
+            subtitle: 'Native GNOME Date Menu with Velora glass styling. No separate FBO, clone tree, or refraction renderer is used for this card.',
+        });
+        const dateMenuRendererState = new Gtk.Label({
+            label: 'Native',
+            valign: Gtk.Align.CENTER,
+        });
+        dateMenuRendererState.add_css_class('success');
+        dateMenuRendererRow.add_suffix(
+            dateMenuRendererState
+        );
+        glassSurfaceGroup.add(dateMenuRendererRow);
+
         addSpin(
             glassSurfaceGroup,
             settings,
             'date-menu-panel-scale',
             'Date / Calendar panel scale',
-            'Scale the complete card opened by clicking the date and clock in the top bar. 100% is GNOME default; values above 100% make the Calendar / Notifications card larger.',
+            'Scale the complete native card opened by clicking the date and clock in the top bar.',
             60,
             180,
             5
