@@ -268,14 +268,16 @@ export class LiquidGlassIntegration {
             this._veloraSettings
         );
         this._settings = createLiquidGlassSettings();
-        this._logger = new this._vendor.Logger(this._settings);
-        this._vendor.setUtilsLogger(this._logger);
 
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
             externalRoot &&
             externalRoot === this._vendor.root
         );
+
+        this._logger = new this._vendor.Logger(this._settings);
+        if (!this._externalGlobalStack)
+            this._vendor.setUtilsLogger(this._logger);
 
         if (!this._externalGlobalStack)
             this._loadStylesheet();
@@ -825,27 +827,29 @@ export class LiquidGlassIntegration {
             this._dumpKeybindingInstalled = false;
         }
 
-        try {
-            this._vendor?.stopGlassRingSampler();
-        } catch {
-            // Diagnostic cleanup is best-effort.
-        }
+        if (!this._externalGlobalStack) {
+            try {
+                this._vendor?.stopGlassRingSampler();
+            } catch {
+                // Diagnostic cleanup is best-effort.
+            }
 
-        // Match upstream teardown ordering for shared compositor state.
-        try {
-            this._vendor?.adaptiveColorTweener?.stopAll();
-        } catch {
-            // Shared animation cleanup is best-effort.
-        }
-        try {
-            this._vendor?.destroySharedBackgroundSource?.();
-        } catch {
-            // Shared background cleanup is best-effort.
-        }
-        try {
-            this._vendor?.releaseAllClonedWindowActors?.();
-        } catch {
-            // Window clone cleanup is best-effort.
+            // Match upstream teardown ordering for shared compositor state.
+            try {
+                this._vendor?.adaptiveColorTweener?.stopAll();
+            } catch {
+                // Shared animation cleanup is best-effort.
+            }
+            try {
+                this._vendor?.destroySharedBackgroundSource?.();
+            } catch {
+                // Shared background cleanup is best-effort.
+            }
+            try {
+                this._vendor?.releaseAllClonedWindowActors?.();
+            } catch {
+                // Window clone cleanup is best-effort.
+            }
         }
 
         const cleanup = (name, manager) => {
@@ -890,10 +894,12 @@ export class LiquidGlassIntegration {
         this._applicationManager = null;
         this._windowListService = null;
 
-        try {
-            this._vendor?.setUtilsLogger?.(null);
-        } catch {
-            // Logger may already be detached.
+        if (!this._externalGlobalStack) {
+            try {
+                this._vendor?.setUtilsLogger?.(null);
+            } catch {
+                // Logger may already be detached.
+            }
         }
 
         try {
@@ -902,7 +908,8 @@ export class LiquidGlassIntegration {
             // Logger cleanup is best-effort.
         }
 
-        this._unloadStylesheet();
+        if (!this._externalGlobalStack)
+            this._unloadStylesheet();
 
         if (globalThis[DEBUG_STATE_KEY])
             delete globalThis[DEBUG_STATE_KEY];
