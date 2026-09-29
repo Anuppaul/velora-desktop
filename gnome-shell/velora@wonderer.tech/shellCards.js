@@ -431,29 +431,51 @@ class ShellCardSurface {
 
         this._releaseSceneManager();
 
+        let safeToDestroyOverlay = true;
+
         if (
-            removeClass &&
             this._overlay &&
             this._wrappedBinParent &&
             this._target
         ) {
-            try {
-                if (this._target.get_parent?.() === this._overlay)
-                    this._overlay.remove_child(this._target);
+            if (removeClass) {
+                try {
+                    if (this._target.get_parent?.() === this._overlay)
+                        this._overlay.remove_child(this._target);
 
-                if (!this._target.get_parent?.())
-                    this._wrappedBinParent.set_child(this._target);
-            } catch (error) {
-                console.error(
-                    '[Velora][ShellCards] native Bin restore failed: ' +
-                    error
-                );
+                    if (!this._target.get_parent?.())
+                        this._wrappedBinParent.set_child(this._target);
+                } catch (error) {
+                    console.error(
+                        '[Velora][ShellCards] native Bin restore failed: ' +
+                        error
+                    );
+                }
+
+                safeToDestroyOverlay =
+                    this._target.get_parent?.() !== this._overlay;
+            } else {
+                // Target is itself being destroyed. Detach it from our wrapper
+                // so destroying the wrapper cannot recursively own/destroy it.
+                try {
+                    if (this._target.get_parent?.() === this._overlay)
+                        this._overlay.remove_child(this._target);
+                } catch {}
             }
         }
 
-        try {
-            this._overlay?.destroy?.();
-        } catch {}
+        if (safeToDestroyOverlay) {
+            try {
+                this._overlay?.destroy?.();
+            } catch {}
+        } else {
+            try {
+                this._material?.destroy?.();
+            } catch {}
+            console.warn(
+                '[Velora][ShellCards] kept neutral wrapper to protect native card content'
+            );
+        }
 
         if (!this._overlay) {
             try {
