@@ -441,8 +441,11 @@ class PopupGlassSurface {
         }
 
         // Restore GNOME's canonical hierarchy before destroying our overlay.
-        // Destroying overlay while it still owns menu.box would destroy native
-        // Shell content with it.
+        // If restore fails, NEVER destroy the wrapper while it still owns
+        // menu.box; that would destroy native Shell content. In that rare case
+        // we leave a neutral wrapper in place and only tear down glass actors.
+        let safeToDestroyOverlay = true;
+
         if (restore && this._bin && this._box) {
             try {
                 if (this._box.get_parent?.() === this._overlay)
@@ -456,12 +459,26 @@ class PopupGlassSurface {
                     error
                 );
             }
+
+            safeToDestroyOverlay =
+                this._box.get_parent?.() !== this._overlay;
         }
 
-        try {
-            this._overlay?.destroy?.();
-        } catch {
-            // Popup may already have destroyed the entire subtree.
+        if (safeToDestroyOverlay) {
+            try {
+                this._overlay?.destroy?.();
+            } catch {
+                // Popup may already have destroyed the entire subtree.
+            }
+        } else {
+            try {
+                this._material?.destroy?.();
+            } catch {
+                // Material teardown is best-effort.
+            }
+            console.warn(
+                '[Velora][PopupGlass] kept neutral wrapper to protect native menu content'
+            );
         }
 
         this._overlay = null;
