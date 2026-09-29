@@ -260,6 +260,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._dateMenuMaterialSettingIds = [];
+        this._dateMenuChildStyles = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
@@ -476,6 +477,11 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalStyle =
             box.get_style?.() ?? '';
 
+        console.log(
+            '[Velora][DateMenu] content classes: ' +
+            (box.get_style_class_name?.() ?? '<none>')
+        );
+
         // Native GNOME card, real background blur. BACKGROUND mode blurs only
         // what is behind the card; GNOME still owns the card's content,
         // animation, layout, focus and lifecycle.
@@ -487,6 +493,7 @@ export class LiquidGlassIntegration {
         box.add_effect?.(this._dateMenuBlurEffect);
 
         this._applyNativeDateMenuMaterial();
+        this._styleNativeDateMenuChildren();
 
         // Follow the same upstream material controls that drive the top panel.
         for (const key of [
@@ -515,6 +522,7 @@ export class LiquidGlassIntegration {
                 'velora-native-date-menu-glass'
             );
             this._applyNativeDateMenuMaterial();
+            this._styleNativeDateMenuChildren();
         };
 
         this._dateMenuOpenSignalId =
@@ -605,13 +613,75 @@ export class LiquidGlassIntegration {
 
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
-            `; background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)}) !important;` +
-            ' background-image: none !important;' +
-            ' border: 1px solid rgba(255,255,255,0.22) !important;' +
-            ' border-radius: 28px !important;' +
-            ' box-shadow: none !important;'
+            `; background-color: rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)});` +
+            ' background-image: none;' +
+            ' border: 1px solid rgba(255,255,255,0.22);' +
+            ' border-radius: 28px;' +
+            ' box-shadow: none;'
         );
         box.queue_redraw?.();
+    }
+
+    _styleNativeDateMenuChildren() {
+        const root = this._dateMenuBox;
+        if (!root)
+            return;
+
+        const cardClasses = new Set([
+            'calendar',
+            'datemenu-today-button',
+            'events-button',
+            'world-clocks-button',
+            'weather-button',
+            'message',
+        ]);
+
+        const visit = actor => {
+            if (!actor)
+                return;
+
+            const classes = (
+                actor.get_style_class_name?.() ?? ''
+            ).split(/\s+/).filter(Boolean);
+
+            if (classes.some(name => cardClasses.has(name))) {
+                if (!this._dateMenuChildStyles.has(actor)) {
+                    this._dateMenuChildStyles.set(
+                        actor,
+                        actor.get_style?.() ?? ''
+                    );
+                }
+
+                const original =
+                    this._dateMenuChildStyles.get(actor) ?? '';
+
+                actor.set_style?.(
+                    original +
+                    '; background-color: rgba(255,255,255,0.045);' +
+                    ' background-image: none;' +
+                    ' border-color: rgba(255,255,255,0.10);' +
+                    ' box-shadow: none;'
+                );
+                actor.queue_redraw?.();
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                visit(child);
+        };
+
+        visit(root);
+    }
+
+    _restoreNativeDateMenuChildren() {
+        for (const [actor, original] of
+            this._dateMenuChildStyles) {
+            try {
+                actor.set_style?.(original);
+            } catch {
+                // Actor may already have been destroyed.
+            }
+        }
+        this._dateMenuChildStyles.clear();
     }
 
     _applyNativeDateMenuScale() {
@@ -672,6 +742,8 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuOpenSignalId = 0;
 
+        this._restoreNativeDateMenuChildren();
+
         try {
             this._dateMenuActor?.remove_style_class_name?.(
                 'velora-native-date-menu-shell'
@@ -719,6 +791,7 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
         this._dateMenuMaterialSettingIds = [];
+        this._dateMenuChildStyles.clear();
     }
 
     _setupTopPanelGlass() {
