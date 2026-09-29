@@ -534,8 +534,19 @@ export class PopupGlassManager {
                 if (!this._enabled)
                     return;
 
-                for (const surface of this._surfaces.values())
-                    surface.syncFrame();
+                for (const [menu, surface] of [...this._surfaces]) {
+                    try {
+                        surface.syncFrame();
+                    } catch (error) {
+                        console.error(
+                            '[Velora][PopupGlass] frame sync failed; restoring native popup: ' +
+                            error +
+                            '\n' +
+                            (error?.stack ?? '')
+                        );
+                        this.detach(menu, {restore: true});
+                    }
+                }
             }
         );
 
