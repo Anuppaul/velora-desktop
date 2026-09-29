@@ -15,6 +15,8 @@ const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV2';
 const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV2';
 const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
+const DASH_RESCAN_IDLE_TICKS = 2;
+const DASH_RESCAN_INTERVAL_MS = 2000;
 
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
@@ -219,8 +221,12 @@ export class LiquidGlassIntegration {
         this._applicationManager = null;
         this._windowListService = null;
         this._dockManagers = new Set();
+        this._nativeDashEntries = [];
 
         this._quickSettingsTimeoutId = 0;
+        this._dashTimeoutId = 0;
+        this._dashReconnectTimeoutId = 0;
+        this._monitorsChangedId = 0;
         this._dumpLoopId = 0;
         this._dumpSettingsId = 0;
         this._dumpKeybindingInstalled = false;
@@ -338,7 +344,178 @@ export class LiquidGlassIntegration {
             }
         );
 
+        this._monitorsChangedId = Main.layoutManager.connect(
+            'monitors-changed',
+            () => this._scheduleNativeDashRescan()
+        );
+
+        this._dashTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            2000,
+            () => {
+                try {
+                    this._findNativeDashToDock();
+                    this._scheduleNativeDashRescan();
+                } finally {
+                    this._dashTimeoutId = 0;
+                }
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+
         this._installDebugState();
+    }
+
+    _collectNativeDashContainers() {
+        const found = [];
+        const skip = global.window_group;
+
+        const walk = actor => {
+            if (!actor || actor === skip)
+                return;
+
+            if (
+                actor.get_name?.() ===
+                'dashtodockDashContainer'
+            ) {
+                found.push(actor);
+                return;
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+
+        walk(Main.layoutManager.uiGroup);
+        return found;
+    }
+
+    _findNativeDashToDock() {
+        const containers =
+            this._collectNativeDashContainers();
+        if (containers.length === 0)
+            return false;
+
+        let added = 0;
+        for (const container of containers) {
+            if (
+                this._nativeDashEntries.some(
+                    entry => entry.container === container
+                )
+            ) {
+                continue;
+            }
+
+            const entry = {
+                container,
+                manager: null,
+                destroyId: 0,
+            };
+            this._nativeDashEntries.push(entry);
+
+            try {
+                entry.manager =
+                    new this._vendor.DashManager(
+                        this._vendor.root,
+                        container,
+                        this._settings,
+                        this._logger
+                    );
+                entry.manager.setup();
+                entry.destroyId = container.connect(
+                    'destroy',
+                    () => {
+                        entry.destroyId = 0;
+                        try {
+                            this._releaseNativeDash(entry);
+                        } finally {
+                            this._scheduleNativeDashRescan();
+                        }
+                    }
+                );
+                added++;
+            } catch (error) {
+                console.error(
+                    '[Velora][LiquidGlass] native dock attach failed: ' +
+                    error
+                );
+                this._releaseNativeDash(entry);
+            }
+        }
+
+        return added > 0;
+    }
+
+    _releaseNativeDash(entry) {
+        const index =
+            this._nativeDashEntries.indexOf(entry);
+        if (index >= 0)
+            this._nativeDashEntries.splice(index, 1);
+
+        if (entry.destroyId) {
+            try {
+                entry.container.disconnect(entry.destroyId);
+            } catch {
+                // Container may already be gone.
+            }
+            entry.destroyId = 0;
+        }
+
+        if (entry.manager) {
+            try {
+                entry.manager.cleanup();
+            } catch (error) {
+                console.error(
+                    '[Velora][LiquidGlass] native dock cleanup failed: ' +
+                    error
+                );
+            }
+            entry.manager = null;
+        }
+    }
+
+    _scheduleNativeDashRescan() {
+        if (this._dashReconnectTimeoutId) {
+            try {
+                GLib.source_remove(
+                    this._dashReconnectTimeoutId
+                );
+            } catch {
+                // Previous source may already be gone.
+            }
+        }
+
+        let idleTicks = 0;
+        let sourceId = 0;
+        sourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            DASH_RESCAN_INTERVAL_MS,
+            () => {
+                let keepGoing = false;
+                try {
+                    idleTicks =
+                        this._findNativeDashToDock()
+                            ? 0
+                            : idleTicks + 1;
+                    keepGoing =
+                        idleTicks < DASH_RESCAN_IDLE_TICKS;
+                } finally {
+                    if (
+                        !keepGoing &&
+                        this._dashReconnectTimeoutId ===
+                            sourceId
+                    ) {
+                        this._dashReconnectTimeoutId = 0;
+                    }
+                }
+
+                return keepGoing
+                    ? GLib.SOURCE_CONTINUE
+                    : GLib.SOURCE_REMOVE;
+            }
+        );
+
+        this._dashReconnectTimeoutId = sourceId;
     }
 
     async attachDock(targetActor) {
@@ -504,6 +681,8 @@ export class LiquidGlassIntegration {
                 liveEffects:
                     globalThis.global?._lgGlass?.count?.() ?? null,
                 dockManagers: this._dockManagers.size,
+                nativeDashManagers:
+                    this._nativeDashEntries.length,
                 uiManager: Boolean(this._uiManager),
                 panelMenuManager: Boolean(this._panelMenuManager),
                 notificationManager: Boolean(
@@ -549,6 +728,37 @@ export class LiquidGlassIntegration {
             this._quickSettingsTimeoutId = 0;
         }
 
+        if (this._monitorsChangedId) {
+            try {
+                Main.layoutManager.disconnect(
+                    this._monitorsChangedId
+                );
+            } catch {
+                // Layout manager may already be tearing down.
+            }
+            this._monitorsChangedId = 0;
+        }
+
+        if (this._dashTimeoutId) {
+            try {
+                GLib.source_remove(this._dashTimeoutId);
+            } catch {
+                // Source may already be gone.
+            }
+            this._dashTimeoutId = 0;
+        }
+
+        if (this._dashReconnectTimeoutId) {
+            try {
+                GLib.source_remove(
+                    this._dashReconnectTimeoutId
+                );
+            } catch {
+                // Source may already be gone.
+            }
+            this._dashReconnectTimeoutId = 0;
+        }
+
         this._stopDumpLoop();
 
         if (this._dumpSettingsId && this._settings) {
@@ -575,6 +785,23 @@ export class LiquidGlassIntegration {
             // Diagnostic cleanup is best-effort.
         }
 
+        // Match upstream teardown ordering for shared compositor state.
+        try {
+            this._vendor?.adaptiveColorTweener?.stopAll();
+        } catch {
+            // Shared animation cleanup is best-effort.
+        }
+        try {
+            this._vendor?.destroySharedBackgroundSource?.();
+        } catch {
+            // Shared background cleanup is best-effort.
+        }
+        try {
+            this._vendor?.releaseAllClonedWindowActors?.();
+        } catch {
+            // Window clone cleanup is best-effort.
+        }
+
         const cleanup = (name, manager) => {
             if (!manager)
                 return;
@@ -594,6 +821,13 @@ export class LiquidGlassIntegration {
             cleanup('dockManager', manager);
         this._dockManagers.clear();
 
+        for (const entry of [
+            ...this._nativeDashEntries,
+        ]) {
+            this._releaseNativeDash(entry);
+        }
+        this._nativeDashEntries = [];
+
         cleanup('panelMenuManager', this._panelMenuManager);
         cleanup('uiManager', this._uiManager);
         cleanup('quickSettingsManager', this._quickSettingsManager);
@@ -610,21 +844,6 @@ export class LiquidGlassIntegration {
         this._applicationManager = null;
         this._windowListService = null;
 
-        try {
-            this._vendor?.adaptiveColorTweener?.stopAll();
-        } catch {
-            // Shared animation cleanup is best-effort.
-        }
-        try {
-            this._vendor?.destroySharedBackgroundSource?.();
-        } catch {
-            // Shared background cleanup is best-effort.
-        }
-        try {
-            this._vendor?.releaseAllClonedWindowActors?.();
-        } catch {
-            // Window clone cleanup is best-effort.
-        }
         try {
             this._vendor?.setUtilsLogger?.(null);
         } catch {
