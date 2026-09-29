@@ -14,8 +14,8 @@ import {
     NotificationGlassManager,
 } from './notificationGlass.js';
 import {
-    DateMenuGlassManager,
-} from './dateMenuGlass.js';
+    PopupGlassManager,
+} from './popupGlass.js';
 
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
@@ -286,7 +286,7 @@ export class LiquidGlassIntegration {
         this._logger = null;
         this._stylesheet = null;
 
-        this._dateMenuGlassManager = null;
+        this._popupGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -383,18 +383,15 @@ export class LiquidGlassIntegration {
             }
         };
 
-        start('nativeDateMenuStyler', () => {
-            this._setupNativeDateMenuStyler();
-        });
-
-        start('panelMenuManager', () => {
-            this._panelMenuManager =
-                new this._vendor.PanelMenuManager(
-                    this._vendor.root,
-                    this._settings,
-                    this._logger
-                );
-            this._panelMenuManager.setup();
+        start('popupGlassManager', () => {
+            this._popupGlassManager =
+                new PopupGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._popupGlassManager.setup();
         });
 
         start('nativeNotificationStyler', () => {
@@ -412,49 +409,17 @@ export class LiquidGlassIntegration {
             this._osdManager.setup();
         });
 
-        start('applicationManager', () => {
-            this._applicationManager =
-                new this._vendor.ApplicationManager(
-                    this._vendor.root,
-                    this._settings,
-                    this._logger
-                );
-            this._applicationManager.setup();
-        });
-
-        start('windowListService', () => {
-            this._windowListService =
-                new this._vendor.WindowListService(this._logger);
-            this._windowListService.setup();
-        });
-
-        this._quickSettingsTimeoutId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            1500,
-            () => {
-                this._quickSettingsTimeoutId = 0;
-                if (!this._enabled)
-                    return GLib.SOURCE_REMOVE;
-
-                start('quickSettingsManager', () => {
-                    this._quickSettingsManager =
-                        new this._vendor.QuickSettingsManager(
-                            this._vendor.root,
-                            this._settings,
-                            this._logger
-                        );
-                    this._quickSettingsManager.setup();
-                });
-                return GLib.SOURCE_REMOVE;
-            }
-        );
+        // PopupMenu.prototype is now the single outer-card path for Date
+        // Menu, Quick Settings, panel menus and context/app menus. Do not
+        // stack the old per-surface UIManager/ApplicationManager pipelines on
+        // top of it.
 
         this._monitorsChangedId = Main.layoutManager.connect(
             'monitors-changed',
             () => {
                 this._scheduleNativeDashRescan();
                 this._notificationGlassManager?.updateAppearance();
-                this._dateMenuGlassManager?.updateAppearance();
+                this._popupGlassManager?.updateAppearance();
             }
         );
 
