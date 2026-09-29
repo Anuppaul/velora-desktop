@@ -265,12 +265,11 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
-        this._dateMenuAppearanceSettingIds = [];
+        this._cardAppearanceSettingIds = [];
         this._dateMenuChildStyles = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
-        this._notificationAppearanceSettingIds = [];
         this._notificationOriginalStyles = new Map();
         this._notificationBlurEffects = new Map();
         this._quickSettingsManager = null;
@@ -380,6 +379,8 @@ export class LiquidGlassIntegration {
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
+
+        this._setupSharedCardAppearanceSync();
 
         start('osdManager', () => {
             this._osdManager = new this._vendor.OsdManager(
@@ -496,37 +497,6 @@ export class LiquidGlassIntegration {
         this._applyNativeDateMenuAppearance();
         this._styleNativeDateMenuChildren();
 
-        for (const key of [
-            'date-menu-opacity',
-            'date-menu-tint-color',
-            'date-menu-blur',
-        ]) {
-            this._dateMenuAppearanceSettingIds.push(
-                this._veloraSettings.connect(
-                    'changed::' + key,
-                    () => {
-                        console.log(
-                            '[Velora][CardAppearance] changed ' +
-                            key +
-                            ' opacity=' +
-                            this._veloraSettings.get_int(
-                                'date-menu-opacity'
-                            ) +
-                            ' tint=' +
-                            this._veloraSettings.get_string(
-                                'date-menu-tint-color'
-                            ) +
-                            ' blur=' +
-                            this._veloraSettings.get_int(
-                                'date-menu-blur'
-                            )
-                        );
-                        this._applyNativeDateMenuAppearance();
-                    }
-                )
-            );
-        }
-
         const apply = () => {
             actor.add_style_class_name?.(
                 'velora-native-date-menu-shell'
@@ -563,11 +533,18 @@ export class LiquidGlassIntegration {
         );
     }
 
-    _applyNativeDateMenuAppearance() {
-        const actor = this._dateMenuActor;
-        const box = this._dateMenuBox;
-        if (!actor || !box || !this._veloraSettings)
-            return;
+    _readSharedCardAppearance() {
+        if (!this._veloraSettings) {
+            return {
+                opacity: 0,
+                tint: '#000000',
+                r: 0,
+                g: 0,
+                b: 0,
+                blur: 0,
+                fill: 'rgba(0,0,0,0)',
+            };
+        }
 
         const opacity = clampNumber(
             this._veloraSettings.get_int(
@@ -577,11 +554,11 @@ export class LiquidGlassIntegration {
             100
         ) / 100;
 
-        const [r, g, b] = parseHexRgb(
+        const tint =
             this._veloraSettings.get_string(
                 'date-menu-tint-color'
-            )
-        );
+            );
+        const [r, g, b] = parseHexRgb(tint);
 
         const blur = clampNumber(
             this._veloraSettings.get_int(
@@ -591,8 +568,80 @@ export class LiquidGlassIntegration {
             80
         );
 
-        const fill =
-            `rgba(${r},${g},${b},${opacity.toFixed(3)})`;
+        return {
+            opacity,
+            tint,
+            r,
+            g,
+            b,
+            blur,
+            fill:
+                `rgba(${r},${g},${b},${opacity.toFixed(3)})`,
+        };
+    }
+
+    _applySharedCardAppearance() {
+        const state = this._readSharedCardAppearance();
+
+        this._applyNativeDateMenuAppearance(state);
+        this._applyAllNativeNotificationAppearances(state);
+
+        console.log(
+            '[Velora][CardAppearance] synced ' +
+            'opacity=' +
+            Math.round(state.opacity * 100) +
+            ' tint=' +
+            state.tint +
+            ' blur=' +
+            state.blur
+        );
+    }
+
+    _setupSharedCardAppearanceSync() {
+        if (
+            !this._veloraSettings ||
+            this._cardAppearanceSettingIds.length > 0
+        ) {
+            this._applySharedCardAppearance();
+            return;
+        }
+
+        for (const key of [
+            'date-menu-opacity',
+            'date-menu-tint-color',
+            'date-menu-blur',
+        ]) {
+            this._cardAppearanceSettingIds.push(
+                this._veloraSettings.connect(
+                    'changed::' + key,
+                    () => this._applySharedCardAppearance()
+                )
+            );
+        }
+
+        this._applySharedCardAppearance();
+    }
+
+    _cleanupSharedCardAppearanceSync() {
+        for (const id of this._cardAppearanceSettingIds) {
+            try {
+                this._veloraSettings?.disconnect(id);
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._cardAppearanceSettingIds = [];
+    }
+
+    _applyNativeDateMenuAppearance(
+        state = this._readSharedCardAppearance()
+    ) {
+        const actor = this._dateMenuActor;
+        const box = this._dateMenuBox;
+        if (!actor || !box)
+            return;
+
+        const {fill, blur} = state;
 
         // Keep the outer BoxPointer exactly as in the known-working fully
         // transparent version. It must never become the opacity surface.
@@ -727,15 +776,6 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuOpenSignalId = 0;
 
-        for (const id of this._dateMenuAppearanceSettingIds) {
-            try {
-                this._veloraSettings?.disconnect(id);
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._dateMenuAppearanceSettingIds = [];
-
         if (this._dateMenuBlurEffect && this._dateMenuBox) {
             try {
                 this._dateMenuBox.remove_effect(
@@ -773,7 +813,6 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
-        this._dateMenuAppearanceSettingIds = [];
         this._dateMenuChildStyles.clear();
     }
 
@@ -960,39 +999,29 @@ export class LiquidGlassIntegration {
         if (currentBanner)
             styleBanner(currentBanner);
 
-        for (const key of [
-            'date-menu-opacity',
-            'date-menu-tint-color',
-            'date-menu-blur',
-        ]) {
-            this._notificationAppearanceSettingIds.push(
-                this._veloraSettings.connect(
-                    'changed::' + key,
-                    () => {
-                        const actors = new Set([
-                            ...(bannerBin.get_children?.() ?? []),
-                            ...(tray?._banner ? [tray._banner] : []),
-                        ]);
-
-                        console.log(
-                            '[Velora][CardAppearance] notification sync ' +
-                            key
-                        );
-
-                        for (const actor of actors)
-                            this._applyNativeNotificationAppearance(actor);
-                    }
-                )
-            );
-        }
-
         console.log(
             '[Velora][LiquidGlass] nativeNotificationStyler active'
         );
     }
 
-    _applyNativeNotificationAppearance(actor) {
-        if (!actor || !this._veloraSettings)
+    _applyAllNativeNotificationAppearances(
+        state = this._readSharedCardAppearance()
+    ) {
+        const tray = Main.messageTray;
+        const actors = new Set([
+            ...(this._notificationBannerBin?.get_children?.() ?? []),
+            ...(tray?._banner ? [tray._banner] : []),
+        ]);
+
+        for (const actor of actors)
+            this._applyNativeNotificationAppearance(actor, state);
+    }
+
+    _applyNativeNotificationAppearance(
+        actor,
+        state = this._readSharedCardAppearance()
+    ) {
+        if (!actor)
             return;
 
         if (!this._notificationOriginalStyles.has(actor)) {
@@ -1002,30 +1031,7 @@ export class LiquidGlassIntegration {
             );
         }
 
-        const opacity = clampNumber(
-            this._veloraSettings.get_int(
-                'date-menu-opacity'
-            ),
-            0,
-            100
-        ) / 100;
-
-        const [r, g, b] = parseHexRgb(
-            this._veloraSettings.get_string(
-                'date-menu-tint-color'
-            )
-        );
-
-        const blur = clampNumber(
-            this._veloraSettings.get_int(
-                'date-menu-blur'
-            ),
-            0,
-            80
-        );
-
-        const fill =
-            `rgba(${r},${g},${b},${opacity.toFixed(3)})`;
+        const {fill, blur} = state;
         const original =
             this._notificationOriginalStyles.get(actor) ?? '';
 
@@ -1095,15 +1101,6 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupNativeNotificationStyler() {
-        for (const id of this._notificationAppearanceSettingIds) {
-            try {
-                this._veloraSettings?.disconnect(id);
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._notificationAppearanceSettingIds = [];
-
         for (const signal of this._notificationBannerSignals) {
             try {
                 signal.obj.disconnect(signal.id);
@@ -1700,6 +1697,7 @@ export class LiquidGlassIntegration {
 
         cleanup('panelMenuManager', this._panelMenuManager);
 
+        this._cleanupSharedCardAppearanceSync();
         this._cleanupNativeDateMenuStyler();
         cleanup('quickSettingsManager', this._quickSettingsManager);
 
@@ -1714,7 +1712,7 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._quickSettingsManager = null;
         this._notificationBannerBin = null;
-        this._notificationAppearanceSettingIds = [];
+        this._cardAppearanceSettingIds = [];
         this._notificationOriginalStyles.clear();
         this._notificationBlurEffects.clear();
         this._osdManager = null;
