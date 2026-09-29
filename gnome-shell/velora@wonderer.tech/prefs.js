@@ -386,7 +386,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const notificationRendererRow = new Adw.ActionRow({
             title: 'Notification renderer',
-            subtitle: 'Native GNOME notification card with Velora glass styling. No extra FBO, clone tree, or refraction renderer is used for notifications.',
+            subtitle: 'Native GNOME notification banner. It uses the same Opacity, Tint color and Blur values as the Date / Calendar card.',
         });
         const notificationRendererState = new Gtk.Label({
             label: 'Native',
@@ -412,7 +412,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
 
         const dateCardGroup = new Adw.PreferencesGroup({
             title: 'Notification / Calendar card',
-            description: 'Appearance of the native card opened from the top-bar date and clock. These controls do not change text, icons, layout or card size.',
+            description: 'One shared material for both the Date / Calendar panel and temporary notification banner. These controls do not change text, icons, layout or card size.',
         });
         appearancePage.add(dateCardGroup);
 
