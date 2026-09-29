@@ -312,6 +312,7 @@ export class LiquidGlassIntegration {
             this._veloraSettings
         );
         this._settings = createLiquidGlassSettings();
+        this._ensureFullGlassOpticsProfile();
 
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
@@ -445,6 +446,100 @@ export class LiquidGlassIntegration {
         );
 
         this._installDebugState();
+    }
+
+    _ensureFullGlassOpticsProfile() {
+        if (!this._settings || !this._veloraSettings)
+            return;
+
+        let version = 0;
+        try {
+            version = this._veloraSettings.get_int(
+                'glass-optics-profile-version'
+            );
+        } catch {
+            return;
+        }
+
+        if (version >= 1)
+            return;
+
+        // The vendored renderer already implements the full optical model.
+        // Its conservative defaults intentionally ship chroma/specular/sheen
+        // at zero, which reads as ordinary frosted blur. Seed a one-time
+        // Velora profile that makes the lens unmistakable while keeping the
+        // shader GPU-native and avoiding CPU framebuffer readback.
+        const doubles = {
+            'glass-max-z': 82.0,
+            'glass-displacement-scale': 24.0,
+            'glass-edge-smoothing': 0.85,
+            'glass-profile-shape-n': 3.8,
+            'glass-ior': 1.72,
+            'glass-chroma-strength': 2.2,
+            'glass-specular-intensity': 0.48,
+            'glass-shininess': 56.0,
+            'glass-rim-width': 3.4,
+            'glass-rim-intensity': 0.78,
+            'glass-rim-directional-power': 1.7,
+            'glass-rim-power': 2.5,
+            'glass-rim-light-color-intensity': 1.15,
+            'glass-sheen-intensity': 0.14,
+            'glass-light-angle-deg': 105.0,
+            'shadow-radius': 30.0,
+            'shadow-intensity': 0.16,
+            'glass-ao-intensity': 0.42,
+            'glass-ao-radius': 2.2,
+            'menu-brightness': 1.03,
+            'menu-contrast': 1.05,
+            'menu-saturation': 1.18,
+            'notification-brightness': 1.03,
+            'notification-contrast': 1.05,
+            'notification-saturation': 1.18,
+            'osd-brightness': 1.03,
+            'osd-contrast': 1.05,
+            'osd-saturation': 1.18,
+            'dock-brightness': 1.02,
+            'dock-contrast': 1.04,
+            'dock-saturation': 1.15,
+        };
+
+        for (const [key, value] of Object.entries(doubles)) {
+            try {
+                this._settings.set_double(key, value);
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] optics key skipped ' +
+                    key + ': ' + error
+                );
+            }
+        }
+
+        try {
+            this._settings.set_int('blur-method', 1);
+            this._settings.set_int('glass-blur-downscale', 2);
+
+            // Refraction should dominate the look; blur and tint support it
+            // instead of turning the surface into an opaque frosted card.
+            this._veloraSettings.set_int('glass-blur', 12);
+            this._veloraSettings.set_int('glass-opacity', 8);
+            this._veloraSettings.set_string(
+                'glass-tint-color',
+                '#ffffff'
+            );
+            this._veloraSettings.set_int(
+                'glass-optics-profile-version',
+                1
+            );
+        } catch (error) {
+            console.warn(
+                '[Velora][LiquidGlass] optics profile migration incomplete: ' +
+                error
+            );
+        }
+
+        console.log(
+            '[Velora][LiquidGlass] full refractive optics profile seeded'
+        );
     }
 
     _readSharedCardAppearance() {
