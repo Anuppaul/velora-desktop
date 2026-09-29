@@ -217,19 +217,30 @@
 
 /* Notification layout/content remain native. The runtime manager only
  * replaces the painted background material. */
-.velora-native-date-menu-shell {
-    background-color: transparent;
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
-    -arrow-background-color: transparent;
-    -arrow-border-color: transparent;
+
+/* Velora system material -------------------------------------------------
+ * The original GNOME actors remain the content/interaction layer. Only the
+ * painted card material is removed after PopupGlassManager has installed an
+ * in-tree LiquidEffect underneath it.
+ */
+.velora-liquid-popup-content {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
-.velora-native-date-menu-glass {
-    background-color: transparent;
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
+#panel.velora-liquid-top-panel,
+.velora-liquid-top-panel {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 
+/* Nested submenus already sit on top of a glass popup. Keep them translucent
+ * instead of creating a second blur/material surface inside the parent. */
+.velora-liquid-popup-content .popup-sub-menu {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+}
