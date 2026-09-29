@@ -217,6 +217,11 @@ sync_hot_aux() {
     [[ -f "${TARGET_DIR}/vendor/liquid-glass/shaders/glass.frag" ]] ||
         fail "Canonical Liquid Glass shader sync failed."
 
+    glib-compile-schemas --strict         "${TARGET_DIR}/vendor/liquid-glass/schemas"
+
+    [[ -f "${TARGET_DIR}/vendor/liquid-glass/schemas/gschemas.compiled" ]] ||
+        fail "Canonical Liquid Glass GSettings compilation failed."
+
     shopt -s nullglob
     for live_dir in "${HOME}"/.cache/velora-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
         [[ -d "${live_dir}" ]] || continue
@@ -787,6 +792,7 @@ for runtime_source in "${RUNTIME_DIRS[@]}"; do
     cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
 done
 
+glib-compile-schemas --strict     "${TARGET_DIR}/vendor/liquid-glass/schemas"
 glib-compile-schemas --strict "${TARGET_DIR}/schemas"
 record_bootstrap_identity
 
