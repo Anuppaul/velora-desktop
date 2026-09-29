@@ -24,25 +24,6 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
-function parseHexRgb(hex) {
-    if (
-        typeof hex !== 'string' ||
-        !/^#[0-9a-fA-F]{6}$/.test(hex)
-    ) {
-        return [255, 255, 255];
-    }
-
-    return [
-        Number.parseInt(hex.slice(1, 3), 16),
-        Number.parseInt(hex.slice(3, 5), 16),
-        Number.parseInt(hex.slice(5, 7), 16),
-    ];
-}
-
-function clampNumber(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-}
-
 function canonicalExtensionRoot() {
     return GLib.build_filenamev([
         GLib.get_user_data_dir(),
@@ -257,11 +238,6 @@ export class LiquidGlassIntegration {
         this._dateMenuOpenSignalId = 0;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
-        this._dateMenuBackdrop = null;
-        this._dateMenuBlurEffect = null;
-        this._dateMenuBackdropFrameId = 0;
-        this._dateMenuBackdropHideId = 0;
-        this._dateMenuMaterialSettingIds = [];
         this._dateMenuChildStyles = new Map();
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
@@ -483,68 +459,19 @@ export class LiquidGlassIntegration {
             (box.get_style_class_name?.() ?? '<none>')
         );
 
-        // Keep GNOME's native Date Menu as the interactive/content actor, but
-        // render glass on a separate sibling directly behind it. This avoids
-        // GNOME's BoxPointer/content theme layers painting over the blur.
-        const parent = actor.get_parent?.();
-        if (!parent) {
-            throw new Error(
-                'GNOME Date Menu has no parent for the glass backdrop'
-            );
-        }
-
-        this._dateMenuBackdrop = new St.Widget({
-            name: 'velora-native-date-menu-backdrop',
-            style_class: 'velora-native-date-menu-backdrop',
-            reactive: false,
-            can_focus: false,
-            visible: false,
-        });
-
-        this._dateMenuBlurEffect = new Shell.BlurEffect({
-            mode: Shell.BlurMode.BACKGROUND,
-            radius: 28,
-            brightness: 1.0,
-        });
-        this._dateMenuBackdrop.add_effect(
-            this._dateMenuBlurEffect
-        );
-
-        parent.add_child(this._dateMenuBackdrop);
-        parent.set_child_below_sibling(
-            this._dateMenuBackdrop,
-            actor
-        );
-
-        this._applyNativeDateMenuMaterial();
-        this._syncNativeDateMenuBackdrop();
+        // Keep GNOME's native Date Menu content/animation/input, but remove
+        // every background layer. No blur, no backdrop actor, no tint.
+        this._makeNativeDateMenuTransparent();
         this._styleNativeDateMenuChildren();
 
-        // Follow the same upstream material controls that drive the top panel.
-        for (const key of [
-            'dock-tint-color',
-            'dock-tint-strength',
-            'dock-blur-radius',
-            'dock-brightness',
-        ]) {
-            this._dateMenuMaterialSettingIds.push(
-                this._settings.connect(
-                    'changed::' + key,
-                    () => this._applyNativeDateMenuMaterial()
-                )
-            );
-        }
-
         const apply = () => {
-            // Theme/popup setup can restyle the box when it opens. Re-assert
-            // the native glass class without replacing GNOME's own actor tree.
             actor.add_style_class_name?.(
                 'velora-native-date-menu-shell'
             );
             box.add_style_class_name?.(
                 'velora-native-date-menu-glass'
             );
-            this._applyNativeDateMenuMaterial();
+            this._makeNativeDateMenuTransparent();
             this._styleNativeDateMenuChildren();
         };
 
@@ -552,42 +479,17 @@ export class LiquidGlassIntegration {
             menu.connect(
                 'open-state-changed',
                 (_menu, isOpen) => {
-                    if (isOpen) {
-                        if (this._dateMenuBackdropHideId) {
-                            GLib.source_remove(
-                                this._dateMenuBackdropHideId
-                            );
-                            this._dateMenuBackdropHideId = 0;
-                        }
-
-                        this._startNativeDateMenuBackdropSync();
-
-                        GLib.idle_add(
-                            GLib.PRIORITY_DEFAULT_IDLE,
-                            () => {
-                                if (this._enabled) {
-                                    apply();
-                                    this._syncNativeDateMenuBackdrop();
-                                }
-                                return GLib.SOURCE_REMOVE;
-                            }
-                        );
+                    if (!isOpen)
                         return;
-                    }
 
-                    // Let GNOME finish its native ~150ms close animation before
-                    // hiding the sibling glass backdrop.
-                    this._dateMenuBackdropHideId =
-                        GLib.timeout_add(
-                            GLib.PRIORITY_DEFAULT,
-                            180,
-                            () => {
-                                this._dateMenuBackdropHideId = 0;
-                                this._stopNativeDateMenuBackdropSync();
-                                this._dateMenuBackdrop?.hide();
-                                return GLib.SOURCE_REMOVE;
-                            }
-                        );
+                    GLib.idle_add(
+                        GLib.PRIORITY_DEFAULT_IDLE,
+                        () => {
+                            if (this._enabled)
+                                apply();
+                            return GLib.SOURCE_REMOVE;
+                        }
+                    );
                 }
             );
 
@@ -598,180 +500,35 @@ export class LiquidGlassIntegration {
         );
     }
 
-    _applyNativeDateMenuMaterial() {
+    _makeNativeDateMenuTransparent() {
         const actor = this._dateMenuActor;
         const box = this._dateMenuBox;
-        if (!actor || !box || !this._settings)
+        if (!actor || !box)
             return;
 
-        const [r, g, b] = parseHexRgb(
-            this._settings.get_string(
-                'dock-tint-color'
-            )
-        );
-        const tintStrength = clampNumber(
-            this._settings.get_double(
-                'dock-tint-strength'
-            ),
-            0,
-            1
-        );
-        const brightness = clampNumber(
-            this._settings.get_double(
-                'dock-brightness'
-            ),
-            0.4,
-            1.6
-        );
-        const dockBlur = Math.max(
-            0,
-            this._settings.get_int(
-                'dock-blur-radius'
-            )
-        );
-
-        const alpha = clampNumber(
-            0.055 + tintStrength * 0.42,
-            0.055,
-            0.22
-        );
-        const blurRadius = Math.round(
-            clampNumber(
-                20 + dockBlur * 4,
-                20,
-                48
-            )
-        );
-
-        try {
-            if (this._dateMenuBlurEffect) {
-                this._dateMenuBlurEffect.radius =
-                    blurRadius;
-                this._dateMenuBlurEffect.brightness =
-                    brightness;
-            }
-        } catch {
-            // BlurEffect property access can vary across Shell builds.
-        }
-
-        const fill =
-            `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
-
-        // Native BoxPointer/content layers become transparent. They keep all
-        // GNOME layout/input/animation behavior but no longer paint a white
-        // card over our dedicated glass backdrop.
+        // BoxPointer paints its own rounded shell/arrow. Make that fully
+        // transparent while preserving GNOME's native popup actor.
         actor.set_style?.(
             (this._dateMenuOriginalActorStyle || '') +
             '; -arrow-background-color: rgba(0,0,0,0);' +
             ' -arrow-border-color: rgba(0,0,0,0);' +
             ' -arrow-border-width: 0px;' +
-            ' background-color: transparent;' +
+            ' background-color: rgba(0,0,0,0);' +
+            ' background-image: none;' +
             ' box-shadow: none;'
         );
 
+        // popup-menu-content is the actual Date Menu content container.
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
             '; background-color: rgba(0,0,0,0);' +
             ' background-image: none;' +
-            ' border-color: transparent;' +
-            ' box-shadow: none;'
-        );
-
-        this._dateMenuBackdrop?.set_style?.(
-            `background-color: ${fill};` +
-            ' background-image: none;' +
-            ' border: 1px solid rgba(255,255,255,0.22);' +
-            ' border-radius: 28px;' +
+            ' border-color: rgba(0,0,0,0);' +
             ' box-shadow: none;'
         );
 
         actor.queue_redraw?.();
         box.queue_redraw?.();
-        this._dateMenuBackdrop?.queue_redraw?.();
-    }
-
-    _syncNativeDateMenuBackdrop() {
-        const actor = this._dateMenuActor;
-        const backdrop = this._dateMenuBackdrop;
-        if (!actor || !backdrop)
-            return;
-
-        const parent = backdrop.get_parent?.();
-        if (!parent)
-            return;
-
-        if (!actor.visible || !actor.mapped) {
-            backdrop.hide();
-            return;
-        }
-
-        const [absX, absY] =
-            actor.get_transformed_position();
-        const [width, height] =
-            actor.get_transformed_size();
-        const [parentX, parentY] =
-            parent.get_transformed_position();
-
-        if (
-            ![
-                absX,
-                absY,
-                width,
-                height,
-                parentX,
-                parentY,
-            ].every(Number.isFinite) ||
-            width <= 0 ||
-            height <= 0
-        ) {
-            return;
-        }
-
-        backdrop.set_position(
-            Math.round(absX - parentX),
-            Math.round(absY - parentY)
-        );
-        backdrop.set_size(
-            Math.round(width),
-            Math.round(height)
-        );
-
-        try {
-            parent.set_child_below_sibling(
-                backdrop,
-                actor
-            );
-        } catch {
-            // Parent may be rebuilding its child list.
-        }
-
-        backdrop.show();
-    }
-
-    _startNativeDateMenuBackdropSync() {
-        if (this._dateMenuBackdropFrameId)
-            return;
-
-        this._syncNativeDateMenuBackdrop();
-        this._dateMenuBackdropFrameId =
-            global.stage.connect(
-                'before-update',
-                () => this._syncNativeDateMenuBackdrop()
-            );
-    }
-
-    _stopNativeDateMenuBackdropSync() {
-        if (!this._dateMenuBackdropFrameId)
-            return;
-
-        try {
-            global.stage.disconnect(
-                this._dateMenuBackdropFrameId
-            );
-        } catch {
-            // Stage may already be tearing down.
-        }
-        this._dateMenuBackdropFrameId = 0;
     }
 
     _styleNativeDateMenuChildren() {
@@ -809,9 +566,9 @@ export class LiquidGlassIntegration {
 
                 actor.set_style?.(
                     original +
-                    '; background-color: rgba(255,255,255,0.045);' +
+                    '; background-color: rgba(0,0,0,0);' +
                     ' background-image: none;' +
-                    ' border-color: rgba(255,255,255,0.10);' +
+                    ' border-color: rgba(0,0,0,0);' +
                     ' box-shadow: none;'
                 );
                 actor.queue_redraw?.();
@@ -837,15 +594,6 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupNativeDateMenuStyler() {
-        for (const id of this._dateMenuMaterialSettingIds) {
-            try {
-                this._settings?.disconnect(id);
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._dateMenuMaterialSettingIds = [];
-
         const dateMenu = Main.panel?.statusArea?.dateMenu;
         const menu = dateMenu?.menu;
         if (this._dateMenuOpenSignalId && menu) {
@@ -859,18 +607,6 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuOpenSignalId = 0;
 
-        if (this._dateMenuBackdropHideId) {
-            try {
-                GLib.source_remove(
-                    this._dateMenuBackdropHideId
-                );
-            } catch {
-                // Timeout may already have completed.
-            }
-            this._dateMenuBackdropHideId = 0;
-        }
-
-        this._stopNativeDateMenuBackdropSync();
         this._restoreNativeDateMenuChildren();
 
         try {
@@ -880,25 +616,6 @@ export class LiquidGlassIntegration {
             this._dateMenuBox?.remove_style_class_name?.(
                 'velora-native-date-menu-glass'
             );
-
-            if (
-                this._dateMenuBlurEffect &&
-                this._dateMenuBackdrop
-            ) {
-                try {
-                    this._dateMenuBackdrop.remove_effect(
-                        this._dateMenuBlurEffect
-                    );
-                } catch {
-                    // Effect or actor may already be destroyed.
-                }
-            }
-
-            try {
-                this._dateMenuBackdrop?.destroy();
-            } catch {
-                // Backdrop may already be destroyed.
-            }
 
             this._dateMenuActor?.set_style?.(
                 this._dateMenuOriginalActorStyle ?? ''
@@ -915,11 +632,6 @@ export class LiquidGlassIntegration {
         this._dateMenuBox = null;
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
-        this._dateMenuBackdrop = null;
-        this._dateMenuBlurEffect = null;
-        this._dateMenuBackdropFrameId = 0;
-        this._dateMenuBackdropHideId = 0;
-        this._dateMenuMaterialSettingIds = [];
         this._dateMenuChildStyles.clear();
     }
 
@@ -1531,15 +1243,9 @@ export class LiquidGlassIntegration {
                 nativeDateMenuStyler: Boolean(
                     this._dateMenuActor
                 ),
-                dateMenuBackdrop: Boolean(
-                    this._dateMenuBackdrop
-                ),
                 panelMenuManager: Boolean(this._panelMenuManager),
                 nativeNotificationStyler: Boolean(
                     this._notificationBannerBin
-                ),
-                dateMenuBlur: Boolean(
-                    this._dateMenuBlurEffect
                 ),
                 quickSettingsManager: Boolean(
                     this._quickSettingsManager
