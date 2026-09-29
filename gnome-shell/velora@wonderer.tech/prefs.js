@@ -372,16 +372,19 @@ export default class VeloraPreferences extends ExtensionPreferences {
             5
         );
 
-        addSpin(
-            glassSurfaceGroup,
-            liquidGlassSettings,
-            'notification-glass-expand',
-            'Notification glass padding',
-            'Extra glass-only area around the notification card. This does not change the notification content size.',
-            0,
-            80,
-            2
+        const notificationRendererRow = new Adw.ActionRow({
+            title: 'Notification renderer',
+            subtitle: 'Native GNOME notification card with Velora glass styling. No extra FBO, clone tree, or refraction renderer is used for notifications.',
+        });
+        const notificationRendererState = new Gtk.Label({
+            label: 'Native',
+            valign: Gtk.Align.CENTER,
+        });
+        notificationRendererState.add_css_class('success');
+        notificationRendererRow.add_suffix(
+            notificationRendererState
         );
+        glassSurfaceGroup.add(notificationRendererRow);
 
         const topPanelRow = new Adw.ActionRow({
             title: 'Top panel glass',
