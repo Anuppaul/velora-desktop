@@ -24,6 +24,16 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
+const CARD_SCOPE_CLASS = 'velora-card-appearance-scope';
+const CARD_SELECTORS = [
+    '.message',
+    '.calendar',
+    '.datemenu-today-button',
+    '.events-button',
+    '.world-clocks-button',
+    '.weather-button',
+];
+
 function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -268,12 +278,11 @@ export class LiquidGlassIntegration {
         this._cardAppearanceSettingIds = [];
         this._cardAppearancePollId = 0;
         this._lastCardAppearanceSignature = '';
-        this._dateMenuChildStyles = new Map();
-        this._dateMenuChildBlurEffects = new Map();
+        this._cardCssFile = null;
+        this._cardCssCounter = 0;
         this._panelMenuManager = null;
         this._notificationBannerBin = null;
         this._notificationBannerSignals = [];
-        this._notificationOriginalStyles = new Map();
         this._notificationBlurEffects = new Map();
         this._quickSettingsManager = null;
         this._osdManager = null;
@@ -479,6 +488,9 @@ export class LiquidGlassIntegration {
         box.add_style_class_name?.(
             'velora-native-date-menu-glass'
         );
+        box.add_style_class_name?.(
+            CARD_SCOPE_CLASS
+        );
 
         this._dateMenuOriginalActorStyle =
             actor.get_style?.() ?? '';
@@ -498,7 +510,6 @@ export class LiquidGlassIntegration {
         // controls affect only the panel background/tint and optional
         // BACKGROUND blur; content opacity and layout remain untouched.
         this._applyNativeDateMenuAppearance();
-        this._styleNativeDateMenuChildren();
 
         const apply = () => {
             actor.add_style_class_name?.(
@@ -508,7 +519,6 @@ export class LiquidGlassIntegration {
                 'velora-native-date-menu-glass'
             );
             this._applyNativeDateMenuAppearance();
-            this._styleNativeDateMenuChildren();
         };
 
         this._dateMenuOpenSignalId =
@@ -621,7 +631,7 @@ export class LiquidGlassIntegration {
             state.blur;
 
         this._applyNativeDateMenuAppearance(state);
-        this._styleNativeDateMenuChildren(state);
+        this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
 
         console.log(
@@ -716,6 +726,7 @@ export class LiquidGlassIntegration {
         }
         this._cardAppearancePollId = 0;
         this._lastCardAppearanceSignature = '';
+        this._unloadCardAppearanceStylesheet();
     }
 
     _applyNativeDateMenuAppearance(
@@ -726,10 +737,11 @@ export class LiquidGlassIntegration {
         if (!actor || !box)
             return;
 
-        const {fill, blur} = state;
+        const {blur} = state;
 
-        // Keep the outer BoxPointer exactly as in the known-working fully
-        // transparent version. It must never become the opacity surface.
+        // Match the uploaded working extension: popup shell/content are kept
+        // transparent; actual card material is supplied by a generated theme
+        // stylesheet targeting the GNOME style classes.
         actor.set_style?.(
             (this._dateMenuOriginalActorStyle || '') +
             '; -arrow-background-color: rgba(0,0,0,0);' +
@@ -740,10 +752,6 @@ export class LiquidGlassIntegration {
             ' box-shadow: none;'
         );
 
-        // Keep popup-menu-content transparent. The visible material is painted
-        // by GNOME's actual card actors (.calendar, .events-button,
-        // .world-clocks-button, .weather-button, .message), which are styled
-        // separately below.
         box.set_style?.(
             (this._dateMenuOriginalStyle || '') +
             '; background-color: rgba(0,0,0,0);' +
@@ -752,7 +760,24 @@ export class LiquidGlassIntegration {
             ' box-shadow: none;'
         );
 
-        if (this._dateMenuBlurEffect) {
+        if (blur > 0) {
+            if (!this._dateMenuBlurEffect) {
+                this._dateMenuBlurEffect =
+                    new Shell.BlurEffect({
+                        mode: Shell.BlurMode.BACKGROUND,
+                        radius: blur,
+                        brightness: 1.0,
+                    });
+                box.add_effect_with_name?.(
+                    'velora-date-menu-blur',
+                    this._dateMenuBlurEffect
+                );
+                if (!box.get_effect?.('velora-date-menu-blur'))
+                    box.add_effect?.(this._dateMenuBlurEffect);
+            } else {
+                this._dateMenuBlurEffect.radius = blur;
+            }
+        } else if (this._dateMenuBlurEffect) {
             try {
                 box.remove_effect(
                     this._dateMenuBlurEffect
@@ -768,108 +793,91 @@ export class LiquidGlassIntegration {
         box.queue_redraw?.();
     }
 
-    _styleNativeDateMenuChildren(
-        state = this._readSharedCardAppearance()
-    ) {
-        const root = this._dateMenuBox;
-        if (!root)
-            return;
-
-        const {fill, blur} = state;
-
-        const cardClasses = new Set([
-            'calendar',
-            'datemenu-today-button',
-            'events-button',
-            'world-clocks-button',
-            'weather-button',
-            'message',
-        ]);
-
-        const visit = actor => {
-            if (!actor)
-                return;
-
-            const classes = (
-                actor.get_style_class_name?.() ?? ''
-            ).split(/\s+/).filter(Boolean);
-
-            if (classes.some(name => cardClasses.has(name))) {
-                if (!this._dateMenuChildStyles.has(actor)) {
-                    this._dateMenuChildStyles.set(
-                        actor,
-                        actor.get_style?.() ?? ''
-                    );
-                }
-
-                const original =
-                    this._dateMenuChildStyles.get(actor) ?? '';
-
-                actor.set_style?.(
-                    original +
-                    `; background-color: ${fill};` +
-                    ' background-image: none;' +
-                    ' border-color: rgba(0,0,0,0);' +
-                    ' box-shadow: none;'
-                );
-
-                let effect =
-                    this._dateMenuChildBlurEffects.get(actor) ?? null;
-
-                if (blur > 0) {
-                    if (!effect) {
-                        effect = new Shell.BlurEffect({
-                            mode: Shell.BlurMode.BACKGROUND,
-                            radius: blur,
-                            brightness: 1.0,
-                        });
-                        actor.add_effect(effect);
-                        this._dateMenuChildBlurEffects.set(
-                            actor,
-                            effect
-                        );
-                    } else {
-                        effect.radius = blur;
-                    }
-                } else if (effect) {
-                    try {
-                        actor.remove_effect(effect);
-                    } catch {
-                        // Card/effect may already be tearing down.
-                    }
-                    this._dateMenuChildBlurEffects.delete(actor);
-                }
-
-                actor.queue_redraw?.();
-            }
-
-            for (const child of actor.get_children?.() ?? [])
-                visit(child);
-        };
-
-        visit(root);
+    _getShellTheme() {
+        return St.ThemeContext
+            .get_for_stage(global.stage)
+            .get_theme();
     }
 
-    _restoreNativeDateMenuChildren() {
-        for (const [actor, effect] of
-            this._dateMenuChildBlurEffects) {
-            try {
-                actor.remove_effect(effect);
-            } catch {
-                // Actor/effect may already have been destroyed.
-            }
-        }
-        this._dateMenuChildBlurEffects.clear();
+    _unloadCardAppearanceStylesheet() {
+        if (!this._cardCssFile)
+            return;
 
-        for (const [actor, original] of
-            this._dateMenuChildStyles) {
-            try {
-                actor.set_style?.(original);
-            } catch {
-                // Actor may already have been destroyed.
-            }
+        try {
+            this._getShellTheme().unload_stylesheet(
+                this._cardCssFile
+            );
+        } catch (error) {
+            console.warn(
+                '[Velora][CardAppearance] stylesheet unload failed: ' +
+                error
+            );
         }
-        this._dateMenuChildStyles.clear();
+
+        try {
+            this._cardCssFile.delete(null);
+        } catch {
+            // Cached CSS file may already be gone.
+        }
+
+        this._cardCssFile = null;
+    }
+
+    _applyCardAppearanceStylesheet(
+        state = this._readSharedCardAppearance()
+    ) {
+        const {fill} = state;
+        const scope = selector =>
+            `.${CARD_SCOPE_CLASS} ${selector}`;
+
+        const cardSelectors =
+            CARD_SELECTORS.map(scope).join(',\n');
+
+        // Date Menu cards are scoped below menu.box. Temporary notification
+        // banners receive our own class when GNOME creates them. A unique CSS
+        // filename is loaded for every material change so St cannot retain an
+        // older parsed stylesheet from cache.
+        const css =
+            `${cardSelectors},\n` +
+            '.velora-native-notification-glass {\n' +
+            `  background-color: ${fill} !important;\n` +
+            '  background-image: none !important;\n' +
+            '  border-color: transparent !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n\n' +
+            `${cardSelectors.split(',\n').map(s => s + ':hover').join(',\n')},\n` +
+            '.velora-native-notification-glass:hover,\n' +
+            '.velora-native-notification-glass:focus {\n' +
+            `  background-color: ${fill} !important;\n` +
+            '  box-shadow: none !important;\n' +
+            '}\n';
+
+        const dir = GLib.build_filenamev([
+            GLib.get_user_cache_dir(),
+            'velora@wonderer.tech',
+            'card-appearance',
+        ]);
+        GLib.mkdir_with_parents(dir, 0o755);
+
+        const path = GLib.build_filenamev([
+            dir,
+            'cards-' +
+            Date.now() +
+            '-' +
+            this._cardCssCounter++ +
+            '.css',
+        ]);
+
+        GLib.file_set_contents(path, css);
+
+        this._unloadCardAppearanceStylesheet();
+
+        const file = Gio.File.new_for_path(path);
+        this._getShellTheme().load_stylesheet(file);
+        this._cardCssFile = file;
+
+        this._dateMenuBox?.queue_redraw?.();
+        Main.messageTray?._banner?.queue_redraw?.();
     }
 
     _cleanupNativeDateMenuStyler() {
@@ -897,7 +905,6 @@ export class LiquidGlassIntegration {
         }
         this._dateMenuBlurEffect = null;
 
-        this._restoreNativeDateMenuChildren();
 
         try {
             this._dateMenuActor?.remove_style_class_name?.(
@@ -905,6 +912,9 @@ export class LiquidGlassIntegration {
             );
             this._dateMenuBox?.remove_style_class_name?.(
                 'velora-native-date-menu-glass'
+            );
+            this._dateMenuBox?.remove_style_class_name?.(
+                CARD_SCOPE_CLASS
             );
 
             this._dateMenuActor?.set_style?.(
@@ -923,8 +933,6 @@ export class LiquidGlassIntegration {
         this._dateMenuOriginalActorStyle = null;
         this._dateMenuOriginalStyle = null;
         this._dateMenuBlurEffect = null;
-        this._dateMenuChildStyles.clear();
-        this._dateMenuChildBlurEffects.clear();
     }
 
     _setupTopPanelGlass() {
@@ -1060,6 +1068,7 @@ export class LiquidGlassIntegration {
                 'velora-native-notification-glass'
             );
             this._applyNativeNotificationAppearance(actor);
+            actor.queue_redraw?.();
         };
 
         const unstyleBanner = actor => {
@@ -1135,24 +1144,7 @@ export class LiquidGlassIntegration {
         if (!actor)
             return;
 
-        if (!this._notificationOriginalStyles.has(actor)) {
-            this._notificationOriginalStyles.set(
-                actor,
-                actor.get_style?.() ?? ''
-            );
-        }
-
-        const {fill, blur} = state;
-        const original =
-            this._notificationOriginalStyles.get(actor) ?? '';
-
-        actor.set_style?.(
-            original +
-            `; background-color: ${fill};` +
-            ' background-image: none;' +
-            ' border-color: rgba(0,0,0,0);' +
-            ' box-shadow: none;'
-        );
+        const {blur} = state;
 
         let effect =
             this._notificationBlurEffects.get(actor) ?? null;
@@ -1198,17 +1190,6 @@ export class LiquidGlassIntegration {
             }
             this._notificationBlurEffects.delete(actor);
         }
-
-        if (this._notificationOriginalStyles.has(actor)) {
-            try {
-                actor.set_style?.(
-                    this._notificationOriginalStyles.get(actor)
-                );
-            } catch {
-                // Banner may already be destroyed.
-            }
-            this._notificationOriginalStyles.delete(actor);
-        }
     }
 
     _cleanupNativeNotificationStyler() {
@@ -1225,7 +1206,6 @@ export class LiquidGlassIntegration {
         const actors = new Set([
             ...(this._notificationBannerBin?.get_children?.() ?? []),
             ...(tray?._banner ? [tray._banner] : []),
-            ...this._notificationOriginalStyles.keys(),
             ...this._notificationBlurEffects.keys(),
         ]);
 
@@ -1240,7 +1220,6 @@ export class LiquidGlassIntegration {
             }
         }
 
-        this._notificationOriginalStyles.clear();
         this._notificationBlurEffects.clear();
         this._notificationBannerBin = null;
     }
@@ -1826,7 +1805,6 @@ export class LiquidGlassIntegration {
         this._cardAppearanceSettingIds = [];
         this._cardAppearancePollId = 0;
         this._lastCardAppearanceSignature = '';
-        this._notificationOriginalStyles.clear();
         this._notificationBlurEffects.clear();
         this._osdManager = null;
         this._applicationManager = null;
