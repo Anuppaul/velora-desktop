@@ -246,11 +246,13 @@ class ShellCardSurface {
         const localX = this._overlay ? 0 : x;
         const localY = this._overlay ? 0 : y;
 
-        this._material.set_position(
+        this._vendor.setPositionIfChanged(
+            this._material,
             localX - OPTICAL_MARGIN,
             localY - OPTICAL_MARGIN
         );
-        this._material.set_size(
+        this._vendor.setSizeIfChanged(
+            this._material,
             w + OPTICAL_MARGIN * 2,
             h + OPTICAL_MARGIN * 2
         );
@@ -265,14 +267,21 @@ class ShellCardSurface {
             (OPTICAL_MARGIN + pivotX * w) / materialW,
             (OPTICAL_MARGIN + pivotY * h) / materialH
         );
-        this._material.set_scale(scaleX, scaleY);
-        this._material.set_translation(
+        if (
+            this._material.scale_x !== scaleX ||
+            this._material.scale_y !== scaleY
+        ) {
+            this._material.set_scale(scaleX, scaleY);
+        }
+        this._vendor.setTranslationIfChanged(
+            this._material,
             this._target.translation_x ?? 0,
-            this._target.translation_y ?? 0,
-            0
+            this._target.translation_y ?? 0
         );
-        this._material.opacity = opacity;
-        this._material.show?.();
+        if (this._material.opacity !== opacity)
+            this._material.opacity = opacity;
+        if (!this._material.visible)
+            this._material.show?.();
         this._syncSceneLayers();
     }
 
@@ -313,12 +322,26 @@ class ShellCardSurface {
         const sx = Math.max(tw / w, .001);
         const sy = Math.max(th / h, .001);
 
-        sceneRoot.set_size(
+        this._vendor.setSizeIfChanged(
+            sceneRoot,
             global.stage.width,
             global.stage.height
         );
-        sceneRoot.set_scale(1 / sx, 1 / sy);
-        sceneRoot.set_position(-absX / sx, -absY / sy);
+        const invScaleX = 1 / sx;
+        const invScaleY = 1 / sy;
+        if (
+            sceneRoot.scale_x !== invScaleX ||
+            sceneRoot.scale_y !== invScaleY
+        ) {
+            sceneRoot.set_scale(invScaleX, invScaleY);
+        }
+        if (sceneRoot.x !== 0 || sceneRoot.y !== 0)
+            sceneRoot.set_position(0, 0);
+        this._vendor.setTranslationIfChanged(
+            sceneRoot,
+            -absX / sx,
+            -absY / sy
+        );
 
         const captureRect = [
             absX,
@@ -389,6 +412,7 @@ class ShellCardSurface {
         } catch {}
 
         if (
+            removeClass &&
             this._overlay &&
             this._wrappedBinParent &&
             this._target
