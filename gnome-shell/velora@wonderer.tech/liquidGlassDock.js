@@ -279,7 +279,6 @@ export class LiquidGlassIntegration {
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
         this._cardCssCounter = 0;
-        this._panelMenuManager = null;
         this._notificationGlassManager = null;
         this._quickSettingsManager = null;
         this._osdManager = null;
