@@ -9,17 +9,17 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-09-29.26"
+INSTALLER_VERSION="2026-09-29.27"
 
 BOOTSTRAP_FILES=(
     "extension.js"
     "metadata.json"
     "stylesheet.css"
-    "schemas/org.gnome.shell.extensions.velora.gschema.xml"
 )
 
 HOT_AUX_FILES=(
     "prefs.js"
+    "schemas/org.gnome.shell.extensions.velora.gschema.xml"
 )
 
 RUNTIME_FILES=(
@@ -183,7 +183,7 @@ bootstrap_scaffold_compatible() {
         return 1
 
     installed_generation="$(installed_bootstrap_generation)" || return 1
-    installed_revision="$(installed_bootstrap_revision)" || return 1
+    installed_revision="$(bootstrap_revision_for_dir "${TARGET_DIR}")" || return 1
 
     if [[ "${installed_generation}" != "${SOURCE_BOOTSTRAP_GENERATION}" ||
           "${installed_revision}" != "${SOURCE_BOOTSTRAP_REVISION}" ]]; then
@@ -192,10 +192,8 @@ bootstrap_scaffold_compatible() {
         return 1
     fi
 
-    if [[ ! -f "${BOOTSTRAP_MARKER}" ||
-          ! -f "${BOOTSTRAP_REVISION_MARKER}" ]]; then
-        record_bootstrap_identity
-    fi
+    # Schema/prefs are hot auxiliary data; only stable bootstrap bytes define this marker.
+    record_bootstrap_identity
 
     return 0
 }
@@ -207,6 +205,7 @@ sync_hot_aux() {
     local destination
 
     for file in "${HOT_AUX_FILES[@]}"; do
+        mkdir -p "$(dirname "${TARGET_DIR}/${file}")"
         cp -f "${SOURCE_DIR}/${file}" "${TARGET_DIR}/${file}"
     done
 
@@ -231,10 +230,15 @@ sync_hot_aux() {
     [[ -f "${TARGET_DIR}/vendor/liquid-glass/schemas/gschemas.compiled" ]] ||
         fail "Canonical Liquid Glass GSettings compilation failed."
 
+    glib-compile-schemas --strict "${TARGET_DIR}/schemas"
+    [[ -f "${TARGET_DIR}/schemas/gschemas.compiled" ]] ||
+        fail "Canonical Velora GSettings compilation failed."
+
     shopt -s nullglob
     for live_dir in "${HOME}"/.cache/velora-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
         [[ -d "${live_dir}" ]] || continue
         for file in "${HOT_AUX_FILES[@]}"; do
+            mkdir -p "$(dirname "${live_dir}/${file}")"
             cp -f "${SOURCE_DIR}/${file}" "${live_dir}/${file}"
         done
 
@@ -249,6 +253,7 @@ sync_hot_aux() {
         done
 
         glib-compile-schemas --strict             "${live_dir}/vendor/liquid-glass/schemas"
+        glib-compile-schemas --strict "${live_dir}/schemas"
     done
     shopt -u nullglob
 
@@ -286,14 +291,11 @@ ensure_bootstrap_active() {
             return 22
         fi
 
-        if [[ -n "${loaded_bootstrap_revision}" &&
-              "${loaded_bootstrap_revision}" != "${SOURCE_BOOTSTRAP_REVISION}" ]]; then
-            return 22
-        fi
 
         if [[ "${loaded_generation}" == "${SOURCE_BOOTSTRAP_GENERATION}" &&
-              "${loaded_bootstrap_revision}" == "${SOURCE_BOOTSTRAP_REVISION}" &&
               -n "${loaded_runtime_revision}" ]]; then
+            # Stable bootstrap bytes already match; normalize the old marker value.
+            write_string_setting bootstrap-loaded-revision "${SOURCE_BOOTSTRAP_REVISION}"
             return 0
         fi
 
@@ -318,6 +320,9 @@ runtime_revision() {
             printf '%s\0' "${file}"
             cat "${SOURCE_DIR}/${file}"
         done
+
+        printf '%s\0' "schemas/org.gnome.shell.extensions.velora.gschema.xml"
+        cat "${SOURCE_DIR}/schemas/org.gnome.shell.extensions.velora.gschema.xml"
 
         for runtime_source in "${RUNTIME_DIRS[@]}"; do
             while IFS= read -r file; do
