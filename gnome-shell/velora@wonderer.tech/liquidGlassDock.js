@@ -240,6 +240,7 @@ export class LiquidGlassIntegration {
         this._stylesheet = null;
 
         this._uiManager = null;
+        this._dateMenuScaleSettingId = 0;
         this._panelMenuManager = null;
         this._notificationManager = null;
         this._notificationScaleSettingId = 0;
@@ -353,7 +354,59 @@ export class LiquidGlassIntegration {
                 this._settings,
                 this._logger
             );
+
+            const upstreamApplyMenuScale =
+                this._uiManager._applyMenuScale
+                    .bind(this._uiManager);
+
+            this._uiManager._applyMenuScale = () => {
+                // Upstream intentionally clamps the Date Menu to <= 1.0.
+                // Keep its own calculation first, then apply Velora's
+                // independent multiplier so the card can also be enlarged.
+                upstreamApplyMenuScale();
+
+                const actor = this._uiManager?.targetActor;
+                if (!actor || !this._veloraSettings)
+                    return;
+
+                const multiplier = Math.max(
+                    0.6,
+                    Math.min(
+                        1.8,
+                        this._veloraSettings.get_int(
+                            'date-menu-panel-scale'
+                        ) / 100
+                    )
+                );
+
+                const baseScaleX =
+                    Number.isFinite(actor.scale_x)
+                        ? actor.scale_x
+                        : 1;
+                const baseScaleY =
+                    Number.isFinite(actor.scale_y)
+                        ? actor.scale_y
+                        : 1;
+
+                actor.set_pivot_point(0.5, 0);
+                actor.set_scale(
+                    baseScaleX * multiplier,
+                    baseScaleY * multiplier
+                );
+                actor.queue_relayout?.();
+                actor.queue_redraw?.();
+                this._uiManager?.bgActor?.queue_redraw?.();
+            };
+
             this._uiManager.setup();
+
+            this._dateMenuScaleSettingId =
+                this._veloraSettings.connect(
+                    'changed::date-menu-panel-scale',
+                    () => {
+                        this._uiManager?._applyMenuScale?.();
+                    }
+                );
         });
 
         start('panelMenuManager', () => {
@@ -1085,6 +1138,10 @@ export class LiquidGlassIntegration {
                     this._nativeDashEntries.length,
                 topPanel: Boolean(this._topPanelManager),
                 uiManager: Boolean(this._uiManager),
+                dateMenuPanelScale:
+                    this._veloraSettings?.get_int?.(
+                        'date-menu-panel-scale'
+                    ) ?? null,
                 panelMenuManager: Boolean(this._panelMenuManager),
                 notificationManager: Boolean(
                     this._notificationManager
@@ -1243,6 +1300,21 @@ export class LiquidGlassIntegration {
         this._nativeDashEntries = [];
 
         cleanup('panelMenuManager', this._panelMenuManager);
+
+        if (
+            this._dateMenuScaleSettingId &&
+            this._veloraSettings
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._dateMenuScaleSettingId
+                );
+            } catch {
+                // Settings may already be tearing down.
+            }
+        }
+        this._dateMenuScaleSettingId = 0;
+
         cleanup('uiManager', this._uiManager);
         cleanup('quickSettingsManager', this._quickSettingsManager);
 
