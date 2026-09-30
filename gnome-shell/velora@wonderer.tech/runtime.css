@@ -192,7 +192,7 @@
     box-shadow: none !important;
 }
 
-.velora-liquid-popup-shell:has(.datemenu-popover) {
+.velora-liquid-date-menu-shell {
     background-color: transparent !important;
     background-image: none !important;
     -arrow-background-color: transparent !important;
