@@ -268,6 +268,7 @@ export class NotificationGlassManager {
             lastShaderY: null,
             lastShaderW: null,
             lastShaderH: null,
+            lastSceneSyncUs: 0,
         };
 
         this._materials.set(actor, material);
@@ -459,6 +460,7 @@ export class NotificationGlassManager {
                 null,
                 'velora-notification-scene'
             );
+        material.lastSceneSyncUs = 0;
         return material.sceneManager;
     }
 
@@ -472,6 +474,7 @@ export class NotificationGlassManager {
             // Scene may already be tearing down.
         }
         material.sceneManager = null;
+        material.lastSceneSyncUs = 0;
     }
 
     _sync(material, shaderOnly) {
@@ -621,9 +624,26 @@ export class NotificationGlassManager {
             width + margin * 2,
             height + margin * 2,
         ];
-        sceneManager?.setCullRect?.(captureRect);
-        sceneManager?.applyBgCloneClip?.(captureRect);
-        sceneManager?.sync?.();
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                60,
+                this._appearance?.sceneFps ?? 30
+            )
+        );
+        const nowUs = GLib.get_monotonic_time();
+        const intervalUs = 1000000 / sceneFps;
+        const sceneDue =
+            geometryChanged ||
+            material.lastSceneSyncUs === 0 ||
+            nowUs - material.lastSceneSyncUs >= intervalUs;
+
+        if (sceneDue) {
+            sceneManager?.setCullRect?.(captureRect);
+            sceneManager?.applyBgCloneClip?.(captureRect);
+            sceneManager?.sync?.();
+            material.lastSceneSyncUs = nowUs;
+        }
 
         material.effect.setResolution?.(
             screenW,
