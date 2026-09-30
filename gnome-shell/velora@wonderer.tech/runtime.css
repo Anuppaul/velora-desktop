@@ -182,24 +182,6 @@
     box-shadow: none;
 }
 
-/* Date Menu reference surface: Yaru/GNOME still owns a 1px popover border
- * and native shadow. Preserve its layout width, but force the paint itself
- * fully transparent so the LiquidEffect rim is the only visible outline. */
-.velora-liquid-popup-content.datemenu-popover {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-}
-
-.velora-liquid-date-menu-shell {
-    background-color: transparent !important;
-    background-image: none !important;
-    -arrow-background-color: transparent !important;
-    -arrow-border-color: transparent !important;
-    box-shadow: none !important;
-}
-
 /* BoxPointer draws its own background/border through -arrow-* theme
  * properties. Keep its geometry (border width/rise) unchanged, but make that
  * native paint transparent so only the LiquidEffect silhouette is visible. */
