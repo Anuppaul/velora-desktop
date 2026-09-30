@@ -95,6 +95,13 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveResampleMs: 0,
         expandedSampleDelayMs: 140,
 
+        // Theme flips must feel immediate. Apply the Shell theme foreground
+        // synchronously, then let one backdrop sample correct it next frame.
+        themeResampleDelayMs: 16,
+
+        // Expanded QuickToggleMenu closes directly; no opacity fade-out.
+        collapseFade: false,
+
         // Native controls keep compositor-rate input/animation; only the
         // captured live scene behind the glass is capped.
         sceneFpsCap: 24,
