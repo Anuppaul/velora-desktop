@@ -68,6 +68,7 @@ class PopupGlassSurface {
         this._lastSceneScaleX = NaN;
         this._lastSceneScaleY = NaN;
         this._openStateId = 0;
+        this._mappedStateId = 0;
         this._lastHostW = 0;
         this._lastHostH = 0;
         this._lastHostX = NaN;
@@ -189,21 +190,47 @@ class PopupGlassSurface {
                     if (!isOpen)
                         return;
 
+                    // BoxPointer is hidden/unmapped on close. Because our
+                    // material is a no-layout child, its previous allocation is
+                    // no longer trustworthy when the same menu opens again even
+                    // when width/height are identical. Force the next frame to
+                    // allocate it again instead of accepting stale cache values.
+                    this._invalidateHostGeometry();
+
                     const sceneManager =
                         this._ensureSceneManager();
 
                     // Match the vendored UIManager lifecycle: keep the same
                     // manager/effect across close/open cycles, but rebuild the
-                    // source actors on every open. Destroying the manager on
-                    // close left the existing LiquidEffect bound to a torn-down
-                    // capture subtree, which is why the second open could fall
-                    // back to a flat rectangle.
+                    // source actors on every open.
                     sceneManager?.rebuildClones?.();
+
+                    // Scene transforms are derived from the newly allocated
+                    // material; invalidate those caches too.
+                    this._lastSceneX = NaN;
+                    this._lastSceneY = NaN;
+                    this._lastSceneScaleX = NaN;
+                    this._lastSceneScaleY = NaN;
+                    this._lastStageW = 0;
+                    this._lastStageH = 0;
+
                     this._material?.queue_redraw?.();
                 }
             );
         } catch {
             this._openStateId = 0;
+        }
+
+        try {
+            this._mappedStateId = this._boxPointer.connect(
+                'notify::mapped',
+                () => {
+                    if (!this._boxPointer?.mapped)
+                        this._invalidateHostGeometry();
+                }
+            );
+        } catch {
+            this._mappedStateId = 0;
         }
 
         effect.setLiveGeometryHook?.(() => this._syncPaintGeometry());
@@ -249,6 +276,13 @@ class PopupGlassSurface {
         }
 
         this._material?.queue_redraw?.();
+    }
+
+    _invalidateHostGeometry() {
+        this._lastHostW = 0;
+        this._lastHostH = 0;
+        this._lastHostX = NaN;
+        this._lastHostY = NaN;
     }
 
     _syncHostGeometry() {
@@ -471,6 +505,16 @@ class PopupGlassSurface {
             }
         }
         this._openStateId = 0;
+
+        if (this._mappedStateId && this._boxPointer) {
+            try {
+                this._boxPointer.disconnect(this._mappedStateId);
+            } catch {
+                // BoxPointer may already be tearing down.
+            }
+        }
+        this._mappedStateId = 0;
+
         this._releaseSceneManager();
 
         try {
