@@ -993,60 +993,136 @@ export class LiquidGlassIntegration {
         return found;
     }
 
+    _nativeDashIsReady(container) {
+        if (!container)
+            return false;
+
+        try {
+            return (
+                container.get_stage?.() === global.stage &&
+                container.mapped &&
+                container.visible
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    _cleanupNativeDashManager(entry) {
+        if (!entry?.manager)
+            return;
+
+        try {
+            entry.manager.cleanup();
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] native dock manager cleanup failed: ' +
+                error
+            );
+        }
+        entry.manager = null;
+    }
+
+    _attachNativeDashManager(entry) {
+        if (
+            !entry ||
+            entry.manager ||
+            !this._nativeDashIsReady(entry.container)
+        ) {
+            return false;
+        }
+
+        try {
+            entry.manager =
+                new this._vendor.DashManager(
+                    this._vendor.root,
+                    entry.container,
+                    this._settings,
+                    this._logger
+                );
+            entry.manager.setup();
+            return true;
+        } catch (error) {
+            console.error(
+                '[Velora][LiquidGlass] native dock attach failed: ' +
+                error
+            );
+            this._cleanupNativeDashManager(entry);
+            return false;
+        }
+    }
+
     _findNativeDashToDock() {
         const containers =
             this._collectNativeDashContainers();
         if (containers.length === 0)
             return false;
 
-        let added = 0;
+        let active = 0;
+
         for (const container of containers) {
-            if (
-                this._nativeDashEntries.some(
-                    entry => entry.container === container
-                )
-            ) {
-                continue;
+            let entry = this._nativeDashEntries.find(
+                item => item.container === container
+            );
+
+            if (!entry) {
+                entry = {
+                    container,
+                    manager: null,
+                    destroyId: 0,
+                    mappedId: 0,
+                };
+                this._nativeDashEntries.push(entry);
+
+                try {
+                    entry.destroyId = container.connect(
+                        'destroy',
+                        () => {
+                            entry.destroyId = 0;
+                            try {
+                                this._releaseNativeDash(entry);
+                            } finally {
+                                this._scheduleNativeDashRescan();
+                            }
+                        }
+                    );
+                } catch {
+                    entry.destroyId = 0;
+                }
+
+                try {
+                    entry.mappedId = container.connect(
+                        'notify::mapped',
+                        () => {
+                            if (!this._enabled)
+                                return;
+
+                            if (this._nativeDashIsReady(container)) {
+                                this._attachNativeDashManager(entry);
+                            } else {
+                                // Stop the vendored frame/theme sampler as soon
+                                // as Ubuntu Dock leaves the stage. Continuing to
+                                // query theme nodes on detached St actors causes
+                                // the repeated "widget is not in the stage"
+                                // warnings seen in the Shell journal.
+                                this._cleanupNativeDashManager(entry);
+                            }
+                        }
+                    );
+                } catch {
+                    entry.mappedId = 0;
+                }
             }
 
-            const entry = {
-                container,
-                manager: null,
-                destroyId: 0,
-            };
-            this._nativeDashEntries.push(entry);
-
-            try {
-                entry.manager =
-                    new this._vendor.DashManager(
-                        this._vendor.root,
-                        container,
-                        this._settings,
-                        this._logger
-                    );
-                entry.manager.setup();
-                entry.destroyId = container.connect(
-                    'destroy',
-                    () => {
-                        entry.destroyId = 0;
-                        try {
-                            this._releaseNativeDash(entry);
-                        } finally {
-                            this._scheduleNativeDashRescan();
-                        }
-                    }
-                );
-                added++;
-            } catch (error) {
-                console.error(
-                    '[Velora][LiquidGlass] native dock attach failed: ' +
-                    error
-                );
-                this._releaseNativeDash(entry);
+            if (this._nativeDashIsReady(container)) {
+                if (this._attachNativeDashManager(entry) || entry.manager)
+                    active++;
+            } else {
+                this._cleanupNativeDashManager(entry);
             }
         }
 
-        return added > 0;
+        return active > 0 || containers.length > 0;
     }
 
     _releaseNativeDash(entry) {
@@ -1064,17 +1140,16 @@ export class LiquidGlassIntegration {
             entry.destroyId = 0;
         }
 
-        if (entry.manager) {
+        if (entry.mappedId) {
             try {
-                entry.manager.cleanup();
-            } catch (error) {
-                console.error(
-                    '[Velora][LiquidGlass] native dock cleanup failed: ' +
-                    error
-                );
+                entry.container.disconnect(entry.mappedId);
+            } catch {
+                // Container may already be gone.
             }
-            entry.manager = null;
+            entry.mappedId = 0;
         }
+
+        this._cleanupNativeDashManager(entry);
     }
 
     _scheduleNativeDashRescan() {
