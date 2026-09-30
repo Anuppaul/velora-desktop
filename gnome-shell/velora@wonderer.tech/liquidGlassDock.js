@@ -166,7 +166,7 @@ async function importVendorModules(root) {
         unpickable,
         dockManager,
         osdManager,
-        quickSettingsManager,
+        contrastSampler,
         logger,
         utils,
         background,
@@ -178,7 +178,7 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/actors/unpickable.js')),
         import(moduleUri(root, 'dist/dockManager.js')),
         import(moduleUri(root, 'dist/osdManager.js')),
-        import(moduleUri(root, 'dist/quickSettingsManager.js')),
+        import(moduleUri(root, 'dist/contrastSampler.js')),
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
         import(moduleUri(root, 'dist/capture/background.js')),
@@ -196,7 +196,7 @@ async function importVendorModules(root) {
         UnpickableActor: unpickable.UnpickableActor,
         DashManager: dockManager.DashManager,
         OsdManager: osdManager.OsdManager,
-        QuickSettingsManager: quickSettingsManager.QuickSettingsManager,
+        StageContrastSampler: contrastSampler.StageContrastSampler,
         Logger: logger.Logger,
         setUtilsLogger: utils.setUtilsLogger,
         adaptiveColorTweener: utils.adaptiveColorTweener,
@@ -229,7 +229,7 @@ function validateVendorApi(vendor) {
         'WindowCloneManager',
         'DashManager',
         'OsdManager',
-        'QuickSettingsManager',
+        'StageContrastSampler',
         'Logger',
         'setUtilsLogger',
         'createBackgroundMirror',
@@ -257,29 +257,22 @@ function validateVendorApi(vendor) {
 
 
 export async function loadLiquidGlassVendorModules(veloraSettings) {
-    if (globalThis[VENDOR_CACHE_KEY]) {
-        const cached = globalThis[VENDOR_CACHE_KEY];
-        if (!cached.QuickSettingsManager && cached.root) {
-            const quickSettingsManager = await import(
-                moduleUri(cached.root, 'dist/quickSettingsManager.js')
+    const ensureContrastSampler = async vendor => {
+        if (vendor?.root && !vendor.StageContrastSampler) {
+            const contrastSampler = await import(
+                moduleUri(vendor.root, 'dist/contrastSampler.js')
             );
-            cached.QuickSettingsManager =
-                quickSettingsManager.QuickSettingsManager;
+            vendor.StageContrastSampler =
+                contrastSampler.StageContrastSampler;
         }
-        return cached;
-    }
+        return vendor;
+    };
 
-    if (globalThis[VENDOR_PROMISE_KEY]) {
-        const pending = await globalThis[VENDOR_PROMISE_KEY];
-        if (!pending.QuickSettingsManager && pending.root) {
-            const quickSettingsManager = await import(
-                moduleUri(pending.root, 'dist/quickSettingsManager.js')
-            );
-            pending.QuickSettingsManager =
-                quickSettingsManager.QuickSettingsManager;
-        }
-        return pending;
-    }
+    if (globalThis[VENDOR_CACHE_KEY])
+        return ensureContrastSampler(globalThis[VENDOR_CACHE_KEY]);
+
+    if (globalThis[VENDOR_PROMISE_KEY])
+        return ensureContrastSampler(await globalThis[VENDOR_PROMISE_KEY]);
 
     // Hot-swap compatibility: reuse the exact vendor module graph already
     // loaded by the previous V2 runtime. Re-importing the whole vendor tree
@@ -296,16 +289,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
             legacyCache.WindowCloneManager =
                 windowClones.WindowCloneManager;
         }
-        if (!legacyCache.QuickSettingsManager) {
-            const quickSettingsManager = await import(
-                moduleUri(
-                    legacyCache.root,
-                    'dist/quickSettingsManager.js'
-                )
-            );
-            legacyCache.QuickSettingsManager =
-                quickSettingsManager.QuickSettingsManager;
-        }
+        await ensureContrastSampler(legacyCache);
 
         globalThis[VENDOR_CACHE_KEY] = legacyCache;
         globalThis[VENDOR_ROOT_KEY] = legacyCache.root;
@@ -368,7 +352,6 @@ export class LiquidGlassIntegration {
         this._stylesheet = null;
 
         this._popupGlassManager = null;
-        this._quickSettingsInnerGlassManager = null;
         this._shellCardGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
@@ -407,13 +390,6 @@ export class LiquidGlassIntegration {
             externalRoot &&
             externalRoot === this._vendor.root
         );
-
-        // Only force Velora's dedicated inner-card profile when Velora owns
-        // the manager stack. If the original upstream extension is already
-        // active, changing its quick-settings-apply-to value here could turn
-        // its existing outer Quick Settings card off.
-        if (!this._externalGlobalStack)
-            this._ensureQuickSettingsInnerGlassProfile();
 
         this._logger = new this._vendor.Logger(this._settings);
         if (!this._externalGlobalStack)
@@ -478,31 +454,6 @@ export class LiquidGlassIntegration {
                         this._readSharedCardAppearance(),
                 });
             this._popupGlassManager.setup();
-        });
-
-        start('quickSettingsInnerGlassManager', () => {
-            this._quickSettingsInnerGlassManager =
-                new this._vendor.QuickSettingsManager(
-                    this._vendor.root,
-                    this._settings,
-                    this._logger
-                );
-            this._quickSettingsInnerGlassManager.setup();
-
-            // Keep the inner cards premium but restrained: same optical model
-            // as the parent, with a small local shadow rather than the global
-            // card shadow. Multi-region mode applies this once for all pods.
-            const effect =
-                this._quickSettingsInnerGlassManager.effect;
-            effect?.setSurfaceLightEnabled?.(true);
-            effect?.setBlurMethod?.(1);
-            try {
-                effect?._uniforms?.set?.('shadow_radius', 10);
-                effect?._uniforms?.set?.('shadow_intensity', 0.045);
-                effect?.queue_repaint?.();
-            } catch {
-                // Renderer-internal tuning is optional; the glass stays valid.
-            }
         });
 
         start('shellCardGlassManager', () => {
@@ -795,55 +746,6 @@ export class LiquidGlassIntegration {
             console.log(
                 '[Velora][LiquidGlass] Date Menu micro-tune/performance profile v4 seeded'
             );
-        }
-    }
-
-
-    _ensureQuickSettingsInnerGlassProfile() {
-        if (!this._settings)
-            return;
-
-        // The generic PopupGlassManager owns the outer Quick Settings card.
-        // The vendored QuickSettingsManager therefore runs strictly in its
-        // multi-region "toggles" mode: ONE shared capture/blur/refraction pass
-        // is masked into all native toggle pods. This is real LiquidEffect
-        // material, not CSS translucency and not one shader per button.
-        const writes = [
-            ['boolean', 'enable-quick-settings-glass', true],
-            ['boolean', 'enable-quick-settings-animation', false],
-            ['int', 'quick-settings-apply-to', 1],
-            ['string', 'quick-settings-tint-color', '#ffffff'],
-            ['double', 'quick-settings-tint-strength', 0.035],
-            ['int', 'quick-settings-blur-radius', 7],
-            ['double', 'quick-settings-toggle-tint-strength', 0.18],
-            ['double', 'quick-settings-toggle-corner-radius', 18.0],
-            ['int', 'quick-settings-glass-expand', 0],
-            ['int', 'quick-settings-x-offset', 0],
-            ['int', 'quick-settings-y-offset', 0],
-            ['double', 'quick-settings-brightness', 1.03],
-            ['double', 'quick-settings-contrast', 1.06],
-            ['double', 'quick-settings-saturation', 1.16],
-            ['boolean', 'quick-settings-enable-adaptive-text-color', true],
-            ['string', 'quick-settings-adaptive-text-preference', 'auto'],
-            ['int', 'quick-settings-sample-interval-ms', 500],
-        ];
-
-        for (const [type, key, value] of writes) {
-            try {
-                if (type === 'boolean')
-                    this._settings.set_boolean(key, value);
-                else if (type === 'int')
-                    this._settings.set_int(key, value);
-                else if (type === 'double')
-                    this._settings.set_double(key, value);
-                else if (type === 'string')
-                    this._settings.set_string(key, value);
-            } catch (error) {
-                console.warn(
-                    '[Velora][QuickSettingsInnerGlass] profile key skipped ' +
-                    key + ': ' + error
-                );
-            }
         }
     }
 
@@ -1694,9 +1596,6 @@ export class LiquidGlassIntegration {
                 popupGlassManager: Boolean(
                     this._popupGlassManager
                 ),
-                quickSettingsInnerGlassManager: Boolean(
-                    this._quickSettingsInnerGlassManager
-                ),
                 shellCardGlassManager: Boolean(
                     this._shellCardGlassManager
                 ),
@@ -1791,18 +1690,6 @@ export class LiquidGlassIntegration {
                 // Binding may already be gone.
             }
             this._dumpKeybindingInstalled = false;
-        }
-
-        if (this._quickSettingsInnerGlassManager) {
-            try {
-                this._quickSettingsInnerGlassManager.cleanup();
-            } catch (error) {
-                console.error(
-                    '[Velora][LiquidGlass] quickSettingsInnerGlassManager cleanup failed: ' +
-                    error
-                );
-            }
-            this._quickSettingsInnerGlassManager = null;
         }
 
         if (!this._externalGlobalStack) {
