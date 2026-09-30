@@ -6,6 +6,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DEFAULT_RADIUS = 18;
+const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
 const SAMPLE_MARGIN_MAX = 200;
 
@@ -358,26 +359,35 @@ class PopupGlassSurface {
             monitor.height ?? global.stage.height
         );
 
-        const glassX = absX - monitorX;
-        const glassY = absY - monitorY;
+        // GNOME's menu children (notably message cards) intentionally paint
+        // shadows slightly outside menu.box. The vendored UIManager reserves
+        // shader padding for this exact reason. Expand only the material mask;
+        // native layout/position remains untouched.
+        const glassAbsX = absX - GLASS_EDGE_PAD;
+        const glassAbsY = absY - GLASS_EDGE_PAD;
+        const glassW = width + GLASS_EDGE_PAD * 2;
+        const glassH = height + GLASS_EDGE_PAD * 2;
+
+        const glassX = glassAbsX - monitorX;
+        const glassY = glassAbsY - monitorY;
 
         const geometryChanged =
             this._lastShaderX !== glassX ||
             this._lastShaderY !== glassY ||
-            this._lastShaderW !== width ||
-            this._lastShaderH !== height;
+            this._lastShaderW !== glassW ||
+            this._lastShaderH !== glassH;
 
         if (geometryChanged) {
             this._lastShaderX = glassX;
             this._lastShaderY = glassY;
-            this._lastShaderW = width;
-            this._lastShaderH = height;
+            this._lastShaderW = glassW;
+            this._lastShaderH = glassH;
 
             this._effect?.setGlassGeometry?.(
                 glassX,
                 glassY,
-                width,
-                height
+                glassW,
+                glassH
             );
         }
 
@@ -439,8 +449,8 @@ class PopupGlassSurface {
             this._root,
             glassX - margin,
             glassY - margin,
-            width + margin * 2,
-            height + margin * 2
+            glassW + margin * 2,
+            glassH + margin * 2
         );
 
         this._effect?.setShadowMaxRadius?.(
@@ -453,10 +463,10 @@ class PopupGlassSurface {
         );
 
         const captureRect = [
-            absX - margin,
-            absY - margin,
-            width + margin * 2,
-            height + margin * 2,
+            glassAbsX - margin,
+            glassAbsY - margin,
+            glassW + margin * 2,
+            glassH + margin * 2,
         ];
         this._sceneManager?.setCullRect?.(captureRect);
         this._sceneManager?.applyBgCloneClip?.(captureRect);
