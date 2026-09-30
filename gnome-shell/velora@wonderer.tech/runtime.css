@@ -701,60 +701,16 @@
 }
 
 /* Quick Settings --------------------------------------------------------- */
-/* Inner surfaces are intentionally NOT blurred again. The parent popup owns
- * the expensive LiquidEffect; tiles stay optically connected to it through
- * low-alpha clear-glass fills, a fine light rim and a dark inset edge. This
- * produces depth without a second card/background layer or extra GPU passes. */
-.velora-liquid-popup-content.quick-settings .quick-toggle,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button,
-.velora-liquid-popup-content.quick-settings .slider-bin,
-.velora-liquid-popup-content.quick-settings .icon-button,
-.velora-liquid-popup-content.quick-settings .button {
-    background-color: rgba(255, 255, 255, 0.075);
-    background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.075);
-    color: inherit;
-    transition-duration: 120ms;
-}
+/* Material is renderer-owned now. QuickSettingsManager samples the native
+ * GNOME pod state first, then makes the real pod backgrounds transparent and
+ * paints one shared multi-region LiquidEffect underneath them. Do not put a
+ * CSS "glass" fill on the pods here: that would contaminate the sampled
+ * ON/OFF/accent color and turn real glass back into a translucent imitation. */
 
-.velora-liquid-popup-content.quick-settings .quick-toggle:hover,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:hover,
-.velora-liquid-popup-content.quick-settings .slider-bin:hover,
-.velora-liquid-popup-content.quick-settings .icon-button:hover,
-.velora-liquid-popup-content.quick-settings .button:hover {
-    background-color: rgba(255, 255, 255, 0.13);
-    border-color: rgba(255, 255, 255, 0.27);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.09);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle:active,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:active,
-.velora-liquid-popup-content.quick-settings .slider-bin:active,
-.velora-liquid-popup-content.quick-settings .icon-button:active,
-.velora-liquid-popup-content.quick-settings .button:active {
-    background-color: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.32);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.11);
-}
-
-/* Keyboard focus remains a first-class state instead of being hidden by the
- * glass treatment. */
-.velora-liquid-popup-content.quick-settings .quick-toggle:focus,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:focus,
-.velora-liquid-popup-content.quick-settings .slider-bin:focus,
-.velora-liquid-popup-content.quick-settings .icon-button:focus,
-.velora-liquid-popup-content.quick-settings .button:focus {
-    border-color: -st-accent-color;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.09);
-}
-
-/* Typography hierarchy. Foreground itself stays inherited from GNOME so the
- * Shell's light/dark text decision remains intact; premium feel comes from
- * weight/opacity separation rather than hard-coded white/black text. */
+/* Premium hierarchy without hard-coding light/dark foreground. The renderer's
+ * adaptive foreground logic remains free to choose the readable color. */
 .velora-liquid-popup-content.quick-settings .quick-toggle-title,
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .header .title {
-    color: inherit;
     font-weight: 600;
     opacity: 0.98;
 }
@@ -762,115 +718,26 @@
 .velora-liquid-popup-content.quick-settings .quick-toggle-subtitle,
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .header .subtitle,
 .velora-liquid-popup-content.quick-settings .device-subtitle {
-    color: inherit;
     font-weight: normal;
-    opacity: 0.68;
+    opacity: 0.70;
 }
 
 .velora-liquid-popup-content.quick-settings .quick-toggle-icon,
 .velora-liquid-popup-content.quick-settings .quick-slider StIcon,
 .velora-liquid-popup-content.quick-settings .quick-settings-system-item StIcon {
-    color: inherit;
-    opacity: 0.93;
+    opacity: 0.95;
 }
 
-/* Checked controls preserve the GNOME accent contract, but retain a subtle
- * liquid rim so the selected tile still belongs to the same glass material. */
-.velora-liquid-popup-content.quick-settings .quick-toggle:checked,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked,
-.velora-liquid-popup-content.quick-settings .button:checked,
-.velora-liquid-popup-content.quick-settings .icon-button:checked {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
-    border-color: rgba(255, 255, 255, 0.26);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle:checked:hover,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked:hover,
-.velora-liquid-popup-content.quick-settings .button:checked:hover,
-.velora-liquid-popup-content.quick-settings .icon-button:checked:hover {
-    border-color: rgba(255, 255, 255, 0.38);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.21);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle:checked .quick-toggle-title,
-.velora-liquid-popup-content.quick-settings .quick-toggle:checked .quick-toggle-subtitle,
-.velora-liquid-popup-content.quick-settings .quick-toggle:checked .quick-toggle-icon,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked StIcon,
-.velora-liquid-popup-content.quick-settings .button:checked StIcon,
-.velora-liquid-popup-content.quick-settings .icon-button:checked StIcon {
-    color: -st-accent-fg-color;
-}
-
-/* Split toggles read as one premium control. The separator carries the seam;
- * no extra solid panel is introduced between the two native buttons. */
-.velora-liquid-popup-content.quick-settings .quick-toggle-has-menu .quick-toggle-separator {
-    background-color: rgba(255, 255, 255, 0.20);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle-has-menu:checked .quick-toggle-separator {
-    background-color: -st-accent-fg-color;
-    opacity: 0.42;
-}
-
-/* GNOME Shell 50 QuickSlider / BarLevel. Only paint changes: value, handle,
- * overdrive state, focus and input geometry remain native. */
-.velora-liquid-popup-content.quick-settings .quick-slider .slider {
-    -barlevel-background-color: rgba(255, 255, 255, 0.18);
-    -barlevel-active-background-color: -st-accent-color;
-}
-
-/* Expanded device/network menus become a deeper clear-glass sheet rather than
- * a visually unrelated opaque card. */
+/* Expanded device/network content is not one of the top-level toggle pods.
+ * Keep it optically quiet so it does not cover the real glass cards. */
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu {
-    background-color: rgba(255, 255, 255, 0.065);
+    background-color: rgba(255, 255, 255, 0.055);
     background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.07);
-    color: inherit;
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu .header .icon {
-    background-color: rgba(255, 255, 255, 0.085);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.065);
-    color: inherit;
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu .header .icon.active {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
-    border-color: rgba(255, 255, 255, 0.26);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item {
-    color: inherit;
-    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: none;
 }
 
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:hover,
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:focus {
-    background-color: rgba(255, 255, 255, 0.105);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:active,
-.velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:checked {
-    background-color: rgba(255, 255, 255, 0.16);
-}
-
-/* Bottom system actions (settings/lock/power etc.) stay visually lighter than
- * primary toggles while sharing the same material vocabulary. */
-.velora-liquid-popup-content.quick-settings .quick-settings-system-item .power-item,
-.velora-liquid-popup-content.quick-settings .quick-settings-system-item .icon-button {
-    background-color: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.065);
-}
-
-.velora-liquid-popup-content.quick-settings .quick-settings-system-item .power-item:hover,
-.velora-liquid-popup-content.quick-settings .quick-settings-system-item .icon-button:hover {
-    background-color: rgba(255, 255, 255, 0.115);
-    border-color: rgba(255, 255, 255, 0.23);
+    background-color: rgba(255, 255, 255, 0.085);
 }
