@@ -525,7 +525,8 @@ export class LiquidGlassIntegration {
             this._osdManager = new this._vendor.OsdManager(
                 this._vendor.root,
                 this._settings,
-                this._logger
+                this._logger,
+                VELORA_GLASS_ROLES.osdCard
             );
             this._osdManager.setup();
         });
