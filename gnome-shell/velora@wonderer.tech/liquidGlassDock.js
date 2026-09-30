@@ -166,6 +166,7 @@ async function importVendorModules(root) {
         unpickable,
         dockManager,
         osdManager,
+        quickSettingsManager,
         logger,
         utils,
         background,
@@ -177,6 +178,7 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/actors/unpickable.js')),
         import(moduleUri(root, 'dist/dockManager.js')),
         import(moduleUri(root, 'dist/osdManager.js')),
+        import(moduleUri(root, 'dist/quickSettingsManager.js')),
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
         import(moduleUri(root, 'dist/capture/background.js')),
@@ -194,6 +196,8 @@ async function importVendorModules(root) {
         UnpickableActor: unpickable.UnpickableActor,
         DashManager: dockManager.DashManager,
         OsdManager: osdManager.OsdManager,
+        QuickSettingsManager:
+            quickSettingsManager.QuickSettingsManager,
         Logger: logger.Logger,
         setUtilsLogger: utils.setUtilsLogger,
         adaptiveColorTweener: utils.adaptiveColorTweener,
@@ -226,6 +230,7 @@ function validateVendorApi(vendor) {
         'WindowCloneManager',
         'DashManager',
         'OsdManager',
+        'QuickSettingsManager',
         'Logger',
         'setUtilsLogger',
         'createBackgroundMirror',
@@ -253,11 +258,31 @@ function validateVendorApi(vendor) {
 
 
 export async function loadLiquidGlassVendorModules(veloraSettings) {
-    if (globalThis[VENDOR_CACHE_KEY])
-        return globalThis[VENDOR_CACHE_KEY];
+    const ensureQuickSettingsManager = async vendor => {
+        if (vendor?.root && !vendor.QuickSettingsManager) {
+            const quickSettingsManager = await import(
+                moduleUri(
+                    vendor.root,
+                    'dist/quickSettingsManager.js'
+                )
+            );
+            vendor.QuickSettingsManager =
+                quickSettingsManager.QuickSettingsManager;
+        }
+        return vendor;
+    };
 
-    if (globalThis[VENDOR_PROMISE_KEY])
-        return globalThis[VENDOR_PROMISE_KEY];
+    if (globalThis[VENDOR_CACHE_KEY]) {
+        return ensureQuickSettingsManager(
+            globalThis[VENDOR_CACHE_KEY]
+        );
+    }
+
+    if (globalThis[VENDOR_PROMISE_KEY]) {
+        return ensureQuickSettingsManager(
+            await globalThis[VENDOR_PROMISE_KEY]
+        );
+    }
 
     // Hot-swap compatibility: reuse the exact vendor module graph already
     // loaded by the previous V2 runtime. Re-importing the whole vendor tree
@@ -274,6 +299,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
             legacyCache.WindowCloneManager =
                 windowClones.WindowCloneManager;
         }
+        await ensureQuickSettingsManager(legacyCache);
         globalThis[VENDOR_CACHE_KEY] = legacyCache;
         globalThis[VENDOR_ROOT_KEY] = legacyCache.root;
         return legacyCache;
@@ -311,6 +337,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     }
 
     const promise = importVendorModules(root)
+        .then(modules => ensureQuickSettingsManager(modules))
         .then(modules => {
             globalThis[VENDOR_CACHE_KEY] = modules;
             return modules;
@@ -335,6 +362,7 @@ export class LiquidGlassIntegration {
         this._stylesheet = null;
 
         this._popupGlassManager = null;
+        this._quickSettingsGlassManager = null;
         this._shellCardGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
@@ -373,6 +401,9 @@ export class LiquidGlassIntegration {
             externalRoot &&
             externalRoot === this._vendor.root
         );
+
+        if (!this._externalGlobalStack)
+            this._ensureQuickSettingsGlassProfile();
 
         this._logger = new this._vendor.Logger(this._settings);
         if (!this._externalGlobalStack)
@@ -439,6 +470,53 @@ export class LiquidGlassIntegration {
             this._popupGlassManager.setup();
         });
 
+        start('quickSettingsGlassManager', () => {
+            this._quickSettingsGlassManager =
+                new this._vendor.QuickSettingsManager(
+                    this._vendor.root,
+                    this._settings,
+                    this._logger
+                );
+            this._quickSettingsGlassManager.setup();
+
+            const effect =
+                this._quickSettingsGlassManager.effect;
+            effect?.setSurfaceLightEnabled?.(true);
+            effect?.setBlurMethod?.(1);
+
+            try {
+                const uniforms = effect?._uniforms;
+                uniforms?.set?.('max_z', 88.0);
+                uniforms?.set?.('displacement_scale', 29.0);
+                uniforms?.set?.('edge_smoothing', 0.82);
+                uniforms?.set?.('profile_shape_n', 3.8);
+                uniforms?.set?.('ior', 1.70);
+                uniforms?.set?.('chroma_strength', 1.2);
+                uniforms?.set?.('specular_intensity', 0.50);
+                uniforms?.set?.('shininess', 60.0);
+                uniforms?.set?.('rim_width', 2.7);
+                uniforms?.set?.('rim_intensity', 0.86);
+                uniforms?.set?.(
+                    'rim_directional_power',
+                    1.6
+                );
+                uniforms?.set?.('rim_power', 2.35);
+                uniforms?.set?.(
+                    'rim_light_color_intensity',
+                    1.15
+                );
+                uniforms?.set?.('sheen_intensity', 0.09);
+                uniforms?.set?.('light_angle_deg', 108.0);
+                uniforms?.set?.('ao_intensity', 0.32);
+                uniforms?.set?.('ao_radius', 1.25);
+                uniforms?.set?.('shadow_radius', 0.0);
+                uniforms?.set?.('shadow_intensity', 0.0);
+                effect?.queue_repaint?.();
+            } catch {
+                // Base vendored material remains valid.
+            }
+        });
+
         start('shellCardGlassManager', () => {
             this._shellCardGlassManager =
                 new ShellCardGlassManager({
@@ -500,6 +578,49 @@ export class LiquidGlassIntegration {
         );
 
         this._installDebugState();
+    }
+
+    _ensureQuickSettingsGlassProfile() {
+        if (!this._settings)
+            return;
+
+        const writes = [
+            ['boolean', 'enable-quick-settings-glass', true],
+            ['boolean', 'enable-quick-settings-animation', false],
+            ['int', 'quick-settings-apply-to', 1],
+            ['string', 'quick-settings-tint-color', '#ffffff'],
+            ['double', 'quick-settings-tint-strength', 0.026],
+            ['int', 'quick-settings-blur-radius', 6],
+            ['double', 'quick-settings-toggle-tint-strength', 0.085],
+            ['double', 'quick-settings-toggle-corner-radius', 18.0],
+            ['int', 'quick-settings-glass-expand', 0],
+            ['int', 'quick-settings-x-offset', 0],
+            ['int', 'quick-settings-y-offset', 0],
+            ['double', 'quick-settings-brightness', 1.03],
+            ['double', 'quick-settings-contrast', 1.06],
+            ['double', 'quick-settings-saturation', 1.14],
+            ['boolean', 'quick-settings-enable-adaptive-text-color', true],
+            ['string', 'quick-settings-adaptive-text-preference', 'auto'],
+            ['int', 'quick-settings-sample-interval-ms', 900],
+        ];
+
+        for (const [type, key, value] of writes) {
+            try {
+                if (type === 'boolean')
+                    this._settings.set_boolean(key, value);
+                else if (type === 'int')
+                    this._settings.set_int(key, value);
+                else if (type === 'double')
+                    this._settings.set_double(key, value);
+                else if (type === 'string')
+                    this._settings.set_string(key, value);
+            } catch (error) {
+                console.warn(
+                    '[Velora][QuickMenuGlass] profile key skipped ' +
+                    key + ': ' + error
+                );
+            }
+        }
     }
 
     _ensureFullGlassOpticsProfile() {
@@ -1579,6 +1700,9 @@ export class LiquidGlassIntegration {
                 popupGlassManager: Boolean(
                     this._popupGlassManager
                 ),
+                quickSettingsGlassManager: Boolean(
+                    this._quickSettingsGlassManager
+                ),
                 shellCardGlassManager: Boolean(
                     this._shellCardGlassManager
                 ),
@@ -1728,6 +1852,12 @@ export class LiquidGlassIntegration {
 
         cleanup('popupGlassManager', this._popupGlassManager);
         this._popupGlassManager = null;
+
+        cleanup(
+            'quickSettingsGlassManager',
+            this._quickSettingsGlassManager
+        );
+        this._quickSettingsGlassManager = null;
 
         cleanup(
             'shellCardGlassManager',
