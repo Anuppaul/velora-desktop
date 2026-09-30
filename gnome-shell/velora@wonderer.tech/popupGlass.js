@@ -62,6 +62,7 @@ class PopupGlassSurface {
         this._root = null;
         this._liquidBox = null;
         this._sceneManager = null;
+        this._filterLayer = null;
         this._effect = null;
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
@@ -172,6 +173,13 @@ class PopupGlassSurface {
         effect.setBlurMethod?.(1);
         liquidBox.add_effect(effect);
 
+        const filterLayer = new St.Widget({
+            name: 'velora-popup-white-filter',
+            style_class: 'velora-glass-white-filter',
+            reactive: false,
+        });
+        root.add_child(filterLayer);
+
         try {
             if (
                 this._boxPointer.get_parent?.() ===
@@ -205,6 +213,7 @@ class PopupGlassSurface {
         this._root = root;
         this._liquidBox = liquidBox;
         this._sceneManager = sceneManager;
+        this._filterLayer = filterLayer;
         this._effect = effect;
 
         try {
@@ -265,6 +274,20 @@ class PopupGlassSurface {
         this._effect.setBlurRadius?.(state.blur ?? 12);
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
+
+        const filterOpacity = Math.max(
+            0,
+            Math.min(0.20, state.filterOpacity ?? 0.05)
+        );
+        this._filterLayer?.set_style?.(
+            'background-color: rgba(255,255,255,' +
+            filterOpacity.toFixed(3) +
+            '); border-radius: ' +
+            Math.round(this._radius) +
+            'px; border: 1px solid rgba(255,255,255,' +
+            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+            '); box-shadow: none;'
+        );
 
         try {
             this._effect.setBrightness?.(
@@ -433,6 +456,17 @@ class PopupGlassSurface {
             this._lastScreenH = screenH;
         }
 
+        this._vendor.setPositionIfChanged(
+            this._filterLayer,
+            glassX,
+            glassY
+        );
+        this._vendor.setSizeIfChanged(
+            this._filterLayer,
+            glassW,
+            glassH
+        );
+
         const blur = Math.max(
             0,
             this._manager._appearance?.blur ?? 0
@@ -523,6 +557,7 @@ class PopupGlassSurface {
         this._root = null;
         this._liquidBox = null;
         this._sceneManager = null;
+        this._filterLayer = null;
         this._effect = null;
         this._menu = null;
         this._box = null;
