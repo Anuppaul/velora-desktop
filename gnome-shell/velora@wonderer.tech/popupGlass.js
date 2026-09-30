@@ -6,6 +6,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
+const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
 const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
@@ -217,6 +218,8 @@ class PopupGlassSurface {
 
         this._box.add_style_class_name?.(GLASS_CLASS);
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
+        if (this._isDateMenu)
+            this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
 
         this._root = root;
         this._liquidBox = liquidBox;
@@ -589,6 +592,7 @@ class PopupGlassSurface {
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
+            this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
         } catch {}
 
         try {
