@@ -44,6 +44,12 @@ const DATE_INNER_CARD_PRIORITY = new Map([
     ['message-list-clear-button', 5],
     ['message', 6],
 ]);
+const QUICK_INNER_CARD_CLASSES = new Set([
+    'quick-toggle-has-menu',
+    'quick-toggle',
+    'quick-slider',
+    'quick-toggle-menu',
+]);
 const DATE_INNER_PAD = 20;
 const DATE_INNER_SCAN_INTERVAL_US = 500000;
 const DATE_TEXT_RESAMPLE_MS = 2600;
@@ -95,6 +101,20 @@ function dateCardClass(actor) {
         if (DATE_INNER_CARD_CLASSES.has(name))
             return name;
     }
+    return null;
+}
+
+function quickCardClass(actor, inSystemItem = false) {
+    const classes = actorClasses(actor);
+
+    for (const name of classes) {
+        if (QUICK_INNER_CARD_CLASSES.has(name))
+            return name;
+    }
+
+    if (inSystemItem && classes.includes('icon-button'))
+        return 'system-icon-button';
+
     return null;
 }
 
@@ -195,10 +215,10 @@ class PopupGlassSurface {
         this._filterLayer = null;
         this._effect = null;
 
-        // Date Menu uses a second, shared multi-region LiquidEffect. It clones
-        // the already-rendered outer glass and refracts that clone only inside
-        // the native inner card bounds, producing actual glass-on-glass without
-        // a WindowCloneManager per card.
+        // Date Menu and Quick Settings share one nested multi-region
+        // LiquidEffect. It clones the already-rendered outer glass and
+        // refracts that clone inside the native card/pod bounds: the exact
+        // same glass-on-glass pipeline for both surfaces.
         this._dateInnerRoot = null;
         this._dateInnerLiquidBox = null;
         this._dateInnerClone = null;
@@ -355,16 +375,16 @@ class PopupGlassSurface {
         let dateInnerClone = null;
         let dateInnerEffect = null;
 
-        if (this._isDateMenu) {
+        if (this._isDateMenu || this._isQuickSettings) {
             dateInnerRoot = new this._vendor.UnpickableActor({
-                name: 'velora-date-inner-material-root',
+                name: 'velora-popup-inner-material-root',
                 reactive: false,
             });
             dateInnerRoot.set_size(1, 1);
             dateInnerRoot.hide();
 
             dateInnerLiquidBox = new this._vendor.UnpickableActor({
-                name: 'velora-date-inner-liquid-box',
+                name: 'velora-popup-inner-liquid-box',
                 reactive: false,
             });
             dateInnerLiquidBox.set_clip_to_allocation(true);
@@ -386,7 +406,7 @@ class PopupGlassSurface {
             dateInnerEffect = new this._vendor.LiquidEffect({
                 extensionPath: this._vendor.root,
                 settings: this._settings,
-                owner: 'velora-date-inner-cards',
+                owner: 'velora-popup-inner-cards',
             });
             dateInnerEffect.setPadding?.(DATE_INNER_PAD);
             dateInnerEffect.setIsDock?.(false);
@@ -466,7 +486,8 @@ class PopupGlassSurface {
                     this._sceneManager?.rebuildClones?.();
                     this._lastSceneSyncUs = GLib.get_monotonic_time();
                     this._scanDateCardActors(true);
-                    this._scheduleDateTextSample(220);
+                    if (this._isDateMenu)
+                        this._scheduleDateTextSample(220);
                     this._invalidateGeometry();
                     this._root?.queue_redraw?.();
                     this._dateInnerRoot?.queue_redraw?.();
@@ -509,8 +530,12 @@ class PopupGlassSurface {
     }
 
     _scanDateCardActors(force = false) {
-        if (!this._isDateMenu || !this._box)
+        if (
+            (!this._isDateMenu && !this._isQuickSettings) ||
+            !this._box
+        ) {
             return;
+        }
 
         const nowUs = GLib.get_monotonic_time();
         if (
@@ -525,34 +550,48 @@ class PopupGlassSurface {
         this._lastDateCardScanUs = nowUs;
         const found = [];
 
-        const walk = actor => {
+        const walk = (actor, inSystemItem = false) => {
             if (!actor)
                 return;
 
+            let systemItem = inSystemItem;
             if (actor !== this._box) {
-                const klass = dateCardClass(actor);
+                const classes = actorClasses(actor);
+                systemItem =
+                    systemItem ||
+                    classes.includes('quick-settings-system-item');
+
+                const klass = this._isDateMenu
+                    ? dateCardClass(actor)
+                    : quickCardClass(actor, systemItem);
+
                 if (klass) {
                     found.push({actor, klass});
-                    // A matched card owns its subtree. No target card lives
-                    // inside another target card, so stopping here avoids
-                    // walking the calendar's ~50 child buttons every scan.
                     return;
                 }
             }
 
             for (const child of actor.get_children?.() ?? [])
-                walk(child);
+                walk(child, systemItem);
         };
 
         walk(this._box);
 
-        found.sort((a, b) =>
-            (DATE_INNER_CARD_PRIORITY.get(a.klass) ?? 99) -
-            (DATE_INNER_CARD_PRIORITY.get(b.klass) ?? 99)
-        );
+        if (this._isDateMenu) {
+            found.sort((a, b) =>
+                (DATE_INNER_CARD_PRIORITY.get(a.klass) ?? 99) -
+                (DATE_INNER_CARD_PRIORITY.get(b.klass) ?? 99)
+            );
+        } else {
+            found.sort((a, b) => {
+                const [ax, ay] =
+                    a.actor.get_transformed_position?.() ?? [0, 0];
+                const [bx, by] =
+                    b.actor.get_transformed_position?.() ?? [0, 0];
+                return (ay - by) || (ax - bx);
+            });
+        }
 
-        // LiquidEffect currently supports 16 shared regions. The fixed Date
-        // Menu sections are prioritized; remaining slots go to live messages.
         this._dateCardActors =
             found.slice(0, 16).map(item => item.actor);
 
@@ -605,13 +644,11 @@ class PopupGlassSurface {
     }
 
     _dateCardResponse(actor, klass) {
-        // Calendar itself is a material panel, not a button. Keep it stable
-        // while interactive cards use the shared Velora response curve.
-        if (klass === 'calendar')
+        if (this._isDateMenu && klass === 'calendar')
             return 0;
 
-        const pressed =
-            hasPseudo(actor, 'active') ||
+        const pressed = hasPseudo(actor, 'active');
+        const selected =
             hasPseudo(actor, 'checked') ||
             hasPseudo(actor, 'selected');
         const engaged =
@@ -621,7 +658,7 @@ class PopupGlassSurface {
 
         const role = VELORA_GLASS_ROLES.innerCard;
         const target = resolveGlassInteractionTarget(
-            {pressed, engaged},
+            {pressed, engaged, selected},
             role.interaction
         );
         const previous =
@@ -667,6 +704,9 @@ class PopupGlassSurface {
             const [absX, absY, width, height] = rect;
             const klass = dateCardClass(actor);
             const baseStrength = (() => {
+                if (this._isQuickSettings)
+                    return 0.046;
+
                 switch (klass) {
                 case 'calendar':
                     return 0.024;
@@ -1130,7 +1170,10 @@ class PopupGlassSurface {
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
-        if (this._dateInnerEffect && this._isDateMenu) {
+        if (
+            this._dateInnerEffect &&
+            (this._isDateMenu || this._isQuickSettings)
+        ) {
             let brightness = null;
             let contrast = null;
             let saturation = null;
@@ -1337,7 +1380,7 @@ class PopupGlassSurface {
             screenH
         );
 
-        if (this._isDateMenu) {
+        if (this._isDateMenu || this._isQuickSettings) {
             this._syncDateInnerRegions(
                 monitorX,
                 monitorY,
