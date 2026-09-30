@@ -281,6 +281,61 @@
     box-shadow: none;
 }
 
+/* Native notification banner --------------------------------------------- */
+/* NotificationGlassManager owns the real refractive surface. Native message
+ * paint is stripped so there is one card, one rim and zero extra shadow. */
+.velora-native-notification-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-native-notification-glass:hover,
+.velora-native-notification-glass:focus {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* One-shot backdrop sampling chooses foreground polarity. */
+.velora-native-notification-glass.velora-notification-text-light,
+.velora-native-notification-glass.velora-notification-text-light StLabel,
+.velora-native-notification-glass.velora-notification-text-light StIcon {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.velora-native-notification-glass.velora-notification-text-dark,
+.velora-native-notification-glass.velora-notification-text-dark StLabel,
+.velora-native-notification-glass.velora-notification-text-dark StIcon {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.velora-native-notification-glass.velora-notification-text-light .message-header,
+.velora-native-notification-glass.velora-notification-text-light .event-time {
+    color: rgba(248, 249, 253, 0.66) !important;
+}
+
+.velora-native-notification-glass.velora-notification-text-dark .message-header,
+.velora-native-notification-glass.velora-notification-text-dark .event-time {
+    color: rgba(23, 25, 31, 0.64) !important;
+}
+
+/* Keep controls native, but don't let their theme card/shadow compete with
+ * the parent glass surface. */
+.velora-native-notification-glass .message-expand-button,
+.velora-native-notification-glass .message-close-button,
+.velora-native-notification-glass .message-media-control {
+    box-shadow: none !important;
+}
+
+.velora-native-notification-glass .message-media-control:hover,
+.velora-native-notification-glass .message-media-control:focus {
+    background-color: rgba(255, 255, 255, 0.065);
+    border-color: transparent;
+    box-shadow: none;
+}
+
 /* Non-PopupMenu Shell cards discovered by ShellCardGlassManager. */
 .velora-liquid-shell-card {
     background-color: transparent;
