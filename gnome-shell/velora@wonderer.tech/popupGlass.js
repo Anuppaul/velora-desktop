@@ -1,3 +1,4 @@
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -67,6 +68,13 @@ class PopupGlassSurface {
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
         this._openStateId = 0;
+        this._isDateMenu =
+            String(
+                this._box?.get_style_class_name?.() ??
+                this._box?.style_class ??
+                ''
+            ).split(/\s+/).includes('datemenu-popover');
+        this._lastSceneSyncUs = 0;
 
         this._lastShaderX = NaN;
         this._lastShaderY = NaN;
@@ -220,10 +228,13 @@ class PopupGlassSurface {
             this._openStateId = this._menu.connect(
                 'open-state-changed',
                 (_menu, isOpen) => {
-                    if (!isOpen)
+                    if (!isOpen) {
+                        this._root?.hide?.();
                         return;
+                    }
 
                     this._sceneManager?.rebuildClones?.();
+                    this._lastSceneSyncUs = GLib.get_monotonic_time();
                     this._invalidateGeometry();
                     this._root?.queue_redraw?.();
                 }
@@ -265,19 +276,27 @@ class PopupGlassSurface {
 
         this._radius = readRadius(this._box);
 
+        const profile =
+            this._isDateMenu && state.dateMenu
+                ? {
+                    ...state,
+                    ...state.dateMenu,
+                }
+                : state;
+
         this._effect.setTintColor?.(
-            (state.r ?? 255) / 255,
-            (state.g ?? 255) / 255,
-            (state.b ?? 255) / 255
+            (profile.r ?? 255) / 255,
+            (profile.g ?? 255) / 255,
+            (profile.b ?? 255) / 255
         );
-        this._effect.setTintStrength?.(state.opacity ?? 0.08);
-        this._effect.setBlurRadius?.(state.blur ?? 12);
+        this._effect.setTintStrength?.(profile.opacity ?? 0.02);
+        this._effect.setBlurRadius?.(profile.blur ?? 7);
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
         const filterOpacity = Math.max(
             0,
-            Math.min(0.20, state.filterOpacity ?? 0.05)
+            Math.min(0.20, profile.filterOpacity ?? 0.04)
         );
         this._filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
@@ -467,9 +486,17 @@ class PopupGlassSurface {
             glassH
         );
 
+        const surfaceAppearance =
+            this._isDateMenu
+                ? {
+                    ...this._manager._appearance,
+                    ...(this._manager._appearance?.dateMenu ?? {}),
+                }
+                : this._manager._appearance;
+
         const blur = Math.max(
             0,
-            this._manager._appearance?.blur ?? 0
+            surfaceAppearance?.blur ?? 0
         );
         const margin = Math.max(
             SAMPLE_MARGIN_MIN,
@@ -491,20 +518,38 @@ class PopupGlassSurface {
             Math.max(0, margin - 16)
         );
 
-        this._sceneManager?.setOffset?.(
-            -monitorX,
-            -monitorY
-        );
-
         const captureRect = [
             glassAbsX - margin,
             glassAbsY - margin,
             glassW + margin * 2,
             glassH + margin * 2,
         ];
-        this._sceneManager?.setCullRect?.(captureRect);
-        this._sceneManager?.applyBgCloneClip?.(captureRect);
-        this._sceneManager?.sync?.();
+
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                60,
+                this._manager._appearance?.sceneFps ?? 30
+            )
+        );
+        const nowUs = GLib.get_monotonic_time();
+        const intervalUs = 1000000 / sceneFps;
+        const sceneDue =
+            geometryChanged ||
+            rootChanged ||
+            this._lastSceneSyncUs === 0 ||
+            nowUs - this._lastSceneSyncUs >= intervalUs;
+
+        if (sceneDue) {
+            this._sceneManager?.setOffset?.(
+                -monitorX,
+                -monitorY
+            );
+            this._sceneManager?.setCullRect?.(captureRect);
+            this._sceneManager?.applyBgCloneClip?.(captureRect);
+            this._sceneManager?.sync?.();
+            this._lastSceneSyncUs = nowUs;
+        }
 
         if (this._root.opacity !== opacity)
             this._root.opacity = opacity;
@@ -625,6 +670,9 @@ export class PopupGlassManager {
                     return;
 
                 for (const [menu, surface] of [...this._surfaces]) {
+                    if (menu?.isOpen === false)
+                        continue;
+
                     try {
                         surface.syncFrame();
                     } catch (error) {
