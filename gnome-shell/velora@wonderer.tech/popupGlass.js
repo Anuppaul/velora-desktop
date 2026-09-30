@@ -273,6 +273,7 @@ class PopupGlassSurface {
         this._lastDateCardScanUs = 0;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = true;
+        this._quickNeedsRescan = true;
         this._quickSignalEntries = [];
 
         this._dateScreenshot = null;
@@ -792,8 +793,10 @@ class PopupGlassSurface {
         this._dateCardActors =
             found.slice(0, 16).map(item => item.actor);
 
-        if (this._isQuickSettings)
+        if (this._isQuickSettings) {
             this._rebuildQuickSignalEntries();
+            this._quickNeedsRescan = false;
+        }
 
         const live = new Set(this._dateCardActors);
         for (const actor of this._dateCardResponses.keys()) {
@@ -1756,6 +1759,7 @@ class PopupGlassSurface {
             if (overlayChanged) {
                 this._lastQuickOverlayOpen = overlayOpen;
                 this._quickRegionDirty = true;
+                this._quickNeedsRescan = true;
                 this._scanDateCardActors(true);
 
                 if (
@@ -1778,7 +1782,8 @@ class PopupGlassSurface {
                 (
                     geometryChanged ||
                     overlayChanged ||
-                    this._quickRegionDirty
+                    this._quickRegionDirty ||
+                    this._quickNeedsRescan
                 )
             ) {
                 this._syncDateInnerRegions(
@@ -1786,8 +1791,8 @@ class PopupGlassSurface {
                     monitorY,
                     screenW,
                     screenH,
-                    this._quickRegionDirty ||
-                        overlayChanged
+                    this._quickNeedsRescan ||
+                        this._dateCardActors.length === 0
                 );
             }
         }
@@ -2104,6 +2109,7 @@ class PopupGlassSurface {
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = false;
+        this._quickNeedsRescan = false;
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
