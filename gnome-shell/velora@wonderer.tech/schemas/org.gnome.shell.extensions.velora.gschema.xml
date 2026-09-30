@@ -147,5 +147,29 @@
       <summary>Neutral white filter opacity percentage</summary>
       <description>Low-opacity white veil painted above the refractive material and below native content.</description>
     </key>
+    <key name="date-menu-glass-opacity" type="i">
+      <default>1</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu tint strength percentage</summary>
+      <description>Independent micro-tuning for the Date/Calendar popup.</description>
+    </key>
+    <key name="date-menu-glass-blur" type="i">
+      <default>4</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu blur radius</summary>
+      <description>Independent low blur radius for a clearer refractive Date Menu.</description>
+    </key>
+    <key name="date-menu-glass-filter-opacity" type="i">
+      <default>4</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu white filter percentage</summary>
+      <description>Neutral white veil for the Date/Calendar popup only.</description>
+    </key>
+    <key name="glass-live-scene-fps" type="i">
+      <default>30</default>
+      <range min="15" max="60"/>
+      <summary>Live glass scene refresh rate</summary>
+      <description>Caps expensive live window-clone synchronization while keeping Shell geometry and interaction on the native frame clock.</description>
+    </key>
   </schema>
 </schemalist>
