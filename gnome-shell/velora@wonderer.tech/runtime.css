@@ -1146,14 +1146,40 @@
 
 .velora-liquid-quick-menu-root .velora-quick-card-text-light,
 .velora-liquid-quick-menu-root .velora-quick-card-text-light StLabel,
-.velora-liquid-quick-menu-root .velora-quick-card-text-light StIcon {
+.velora-liquid-quick-menu-root .velora-quick-card-text-light StIcon,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .popup-menu-item,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .popup-inactive-menu-item,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .header,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .header .title,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .header .subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .device-subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .popup-menu-icon,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .popup-menu-ornament {
     color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .header .subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light .device-subtitle {
+    color: rgba(248, 249, 253, 0.68) !important;
 }
 
 .velora-liquid-quick-menu-root .velora-quick-card-text-dark,
 .velora-liquid-quick-menu-root .velora-quick-card-text-dark StLabel,
-.velora-liquid-quick-menu-root .velora-quick-card-text-dark StIcon {
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark StIcon,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .popup-menu-item,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .popup-inactive-menu-item,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .header,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .header .title,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .header .subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .device-subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .popup-menu-icon,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .popup-menu-ornament {
     color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .header .subtitle,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark .device-subtitle {
+    color: rgba(23, 25, 31, 0.66) !important;
 }
 
 /* Active Quick tiles use the theme accent on text only, including standalone
