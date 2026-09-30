@@ -1498,6 +1498,30 @@ class PopupGlassSurface {
             useDarkText ? darkClass : lightClass
         );
 
+        // GNOME 50 renders expanded QuickToggleMenu content inside a
+        // quick-toggle-menu-container parent in QuickSettingsMenu._overlay.
+        // Mirror the polarity class to that container as well: Yaru/GNOME
+        // assigns explicit foreground colors to popup-menu-item descendants,
+        // so relying on inheritance from the inner card alone is insufficient.
+        if (this._isQuickSettings) {
+            const classes = actorClasses(actor);
+            if (classes.includes('quick-toggle-menu')) {
+                const parent = actor.get_parent?.() ?? null;
+                if (
+                    parent &&
+                    actorClasses(parent).includes(
+                        'quick-toggle-menu-container'
+                    )
+                ) {
+                    parent.remove_style_class_name?.(lightClass);
+                    parent.remove_style_class_name?.(darkClass);
+                    parent.add_style_class_name?.(
+                        useDarkText ? darkClass : lightClass
+                    );
+                }
+            }
+        }
+
         this._dateCardTextState.set(
             actor,
             useDarkText
@@ -2294,6 +2318,24 @@ class PopupGlassSurface {
                     actor.remove_style_class_name?.(
                         QUICK_ACTIVE_CLASS
                     );
+
+                    if (this._isQuickSettings) {
+                        const parent =
+                            actor.get_parent?.() ?? null;
+                        if (
+                            parent &&
+                            actorClasses(parent).includes(
+                                'quick-toggle-menu-container'
+                            )
+                        ) {
+                            parent.remove_style_class_name?.(
+                                QUICK_CARD_TEXT_LIGHT_CLASS
+                            );
+                            parent.remove_style_class_name?.(
+                                QUICK_CARD_TEXT_DARK_CLASS
+                            );
+                        }
+                    }
                 } catch {}
             }
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
