@@ -75,6 +75,7 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     osdCard: PREMIUM_CARD_ROLE,
     topPanel: PREMIUM_CARD_ROLE,
     dock: PREMIUM_CARD_ROLE,
+    overviewSearchCard: PREMIUM_CARD_ROLE,
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
@@ -164,6 +165,14 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
     }),
     osd: Object.freeze({
         multiRegion: false,
+    }),
+    overviewSearch: Object.freeze({
+        multiRegion: true,
+        sceneFpsCap: 20,
+        maxRegions: 16,
+        regionPadding: 20,
+        tintScale: 2.2,
+        tintMax: 0.075,
     }),
 
 });
