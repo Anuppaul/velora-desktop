@@ -1559,10 +1559,46 @@ class PopupGlassSurface {
 
         this._scanDateCardActors(false);
 
+        // QuickToggleMenu lives in QuickSettingsMenu._overlay and can extend
+        // well outside the main popup allocation (Power Mode, Wi-Fi, Bluetooth
+        // etc.). Sampling only measured.rect makes those actors clamp to the
+        // bright edge of the main box and can choose black text over a dark
+        // glass submenu. Capture one union rect that includes every visible
+        // adaptive card; it is still one screenshot/readback for the popup.
+        let sampleRect = measured.rect;
+        if (this._isQuickSettings) {
+            let minX = measured.rect[0];
+            let minY = measured.rect[1];
+            let maxX = measured.rect[0] + measured.rect[2];
+            let maxY = measured.rect[1] + measured.rect[3];
+
+            for (const actor of this._dateCardActors) {
+                if (!actor?.visible || !actor?.mapped)
+                    continue;
+
+                const rect =
+                    this._vendor.getTransformedRect(actor);
+                if (!finiteRect(rect))
+                    continue;
+
+                minX = Math.min(minX, rect[0]);
+                minY = Math.min(minY, rect[1]);
+                maxX = Math.max(maxX, rect[0] + rect[2]);
+                maxY = Math.max(maxY, rect[1] + rect[3]);
+            }
+
+            sampleRect = [
+                minX,
+                minY,
+                maxX - minX,
+                maxY - minY,
+            ];
+        }
+
         let frame = null;
         try {
             frame = await this._captureDateMenuFrame(
-                measured.rect
+                sampleRect
             );
         } catch {
             frame = null;
