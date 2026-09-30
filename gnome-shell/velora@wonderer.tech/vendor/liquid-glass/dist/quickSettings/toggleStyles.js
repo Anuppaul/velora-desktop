@@ -1,6 +1,10 @@
 import St from 'gi://St';
 import GLib from 'gi://GLib';
-const TRANSPARENT_OVERRIDE = 'background-color: transparent !important;';
+const TRANSPARENT_OVERRIDE =
+  'background-color: transparent !important; ' +
+  'background-image: none !important; ' +
+  'border-color: transparent !important; ' +
+  'box-shadow: none !important;';
 function _withOverride(origStyle) {
     return origStyle ? `${origStyle} ${TRANSPARENT_OVERRIDE}` : TRANSPARENT_OVERRIDE;
 }
