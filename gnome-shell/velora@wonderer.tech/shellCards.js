@@ -20,21 +20,12 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
-    'search-section-content',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
-    'search-section-content',
     'dash-background',
-]);
-
-const LOW_RATE_OVERVIEW_CLASSES = new Set([
-    // Search providers are short-lived and can appear several at once.
-    // Keep their captured live scene below the global cap while native
-    // hover/selection/scroll interaction remains compositor-rate.
-    'search-section-content',
 ]);
 
 function classesOf(actor) {
@@ -430,17 +421,10 @@ class ShellCardSurface {
             this._lastCaptureW !== tw ||
             this._lastCaptureH !== th;
 
-        const classes = classesOf(this._target);
-        const surfaceFpsCap =
-            classes.some(name =>
-                LOW_RATE_OVERVIEW_CLASSES.has(name)
-            )
-                ? 20
-                : 60;
         const sceneFps = Math.max(
             15,
             Math.min(
-                surfaceFpsCap,
+                60,
                 this._manager?._appearance?.sceneFps ?? 30
             )
         );
