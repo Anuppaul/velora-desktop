@@ -129,6 +129,10 @@ export default class VeloraPreferences extends ExtensionPreferences {
             glass, settings, 'glass-opacity',
             'Tint strength', 'White/color tint mixed into the glass', 0, 100, 1
         );
+        addIntSpin(
+            glass, settings, 'glass-filter-opacity',
+            'White filter', 'Neutral white veil above refraction, below content', 0, 20, 1
+        );
 
         const tint = new Adw.EntryRow({
             title: 'Tint color',
