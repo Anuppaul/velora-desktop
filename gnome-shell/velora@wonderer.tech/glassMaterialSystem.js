@@ -90,7 +90,14 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         // the open animation settles and stays deliberately low-frequency.
         adaptiveText: true,
         adaptiveSampleDelayMs: 180,
-        adaptiveResampleMs: 3600,
+        // Quick Menu is normally short-lived. One sample on open (and one on
+        // expanded-menu change) avoids periodic GPU->CPU screenshot stalls.
+        adaptiveResampleMs: 0,
+        expandedSampleDelayMs: 140,
+
+        // Native controls keep compositor-rate input/animation; only the
+        // captured live scene behind the glass is capped.
+        sceneFpsCap: 24,
 
         // All pods use the same neutral glass material. Selection never
         // recolors the tile body; active state is expressed only through the
