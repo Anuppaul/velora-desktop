@@ -14,6 +14,7 @@ import {
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
     resolveGlassInteractionTarget,
+    resolveShellAccentRgb,
     stepGlassInteraction,
 } from './glassMaterialSystem.js';
 
@@ -128,6 +129,21 @@ function hasPseudo(actor, name) {
     }
 }
 
+function treeHasPseudo(actor, name) {
+    if (!actor)
+        return false;
+
+    if (hasPseudo(actor, name))
+        return true;
+
+    for (const child of actor.get_children?.() ?? []) {
+        if (treeHasPseudo(child, name))
+            return true;
+    }
+
+    return false;
+}
+
 function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -228,6 +244,7 @@ class PopupGlassSurface {
         this._dateCardTextState = new Map();
         this._dateInnerRegionCount = 0;
         this._dateInnerRadius = 16;
+        this._accentRgb = [1.0, 1.0, 1.0];
         this._lastDateCardScanUs = 0;
 
         this._dateScreenshot = null;
@@ -485,6 +502,14 @@ class PopupGlassSurface {
 
                     this._sceneManager?.rebuildClones?.();
                     this._lastSceneSyncUs = GLib.get_monotonic_time();
+
+                    if (this._isQuickSettings) {
+                        this._accentRgb =
+                            resolveShellAccentRgb(
+                                this._accentRgb
+                            );
+                    }
+
                     this._scanDateCardActors(true);
                     if (this._isDateMenu)
                         this._scheduleDateTextSample(220);
@@ -647,14 +672,33 @@ class PopupGlassSurface {
         if (this._isDateMenu && klass === 'calendar')
             return 0;
 
-        const pressed = hasPseudo(actor, 'active');
+        const pressed =
+            this._isQuickSettings
+                ? treeHasPseudo(actor, 'active')
+                : hasPseudo(actor, 'active');
         const selected =
-            hasPseudo(actor, 'checked') ||
-            hasPseudo(actor, 'selected');
+            this._isQuickSettings
+                ? (
+                    treeHasPseudo(actor, 'checked') ||
+                    treeHasPseudo(actor, 'selected')
+                )
+                : (
+                    hasPseudo(actor, 'checked') ||
+                    hasPseudo(actor, 'selected')
+                );
         const engaged =
             pressed ||
-            hasPseudo(actor, 'hover') ||
-            hasPseudo(actor, 'focus');
+            (
+                this._isQuickSettings
+                    ? (
+                        treeHasPseudo(actor, 'hover') ||
+                        treeHasPseudo(actor, 'focus')
+                    )
+                    : (
+                        hasPseudo(actor, 'hover') ||
+                        hasPseudo(actor, 'focus')
+                    )
+            );
 
         const role = VELORA_GLASS_ROLES.innerCard;
         const target = resolveGlassInteractionTarget(
@@ -702,10 +746,25 @@ class PopupGlassSurface {
                 continue;
 
             const [absX, absY, width, height] = rect;
-            const klass = dateCardClass(actor);
+            const klass = this._isDateMenu
+                ? dateCardClass(actor)
+                : quickCardClass(actor);
+
+            const quickAdapter =
+                VELORA_GLASS_ADAPTERS.quickMenu;
+            const quickSelected =
+                this._isQuickSettings &&
+                (
+                    treeHasPseudo(actor, 'checked') ||
+                    treeHasPseudo(actor, 'selected')
+                );
+
             const baseStrength = (() => {
-                if (this._isQuickSettings)
-                    return 0.046;
+                if (this._isQuickSettings) {
+                    return quickSelected
+                        ? quickAdapter.selectedBaseStrength
+                        : quickAdapter.idleBaseStrength;
+                }
 
                 switch (klass) {
                 case 'calendar':
@@ -723,20 +782,31 @@ class PopupGlassSurface {
 
             const response =
                 this._dateCardResponse(actor, klass);
+
+            const strengthCeiling =
+                this._isQuickSettings && quickSelected
+                    ? 0.22
+                    : 0.11;
+
             const reactiveStrength =
                 Math.min(
-                    0.11,
+                    strengthCeiling,
                     baseStrength + response * 0.025
                 );
+
+            const tint =
+                quickSelected
+                    ? this._accentRgb
+                    : [1.0, 1.0, 1.0];
 
             regions.push({
                 x: absX - monitorX - DATE_INNER_PAD,
                 y: absY - monitorY - DATE_INNER_PAD,
                 w: width + DATE_INNER_PAD * 2,
                 h: height + DATE_INNER_PAD * 2,
-                tintR: 1.0,
-                tintG: 1.0,
-                tintB: 1.0,
+                tintR: tint[0],
+                tintG: tint[1],
+                tintB: tint[2],
                 baseStrength: reactiveStrength,
                 response,
             });
