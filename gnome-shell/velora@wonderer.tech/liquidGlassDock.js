@@ -516,85 +516,151 @@ export class LiquidGlassIntegration {
             return;
         }
 
-        if (version >= 1)
-            return;
+        if (version < 1) {
+            // The vendored renderer already implements the full optical model.
+            // Its conservative defaults intentionally ship chroma/specular/sheen
+            // at zero, which reads as ordinary frosted blur. Seed a one-time
+            // Velora profile that makes the lens unmistakable while keeping the
+            // shader GPU-native and avoiding CPU framebuffer readback.
+            const doubles = {
+                'glass-max-z': 82.0,
+                'glass-displacement-scale': 24.0,
+                'glass-edge-smoothing': 0.85,
+                'glass-profile-shape-n': 3.8,
+                'glass-ior': 1.72,
+                'glass-chroma-strength': 2.2,
+                'glass-specular-intensity': 0.48,
+                'glass-shininess': 56.0,
+                'glass-rim-width': 3.4,
+                'glass-rim-intensity': 0.78,
+                'glass-rim-directional-power': 1.7,
+                'glass-rim-power': 2.5,
+                'glass-rim-light-color-intensity': 1.15,
+                'glass-sheen-intensity': 0.14,
+                'glass-light-angle-deg': 105.0,
+                'shadow-radius': 30.0,
+                'shadow-intensity': 0.16,
+                'glass-ao-intensity': 0.42,
+                'glass-ao-radius': 2.2,
+                'menu-brightness': 1.03,
+                'menu-contrast': 1.05,
+                'menu-saturation': 1.18,
+                'notification-brightness': 1.03,
+                'notification-contrast': 1.05,
+                'notification-saturation': 1.18,
+                'osd-brightness': 1.03,
+                'osd-contrast': 1.05,
+                'osd-saturation': 1.18,
+                'dock-brightness': 1.02,
+                'dock-contrast': 1.04,
+                'dock-saturation': 1.15,
+            };
 
-        // The vendored renderer already implements the full optical model.
-        // Its conservative defaults intentionally ship chroma/specular/sheen
-        // at zero, which reads as ordinary frosted blur. Seed a one-time
-        // Velora profile that makes the lens unmistakable while keeping the
-        // shader GPU-native and avoiding CPU framebuffer readback.
-        const doubles = {
-            'glass-max-z': 82.0,
-            'glass-displacement-scale': 24.0,
-            'glass-edge-smoothing': 0.85,
-            'glass-profile-shape-n': 3.8,
-            'glass-ior': 1.72,
-            'glass-chroma-strength': 2.2,
-            'glass-specular-intensity': 0.48,
-            'glass-shininess': 56.0,
-            'glass-rim-width': 3.4,
-            'glass-rim-intensity': 0.78,
-            'glass-rim-directional-power': 1.7,
-            'glass-rim-power': 2.5,
-            'glass-rim-light-color-intensity': 1.15,
-            'glass-sheen-intensity': 0.14,
-            'glass-light-angle-deg': 105.0,
-            'shadow-radius': 30.0,
-            'shadow-intensity': 0.16,
-            'glass-ao-intensity': 0.42,
-            'glass-ao-radius': 2.2,
-            'menu-brightness': 1.03,
-            'menu-contrast': 1.05,
-            'menu-saturation': 1.18,
-            'notification-brightness': 1.03,
-            'notification-contrast': 1.05,
-            'notification-saturation': 1.18,
-            'osd-brightness': 1.03,
-            'osd-contrast': 1.05,
-            'osd-saturation': 1.18,
-            'dock-brightness': 1.02,
-            'dock-contrast': 1.04,
-            'dock-saturation': 1.15,
-        };
+            for (const [key, value] of Object.entries(doubles)) {
+                try {
+                    this._settings.set_double(key, value);
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] optics key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            }
 
-        for (const [key, value] of Object.entries(doubles)) {
             try {
-                this._settings.set_double(key, value);
+                this._settings.set_int('blur-method', 1);
+                this._settings.set_int('glass-blur-downscale', 2);
+
+                // Refraction should dominate the look; blur and tint support it
+                // instead of turning the surface into an opaque frosted card.
+                this._veloraSettings.set_int('glass-blur', 12);
+                this._veloraSettings.set_int('glass-opacity', 8);
+                this._veloraSettings.set_string(
+                    'glass-tint-color',
+                    '#ffffff'
+                );
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    1
+                );
+                version = 1;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] optics key skipped ' +
-                    key + ': ' + error
+                    '[Velora][LiquidGlass] optics profile migration incomplete: ' +
+                    error
                 );
             }
-        }
 
-        try {
-            this._settings.set_int('blur-method', 1);
-            this._settings.set_int('glass-blur-downscale', 2);
-
-            // Refraction should dominate the look; blur and tint support it
-            // instead of turning the surface into an opaque frosted card.
-            this._veloraSettings.set_int('glass-blur', 12);
-            this._veloraSettings.set_int('glass-opacity', 8);
-            this._veloraSettings.set_string(
-                'glass-tint-color',
-                '#ffffff'
-            );
-            this._veloraSettings.set_int(
-                'glass-optics-profile-version',
-                1
-            );
-        } catch (error) {
-            console.warn(
-                '[Velora][LiquidGlass] optics profile migration incomplete: ' +
-                error
+            console.log(
+                '[Velora][LiquidGlass] full refractive optics profile seeded'
             );
         }
 
-        console.log(
-            '[Velora][LiquidGlass] full refractive optics profile seeded'
-        );
+        if (version < 2) {
+            // Surface profile v2: align Top Panel and Ubuntu Dock with the
+            // refractive system material without changing margin, placement,
+            // glass expansion, icon geometry or dock behavior.
+            //
+            // Respect explicit user overrides: only seed keys that have never
+            // been written in this settings namespace.
+            const setDoubleIfUnset = (key, value) => {
+                try {
+                    if (this._settings.get_user_value(key) === null)
+                        this._settings.set_double(key, value);
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            const setIntIfUnset = (key, value) => {
+                try {
+                    if (this._settings.get_user_value(key) === null)
+                        this._settings.set_int(key, value);
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            const setStringIfUnset = (key, value) => {
+                try {
+                    if (this._settings.get_user_value(key) === null)
+                        this._settings.set_string(key, value);
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            setStringIfUnset('dock-tint-color', '#ffffff');
+            setDoubleIfUnset('dock-tint-strength', 0.06);
+            setIntIfUnset('dock-blur-radius', 8);
+            setDoubleIfUnset('dock-corner-radius', 28.0);
+
+            try {
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    2
+                );
+                version = 2;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] dock optics profile migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] panel/dock optical profile v2 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
@@ -899,6 +965,25 @@ export class LiquidGlassIntegration {
 
         // A full-width top bar should meet the screen edges cleanly.
         manager.effect?.setCornerRadius(0);
+        manager.effect?.setSurfaceLightEnabled?.(true);
+        manager.effect?.setBlurMethod?.(1);
+
+        // DashManager also marks its parent transparent for dock themes. For
+        // Main.panel that parent is a broad Shell container, not part of the
+        // panel material. Remove the class there so the glass scope stays local
+        // to the top bar and cannot affect unrelated Shell children.
+        try {
+            if (
+                manager._dockParent &&
+                manager._dockParent !== Main.panel
+            ) {
+                manager._dockParent.remove_style_class_name?.(
+                    'liquid-glass-transparent'
+                );
+            }
+        } catch {
+            // Parent may already be rebuilding.
+        }
     }
 
     _cleanupTopPanelGlass() {
@@ -945,9 +1030,6 @@ export class LiquidGlassIntegration {
 
         this._notificationGlassManager.setup();
 
-        console.log(
-            '[Velora][LiquidGlass] nativeNotificationStyler active'
-        );
     }
 
     _applyAllNativeNotificationAppearances(
@@ -1041,6 +1123,8 @@ export class LiquidGlassIntegration {
                     this._logger
                 );
             entry.manager.setup();
+            entry.manager.effect?.setSurfaceLightEnabled?.(true);
+            entry.manager.effect?.setBlurMethod?.(1);
             return true;
         } catch (error) {
             console.error(
