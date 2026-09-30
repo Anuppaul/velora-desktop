@@ -401,13 +401,19 @@ export class LiquidGlassIntegration {
         validateVendorApi(this._vendor);
         this._settings = createLiquidGlassSettings();
         this._ensureFullGlassOpticsProfile();
-        this._ensureQuickSettingsInnerGlassProfile();
 
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
             externalRoot &&
             externalRoot === this._vendor.root
         );
+
+        // Only force Velora's dedicated inner-card profile when Velora owns
+        // the manager stack. If the original upstream extension is already
+        // active, changing its quick-settings-apply-to value here could turn
+        // its existing outer Quick Settings card off.
+        if (!this._externalGlobalStack)
+            this._ensureQuickSettingsInnerGlassProfile();
 
         this._logger = new this._vendor.Logger(this._settings);
         if (!this._externalGlobalStack)
