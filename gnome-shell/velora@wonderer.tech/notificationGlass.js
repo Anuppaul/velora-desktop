@@ -740,6 +740,17 @@ export class NotificationGlassManager {
             VELORA_GLASS_ROLES.notificationCard;
         const adapter =
             VELORA_GLASS_ADAPTERS.notificationBanner;
+        const scopedAppearance =
+            adapter.appearanceProfile
+                ? state?.[adapter.appearanceProfile]
+                : null;
+        const profile =
+            scopedAppearance
+                ? {
+                    ...state,
+                    ...scopedAppearance,
+                }
+                : state;
 
         let brightness = null;
         let contrast = null;
@@ -764,13 +775,13 @@ export class NotificationGlassManager {
             role,
             {
                 tintColor: [
-                    (state.r ?? 255) / 255,
-                    (state.g ?? 255) / 255,
-                    (state.b ?? 255) / 255,
+                    (profile.r ?? 255) / 255,
+                    (profile.g ?? 255) / 255,
+                    (profile.b ?? 255) / 255,
                 ],
                 tintStrength:
-                    state.opacity ?? role.tintStrength,
-                baseBlur: state.blur ?? 7,
+                    profile.opacity ?? role.tintStrength,
+                baseBlur: profile.blur ?? 7,
                 cornerRadius: material.radius,
                 brightness,
                 contrast,
@@ -779,16 +790,17 @@ export class NotificationGlassManager {
             }
         );
 
-        // The shader now owns rim/specular depth. Keep the native filter as a
-        // very light body veil only; no second border/shadow layer.
+        // No second body/filter plate. The LiquidEffect owns the complete
+        // visible material, rim, refraction and depth.
         const filterOpacity = Math.max(
             0,
             Math.min(
-                adapter.filterOpacityMax,
-                (state.filterOpacity ?? 0.05) *
-                    adapter.filterOpacityScale
+                0.20,
+                adapter.filterOpacityOverride ??
+                    0.0
             )
         );
+
         material.filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
