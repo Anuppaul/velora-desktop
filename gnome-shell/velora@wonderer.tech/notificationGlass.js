@@ -4,6 +4,12 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {
+    VELORA_GLASS_ADAPTERS,
+    VELORA_GLASS_ROLES,
+    applyVeloraGlassRole,
+} from './glassMaterialSystem.js';
+
 const DEFAULT_RADIUS = 24;
 const SAMPLE_MARGIN_MIN = 48;
 const SAMPLE_MARGIN_MAX = 180;
@@ -214,9 +220,6 @@ export class NotificationGlassManager {
         // Sampling headroom comes from the root clip, not from a larger card.
         effect.setPadding?.(20);
         effect.setIsDock?.(false);
-        effect.setSurfaceLightEnabled?.(true);
-        effect.setCornerRadius?.(radius);
-        effect.setBlurMethod?.(1);
         liquidBox.add_effect(effect);
 
         const filterLayer = new St.Widget({
@@ -362,61 +365,74 @@ export class NotificationGlassManager {
         if (!material?.effect || !state)
             return;
 
-        const r = (state.r ?? 0) / 255;
-        const g = (state.g ?? 0) / 255;
-        const b = (state.b ?? 0) / 255;
+        const role =
+            VELORA_GLASS_ROLES.notificationCard;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
 
-        material.effect.setTintColor?.(r, g, b);
-        material.effect.setTintStrength?.(state.opacity ?? 0);
-        material.effect.setBlurRadius?.(state.blur ?? 0);
-        material.effect.setCornerRadius?.(material.radius);
+        let brightness = null;
+        let contrast = null;
+        let saturation = null;
 
+        try {
+            brightness = this._settings.get_double(
+                'notification-brightness'
+            );
+            contrast = this._settings.get_double(
+                'notification-contrast'
+            );
+            saturation = this._settings.get_double(
+                'notification-saturation'
+            );
+        } catch {
+            // Shared material defaults remain valid.
+        }
+
+        applyVeloraGlassRole(
+            material.effect,
+            role,
+            {
+                tintColor: [
+                    (state.r ?? 255) / 255,
+                    (state.g ?? 255) / 255,
+                    (state.b ?? 255) / 255,
+                ],
+                tintStrength:
+                    state.opacity ?? role.tintStrength,
+                baseBlur: state.blur ?? 7,
+                cornerRadius: material.radius,
+                brightness,
+                contrast,
+                saturation,
+                multiRegion: adapter.multiRegion,
+            }
+        );
+
+        // The shader now owns rim/specular depth. Keep the native filter as a
+        // very light body veil only; no second border/shadow layer.
         const filterOpacity = Math.max(
             0,
-            Math.min(0.20, state.filterOpacity ?? 0.05)
+            Math.min(
+                adapter.filterOpacityMax,
+                (state.filterOpacity ?? 0.05) *
+                    adapter.filterOpacityScale
+            )
         );
         material.filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
             '); border-radius: ' +
             Math.round(material.radius) +
-            'px; border: 1px solid rgba(255,255,255,' +
-            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
-            '); box-shadow: none;'
+            'px; border: none; box-shadow: none;'
         );
-
-        this._applyRendererSettings(material);
-    }
-
-    _applyRendererSettings(material) {
-        try {
-            material.effect.setBrightness?.(
-                this._settings.get_double(
-                    'notification-brightness'
-                )
-            );
-            material.effect.setContrast?.(
-                this._settings.get_double(
-                    'notification-contrast'
-                )
-            );
-            material.effect.setSaturation?.(
-                this._settings.get_double(
-                    'notification-saturation'
-                )
-            );
-
-            // Notification pilot deliberately defaults to the cheaper
-            // Dual Kawase path. The global renderer still owns downscale.
-            material.effect.setBlurMethod?.(1);
-        } catch {
-            // Existing effect values remain valid if settings are unavailable.
-        }
     }
 
     _refreshMaterialSettings() {
         for (const material of this._materials.values()) {
-            this._applyRendererSettings(material);
+            this._applyAppearance(
+                material,
+                this._appearance ?? this._readAppearance()
+            );
             this._queueSync(material);
         }
     }
