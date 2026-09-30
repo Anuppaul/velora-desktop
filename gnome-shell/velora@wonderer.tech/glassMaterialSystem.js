@@ -98,10 +98,14 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptivePreference: 'auto',
         sampleIntervalMs: 900,
 
-        // Material state strengths. Selected pods keep the same physical
-        // glass; only their shader tint comes from the live Shell accent.
+        // Use the same low-opacity/blur/filter profile as the approved
+        // Date Menu so both popups share not only optics but body density.
+        appearanceProfile: 'dateMenu',
+
+        // Selected pods stay physical glass. Accent is a restrained material
+        // tint plus the native accent edge, not a flat filled rectangle.
         idleBaseStrength: 0.046,
-        selectedBaseStrength: 0.18,
+        selectedBaseStrength: 0.072,
         accentSource: 'shell-theme',
 
         // Date Menu and Quick Menu share the same one-rim popup policy.
