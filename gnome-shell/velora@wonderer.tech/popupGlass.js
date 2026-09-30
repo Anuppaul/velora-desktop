@@ -297,6 +297,19 @@ class PopupGlassSurface {
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
+        if (this._isDateMenu) {
+            // Date Menu keeps the same glass geometry/material, but has no
+            // outer drop shadow. Write the existing uniform buffer directly
+            // so this also works during current-session hot swaps.
+            try {
+                this._effect._uniforms?.set?.('shadow_radius', 0);
+                this._effect._uniforms?.set?.('shadow_intensity', 0);
+                this._effect.queue_repaint?.();
+            } catch {
+                // If the renderer internals change, leave the rest untouched.
+            }
+        }
+
         const filterOpacity = Math.max(
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
