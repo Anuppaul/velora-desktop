@@ -43,6 +43,7 @@ export class OsdManager {
     _styledActors;
     _isFirstAdaptiveRun;
     _materialRole = null;
+    _sharedAppearance = null;
     constructor(extensionPath, settings, logger, materialRole = null) {
         this.extensionPath = extensionPath;
         this._settings = settings;
@@ -78,6 +79,63 @@ export class OsdManager {
             this._applyEffect();
         }
     }
+    _sharedMaterialParams() {
+        const appearance = this._sharedAppearance;
+        if (!appearance)
+            return null;
+        const role = this._materialRole ?? {};
+        const baseBlur = Number.isFinite(appearance.blur)
+            ? appearance.blur
+            : this._settings.get_int('osd-blur-radius');
+        const blurScale = Number.isFinite(role.blurScale)
+            ? role.blurScale
+            : 1;
+        const blurMin = Number.isFinite(role.blurMin)
+            ? role.blurMin
+            : 0;
+        const blurMax = Number.isFinite(role.blurMax)
+            ? role.blurMax
+            : 80;
+        return {
+            tintColor: [
+                (appearance.r ?? 255) / 255,
+                (appearance.g ?? 255) / 255,
+                (appearance.b ?? 255) / 255,
+            ],
+            tintStrength: Number.isFinite(appearance.opacity)
+                ? appearance.opacity
+                : (role.tintStrength ?? this._baseTint),
+            blurRadius: Math.min(blurMax, Math.max(blurMin, Math.round(baseBlur * blurScale))),
+        };
+    }
+    _applySharedAppearanceToStates() {
+        const shared = this._sharedMaterialParams();
+        if (!shared)
+            return;
+        this._baseTint = shared.tintStrength;
+        const cornerRadius = this._settings.get_double('osd-corner-radius');
+        const brightness = this._settings.get_double('osd-brightness');
+        const contrast = this._settings.get_double('osd-contrast');
+        const saturation = this._settings.get_double('osd-saturation');
+        for (const state of this._osdStates) {
+            if (!state.effect)
+                continue;
+            state._currentTint = shared.tintStrength;
+            this._applyMaterialRole(state.effect, {
+                tintColor: shared.tintColor,
+                tintStrength: shared.tintStrength,
+                blurRadius: shared.blurRadius,
+                cornerRadius,
+                brightness,
+                contrast,
+                saturation,
+            });
+        }
+    }
+    updateMaterialAppearance(appearance = null) {
+        this._sharedAppearance = appearance;
+        this._applySharedAppearanceToStates();
+    }
     _hexToColorArray(hex) {
         if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7)
             return [1.0, 1.0, 1.0];
@@ -100,6 +158,10 @@ export class OsdManager {
         });
         connectSetting('osd-tint-color', () => {
             if (this._isEffectActive) {
+                if (this._sharedAppearance) {
+                    this._applySharedAppearanceToStates();
+                    return;
+                }
                 let colorArray = this._hexToColorArray(this._settings.get_string('osd-tint-color'));
                 for (let state of this._osdStates) {
                     if (state.effect)
@@ -109,6 +171,10 @@ export class OsdManager {
         });
         connectSetting('osd-tint-strength', () => {
             if (this._isEffectActive) {
+                if (this._sharedAppearance) {
+                    this._applySharedAppearanceToStates();
+                    return;
+                }
                 this._baseTint = this._settings.get_double('osd-tint-strength');
                 for (let state of this._osdStates) {
                     state._currentTint = this._baseTint;
@@ -119,6 +185,10 @@ export class OsdManager {
         });
         connectSetting('osd-blur-radius', () => {
             if (this._isEffectActive) {
+                if (this._sharedAppearance) {
+                    this._applySharedAppearanceToStates();
+                    return;
+                }
                 let radius = this._settings.get_int('osd-blur-radius');
                 for (let state of this._osdStates) {
                     if (state.effect)
@@ -202,7 +272,8 @@ export class OsdManager {
         this._adaptiveConfig.enabled = this._settings.get_boolean('osd-enable-adaptive-text-color');
         this._adaptiveConfig.sampleIntervalMs = this._settings.get_int('osd-sample-interval-ms');
         this._glassExpand = this._settings.get_int('osd-glass-expand');
-        this._baseTint = this._settings.get_double('osd-tint-strength');
+        this._baseTint = this._sharedMaterialParams()?.tintStrength ??
+            this._settings.get_double('osd-tint-strength');
         this._osdYOffset = this._settings.get_int('osd-y-offset');
         let osdWindows = Main.osdWindowManager._osdWindows;
         if (!osdWindows)
@@ -356,16 +427,22 @@ export class OsdManager {
         }
         // ── 4. Read effect parameters ─────────────────────────────────────────────
         let blurRadius = this._settings.get_int('osd-blur-radius');
-        let tintColorStr = this._settings.get_string('osd-tint-color');
+        let tintColor = this._hexToColorArray(this._settings.get_string('osd-tint-color'));
         let cornerRadius = this._settings.get_double('osd-corner-radius');
         let brightness = this._settings.get_double('osd-brightness');
         let saturation = this._settings.get_double('osd-saturation');
         let contrast = this._settings.get_double('osd-contrast');
+        const shared = this._sharedMaterialParams();
+        if (shared) {
+            tintColor = shared.tintColor;
+            this._baseTint = shared.tintStrength;
+            blurRadius = shared.blurRadius;
+        }
         // LiquidEffect on liquidBox (includes built-in dual-Kawase blur)
         let effect = new LiquidEffect({ extensionPath: this.extensionPath, settings: this._settings, owner: 'osd' });
         effect.setPadding(SHADER_PADDING);
         this._applyMaterialRole(effect, {
-            tintColor: this._hexToColorArray(tintColorStr),
+            tintColor,
             tintStrength: this._baseTint,
             blurRadius,
             cornerRadius,
