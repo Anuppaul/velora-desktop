@@ -697,6 +697,40 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] clear-glass material profile v3 seeded'
             );
         }
+
+        if (version < 4) {
+            // v4 micro-tune: less bulk blur/tint globally, with Date Menu
+            // calibrated independently. Preserve manual edits made after v3 by
+            // only replacing values that still equal our previous seed.
+            try {
+                if (this._veloraSettings.get_int('glass-opacity') === 3)
+                    this._veloraSettings.set_int('glass-opacity', 2);
+                if (this._veloraSettings.get_int('glass-blur') === 9)
+                    this._veloraSettings.set_int('glass-blur', 7);
+                if (this._veloraSettings.get_int('glass-filter-opacity') === 5)
+                    this._veloraSettings.set_int('glass-filter-opacity', 4);
+
+                if (this._settings.get_double('dock-tint-strength') === 0.03)
+                    this._settings.set_double('dock-tint-strength', 0.02);
+                if (this._settings.get_int('dock-blur-radius') === 6)
+                    this._settings.set_int('dock-blur-radius', 4);
+
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    4
+                );
+                version = 4;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] micro-tune profile migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] Date Menu micro-tune/performance profile v4 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
@@ -743,6 +777,38 @@ export class LiquidGlassIntegration {
             20
         ) / 100;
 
+        const sceneFps = clampNumber(
+            this._veloraSettings.get_int(
+                'glass-live-scene-fps'
+            ),
+            15,
+            60
+        );
+
+        const dateMenu = {
+            opacity: clampNumber(
+                this._veloraSettings.get_int(
+                    'date-menu-glass-opacity'
+                ),
+                0,
+                20
+            ) / 100,
+            blur: clampNumber(
+                this._veloraSettings.get_int(
+                    'date-menu-glass-blur'
+                ),
+                0,
+                20
+            ),
+            filterOpacity: clampNumber(
+                this._veloraSettings.get_int(
+                    'date-menu-glass-filter-opacity'
+                ),
+                0,
+                20
+            ) / 100,
+        };
+
         return {
             opacity,
             tint,
@@ -751,6 +817,8 @@ export class LiquidGlassIntegration {
             b,
             blur,
             filterOpacity,
+            sceneFps,
+            dateMenu,
             fill:
                 `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(2)})`,
         };
@@ -773,7 +841,13 @@ export class LiquidGlassIntegration {
             ' blur=' +
             state.blur +
             ' filter=' +
-            Math.round((state.filterOpacity ?? 0) * 100)
+            Math.round((state.filterOpacity ?? 0) * 100) +
+            ' sceneFps=' +
+            (state.sceneFps ?? 30) +
+            ' dateMenu=' +
+            Math.round((state.dateMenu?.opacity ?? 0) * 100) + '/' +
+            (state.dateMenu?.blur ?? 0) + '/' +
+            Math.round((state.dateMenu?.filterOpacity ?? 0) * 100)
         );
     }
 
@@ -810,6 +884,10 @@ export class LiquidGlassIntegration {
                             'glass-tint-color',
                             'glass-blur',
                             'glass-filter-opacity',
+                            'date-menu-glass-opacity',
+                            'date-menu-glass-blur',
+                            'date-menu-glass-filter-opacity',
+                            'glass-live-scene-fps',
                         ].includes(key)) {
                             this._queueSharedCardAppearanceApply();
                         }
