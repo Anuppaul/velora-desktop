@@ -1,3 +1,4 @@
+import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -283,16 +284,15 @@ class PopupGlassSurface {
         this._lastHostX = x;
         this._lastHostY = y;
 
-        this._vendor.setPositionIfChanged(
-            material,
-            x - OPTICAL_MARGIN,
-            y - OPTICAL_MARGIN
-        );
-        this._vendor.setSizeIfChanged(
-            material,
-            w + OPTICAL_MARGIN * 2,
-            h + OPTICAL_MARGIN * 2
-        );
+        // BoxPointer has a custom vfunc_allocate() that only allocates its
+        // native border and bin. Our no-layout paint child therefore needs an
+        // explicit allocation in BoxPointer-local coordinates.
+        const materialBox = new Clutter.ActorBox();
+        materialBox.x1 = x - OPTICAL_MARGIN;
+        materialBox.y1 = y - OPTICAL_MARGIN;
+        materialBox.x2 = x + w + OPTICAL_MARGIN;
+        materialBox.y2 = y + h + OPTICAL_MARGIN;
+        material.allocate(materialBox);
         material.queue_redraw?.();
     }
 
@@ -324,14 +324,19 @@ class PopupGlassSurface {
     syncFrame() {
         if (
             this._destroyed ||
-            !this._menu?.isOpen ||
-            !this._material?.mapped
+            !this._menu?.isOpen
         ) {
             return;
         }
 
-        this._ensureSceneManager();
+        // Allocate first. A no-layout BoxPointer child cannot become mapped
+        // until we give it a valid allocation ourselves.
         this._syncHostGeometry();
+
+        if (!this._material?.mapped)
+            return;
+
+        this._ensureSceneManager();
         this._syncSceneLayers();
     }
 
