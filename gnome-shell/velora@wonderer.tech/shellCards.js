@@ -4,6 +4,12 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {
+    VELORA_GLASS_ADAPTERS,
+    VELORA_GLASS_ROLES,
+    applyVeloraGlassRole,
+} from './glassMaterialSystem.js';
+
 const CARD_CLASS = 'velora-liquid-shell-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
@@ -102,8 +108,6 @@ class ShellCardSurface {
         effect.setPadding?.(20);
         effect.setShadowMaxRadius?.(OPTICAL_MARGIN - 8);
         effect.setIsDock?.(false);
-        effect.setSurfaceLightEnabled?.(true);
-        effect.setBlurMethod?.(1);
         material.add_effect(effect);
 
         try {
@@ -185,29 +189,53 @@ class ShellCardSurface {
     updateAppearance(state) {
         if (!this._effect || !state)
             return;
+
+        const role =
+            VELORA_GLASS_ROLES.shellCard;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.shellCard;
         const radius = Math.max(0, radiusOf(this._target));
-        this._effect.setTintColor?.(
-            (state.r ?? 255) / 255,
-            (state.g ?? 255) / 255,
-            (state.b ?? 255) / 255
-        );
-        this._effect.setTintStrength?.(state.opacity ?? .12);
-        this._effect.setBlurRadius?.(state.blur ?? 20);
-        this._effect.setCornerRadius?.(radius);
-        this._effect.setBlurMethod?.(1);
+
+        let brightness = null;
+        let contrast = null;
+        let saturation = null;
+
         try {
-            this._effect.setBrightness?.(
-                this._settings.get_double('menu-brightness')
-            );
-            this._effect.setContrast?.(
-                this._settings.get_double('menu-contrast')
-            );
-            this._effect.setSaturation?.(
-                this._settings.get_double('menu-saturation')
-            );
+            brightness =
+                this._settings.get_double('menu-brightness');
+            contrast =
+                this._settings.get_double('menu-contrast');
+            saturation =
+                this._settings.get_double('menu-saturation');
         } catch {
-            // Renderer defaults remain valid.
+            // Shared material defaults remain valid.
         }
+
+        applyVeloraGlassRole(
+            this._effect,
+            role,
+            {
+                tintColor: [
+                    (state.r ?? 255) / 255,
+                    (state.g ?? 255) / 255,
+                    (state.b ?? 255) / 255,
+                ],
+                tintStrength:
+                    adapter.inheritGlobalTint
+                        ? (state.opacity ?? role.tintStrength)
+                        : role.tintStrength,
+                baseBlur:
+                    adapter.inheritGlobalBlur
+                        ? (state.blur ?? 7)
+                        : 7,
+                cornerRadius: radius,
+                brightness,
+                contrast,
+                saturation,
+                multiRegion: adapter.multiRegion,
+            }
+        );
+
         this._material?.queue_redraw?.();
     }
 
