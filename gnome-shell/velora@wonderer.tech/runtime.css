@@ -334,6 +334,107 @@
     background-color: rgba(255, 255, 255, 0.18);
 }
 
+
+/* Modal / system dialog refinement -------------------------------------- */
+.modal-dialog.velora-liquid-shell-card .modal-dialog-button,
+.modal-dialog.velora-liquid-shell-card .run-dialog-entry,
+.modal-dialog.velora-liquid-shell-card .prompt-dialog-password-entry,
+.modal-dialog.velora-liquid-shell-card .audio-selection-device {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.modal-dialog.velora-liquid-shell-card .modal-dialog-button:hover,
+.modal-dialog.velora-liquid-shell-card .modal-dialog-button:focus,
+.modal-dialog.velora-liquid-shell-card .audio-selection-device:hover,
+.modal-dialog.velora-liquid-shell-card .run-dialog-entry:focus,
+.modal-dialog.velora-liquid-shell-card .prompt-dialog-password-entry:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.modal-dialog.velora-liquid-shell-card .modal-dialog-button:active,
+.modal-dialog.velora-liquid-shell-card .audio-selection-device:active {
+    background-color: rgba(255, 255, 255, 0.19);
+}
+
+/* Keep GNOME's default-action semantics visible. */
+.modal-dialog.velora-liquid-shell-card .modal-dialog-button:default {
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
+    border-color: transparent;
+}
+
+/* Alt-Tab / switcher ---------------------------------------------------- */
+.switcher-list.velora-liquid-shell-card .item-box {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.switcher-list.velora-liquid-shell-card .item-box:selected {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.switcher-list.velora-liquid-shell-card .separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Screenshot panel ------------------------------------------------------ */
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-close-button,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-container {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:focus,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-close-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:checked {
+    background-color: rgba(255, 255, 255, 0.92);
+    color: rgba(0, 0, 0, 0.88);
+}
+
+/* App-folder dialog ----------------------------------------------------- */
+.app-folder-dialog.velora-liquid-shell-card .overview-tile,
+.app-folder-dialog.velora-liquid-shell-card .icon-button,
+.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow,
+.app-folder-dialog.velora-liquid-shell-card .folder-name-entry {
+    background-color: rgba(255, 255, 255, 0.09);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.11);
+    box-shadow: none;
+}
+
+.app-folder-dialog.velora-liquid-shell-card .overview-tile:hover,
+.app-folder-dialog.velora-liquid-shell-card .icon-button:hover,
+.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow:hover,
+.app-folder-dialog.velora-liquid-shell-card .folder-name-entry:focus {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.17);
+}
+
+.app-folder-dialog.velora-liquid-shell-card .overview-tile:active,
+.app-folder-dialog.velora-liquid-shell-card .icon-button:active,
+.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow:active {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
 /* -------------------------------------------------------------------------
  * Inner material unification
  *
