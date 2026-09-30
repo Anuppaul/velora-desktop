@@ -3,7 +3,11 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 import type { Logger } from '../logger.js';
 
-const TRANSPARENT_OVERRIDE = 'background-color: transparent !important;';
+const TRANSPARENT_OVERRIDE =
+  'background-color: transparent !important; ' +
+  'background-image: none !important; ' +
+  'border-color: transparent !important; ' +
+  'box-shadow: none !important;';
 
 type ToggleEntry = {
   destroyId: number;
