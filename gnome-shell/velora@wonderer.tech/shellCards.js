@@ -141,19 +141,11 @@ class ShellCardSurface {
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
-        try {
-            this._signals.push({
-                obj: this._target,
-                id: this._target.connect(
-                    'style-changed',
-                    () => this.updateAppearance(
-                        this._manager?._appearance
-                    )
-                ),
-            });
-        } catch {
-            // Optional style signal.
-        }
+        // Do not call ensure_style()/get_theme_node() recursively from
+        // style-changed. GNOME emits style-changed while resolving the style
+        // itself, so re-entering radiusOf() here can recurse until GJS aborts.
+        // Radius/material settings are refreshed by the normal appearance
+        // update path and on surface creation instead.
 
         try {
             this._signals.push({
