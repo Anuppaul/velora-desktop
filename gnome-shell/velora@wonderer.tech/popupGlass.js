@@ -1074,6 +1074,19 @@ class PopupGlassSurface {
         if (allowScan)
             this._scanDateCardActors(false);
 
+        const appearanceProfile =
+            this._surfaceAdapter?.appearanceProfile ??
+            (this._isDateMenu ? 'dateMenu' : null);
+        const surfaceAppearance =
+            appearanceProfile
+                ? {
+                    ...this._manager._appearance,
+                    ...(this._manager._appearance?.[appearanceProfile] ?? {}),
+                }
+                : this._manager._appearance;
+        const tintEnabled =
+            (surfaceAppearance?.opacity ?? 0) > 0;
+
         const regions = [];
 
         for (const actor of this._dateCardActors) {
@@ -1124,23 +1137,25 @@ class PopupGlassSurface {
                 }
             }
 
-            const baseStrength = (() => {
-                if (this._isQuickSettings)
-                    return quickAdapter.neutralBaseStrength;
+            const baseStrength = tintEnabled
+                ? (() => {
+                    if (this._isQuickSettings)
+                        return quickAdapter.neutralBaseStrength;
 
-                switch (klass) {
-                case 'calendar':
-                    return 0.024;
-                case 'message':
-                    return 0.036;
-                case 'datemenu-today-button':
-                    return 0.052;
-                case 'message-list-clear-button':
-                    return 0.058;
-                default:
-                    return 0.046;
-                }
-            })();
+                    switch (klass) {
+                    case 'calendar':
+                        return 0.024;
+                    case 'message':
+                        return 0.036;
+                    case 'datemenu-today-button':
+                        return 0.052;
+                    case 'message-list-clear-button':
+                        return 0.058;
+                    default:
+                        return 0.046;
+                    }
+                })()
+                : 0;
 
             const response =
                 this._dateCardResponse(
@@ -1152,10 +1167,12 @@ class PopupGlassSurface {
             const strengthCeiling = 0.11;
 
             const reactiveStrength =
-                Math.min(
-                    strengthCeiling,
-                    baseStrength + response * 0.025
-                );
+                tintEnabled
+                    ? Math.min(
+                        strengthCeiling,
+                        baseStrength + response * 0.025
+                    )
+                    : 0;
 
             const tint =
                 this._isQuickSettings
