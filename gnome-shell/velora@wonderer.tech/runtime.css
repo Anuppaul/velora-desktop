@@ -552,13 +552,22 @@
     border-color: rgba(255, 255, 255, 0.28);
 }
 
-/* Search provider/result sections share the overview material instead of
- * stacking opaque system-overlay cards. */
+/* Search provider/result sections now receive a real ShellCard
+ * LiquidEffect. Keep this fallback veil for the brief creation frame before
+ * the event-driven registry attaches; once attached, native paint disappears
+ * and the shared premium material becomes the only card body. */
 #overviewGroup .search-section-content {
     background-color: rgba(255, 255, 255, 0.08);
     background-image: none;
     border-color: rgba(255, 255, 255, 0.10);
     box-shadow: none;
+}
+
+#overviewGroup .search-section-content.velora-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 #overviewGroup .list-search-result,
