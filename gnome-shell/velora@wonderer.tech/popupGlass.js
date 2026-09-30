@@ -1188,16 +1188,19 @@ class PopupGlassSurface {
         if (!actor || useDarkText === null)
             return;
 
-        actor.remove_style_class_name?.(
-            DATE_CARD_TEXT_LIGHT_CLASS
-        );
-        actor.remove_style_class_name?.(
-            DATE_CARD_TEXT_DARK_CLASS
-        );
+        const lightClass =
+            this._isQuickSettings
+                ? QUICK_CARD_TEXT_LIGHT_CLASS
+                : DATE_CARD_TEXT_LIGHT_CLASS;
+        const darkClass =
+            this._isQuickSettings
+                ? QUICK_CARD_TEXT_DARK_CLASS
+                : DATE_CARD_TEXT_DARK_CLASS;
+
+        actor.remove_style_class_name?.(lightClass);
+        actor.remove_style_class_name?.(darkClass);
         actor.add_style_class_name?.(
-            useDarkText
-                ? DATE_CARD_TEXT_DARK_CLASS
-                : DATE_CARD_TEXT_LIGHT_CLASS
+            useDarkText ? darkClass : lightClass
         );
 
         this._dateCardTextState.set(
