@@ -611,13 +611,19 @@
 /* Hover/press is only a thin interaction sheen; the actual material remains
  * the nested shader underneath, so the card never turns back into a flat box. */
 .velora-liquid-popup-content.datemenu-popover .datemenu-today-button:hover,
+.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,
 .velora-liquid-popup-content.datemenu-popover .events-button:hover,
+.velora-liquid-popup-content.datemenu-popover .events-button:focus,
 .velora-liquid-popup-content.datemenu-popover .world-clocks-button:hover,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-button:focus,
 .velora-liquid-popup-content.datemenu-popover .weather-button:hover,
+.velora-liquid-popup-content.datemenu-popover .weather-button:focus,
 .velora-liquid-popup-content.datemenu-popover .message:hover,
-.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:hover {
-    background-color: rgba(255, 255, 255, 0.045) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
+.velora-liquid-popup-content.datemenu-popover .message:focus,
+.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:hover,
+.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:focus {
+    background-color: rgba(255, 255, 255, 0.038) !important;
+    border-color: rgba(255, 255, 255, 0.075) !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .message:active,
@@ -831,8 +837,10 @@
     border-color: transparent;
 }
 
-.velora-liquid-popup-content.datemenu-popover .message-media-control:hover {
+.velora-liquid-popup-content.datemenu-popover .message-media-control:hover,
+.velora-liquid-popup-content.datemenu-popover .message-media-control:focus {
     background-color: rgba(255, 255, 255, 0.075);
+    border-color: rgba(255, 255, 255, 0.10);
 }
 
 /* Quick Settings --------------------------------------------------------- */
