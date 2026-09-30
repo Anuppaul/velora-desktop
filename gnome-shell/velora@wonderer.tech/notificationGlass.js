@@ -173,6 +173,30 @@ export class NotificationGlassManager {
         }
     }
 
+    _readBannerPadding(actor) {
+        const padding = {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+        };
+
+        try {
+            actor?.ensure_style?.();
+            const node = actor?.get_theme_node?.();
+            padding.top =
+                node?.get_padding?.(St.Side.TOP) ?? 0;
+            padding.right =
+                node?.get_padding?.(St.Side.RIGHT) ?? 0;
+            padding.bottom =
+                node?.get_padding?.(St.Side.BOTTOM) ?? 0;
+            padding.left =
+                node?.get_padding?.(St.Side.LEFT) ?? 0;
+        } catch {}
+
+        return padding;
+    }
+
     _readBannerMargins(actor) {
         const margins = {
             top: 0,
@@ -239,6 +263,8 @@ export class NotificationGlassManager {
             actor.get_style?.() ??
             actor.style ??
             '';
+        const nativePadding =
+            this._readBannerPadding(actor);
 
         actor.add_style_class_name?.(
             'velora-native-notification-glass'
@@ -252,7 +278,15 @@ export class NotificationGlassManager {
             'background-color: transparent !important; ' +
             'background-image: none !important; ' +
             'border-color: transparent !important; ' +
-            'box-shadow: none !important;';
+            'box-shadow: none !important; ' +
+            'padding-top: ' +
+            Math.round(nativePadding.top) + 'px !important; ' +
+            'padding-right: ' +
+            Math.round(nativePadding.right) + 'px !important; ' +
+            'padding-bottom: ' +
+            Math.round(nativePadding.bottom) + 'px !important; ' +
+            'padding-left: ' +
+            Math.round(nativePadding.left) + 'px !important;';
         actor.set_style?.(
             originalInlineStyle
                 ? originalInlineStyle + ' ' + transparentStyle
@@ -347,6 +381,7 @@ export class NotificationGlassManager {
             effect,
             radius,
             margins: this._readBannerMargins(actor),
+            nativePadding,
             originalInlineStyle,
             signals: [],
             laterId: 0,
