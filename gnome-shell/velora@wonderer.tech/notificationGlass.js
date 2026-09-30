@@ -197,6 +197,75 @@ export class NotificationGlassManager {
         return padding;
     }
 
+    _readPaintedBounds(actor) {
+        const base =
+            this._vendor.getTransformedRect(actor);
+        if (!finiteRect(base))
+            return null;
+
+        let minX = base[0];
+        let minY = base[1];
+        let maxX = base[0] + base[2];
+        let maxY = base[1] + base[3];
+
+        const walk = node => {
+            for (const child of node?.get_children?.() ?? []) {
+                if (
+                    child?.visible &&
+                    child?.mapped &&
+                    (child.get_paint_opacity?.() ??
+                        child.opacity ??
+                        255) > 0
+                ) {
+                    const rect =
+                        this._vendor.getTransformedRect(
+                            child
+                        );
+
+                    if (finiteRect(rect)) {
+                        minX = Math.min(minX, rect[0]);
+                        minY = Math.min(minY, rect[1]);
+                        maxX = Math.max(
+                            maxX,
+                            rect[0] + rect[2]
+                        );
+                        maxY = Math.max(
+                            maxY,
+                            rect[1] + rect[3]
+                        );
+                    }
+                }
+
+                walk(child);
+            }
+        };
+
+        walk(actor);
+
+        // Theme-derived safety inset keeps glyph antialiasing/rim from
+        // touching the material edge without moving native content.
+        const padding = this._readBannerPadding(actor);
+        const inset = Math.max(
+            0,
+            Math.min(
+                24,
+                Math.max(
+                    padding.top,
+                    padding.right,
+                    padding.bottom,
+                    padding.left
+                )
+            )
+        );
+
+        return [
+            minX - inset,
+            minY - inset,
+            (maxX - minX) + inset * 2,
+            (maxY - minY) + inset * 2,
+        ];
+    }
+
     _readCornerRadius(actor) {
         try {
             actor?.ensure_style?.();
@@ -237,8 +306,6 @@ export class NotificationGlassManager {
             actor.get_style?.() ??
             actor.style ??
             '';
-        const nativePadding =
-            this._readBannerPadding(actor);
 
         actor.add_style_class_name?.(
             'velora-native-notification-glass'
@@ -252,15 +319,7 @@ export class NotificationGlassManager {
             'background-color: transparent !important; ' +
             'background-image: none !important; ' +
             'border-color: transparent !important; ' +
-            'box-shadow: none !important; ' +
-            'padding-top: ' +
-            Math.round(nativePadding.top) + 'px !important; ' +
-            'padding-right: ' +
-            Math.round(nativePadding.right) + 'px !important; ' +
-            'padding-bottom: ' +
-            Math.round(nativePadding.bottom) + 'px !important; ' +
-            'padding-left: ' +
-            Math.round(nativePadding.left) + 'px !important;';
+            'box-shadow: none !important;';
         actor.set_style?.(
             originalInlineStyle
                 ? originalInlineStyle + ' ' + transparentStyle
@@ -354,7 +413,6 @@ export class NotificationGlassManager {
             filterLayer,
             effect,
             radius,
-            nativePadding,
             originalInlineStyle,
             signals: [],
             laterId: 0,
@@ -763,7 +821,7 @@ export class NotificationGlassManager {
         }
 
         const rect =
-            this._vendor.getTransformedRect(
+            this._readPaintedBounds(
                 material.actor
             );
         if (!finiteRect(rect))
@@ -954,7 +1012,7 @@ export class NotificationGlassManager {
             return;
         }
 
-        const rect = this._vendor.getTransformedRect(actor);
+        const rect = this._readPaintedBounds(actor);
         if (!finiteRect(rect)) {
             if (!shaderOnly)
                 material.root.hide?.();
