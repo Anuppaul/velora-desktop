@@ -6,7 +6,6 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
-const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
 const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
@@ -218,8 +217,6 @@ class PopupGlassSurface {
 
         this._box.add_style_class_name?.(GLASS_CLASS);
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
-        if (this._isDateMenu)
-            this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
 
         this._root = root;
         this._liquidBox = liquidBox;
@@ -297,44 +294,18 @@ class PopupGlassSurface {
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
-        if (this._isDateMenu) {
-            // The vendored LiquidEffect module is process-cached across Velora
-            // hot swaps. Call the public setters when present, but also write
-            // the already-existing uniform buffer directly so this takes effect
-            // immediately in the current Shell session without a logout.
-            this._effect.setShadowRadius?.(0);
-            this._effect.setShadowIntensity?.(0);
-            this._effect.setShadowMaxRadius?.(0);
-            try {
-                this._effect._uniforms?.set?.('shadow_radius', 0);
-                this._effect._uniforms?.set?.('shadow_intensity', 0);
-                this._effect._uniforms?.set?.('shadow_max_radius', 0);
-                this._effect.queue_repaint?.();
-            } catch {
-                // Public setters above remain the fresh-session path.
-            }
-        }
-
         const filterOpacity = Math.max(
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
         );
-        const filterBorder = this._isDateMenu
-            ? 'border: none;'
-            : (
-                'border: 1px solid rgba(255,255,255,' +
-                Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
-                ');'
-            );
-
         this._filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
             '); border-radius: ' +
             Math.round(this._radius) +
-            'px; ' +
-            filterBorder +
-            ' box-shadow: none;'
+            'px; border: 1px solid rgba(255,255,255,' +
+            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+            '); box-shadow: none;'
         );
 
         try {
@@ -434,14 +405,10 @@ class PopupGlassSurface {
         // shadows slightly outside menu.box. The vendored UIManager reserves
         // shader padding for this exact reason. Expand only the material mask;
         // native layout/position remains untouched.
-        // Date Menu is the reference surface: keep the visible glass
-        // boundary exactly on GNOME's native menu bounds. Other PopupMenus
-        // retain the optical headroom used for child-card overflow.
-        const edgePad = this._isDateMenu ? 0 : GLASS_EDGE_PAD;
-        const glassAbsX = absX - edgePad;
-        const glassAbsY = absY - edgePad;
-        const glassW = width + edgePad * 2;
-        const glassH = height + edgePad * 2;
+        const glassAbsX = absX - GLASS_EDGE_PAD;
+        const glassAbsY = absY - GLASS_EDGE_PAD;
+        const glassW = width + GLASS_EDGE_PAD * 2;
+        const glassH = height + GLASS_EDGE_PAD * 2;
 
         const glassX = glassAbsX - monitorX;
         const glassY = glassAbsY - monitorY;
@@ -547,20 +514,9 @@ class PopupGlassSurface {
             glassH + margin * 2
         );
 
-        if (this._isDateMenu) {
-            this._effect?.setShadowRadius?.(0);
-            this._effect?.setShadowIntensity?.(0);
-            this._effect?.setShadowMaxRadius?.(0);
-            try {
-                this._effect?._uniforms?.set?.('shadow_radius', 0);
-                this._effect?._uniforms?.set?.('shadow_intensity', 0);
-                this._effect?._uniforms?.set?.('shadow_max_radius', 0);
-            } catch {}
-        } else {
-            this._effect?.setShadowMaxRadius?.(
-                Math.max(0, margin - 16)
-            );
-        }
+        this._effect?.setShadowMaxRadius?.(
+            Math.max(0, margin - 16)
+        );
 
         const captureRect = [
             glassAbsX - margin,
@@ -633,7 +589,6 @@ class PopupGlassSurface {
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
-            this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
         } catch {}
 
         try {
