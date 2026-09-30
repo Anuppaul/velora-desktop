@@ -4,6 +4,7 @@ import St from 'gi://St';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 const GLASS_CLASS = 'velora-liquid-popup-content';
+const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DEFAULT_RADIUS = 18;
 // glass.frag's edge lens can reach ~96px beyond the visible rim. Keep source
 // pixels around the native popup without enlarging the visible card itself.
@@ -174,6 +175,7 @@ class PopupGlassSurface {
         );
 
         this._box.add_style_class_name?.(GLASS_CLASS);
+        this._boxPointer.add_style_class_name?.(SHELL_CLASS);
 
         this._material = material;
         this._sceneRoot = sceneRoot;
@@ -184,12 +186,20 @@ class PopupGlassSurface {
             this._openStateId = this._menu.connect(
                 'open-state-changed',
                 (_menu, isOpen) => {
-                    if (isOpen) {
+                    if (!isOpen)
+                        return;
+
+                    const sceneManager =
                         this._ensureSceneManager();
-                        this._material?.queue_redraw?.();
-                    } else {
-                        this._releaseSceneManager();
-                    }
+
+                    // Match the vendored UIManager lifecycle: keep the same
+                    // manager/effect across close/open cycles, but rebuild the
+                    // source actors on every open. Destroying the manager on
+                    // close left the existing LiquidEffect bound to a torn-down
+                    // capture subtree, which is why the second open could fall
+                    // back to a flat rectangle.
+                    sceneManager?.rebuildClones?.();
+                    this._material?.queue_redraw?.();
                 }
             );
         } catch {
@@ -465,8 +475,9 @@ class PopupGlassSurface {
 
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
+            this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
         } catch {
-            // Box may already be destroyed.
+            // Popup actors may already be destroyed.
         }
 
         // Native BoxPointer.bin -> menu.box was never changed, so cleanup
