@@ -84,6 +84,14 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveText: true,
         adaptivePreference: 'auto',
         sampleIntervalMs: 900,
+
+        // One physical edge only: LiquidEffect owns the rim. Native/filter
+        // borders and the outer popup drop shadow must not stack on top.
+        outerShadow: false,
+        outerFilterBorder: false,
+        outerNativeBorder: false,
+        innerNativeBorder: false,
+        innerNativeShadow: false,
     }),
     notificationBanner: Object.freeze({
         multiRegion: false,
