@@ -880,11 +880,21 @@ export class LiquidGlassIntegration {
     }
 
     _applyCardAppearanceStylesheet(
-        _state = this._readSharedCardAppearance()
+        state = this._readSharedCardAppearance()
     ) {
-        // The notification's color/blur/refraction now comes from the
-        // LiquidEffect material. Keep the real Shell notification content
-        // actor, but remove only its native painted card background.
+        // Notifications and popup menus have dedicated filter actors. Generic
+        // Shell cards use their native card actor itself as the neutral white
+        // veil, which is paint-only and therefore does not add another blur
+        // pass or disturb layout.
+        const filterOpacity = Math.max(
+            0,
+            Math.min(0.20, state.filterOpacity ?? 0.05)
+        );
+        const barFilterOpacity = Math.min(
+            0.08,
+            filterOpacity * 0.6
+        );
+
         const css =
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
@@ -892,6 +902,30 @@ export class LiquidGlassIntegration {
             '  background-color: transparent !important;\n' +
             '  background-image: none !important;\n' +
             '  border-color: transparent !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n' +
+            '.velora-liquid-shell-card {\n' +
+            '  background-color: rgba(255,255,255,' +
+            filterOpacity.toFixed(3) +
+            ') !important;\n' +
+            '  background-image: none !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n' +
+            '#panel.velora-liquid-top-panel {\n' +
+            '  background-color: rgba(255,255,255,' +
+            barFilterOpacity.toFixed(3) +
+            ') !important;\n' +
+            '  background-image: none !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n' +
+            '#dashtodockDashContainer.liquid-glass-transparent,\n' +
+            '.liquid-glass-transparent #dashtodockContainer,\n' +
+            '.liquid-glass-transparent .dashtodock-box,\n' +
+            '.liquid-glass-transparent .dash-background {\n' +
+            '  background-color: rgba(255,255,255,' +
+            barFilterOpacity.toFixed(3) +
+            ') !important;\n' +
+            '  background-image: none !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n';
 
