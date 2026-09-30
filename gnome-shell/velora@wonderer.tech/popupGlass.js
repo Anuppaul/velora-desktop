@@ -225,6 +225,8 @@ class PopupGlassSurface {
         this._boxPointer = menu?._boxPointer ?? menu?.actor ?? null;
         this._bin = menu?._boxPointer?.bin ?? null;
         this._paintRoot = null;
+        this._nativeBoxPointerBorder = null;
+        this._nativeBoxPointerBorderOpacity = null;
 
         this._root = null;
         this._liquidBox = null;
@@ -284,6 +286,31 @@ class PopupGlassSurface {
         this._lastMonitorY = NaN;
         this._lastScreenW = 0;
         this._lastScreenH = 0;
+    }
+
+    _suppressNativeQuickBoxPointerBorder() {
+        if (!this._isQuickSettings)
+            return;
+
+        const border =
+            this._boxPointer?._border ??
+            null;
+        if (!border)
+            return;
+
+        if (!this._nativeBoxPointerBorder) {
+            this._nativeBoxPointerBorder = border;
+            this._nativeBoxPointerBorderOpacity =
+                border.opacity ?? 255;
+        }
+
+        // BoxPointer._border is a St.DrawingArea that paints GNOME/Yaru's
+        // own full rounded popover outline. Keeping it allocated but fully
+        // transparent preserves native geometry while removing the second
+        // visible card edge behind Velora's LiquidEffect rim.
+        if (border.opacity !== 0)
+            border.opacity = 0;
+        border.queue_repaint?.();
     }
 
     _resolvePaintRoot() {
@@ -519,8 +546,10 @@ class PopupGlassSurface {
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
         if (this._isDateMenu)
             this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
-        if (this._isQuickSettings)
+        if (this._isQuickSettings) {
             this._boxPointer.add_style_class_name?.(QUICK_SHELL_CLASS);
+            this._suppressNativeQuickBoxPointerBorder();
+        }
 
         this._root = root;
         this._liquidBox = liquidBox;
@@ -1442,6 +1471,9 @@ class PopupGlassSurface {
             this._paintRoot ??
             this._resolvePaintRoot();
 
+        if (!shaderOnly && this._isQuickSettings)
+            this._suppressNativeQuickBoxPointerBorder();
+
         if (
             !shaderOnly &&
             paintRoot?.get_parent?.() === Main.layoutManager.uiGroup
@@ -1772,6 +1804,17 @@ class PopupGlassSurface {
         this._openStateId = 0;
 
         try {
+            if (
+                this._nativeBoxPointerBorder &&
+                this._nativeBoxPointerBorderOpacity !== null
+            ) {
+                this._nativeBoxPointerBorder.opacity =
+                    this._nativeBoxPointerBorderOpacity;
+                this._nativeBoxPointerBorder.queue_repaint?.();
+            }
+        } catch {}
+
+        try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
             this._box?.remove_style_class_name?.(DATE_TEXT_LIGHT_CLASS);
             this._box?.remove_style_class_name?.(DATE_TEXT_DARK_CLASS);
@@ -1822,6 +1865,8 @@ class PopupGlassSurface {
         this._box = null;
         this._boxPointer = null;
         this._paintRoot = null;
+        this._nativeBoxPointerBorder = null;
+        this._nativeBoxPointerBorderOpacity = null;
         this._bin = null;
     }
 }
