@@ -435,6 +435,127 @@
     background-color: rgba(255, 255, 255, 0.18);
 }
 
+
+/* Overview / Search / App Grid ------------------------------------------ */
+/* Search entry and overview dash receive their own ShellCard LiquidEffect;
+ * everything below is only native paint reduction, not another blur pass. */
+#overviewGroup .search-entry.velora-liquid-shell-card {
+    background-color: transparent;
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: none;
+}
+
+#overviewGroup .search-entry.velora-liquid-shell-card:hover {
+    border-color: rgba(255, 255, 255, 0.20);
+}
+
+#overviewGroup .search-entry.velora-liquid-shell-card:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Search provider/result sections share the overview material instead of
+ * stacking opaque system-overlay cards. */
+#overviewGroup .search-section-content {
+    background-color: rgba(255, 255, 255, 0.08);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+}
+
+#overviewGroup .list-search-result,
+#overviewGroup .grid-search-result,
+#overviewGroup .search-provider-icon {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup .list-search-result:hover,
+#overviewGroup .list-search-result:focus,
+#overviewGroup .grid-search-result:hover,
+#overviewGroup .grid-search-result:focus,
+#overviewGroup .search-provider-icon:hover,
+#overviewGroup .search-provider-icon:focus {
+    background-color: rgba(255, 255, 255, 0.11);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* App-grid tiles: geometry/icon labels stay native. */
+#overviewGroup .apps-scroll-view .overview-tile,
+#overviewGroup .apps-scroll-view .app-folder {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup .apps-scroll-view .overview-tile:hover,
+#overviewGroup .apps-scroll-view .overview-tile:focus,
+#overviewGroup .apps-scroll-view .app-folder:hover,
+#overviewGroup .apps-scroll-view .app-folder:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+#overviewGroup .apps-scroll-view .overview-tile:active,
+#overviewGroup .apps-scroll-view .overview-tile:checked,
+#overviewGroup .apps-scroll-view .app-folder:active,
+#overviewGroup .apps-scroll-view .app-folder:checked {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* GNOME overview dash only. Ubuntu Dock is outside overviewGroup and keeps
+ * its dedicated DashManager material. */
+#overviewGroup #dash .dash-background.velora-liquid-shell-card {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup #dash .dash-item-container .overview-icon {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+#overviewGroup #dash .dash-item-container:hover .overview-icon,
+#overviewGroup #dash .dash-item-container:focus .overview-icon {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+#overviewGroup #dash .dash-item-container:active .overview-icon,
+#overviewGroup #dash .dash-item-container:checked .overview-icon {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+#overviewGroup #dash .dash-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Workspace thumbnails keep actual preview content and accent selection.
+ * Only the thumbnail's backing plate is softened. */
+#overviewGroup .workspace-thumbnails .workspace-thumbnail {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+
+#overviewGroup .workspace-thumbnail-indicator {
+    border-color: -st-accent-color;
+}
+
+/* Keyboard workspace switcher already has a full ShellCard glass surface. */
+.workspace-switcher.velora-liquid-shell-card .ws-switcher-indicator {
+    background-color: rgba(255, 255, 255, 0.38);
+}
+
+.workspace-switcher.velora-liquid-shell-card .ws-switcher-indicator:active {
+    background-color: rgba(255, 255, 255, 0.92);
+}
+
 /* -------------------------------------------------------------------------
  * Inner material unification
  *
