@@ -1,3 +1,4 @@
+import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
 
@@ -11,6 +12,31 @@ const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
 const SAMPLE_MARGIN_MAX = 200;
+
+const DATE_INNER_CARD_CLASSES = new Set([
+    'datemenu-today-button',
+    'calendar',
+    'events-button',
+    'world-clocks-button',
+    'weather-button',
+    'message',
+    'message-list-clear-button',
+]);
+const DATE_INNER_CARD_PRIORITY = new Map([
+    ['datemenu-today-button', 0],
+    ['calendar', 1],
+    ['events-button', 2],
+    ['world-clocks-button', 3],
+    ['weather-button', 4],
+    ['message-list-clear-button', 5],
+    ['message', 6],
+]);
+const DATE_INNER_PAD = 20;
+const DATE_INNER_SCAN_INTERVAL_US = 500000;
+const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
+const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
+const DATE_LIGHT_TEXT = '#f7f8fc';
+const DATE_DARK_TEXT = '#17191f';
 
 function finiteRect(values) {
     return values.every(Number.isFinite) &&
@@ -35,6 +61,22 @@ function readRadius(actor) {
         // Theme-derived fallback below.
     }
     return DEFAULT_RADIUS;
+}
+
+function actorClasses(actor) {
+    return String(
+        actor?.get_style_class_name?.() ??
+        actor?.style_class ??
+        ''
+    ).split(/\s+/).filter(Boolean);
+}
+
+function dateCardClass(actor) {
+    for (const name of actorClasses(actor)) {
+        if (DATE_INNER_CARD_CLASSES.has(name))
+            return name;
+    }
+    return null;
 }
 
 /**
@@ -66,6 +108,23 @@ class PopupGlassSurface {
         this._sceneManager = null;
         this._filterLayer = null;
         this._effect = null;
+
+        // Date Menu uses a second, shared multi-region LiquidEffect. It clones
+        // the already-rendered outer glass and refracts that clone only inside
+        // the native inner card bounds, producing actual glass-on-glass without
+        // a WindowCloneManager per card.
+        this._dateInnerRoot = null;
+        this._dateInnerLiquidBox = null;
+        this._dateInnerClone = null;
+        this._dateInnerEffect = null;
+        this._dateCardActors = [];
+        this._dateInnerRegionCount = 0;
+        this._lastDateCardScanUs = 0;
+
+        this._dateContrastSampler = null;
+        this._dateTextSampleSourceId = 0;
+        this._dateTextGeneration = 0;
+
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
         this._openStateId = 0;
@@ -189,6 +248,53 @@ class PopupGlassSurface {
         });
         root.add_child(filterLayer);
 
+        let dateInnerRoot = null;
+        let dateInnerLiquidBox = null;
+        let dateInnerClone = null;
+        let dateInnerEffect = null;
+
+        if (this._isDateMenu) {
+            dateInnerRoot = new this._vendor.UnpickableActor({
+                name: 'velora-date-inner-material-root',
+                reactive: false,
+            });
+            dateInnerRoot.set_size(1, 1);
+            dateInnerRoot.hide();
+
+            dateInnerLiquidBox = new this._vendor.UnpickableActor({
+                name: 'velora-date-inner-liquid-box',
+                reactive: false,
+            });
+            dateInnerLiquidBox.set_clip_to_allocation(true);
+            dateInnerLiquidBox.set_position(0, 0);
+            dateInnerLiquidBox.set_size(1, 1);
+            dateInnerRoot.add_child(dateInnerLiquidBox);
+
+            // Safe non-recursive source: dateInnerRoot is a sibling ABOVE
+            // root, while the clone points DOWN to root. root never contains
+            // dateInnerRoot, so this cannot form a paint cycle.
+            dateInnerClone = new Clutter.Clone({
+                source: root,
+                reactive: false,
+            });
+            dateInnerClone.set_position(0, 0);
+            dateInnerClone.set_size(1, 1);
+            dateInnerLiquidBox.add_child(dateInnerClone);
+
+            dateInnerEffect = new this._vendor.LiquidEffect({
+                extensionPath: this._vendor.root,
+                settings: this._settings,
+                owner: 'velora-date-inner-cards',
+            });
+            dateInnerEffect.setPadding?.(DATE_INNER_PAD);
+            dateInnerEffect.setIsDock?.(false);
+            dateInnerEffect.setSurfaceLightEnabled?.(true);
+            dateInnerEffect.setCornerRadius?.(16);
+            dateInnerEffect.setBlurMethod?.(1);
+            dateInnerEffect.setMultiRegionMode?.(true);
+            dateInnerLiquidBox.add_effect(dateInnerEffect);
+        }
+
         try {
             if (
                 this._boxPointer.get_parent?.() ===
@@ -198,12 +304,23 @@ class PopupGlassSurface {
                     root,
                     this._boxPointer
                 );
+                if (dateInnerRoot) {
+                    Main.layoutManager.uiGroup.insert_child_above(
+                        dateInnerRoot,
+                        root
+                    );
+                }
             } else {
                 Main.layoutManager.uiGroup.add_child(root);
+                if (dateInnerRoot)
+                    Main.layoutManager.uiGroup.add_child(dateInnerRoot);
             }
         } catch (error) {
             try {
                 sceneManager.destroy?.();
+            } catch {}
+            try {
+                dateInnerRoot?.destroy?.();
             } catch {}
             try {
                 root.destroy?.();
@@ -226,6 +343,22 @@ class PopupGlassSurface {
         this._sceneManager = sceneManager;
         this._filterLayer = filterLayer;
         this._effect = effect;
+        this._dateInnerRoot = dateInnerRoot;
+        this._dateInnerLiquidBox = dateInnerLiquidBox;
+        this._dateInnerClone = dateInnerClone;
+        this._dateInnerEffect = dateInnerEffect;
+
+        if (
+            this._isDateMenu &&
+            this._vendor.StageContrastSampler
+        ) {
+            try {
+                this._dateContrastSampler =
+                    new this._vendor.StageContrastSampler();
+            } catch {
+                this._dateContrastSampler = null;
+            }
+        }
 
         try {
             this._openStateId = this._menu.connect(
@@ -233,13 +366,18 @@ class PopupGlassSurface {
                 (_menu, isOpen) => {
                     if (!isOpen) {
                         this._root?.hide?.();
+                        this._dateInnerRoot?.hide?.();
+                        this._cancelDateTextSample();
                         return;
                     }
 
                     this._sceneManager?.rebuildClones?.();
                     this._lastSceneSyncUs = GLib.get_monotonic_time();
+                    this._scanDateCardActors(true);
+                    this._scheduleDateTextSample(220);
                     this._invalidateGeometry();
                     this._root?.queue_redraw?.();
+                    this._dateInnerRoot?.queue_redraw?.();
                 }
             );
         } catch {
@@ -250,6 +388,11 @@ class PopupGlassSurface {
             // Paint-time path is uniforms only; actor tree writes remain in
             // the stage before-update sync.
             this._syncShaderGeometry();
+        });
+
+        dateInnerEffect?.setLiveGeometryHook?.(() => {
+            // Same rule as the outer effect: only update uniforms here.
+            this._syncDateInnerShaderGeometry();
         });
 
         this.updateAppearance(this._manager._appearance);
@@ -271,6 +414,253 @@ class PopupGlassSurface {
         this._lastMonitorY = NaN;
         this._lastScreenW = 0;
         this._lastScreenH = 0;
+    }
+
+    _scanDateCardActors(force = false) {
+        if (!this._isDateMenu || !this._box)
+            return;
+
+        const nowUs = GLib.get_monotonic_time();
+        if (
+            !force &&
+            this._dateCardActors.length > 0 &&
+            nowUs - this._lastDateCardScanUs <
+                DATE_INNER_SCAN_INTERVAL_US
+        ) {
+            return;
+        }
+
+        this._lastDateCardScanUs = nowUs;
+        const found = [];
+
+        const walk = actor => {
+            if (!actor)
+                return;
+
+            if (actor !== this._box) {
+                const klass = dateCardClass(actor);
+                if (klass) {
+                    found.push({actor, klass});
+                    // A matched card owns its subtree. No target card lives
+                    // inside another target card, so stopping here avoids
+                    // walking the calendar's ~50 child buttons every scan.
+                    return;
+                }
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+
+        walk(this._box);
+
+        found.sort((a, b) =>
+            (DATE_INNER_CARD_PRIORITY.get(a.klass) ?? 99) -
+            (DATE_INNER_CARD_PRIORITY.get(b.klass) ?? 99)
+        );
+
+        // LiquidEffect currently supports 16 shared regions. The fixed Date
+        // Menu sections are prioritized; remaining slots go to live messages.
+        this._dateCardActors =
+            found.slice(0, 16).map(item => item.actor);
+    }
+
+    _syncDateInnerRegions(
+        monitorX,
+        monitorY,
+        screenW,
+        screenH,
+        allowScan = true
+    ) {
+        if (!this._dateInnerEffect)
+            return;
+
+        if (allowScan)
+            this._scanDateCardActors(false);
+
+        const regions = [];
+
+        for (const actor of this._dateCardActors) {
+            if (
+                !actor?.visible ||
+                !actor?.mapped ||
+                (actor.get_paint_opacity?.() ?? actor.opacity ?? 255) <= 0
+            ) {
+                continue;
+            }
+
+            const rect = this._vendor.getTransformedRect(actor);
+            if (!finiteRect(rect))
+                continue;
+
+            const [absX, absY, width, height] = rect;
+            const klass = dateCardClass(actor);
+            const baseStrength =
+                klass === 'calendar' ? 0.018 : 0.032;
+
+            regions.push({
+                x: absX - monitorX - DATE_INNER_PAD,
+                y: absY - monitorY - DATE_INNER_PAD,
+                w: width + DATE_INNER_PAD * 2,
+                h: height + DATE_INNER_PAD * 2,
+                tintR: 1.0,
+                tintG: 1.0,
+                tintB: 1.0,
+                baseStrength,
+            });
+        }
+
+        this._dateInnerRegionCount = regions.length;
+        this._dateInnerEffect.setResolution?.(screenW, screenH);
+        this._dateInnerEffect.setGlassRegions?.(regions);
+    }
+
+    _syncDateInnerShaderGeometry() {
+        if (
+            this._destroyed ||
+            !this._dateInnerEffect ||
+            !this._dateInnerRoot?.mapped
+        ) {
+            return;
+        }
+
+        const measured = this._measure();
+        if (!measured)
+            return;
+
+        const monitor = measured.monitor;
+        const monitorX = monitor.x ?? 0;
+        const monitorY = monitor.y ?? 0;
+        const screenW = Math.max(
+            1,
+            monitor.width ?? global.stage.width
+        );
+        const screenH = Math.max(
+            1,
+            monitor.height ?? global.stage.height
+        );
+
+        this._syncDateInnerRegions(
+            monitorX,
+            monitorY,
+            screenW,
+            screenH,
+            false
+        );
+    }
+
+    _cancelDateTextSample() {
+        this._dateTextGeneration++;
+
+        if (this._dateTextSampleSourceId) {
+            try {
+                GLib.source_remove(this._dateTextSampleSourceId);
+            } catch {}
+            this._dateTextSampleSourceId = 0;
+        }
+    }
+
+    _scheduleDateTextSample(delayMs = 220) {
+        if (
+            !this._isDateMenu ||
+            !this._dateContrastSampler ||
+            !this._box
+        ) {
+            return;
+        }
+
+        this._cancelDateTextSample();
+        const generation = this._dateTextGeneration;
+
+        this._dateTextSampleSourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            delayMs,
+            () => {
+                this._dateTextSampleSourceId = 0;
+                this._sampleDateTextPolarity(generation);
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    async _sampleDateTextPolarity(generation) {
+        if (
+            this._destroyed ||
+            generation !== this._dateTextGeneration ||
+            !this._menu?.isOpen
+        ) {
+            return;
+        }
+
+        const measured = this._measure();
+        if (!measured)
+            return;
+
+        const [x, y, width, height] = measured.rect;
+        let luminance = null;
+
+        try {
+            luminance =
+                await this._dateContrastSampler.sampleLuminance({
+                    x,
+                    y,
+                    width,
+                    height,
+                });
+        } catch {
+            return;
+        }
+
+        if (
+            this._destroyed ||
+            generation !== this._dateTextGeneration ||
+            luminance === null ||
+            luminance === undefined
+        ) {
+            return;
+        }
+
+        let chosen = null;
+        try {
+            chosen = this._dateContrastSampler.decideTextColor(
+                luminance,
+                {
+                    enabled: true,
+                    samplePerElement: false,
+                    sampleIntervalMs: 1000,
+                    lightTextColor: DATE_LIGHT_TEXT,
+                    darkTextColor: DATE_DARK_TEXT,
+                    preference: 'auto',
+                }
+            );
+        } catch {
+            return;
+        }
+
+        if (!chosen)
+            return;
+
+        this._applyDateTextPolarity(
+            String(chosen).toLowerCase() ===
+            DATE_DARK_TEXT.toLowerCase()
+        );
+    }
+
+    _applyDateTextPolarity(useDarkText) {
+        if (!this._box)
+            return;
+
+        this._box.remove_style_class_name?.(
+            DATE_TEXT_LIGHT_CLASS
+        );
+        this._box.remove_style_class_name?.(
+            DATE_TEXT_DARK_CLASS
+        );
+        this._box.add_style_class_name?.(
+            useDarkText
+                ? DATE_TEXT_DARK_CLASS
+                : DATE_TEXT_LIGHT_CLASS
+        );
     }
 
     updateAppearance(state) {
@@ -296,6 +686,31 @@ class PopupGlassSurface {
         this._effect.setBlurRadius?.(profile.blur ?? 7);
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
+
+        if (this._dateInnerEffect && this._isDateMenu) {
+            // The inner material intentionally differs from the outer card:
+            // it bends/blurs the already-glassed parent, with very little
+            // extra tint. This reads as a second physical glass layer rather
+            // than a semi-transparent rectangle.
+            this._dateInnerEffect.setTintColor?.(
+                (profile.r ?? 255) / 255,
+                (profile.g ?? 255) / 255,
+                (profile.b ?? 255) / 255
+            );
+            this._dateInnerEffect.setTintStrength?.(0.018);
+            this._dateInnerEffect.setBlurRadius?.(
+                Math.max(
+                    3,
+                    Math.min(
+                        6,
+                        Math.round((profile.blur ?? 7) * 0.7)
+                    )
+                )
+            );
+            this._dateInnerEffect.setCornerRadius?.(16);
+            this._dateInnerEffect.setBlurMethod?.(1);
+            this._dateInnerEffect.setMultiRegionMode?.(true);
+        }
 
         if (this._isDateMenu) {
             // Date Menu keeps the same glass geometry/material, but has no
@@ -342,11 +757,27 @@ class PopupGlassSurface {
             this._effect.setSaturation?.(
                 this._settings.get_double('menu-saturation')
             );
+
+            if (this._dateInnerEffect) {
+                this._dateInnerEffect.setBrightness?.(
+                    this._settings.get_double('menu-brightness')
+                );
+                this._dateInnerEffect.setContrast?.(
+                    Math.max(
+                        1.04,
+                        this._settings.get_double('menu-contrast')
+                    )
+                );
+                this._dateInnerEffect.setSaturation?.(
+                    this._settings.get_double('menu-saturation')
+                );
+            }
         } catch {
             // Renderer defaults remain valid.
         }
 
         this._root?.queue_redraw?.();
+        this._dateInnerRoot?.queue_redraw?.();
     }
 
     syncFrame() {
@@ -405,6 +836,8 @@ class PopupGlassSurface {
         if (!measured) {
             if (!shaderOnly && this._root?.visible)
                 this._root.hide?.();
+            if (!shaderOnly && this._dateInnerRoot?.visible)
+                this._dateInnerRoot.hide?.();
             return;
         }
 
@@ -462,6 +895,16 @@ class PopupGlassSurface {
             screenH
         );
 
+        if (this._isDateMenu) {
+            this._syncDateInnerRegions(
+                monitorX,
+                monitorY,
+                screenW,
+                screenH,
+                !shaderOnly
+            );
+        }
+
         if (shaderOnly)
             return;
 
@@ -492,6 +935,39 @@ class PopupGlassSurface {
                 screenW,
                 screenH
             );
+
+            if (this._dateInnerRoot) {
+                this._vendor.setPositionIfChanged(
+                    this._dateInnerRoot,
+                    monitorX,
+                    monitorY
+                );
+                this._vendor.setSizeIfChanged(
+                    this._dateInnerRoot,
+                    screenW,
+                    screenH
+                );
+                this._vendor.setPositionIfChanged(
+                    this._dateInnerLiquidBox,
+                    0,
+                    0
+                );
+                this._vendor.setSizeIfChanged(
+                    this._dateInnerLiquidBox,
+                    screenW,
+                    screenH
+                );
+                this._vendor.setPositionIfChanged(
+                    this._dateInnerClone,
+                    0,
+                    0
+                );
+                this._vendor.setSizeIfChanged(
+                    this._dateInnerClone,
+                    screenW,
+                    screenH
+                );
+            }
 
             this._lastMonitorX = monitorX;
             this._lastMonitorY = monitorY;
@@ -554,6 +1030,15 @@ class PopupGlassSurface {
             glassW + margin * 2,
             glassH + margin * 2
         );
+        if (this._dateInnerRoot) {
+            this._vendor.setClipIfChanged(
+                this._dateInnerRoot,
+                glassX - margin,
+                glassY - margin,
+                glassW + margin * 2,
+                glassH + margin * 2
+            );
+        }
 
         this._effect?.setShadowMaxRadius?.(
             Math.max(0, margin - 16)
@@ -595,8 +1080,23 @@ class PopupGlassSurface {
         if (this._root.opacity !== opacity)
             this._root.opacity = opacity;
 
+        if (
+            this._dateInnerRoot &&
+            this._dateInnerRoot.opacity !== opacity
+        ) {
+            this._dateInnerRoot.opacity = opacity;
+        }
+
         if (!this._root.visible)
             this._root.show?.();
+
+        if (
+            this._dateInnerRoot &&
+            this._dateInnerRegionCount > 0 &&
+            !this._dateInnerRoot.visible
+        ) {
+            this._dateInnerRoot.show?.();
+        }
     }
 
     _syncShaderGeometry() {
@@ -616,8 +1116,13 @@ class PopupGlassSurface {
             return;
         this._destroyed = true;
 
+        this._cancelDateTextSample();
+
         try {
             this._effect?.setLiveGeometryHook?.(null);
+        } catch {}
+        try {
+            this._dateInnerEffect?.setLiveGeometryHook?.(null);
         } catch {}
 
         if (this._openStateId && this._menu) {
@@ -629,8 +1134,15 @@ class PopupGlassSurface {
 
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
+            this._box?.remove_style_class_name?.(DATE_TEXT_LIGHT_CLASS);
+            this._box?.remove_style_class_name?.(DATE_TEXT_DARK_CLASS);
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
             this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
+        } catch {}
+
+        // Destroy the clone layer before its source (root).
+        try {
+            this._dateInnerRoot?.destroy?.();
         } catch {}
 
         try {
@@ -646,6 +1158,13 @@ class PopupGlassSurface {
         this._sceneManager = null;
         this._filterLayer = null;
         this._effect = null;
+        this._dateInnerRoot = null;
+        this._dateInnerLiquidBox = null;
+        this._dateInnerClone = null;
+        this._dateInnerEffect = null;
+        this._dateCardActors = [];
+        this._dateInnerRegionCount = 0;
+        this._dateContrastSampler = null;
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
