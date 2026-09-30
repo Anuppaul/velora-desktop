@@ -1374,7 +1374,12 @@ class PopupGlassSurface {
 
         const filterOpacity = Math.max(
             0,
-            Math.min(0.20, profile.filterOpacity ?? 0.04)
+            Math.min(
+                0.20,
+                this._surfaceAdapter?.filterOpacityOverride ??
+                    profile.filterOpacity ??
+                    0.04
+            )
         );
         const filterBorder =
             popupChrome?.filterBorder === false
@@ -1646,20 +1651,23 @@ class PopupGlassSurface {
             this._lastScreenH = screenH;
         }
 
+        const filterUsesContentBounds =
+            this._surfaceAdapter?.filterUsesContentBounds === true;
+
         const filterX =
-            this._isDateMenu
+            filterUsesContentBounds
                 ? absX - monitorX
                 : glassX;
         const filterY =
-            this._isDateMenu
+            filterUsesContentBounds
                 ? absY - monitorY
                 : glassY;
         const filterW =
-            this._isDateMenu
+            filterUsesContentBounds
                 ? width
                 : glassW;
         const filterH =
-            this._isDateMenu
+            filterUsesContentBounds
                 ? height
                 : glassH;
 
@@ -1674,11 +1682,15 @@ class PopupGlassSurface {
             filterH
         );
 
+        const appearanceProfile =
+            this._surfaceAdapter?.appearanceProfile ??
+            (this._isDateMenu ? 'dateMenu' : null);
+
         const surfaceAppearance =
-            this._isDateMenu
+            appearanceProfile
                 ? {
                     ...this._manager._appearance,
-                    ...(this._manager._appearance?.dateMenu ?? {}),
+                    ...(this._manager._appearance?.[appearanceProfile] ?? {}),
                 }
                 : this._manager._appearance;
 
