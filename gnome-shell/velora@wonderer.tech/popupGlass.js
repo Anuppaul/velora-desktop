@@ -626,8 +626,11 @@ class PopupGlassSurface {
         });
 
         dateInnerEffect?.setLiveGeometryHook?.(() => {
-            // Same rule as the outer effect: only update uniforms here.
-            this._syncDateInnerShaderGeometry();
+            // Date Menu keeps its smooth paint-time region interpolation.
+            // Quick Settings is event/damage-driven to avoid walking a much
+            // larger actor tree on every shader paint.
+            if (!this._isQuickSettings)
+                this._syncDateInnerShaderGeometry();
         });
 
         this.updateAppearance(this._manager._appearance);
@@ -1034,6 +1037,7 @@ class PopupGlassSurface {
 
     _syncDateInnerShaderGeometry() {
         if (
+            this._isQuickSettings ||
             this._destroyed ||
             !this._dateInnerEffect ||
             !this._dateInnerRoot?.mapped
