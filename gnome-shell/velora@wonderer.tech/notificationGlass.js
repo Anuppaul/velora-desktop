@@ -219,6 +219,13 @@ export class NotificationGlassManager {
         effect.setBlurMethod?.(1);
         liquidBox.add_effect(effect);
 
+        const filterLayer = new St.Widget({
+            name: 'velora-notification-white-filter',
+            style_class: 'velora-glass-white-filter',
+            reactive: false,
+        });
+        root.add_child(filterLayer);
+
         try {
             if (
                 bannerRoot?.get_parent?.() ===
@@ -252,6 +259,7 @@ export class NotificationGlassManager {
             root,
             liquidBox,
             sceneManager,
+            filterLayer,
             effect,
             radius,
             signals: [],
@@ -361,6 +369,20 @@ export class NotificationGlassManager {
         material.effect.setTintStrength?.(state.opacity ?? 0);
         material.effect.setBlurRadius?.(state.blur ?? 0);
         material.effect.setCornerRadius?.(material.radius);
+
+        const filterOpacity = Math.max(
+            0,
+            Math.min(0.20, state.filterOpacity ?? 0.05)
+        );
+        material.filterLayer?.set_style?.(
+            'background-color: rgba(255,255,255,' +
+            filterOpacity.toFixed(3) +
+            '); border-radius: ' +
+            Math.round(material.radius) +
+            'px; border: 1px solid rgba(255,255,255,' +
+            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+            '); box-shadow: none;'
+        );
 
         this._applyRendererSettings(material);
     }
@@ -555,6 +577,16 @@ export class NotificationGlassManager {
             material.liquidBox,
             screenW,
             screenH
+        );
+        this._vendor.setPositionIfChanged(
+            material.filterLayer,
+            glassX,
+            glassY
+        );
+        this._vendor.setSizeIfChanged(
+            material.filterLayer,
+            width,
+            height
         );
 
         const sceneManager = this._ensureSceneManager(material);
