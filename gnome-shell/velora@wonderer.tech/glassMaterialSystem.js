@@ -1,7 +1,3 @@
-import St from 'gi://St';
-
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-
 // Velora shared Liquid Glass material system.
 //
 // This module is the design-system layer above the generic vendored renderer.
@@ -96,17 +92,12 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveSampleDelayMs: 180,
         adaptiveResampleMs: 3600,
 
-        // Inactive/secondary pods adapt their material tone as well as text.
-        // Bright backdrop -> subtle graphite smoke; dark backdrop -> pearl.
-        // Selected state still uses the live Shell accent.
-        adaptiveMaterial: Object.freeze({
-            lightBackdropTint: Object.freeze([0.18, 0.19, 0.22]),
-            lightBackdropStrength: 0.060,
-            darkBackdropTint: Object.freeze([1.0, 1.0, 1.0]),
-            darkBackdropStrength: 0.046,
-        }),
-        selectedBaseStrength: 0.072,
-        accentSource: 'shell-theme',
+        // All pods use the same neutral glass material. Selection never
+        // recolors the tile body; active state is expressed only through the
+        // live Shell accent on foreground content.
+        neutralTint: Object.freeze([1.0, 1.0, 1.0]),
+        neutralBaseStrength: 0.046,
+        activeForegroundSource: 'shell-theme',
 
         // One physical rim. Native/filter borders and shadows stay out.
         popupChrome: CLEAN_POPUP_CHROME,
@@ -129,53 +120,6 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
     }),
 
 });
-
-export function resolveShellAccentRgb(
-    fallback = [1.0, 1.0, 1.0]
-) {
-    let probe = null;
-
-    try {
-        // Resolve the actual Shell theme token instead of mapping Ubuntu's
-        // accent names to hardcoded RGB values. This follows Yaru/GNOME and
-        // any future theme that provides -st-accent-color.
-        probe = new St.Widget({
-            reactive: false,
-            style:
-                'background-color: -st-accent-color; ' +
-                'color: -st-accent-color;',
-        });
-        probe.set_size(1, 1);
-        probe.opacity = 0;
-
-        Main.layoutManager.uiGroup.add_child(probe);
-        probe.ensure_style?.();
-
-        const node = probe.get_theme_node?.();
-        const bg = node?.get_background_color?.();
-        const fg = node?.get_foreground_color?.();
-        const color =
-            bg && bg.alpha > 0
-                ? bg
-                : fg;
-
-        if (color) {
-            return [
-                color.red / 255,
-                color.green / 255,
-                color.blue / 255,
-            ];
-        }
-    } catch {
-        // Theme token lookup is enhancement-only; caller keeps fallback.
-    } finally {
-        try {
-            probe?.destroy?.();
-        } catch {}
-    }
-
-    return fallback.slice();
-}
 
 export function clampGlass(value, min, max) {
     return Math.min(max, Math.max(min, value));
