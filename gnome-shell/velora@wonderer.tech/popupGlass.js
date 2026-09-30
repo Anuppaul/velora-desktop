@@ -1,5 +1,8 @@
 import Clutter from 'gi://Clutter';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -36,8 +39,13 @@ const DATE_INNER_SCAN_INTERVAL_US = 500000;
 const DATE_TEXT_RESAMPLE_MS = 2600;
 const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
+const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
+const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
 const DATE_LIGHT_TEXT = '#f7f8fc';
 const DATE_DARK_TEXT = '#17191f';
+const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
+const DATE_MIN_READABLE_CONTRAST = 4.5;
+const DATE_CARD_SAMPLE_GRID = 28;
 
 function finiteRect(values) {
     return values.every(Number.isFinite) &&
@@ -90,6 +98,63 @@ function hasPseudo(actor, name) {
     }
 }
 
+function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function srgbToLinear(channel) {
+    const n = channel / 255;
+    return n <= 0.04045
+        ? n / 12.92
+        : Math.pow((n + 0.055) / 1.055, 2.4);
+}
+
+function rgbLuminance(r, g, b) {
+    return (
+        0.2126 * srgbToLinear(r) +
+        0.7152 * srgbToLinear(g) +
+        0.0722 * srgbToLinear(b)
+    );
+}
+
+function hexLuminance(hex) {
+    const value = Number.parseInt(hex.slice(1), 16);
+    return rgbLuminance(
+        (value >> 16) & 255,
+        (value >> 8) & 255,
+        value & 255
+    );
+}
+
+function trimmedMean(values, trimRatio = 0.30) {
+    if (!values.length)
+        return null;
+
+    const sorted = values.slice().sort((a, b) => a - b);
+    const trim = Math.min(
+        Math.floor(sorted.length * trimRatio),
+        Math.floor((sorted.length - 1) / 2)
+    );
+    const start = trim;
+    const end = sorted.length - trim;
+
+    let sum = 0;
+    for (let i = start; i < end; i++)
+        sum += sorted[i];
+
+    return sum / Math.max(1, end - start);
+}
+
+function contrastRatio(a, b) {
+    return (
+        (Math.max(a, b) + 0.05) /
+        (Math.min(a, b) + 0.05)
+    );
+}
+
+const DATE_LIGHT_LUMA = hexLuminance(DATE_LIGHT_TEXT);
+const DATE_DARK_LUMA = hexLuminance(DATE_DARK_TEXT);
+
 /**
  * Standard GNOME PopupMenu Liquid Glass.
  *
@@ -130,10 +195,12 @@ class PopupGlassSurface {
         this._dateInnerEffect = null;
         this._dateCardActors = [];
         this._dateCardResponses = new Map();
+        this._dateCardTextState = new Map();
         this._dateInnerRegionCount = 0;
+        this._dateInnerRadius = 16;
         this._lastDateCardScanUs = 0;
 
-        this._dateContrastSampler = null;
+        this._dateScreenshot = null;
         this._dateTextSampleSourceId = 0;
         this._dateTextGeneration = 0;
 
@@ -360,18 +427,6 @@ class PopupGlassSurface {
         this._dateInnerClone = dateInnerClone;
         this._dateInnerEffect = dateInnerEffect;
 
-        if (
-            this._isDateMenu &&
-            this._vendor.StageContrastSampler
-        ) {
-            try {
-                this._dateContrastSampler =
-                    new this._vendor.StageContrastSampler();
-            } catch {
-                this._dateContrastSampler = null;
-            }
-        }
-
         try {
             this._openStateId = this._menu.connect(
                 'open-state-changed',
@@ -480,6 +535,47 @@ class PopupGlassSurface {
         for (const actor of this._dateCardResponses.keys()) {
             if (!live.has(actor))
                 this._dateCardResponses.delete(actor);
+        }
+
+        for (const actor of this._dateCardTextState.keys()) {
+            if (live.has(actor))
+                continue;
+
+            try {
+                actor.remove_style_class_name?.(
+                    DATE_CARD_TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    DATE_CARD_TEXT_DARK_CLASS
+                );
+            } catch {}
+            this._dateCardTextState.delete(actor);
+        }
+
+        const radii = this._dateCardActors
+            .map(actor => readRadius(actor))
+            .filter(radius =>
+                Number.isFinite(radius) &&
+                radius >= 6 &&
+                radius <= 36
+            )
+            .sort((a, b) => a - b);
+
+        if (radii.length) {
+            const middle = Math.floor(radii.length / 2);
+            const median =
+                radii.length % 2
+                    ? radii[middle]
+                    : (radii[middle - 1] + radii[middle]) / 2;
+            const nextRadius =
+                clampNumber(Math.round(median), 10, 28);
+
+            if (nextRadius !== this._dateInnerRadius) {
+                this._dateInnerRadius = nextRadius;
+                this._dateInnerEffect?.setCornerRadius?.(
+                    nextRadius
+                );
+            }
         }
     }
 
@@ -623,6 +719,261 @@ class PopupGlassSurface {
         );
     }
 
+    _captureDateMenuFrame(rect) {
+        if (!rect || rect.length < 4)
+            return Promise.resolve(null);
+
+        const [x, y, width, height] = rect;
+        const left = Math.max(0, Math.floor(x));
+        const top = Math.max(0, Math.floor(y));
+        const right = Math.min(
+            global.stage.width,
+            Math.ceil(x + width)
+        );
+        const bottom = Math.min(
+            global.stage.height,
+            Math.ceil(y + height)
+        );
+
+        if (right <= left || bottom <= top)
+            return Promise.resolve(null);
+
+        if (!this._dateScreenshot)
+            this._dateScreenshot = new Shell.Screenshot();
+
+        return new Promise(resolve => {
+            let stream = null;
+
+            try {
+                stream = Gio.MemoryOutputStream.new_resizable();
+                this._dateScreenshot.screenshot_area(
+                    left,
+                    top,
+                    right - left,
+                    bottom - top,
+                    stream,
+                    (object, result) => {
+                        try {
+                            if (!object)
+                                throw new Error('null screenshot object');
+
+                            const [ok] =
+                                object.screenshot_area_finish(result);
+                            stream.close(null);
+
+                            if (!ok) {
+                                resolve(null);
+                                return;
+                            }
+
+                            const bytes = stream.steal_as_bytes();
+                            const pixbuf =
+                                GdkPixbuf.Pixbuf.new_from_stream(
+                                    Gio.MemoryInputStream.new_from_bytes(
+                                        bytes
+                                    ),
+                                    null
+                                );
+
+                            if (!pixbuf) {
+                                resolve(null);
+                                return;
+                            }
+
+                            resolve({
+                                x: left,
+                                y: top,
+                                width: pixbuf.get_width(),
+                                height: pixbuf.get_height(),
+                                stride: pixbuf.get_rowstride(),
+                                channels: pixbuf.get_n_channels(),
+                                data: pixbuf.get_pixels(),
+                            });
+                        } catch {
+                            try {
+                                stream?.close?.(null);
+                            } catch {}
+                            resolve(null);
+                        }
+                    }
+                );
+            } catch {
+                try {
+                    stream?.close?.(null);
+                } catch {}
+                resolve(null);
+            }
+        });
+    }
+
+    _dateCardLuminance(frame, actor) {
+        if (!frame || !actor)
+            return null;
+
+        const rect = this._vendor.getTransformedRect(actor);
+        if (!finiteRect(rect))
+            return null;
+
+        let [x, y, width, height] = rect;
+
+        // Sample the optical body, not the antialiased rim. Media cards also
+        // get a little more horizontal inset so album art cannot dominate the
+        // text polarity decision.
+        const klass = dateCardClass(actor);
+        const insetX = klass === 'message'
+            ? Math.min(18, width * 0.08)
+            : Math.min(8, width * 0.04);
+        const insetY = Math.min(8, height * 0.08);
+
+        x += insetX;
+        y += insetY;
+        width -= insetX * 2;
+        height -= insetY * 2;
+
+        const left = clampNumber(
+            Math.floor(x - frame.x),
+            0,
+            frame.width - 1
+        );
+        const top = clampNumber(
+            Math.floor(y - frame.y),
+            0,
+            frame.height - 1
+        );
+        const right = clampNumber(
+            Math.ceil(x + width - frame.x),
+            left + 1,
+            frame.width
+        );
+        const bottom = clampNumber(
+            Math.ceil(y + height - frame.y),
+            top + 1,
+            frame.height
+        );
+
+        if (right <= left || bottom <= top)
+            return null;
+
+        const sampleWidth = right - left;
+        const sampleHeight = bottom - top;
+        const step = Math.max(
+            1,
+            Math.floor(
+                Math.min(sampleWidth, sampleHeight) /
+                DATE_CARD_SAMPLE_GRID
+            )
+        );
+
+        const values = [];
+        const {data, stride, channels} = frame;
+
+        for (let py = top; py < bottom; py += step) {
+            const row = py * stride;
+
+            for (let px = left; px < right; px += step) {
+                const index = row + px * channels;
+                let r = data[index];
+                let g = data[index + 1];
+                let b = data[index + 2];
+
+                if (channels > 3) {
+                    const alpha = data[index + 3];
+                    if (alpha < 32)
+                        continue;
+
+                    if (alpha < 255) {
+                        const inv = 255 / alpha;
+                        r = clampNumber(
+                            Math.round(r * inv),
+                            0,
+                            255
+                        );
+                        g = clampNumber(
+                            Math.round(g * inv),
+                            0,
+                            255
+                        );
+                        b = clampNumber(
+                            Math.round(b * inv),
+                            0,
+                            255
+                        );
+                    }
+                }
+
+                values.push(rgbLuminance(r, g, b));
+            }
+        }
+
+        return trimmedMean(values, 0.30);
+    }
+
+    _chooseDateCardDarkText(actor, luminance) {
+        if (!Number.isFinite(luminance))
+            return null;
+
+        const lightContrast = contrastRatio(
+            luminance,
+            DATE_LIGHT_LUMA
+        );
+        const darkContrast = contrastRatio(
+            luminance,
+            DATE_DARK_LUMA
+        );
+
+        const previous =
+            this._dateCardTextState.get(actor);
+
+        if (previous === undefined)
+            return darkContrast > lightContrast;
+
+        const current =
+            previous ? darkContrast : lightContrast;
+        const alternative =
+            previous ? lightContrast : darkContrast;
+
+        // A hard readability failure always wins immediately. Otherwise
+        // require a real contrast advantage before changing polarity, which
+        // keeps moving wallpaper/video highlights from making text ping-pong.
+        if (
+            current < DATE_MIN_READABLE_CONTRAST &&
+            alternative >= DATE_MIN_READABLE_CONTRAST
+        ) {
+            return !previous;
+        }
+
+        if (
+            alternative >
+            current * DATE_TEXT_SWITCH_ADVANTAGE
+        ) {
+            return !previous;
+        }
+
+        return previous;
+    }
+
+    _applyDateCardTextPolarity(actor, useDarkText) {
+        if (!actor || useDarkText === null)
+            return;
+
+        actor.remove_style_class_name?.(
+            DATE_CARD_TEXT_LIGHT_CLASS
+        );
+        actor.remove_style_class_name?.(
+            DATE_CARD_TEXT_DARK_CLASS
+        );
+        actor.add_style_class_name?.(
+            useDarkText
+                ? DATE_CARD_TEXT_DARK_CLASS
+                : DATE_CARD_TEXT_LIGHT_CLASS
+        );
+
+        this._dateCardTextState.set(
+            actor,
+            useDarkText
+        );
+    }
+
     _cancelDateTextSample() {
         this._dateTextGeneration++;
 
@@ -637,7 +988,6 @@ class PopupGlassSurface {
     _scheduleDateTextSample(delayMs = 220) {
         if (
             !this._isDateMenu ||
-            !this._dateContrastSampler ||
             !this._box
         ) {
             return;
@@ -670,60 +1020,59 @@ class PopupGlassSurface {
         if (!measured)
             return;
 
-        const [x, y, width, height] = measured.rect;
-        let luminance = null;
+        this._scanDateCardActors(false);
 
+        let frame = null;
         try {
-            luminance =
-                await this._dateContrastSampler.sampleLuminance({
-                    x,
-                    y,
-                    width,
-                    height,
-                });
+            frame = await this._captureDateMenuFrame(
+                measured.rect
+            );
         } catch {
-            return;
+            frame = null;
         }
 
         if (
             this._destroyed ||
             generation !== this._dateTextGeneration ||
-            luminance === null ||
-            luminance === undefined
+            !frame
         ) {
             return;
         }
 
-        let chosen = null;
-        try {
-            chosen = this._dateContrastSampler.decideTextColor(
-                luminance,
-                {
-                    enabled: true,
-                    samplePerElement: false,
-                    sampleIntervalMs: 1000,
-                    lightTextColor: DATE_LIGHT_TEXT,
-                    darkTextColor: DATE_DARK_TEXT,
-                    preference: 'auto',
-                }
+        // One captured Date Menu frame, many card decisions. No per-card
+        // screenshot/readback round trip.
+        for (const actor of this._dateCardActors) {
+            if (
+                !actor?.visible ||
+                !actor?.mapped
+            ) {
+                continue;
+            }
+
+            const luminance =
+                this._dateCardLuminance(frame, actor);
+            const dark =
+                this._chooseDateCardDarkText(
+                    actor,
+                    luminance
+                );
+
+            this._applyDateCardTextPolarity(
+                actor,
+                dark
             );
-        } catch {
-            return;
         }
 
-        if (!chosen)
-            return;
-
-        this._applyDateTextPolarity(
-            String(chosen).toLowerCase() ===
-            DATE_DARK_TEXT.toLowerCase()
+        // Remove the previous menu-wide polarity classes. Kept here as a
+        // hot-swap cleanup path so a runtime revision can transition from the
+        // old global scheme without requiring a Shell restart.
+        this._box?.remove_style_class_name?.(
+            DATE_TEXT_LIGHT_CLASS
+        );
+        this._box?.remove_style_class_name?.(
+            DATE_TEXT_DARK_CLASS
         );
 
-        // Menus are usually open for only a few seconds, so this costs one
-        // screenshot at open and then at most one every 2.6s while the popup
-        // remains visible. That is enough to follow a changing window/
-        // wallpaper backdrop without turning contrast sampling into a frame
-        // loop.
         if (
             !this._destroyed &&
             generation === this._dateTextGeneration &&
@@ -733,23 +1082,6 @@ class PopupGlassSurface {
                 DATE_TEXT_RESAMPLE_MS
             );
         }
-    }
-
-    _applyDateTextPolarity(useDarkText) {
-        if (!this._box)
-            return;
-
-        this._box.remove_style_class_name?.(
-            DATE_TEXT_LIGHT_CLASS
-        );
-        this._box.remove_style_class_name?.(
-            DATE_TEXT_DARK_CLASS
-        );
-        this._box.add_style_class_name?.(
-            useDarkText
-                ? DATE_TEXT_DARK_CLASS
-                : DATE_TEXT_LIGHT_CLASS
-        );
     }
 
     _applyDateInnerOptics() {
@@ -836,7 +1168,9 @@ class PopupGlassSurface {
                     )
                 )
             );
-            this._dateInnerEffect.setCornerRadius?.(16);
+            this._dateInnerEffect.setCornerRadius?.(
+                this._dateInnerRadius
+            );
             this._dateInnerEffect.setBlurMethod?.(1);
             this._dateInnerEffect.setMultiRegionMode?.(true);
             this._applyDateInnerOptics();
@@ -1266,6 +1600,17 @@ class PopupGlassSurface {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
             this._box?.remove_style_class_name?.(DATE_TEXT_LIGHT_CLASS);
             this._box?.remove_style_class_name?.(DATE_TEXT_DARK_CLASS);
+
+            for (const actor of this._dateCardActors) {
+                try {
+                    actor.remove_style_class_name?.(
+                        DATE_CARD_TEXT_LIGHT_CLASS
+                    );
+                    actor.remove_style_class_name?.(
+                        DATE_CARD_TEXT_DARK_CLASS
+                    );
+                } catch {}
+            }
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
             this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
         } catch {}
@@ -1294,8 +1639,9 @@ class PopupGlassSurface {
         this._dateInnerEffect = null;
         this._dateCardActors = [];
         this._dateCardResponses.clear();
+        this._dateCardTextState.clear();
         this._dateInnerRegionCount = 0;
-        this._dateContrastSampler = null;
+        this._dateScreenshot = null;
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
