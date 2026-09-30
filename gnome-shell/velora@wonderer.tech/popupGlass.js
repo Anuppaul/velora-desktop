@@ -294,6 +294,14 @@ class PopupGlassSurface {
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
+        if (this._isDateMenu) {
+            // shadow_max_radius is only a clamp; the shader intentionally
+            // floors it to 5px. Zero the actual shadow uniforms as well.
+            this._effect.setShadowRadius?.(0);
+            this._effect.setShadowIntensity?.(0);
+            this._effect.setShadowMaxRadius?.(0);
+        }
+
         const filterOpacity = Math.max(
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
@@ -413,10 +421,14 @@ class PopupGlassSurface {
         // shadows slightly outside menu.box. The vendored UIManager reserves
         // shader padding for this exact reason. Expand only the material mask;
         // native layout/position remains untouched.
-        const glassAbsX = absX - GLASS_EDGE_PAD;
-        const glassAbsY = absY - GLASS_EDGE_PAD;
-        const glassW = width + GLASS_EDGE_PAD * 2;
-        const glassH = height + GLASS_EDGE_PAD * 2;
+        // Date Menu is the reference surface: keep the visible glass
+        // boundary exactly on GNOME's native menu bounds. Other PopupMenus
+        // retain the optical headroom used for child-card overflow.
+        const edgePad = this._isDateMenu ? 0 : GLASS_EDGE_PAD;
+        const glassAbsX = absX - edgePad;
+        const glassAbsY = absY - edgePad;
+        const glassW = width + edgePad * 2;
+        const glassH = height + edgePad * 2;
 
         const glassX = glassAbsX - monitorX;
         const glassY = glassAbsY - monitorY;
@@ -522,11 +534,15 @@ class PopupGlassSurface {
             glassH + margin * 2
         );
 
-        this._effect?.setShadowMaxRadius?.(
-            this._isDateMenu
-                ? 0
-                : Math.max(0, margin - 16)
-        );
+        if (this._isDateMenu) {
+            this._effect?.setShadowRadius?.(0);
+            this._effect?.setShadowIntensity?.(0);
+            this._effect?.setShadowMaxRadius?.(0);
+        } else {
+            this._effect?.setShadowMaxRadius?.(
+                Math.max(0, margin - 16)
+            );
+        }
 
         const captureRect = [
             glassAbsX - margin,
