@@ -187,6 +187,7 @@ export class QuickSettingsManager {
     _toggleBaseStrength = 0.5;
     _toggleCornerRadius = 18.0;
     _toggleResponses = new Map();
+    _materialRole = null;
     // [FIX-6] Last successfully computed Toggles-mode region set, plus how many
     // consecutive frames we have been falling back on it. Used to ride out the
     // one-or-two frames after a structural change (submenu open/close, a toggle
@@ -194,10 +195,11 @@ export class QuickSettingsManager {
     // allocated — see _syncToggleRegions().
     _lastGoodRegions = null;
     _regionGraceFrames = 0;
-    constructor(extensionPath, settings, logger) {
+    constructor(extensionPath, settings, logger, materialRole = null) {
         this.extensionPath = extensionPath;
         this._settings = settings;
         this._logger = logger;
+        this._materialRole = materialRole;
         // Target the main container of the Quick Settings menu
         this.targetActor = Main.panel.statusArea.quickSettings.menu.actor;
         this.menu = Main.panel.statusArea.quickSettings.menu;
@@ -440,6 +442,8 @@ export class QuickSettingsManager {
             samplePerElement: SAMPLE_PER_ELEMENT,
             sampleIntervalMs: this._settings.get_int('quick-settings-sample-interval-ms'),
             preference: sanitizeColorPreference(this._settings.get_string('quick-settings-adaptive-text-preference')),
+            lightTextColor: this._materialRole?.text?.light ?? AdaptiveContrastConfig.lightTextColor,
+            darkTextColor: this._materialRole?.text?.dark ?? AdaptiveContrastConfig.darkTextColor,
         };
         // ── 1. bgActor: full monitor, no effect ──────────────────────────────────
         // Set an initial size of 1x1. Passing a 0x0 size to the Cogl engine
@@ -587,6 +591,8 @@ export class QuickSettingsManager {
             samplePerElement: SAMPLE_PER_ELEMENT,
             sampleIntervalMs: this._settings.get_int('quick-settings-sample-interval-ms'),
             preference: sanitizeColorPreference(this._settings.get_string('quick-settings-adaptive-text-preference')),
+            lightTextColor: this._materialRole?.text?.light ?? AdaptiveContrastConfig.lightTextColor,
+            darkTextColor: this._materialRole?.text?.dark ?? AdaptiveContrastConfig.darkTextColor,
         };
         // ── 1. bgActor: full monitor, no effect ──────────────────────────────────
         // Set an initial size of 1x1. Passing a 0x0 size to the Cogl engine
@@ -1163,19 +1169,22 @@ export class QuickSettingsManager {
         return false;
     }
     _toggleOpticalResponse(toggle) {
+        const profile = this._materialRole?.interaction;
+        if (!profile)
+            return 0.0;
         const pressed = this._podHasPseudo(toggle, 'active');
         const engaged = pressed ||
             this._podHasPseudo(toggle, 'hover') ||
             this._podHasPseudo(toggle, 'focus');
         const selected = this._podHasPseudo(toggle, 'checked') ||
             this._podHasPseudo(toggle, 'selected');
-        const target = pressed ? 1.0 :
-            engaged ? 0.62 :
-                selected ? 0.18 :
+        const target = pressed ? profile.pressed :
+            engaged ? profile.engaged :
+                selected ? profile.selected :
                     0.0;
         const previous = this._toggleResponses.get(toggle) ?? 0.0;
-        let next = previous + (target - previous) * 0.24;
-        if (Math.abs(target - next) < 0.008)
+        let next = previous + (target - previous) * profile.damping;
+        if (Math.abs(target - next) < profile.epsilon)
             next = target;
         this._toggleResponses.set(toggle, next);
         return next;
