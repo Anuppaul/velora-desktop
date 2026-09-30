@@ -932,6 +932,7 @@ export class LiquidGlassIntegration {
         this._shellCardGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
+        this._osdManager?.updateMaterialAppearance?.(state);
         this._applySharedDashMaterial(
             this._topPanelManager,
             'topPanel'
