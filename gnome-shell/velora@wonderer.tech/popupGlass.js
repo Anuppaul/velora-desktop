@@ -80,6 +80,16 @@ function dateCardClass(actor) {
     return null;
 }
 
+function hasPseudo(actor, name) {
+    try {
+        return Boolean(
+            actor?.has_style_pseudo_class?.(name)
+        );
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Standard GNOME PopupMenu Liquid Glass.
  *
@@ -119,6 +129,7 @@ class PopupGlassSurface {
         this._dateInnerClone = null;
         this._dateInnerEffect = null;
         this._dateCardActors = [];
+        this._dateCardResponses = new Map();
         this._dateInnerRegionCount = 0;
         this._lastDateCardScanUs = 0;
 
@@ -464,6 +475,48 @@ class PopupGlassSurface {
         // Menu sections are prioritized; remaining slots go to live messages.
         this._dateCardActors =
             found.slice(0, 16).map(item => item.actor);
+
+        const live = new Set(this._dateCardActors);
+        for (const actor of this._dateCardResponses.keys()) {
+            if (!live.has(actor))
+                this._dateCardResponses.delete(actor);
+        }
+    }
+
+    _dateCardResponse(actor, klass) {
+        // Calendar itself is a material panel, not a button. Keep it stable
+        // while the genuinely interactive cards gain a subtle optical lift.
+        if (klass === 'calendar')
+            return 0;
+
+        const pressed =
+            hasPseudo(actor, 'active') ||
+            hasPseudo(actor, 'checked') ||
+            hasPseudo(actor, 'selected');
+        const engaged =
+            pressed ||
+            hasPseudo(actor, 'hover') ||
+            hasPseudo(actor, 'focus');
+
+        const target =
+            pressed ? 1.0 :
+            engaged ? 0.62 :
+            0.0;
+
+        const previous =
+            this._dateCardResponses.get(actor) ?? 0.0;
+
+        // Critically damped-feeling optical response without creating a
+        // Clutter animation/timeline per card. It runs inside the existing
+        // frame sync and stops changing uniforms once it converges.
+        let next =
+            previous + (target - previous) * 0.24;
+
+        if (Math.abs(target - next) < 0.008)
+            next = target;
+
+        this._dateCardResponses.set(actor, next);
+        return next;
     }
 
     _syncDateInnerRegions(
@@ -511,6 +564,14 @@ class PopupGlassSurface {
                 }
             })();
 
+            const response =
+                this._dateCardResponse(actor, klass);
+            const reactiveStrength =
+                Math.min(
+                    0.16,
+                    baseStrength + response * 0.075
+                );
+
             regions.push({
                 x: absX - monitorX - DATE_INNER_PAD,
                 y: absY - monitorY - DATE_INNER_PAD,
@@ -519,7 +580,7 @@ class PopupGlassSurface {
                 tintR: 1.0,
                 tintG: 1.0,
                 tintB: 1.0,
-                baseStrength,
+                baseStrength: reactiveStrength,
             });
         }
 
@@ -1232,6 +1293,7 @@ class PopupGlassSurface {
         this._dateInnerClone = null;
         this._dateInnerEffect = null;
         this._dateCardActors = [];
+        this._dateCardResponses.clear();
         this._dateInnerRegionCount = 0;
         this._dateContrastSampler = null;
         this._menu = null;
