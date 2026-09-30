@@ -924,8 +924,17 @@
 .velora-liquid-popup-content.quick-settings .button:checked,
 .velora-liquid-popup-content.quick-settings .icon-button:checked {
     background-color: transparent !important;
-    border-color: -st-accent-color !important;
+    border-color: transparent !important;
     box-shadow: none !important;
+}
+
+/* Active state carries color only in text. Tile body, border and icon remain
+ * the same neutral glass as inactive tiles. The token follows Ubuntu/GNOME's
+ * current Appearance accent automatically. */
+.velora-liquid-popup-content.quick-settings .velora-quick-active StLabel,
+.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-title,
+.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-subtitle {
+    color: -st-accent-color !important;
 }
 
 /* Premium hierarchy: foreground stays native/adaptive, weight matches Date. */
