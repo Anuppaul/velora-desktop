@@ -973,9 +973,6 @@ class PopupGlassSurface {
                 }
             }
 
-            if (this._isQuickSettings)
-                this._quickRegionDirty = false;
-
             const baseStrength = (() => {
                 if (this._isQuickSettings)
                     return quickAdapter.neutralBaseStrength;
@@ -1030,6 +1027,9 @@ class PopupGlassSurface {
         this._dateInnerRegionCount = regions.length;
         this._dateInnerEffect.setResolution?.(screenW, screenH);
         this._dateInnerEffect.setGlassRegions?.(regions);
+
+        if (this._isQuickSettings)
+            this._quickRegionDirty = false;
     }
 
     _syncDateInnerShaderGeometry() {
@@ -1440,10 +1440,12 @@ class PopupGlassSurface {
             generation === this._dateTextGeneration &&
             this._menu?.isOpen
         ) {
-            this._scheduleDateTextSample(
+            const resampleMs =
                 this._surfaceAdapter?.adaptiveResampleMs
-                    ?? 3000
-            );
+                    ?? 3000;
+
+            if (resampleMs > 0)
+                this._scheduleDateTextSample(resampleMs);
         }
     }
 
@@ -1733,7 +1735,7 @@ class PopupGlassSurface {
             screenH
         );
 
-        if (this._isDateMenu || this._isQuickSettings) {
+        if (this._isDateMenu) {
             this._syncDateInnerRegions(
                 monitorX,
                 monitorY,
@@ -1741,6 +1743,49 @@ class PopupGlassSurface {
                 screenH,
                 !shaderOnly
             );
+        } else if (this._isQuickSettings) {
+            const overlayOpen =
+                Boolean(this._menu?._activeMenu?.isOpen);
+            const overlayChanged =
+                overlayOpen !== this._lastQuickOverlayOpen;
+
+            if (overlayChanged) {
+                this._lastQuickOverlayOpen = overlayOpen;
+                this._quickRegionDirty = true;
+                this._scanDateCardActors(true);
+
+                if (
+                    !shaderOnly &&
+                    this._surfaceAdapter?.adaptiveText
+                ) {
+                    this._scheduleDateTextSample(
+                        this._surfaceAdapter
+                            ?.expandedSampleDelayMs
+                            ?? 140
+                    );
+                }
+            }
+
+            // Quick Settings has many more actors than Date Menu. Rebuild its
+            // region array only on actual damage/state/geometry changes. The
+            // paint hook no longer walks the Quick actor tree every frame.
+            if (
+                !shaderOnly &&
+                (
+                    geometryChanged ||
+                    overlayChanged ||
+                    this._quickRegionDirty
+                )
+            ) {
+                this._syncDateInnerRegions(
+                    monitorX,
+                    monitorY,
+                    screenW,
+                    screenH,
+                    this._quickRegionDirty ||
+                        overlayChanged
+                );
+            }
         }
 
         if (shaderOnly)
@@ -1896,11 +1941,15 @@ class PopupGlassSurface {
             glassH + margin * 2,
         ];
 
+        const configuredSceneFps =
+            this._manager._appearance?.sceneFps ?? 30;
+        const sceneFpsCap =
+            this._surfaceAdapter?.sceneFpsCap ?? 60;
         const sceneFps = Math.max(
             15,
             Math.min(
-                60,
-                this._manager._appearance?.sceneFps ?? 30
+                sceneFpsCap,
+                configuredSceneFps
             )
         );
         const nowUs = GLib.get_monotonic_time();
