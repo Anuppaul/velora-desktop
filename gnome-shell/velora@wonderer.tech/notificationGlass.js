@@ -242,21 +242,10 @@ export class NotificationGlassManager {
 
         walk(actor);
 
-        // Theme-derived safety inset keeps glyph antialiasing/rim from
-        // touching the material edge without moving native content.
-        const padding = this._readBannerPadding(actor);
-        const inset = Math.max(
-            0,
-            Math.min(
-                24,
-                Math.max(
-                    padding.top,
-                    padding.right,
-                    padding.bottom,
-                    padding.left
-                )
-            )
-        );
+        // Layout padding already lives inside actor allocation. Do not
+        // count it again as an outer inset; only the small shared optical
+        // breathing room below expands the material beyond painted content.
+        const inset = 0;
 
         const adapter =
             VELORA_GLASS_ADAPTERS.notificationBanner;
