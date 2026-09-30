@@ -621,6 +621,8 @@ class PopupGlassSurface {
                     this._scanDateCardActors(true);
                     if (this._isDateMenu)
                         this._scheduleDateTextSample(220);
+                    else if (this._isQuickSettings)
+                        this._scheduleDateTextSample(180);
                     this._invalidateGeometry();
                     this._root?.queue_redraw?.();
                     this._dateInnerRoot?.queue_redraw?.();
@@ -1222,7 +1224,7 @@ class PopupGlassSurface {
 
     _scheduleDateTextSample(delayMs = 220) {
         if (
-            !this._isDateMenu ||
+            (!this._isDateMenu && !this._isQuickSettings) ||
             !this._box
         ) {
             return;
@@ -1274,7 +1276,7 @@ class PopupGlassSurface {
             return;
         }
 
-        // One captured Date Menu frame, many card decisions. No per-card
+        // One captured popup frame, many card decisions. No per-card
         // screenshot/readback round trip.
         for (const actor of this._dateCardActors) {
             if (
@@ -1314,7 +1316,9 @@ class PopupGlassSurface {
             this._menu?.isOpen
         ) {
             this._scheduleDateTextSample(
-                DATE_TEXT_RESAMPLE_MS
+                this._isQuickSettings
+                    ? QUICK_TEXT_RESAMPLE_MS
+                    : DATE_TEXT_RESAMPLE_MS
             );
         }
     }
