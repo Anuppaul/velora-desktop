@@ -271,6 +271,7 @@ class PopupGlassSurface {
         this._dateInnerRegionCount = 0;
         this._dateInnerRadius = 16;
         this._lastDateCardScanUs = 0;
+        this._lastQuickOverlayOpen = false;
 
         this._dateScreenshot = null;
         this._dateTextSampleSourceId = 0;
@@ -657,6 +658,18 @@ class PopupGlassSurface {
         }
 
         const nowUs = GLib.get_monotonic_time();
+        const quickOverlayOpen =
+            this._isQuickSettings &&
+            Boolean(this._menu?._activeMenu?.isOpen);
+
+        if (
+            this._isQuickSettings &&
+            quickOverlayOpen !== this._lastQuickOverlayOpen
+        ) {
+            this._lastQuickOverlayOpen = quickOverlayOpen;
+            force = true;
+        }
+
         if (
             !force &&
             this._dateCardActors.length > 0 &&
@@ -1981,6 +1994,7 @@ class PopupGlassSurface {
         this._quickSelectedState.clear();
         this._dateInnerRegionCount = 0;
         this._dateScreenshot = null;
+        this._lastQuickOverlayOpen = false;
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
