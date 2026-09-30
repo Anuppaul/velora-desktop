@@ -774,6 +774,8 @@ export class NotificationGlassManager {
 
         const role =
             VELORA_GLASS_ROLES.notificationCard;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
         const scopedAppearance =
             adapter.appearanceProfile
                 ? state?.[adapter.appearanceProfile]
