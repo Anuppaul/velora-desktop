@@ -664,8 +664,8 @@ class PopupGlassSurface {
                 this._dateCardResponse(actor, klass);
             const reactiveStrength =
                 Math.min(
-                    0.16,
-                    baseStrength + response * 0.075
+                    0.11,
+                    baseStrength + response * 0.025
                 );
 
             regions.push({
@@ -677,6 +677,7 @@ class PopupGlassSurface {
                 tintG: 1.0,
                 tintB: 1.0,
                 baseStrength: reactiveStrength,
+                response,
             });
         }
 
