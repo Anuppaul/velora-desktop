@@ -826,10 +826,7 @@ class PopupGlassSurface {
             const response =
                 this._dateCardResponse(actor, klass);
 
-            const strengthCeiling =
-                this._isQuickSettings && quickSelected
-                    ? 0.22
-                    : 0.11;
+            const strengthCeiling = 0.11;
 
             const reactiveStrength =
                 Math.min(
@@ -1265,11 +1262,22 @@ class PopupGlassSurface {
 
         this._radius = readRadius(this._box);
 
+        const appearanceProfile =
+            this._surfaceAdapter?.appearanceProfile ?? null;
+        const scopedAppearance =
+            appearanceProfile
+                ? state?.[appearanceProfile]
+                : (
+                    this._isDateMenu
+                        ? state.dateMenu
+                        : null
+                );
+
         const profile =
-            this._isDateMenu && state.dateMenu
+            scopedAppearance
                 ? {
                     ...state,
-                    ...state.dateMenu,
+                    ...scopedAppearance,
                 }
                 : state;
 
