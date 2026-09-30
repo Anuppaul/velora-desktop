@@ -367,7 +367,6 @@ export class LiquidGlassIntegration {
         this._stylesheet = null;
 
         this._popupGlassManager = null;
-        this._quickSettingsGlassManager = null;
         this._shellCardGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
@@ -406,9 +405,6 @@ export class LiquidGlassIntegration {
             externalRoot &&
             externalRoot === this._vendor.root
         );
-
-        if (!this._externalGlobalStack)
-            this._ensureQuickSettingsGlassProfile();
 
         this._logger = new this._vendor.Logger(this._settings);
         if (!this._externalGlobalStack)
@@ -475,35 +471,6 @@ export class LiquidGlassIntegration {
             this._popupGlassManager.setup();
         });
 
-        start('quickSettingsGlassManager', () => {
-            this._quickSettingsGlassManager =
-                new this._vendor.QuickSettingsManager(
-                    this._vendor.root,
-                    this._settings,
-                    this._logger,
-                    VELORA_GLASS_ROLES.innerCard
-                );
-            this._quickSettingsGlassManager.setup();
-
-            const effect =
-                this._quickSettingsGlassManager.effect;
-            const adapter =
-                VELORA_GLASS_ADAPTERS.quickMenu;
-
-            applyVeloraGlassRole(
-                effect,
-                VELORA_GLASS_ROLES.innerCard,
-                {
-                    tintColor: [1, 1, 1],
-                    blurRadius: adapter.blurRadius,
-                    cornerRadius: adapter.cornerRadius,
-                    brightness: adapter.brightness,
-                    contrast: adapter.contrast,
-                    saturation: adapter.saturation,
-                }
-            );
-        });
-
         start('shellCardGlassManager', () => {
             this._shellCardGlassManager =
                 new ShellCardGlassManager({
@@ -531,10 +498,10 @@ export class LiquidGlassIntegration {
             this._osdManager.setup();
         });
 
-        // PopupMenu.prototype is now the single outer-card path for Date
-        // Menu, Quick Settings, panel menus and context/app menus. Do not
-        // stack the old per-surface UIManager/ApplicationManager pipelines on
-        // top of it.
+        // PopupMenu.prototype is the single outer-card path for Date Menu,
+        // Quick Settings, panel menus and context/app menus. Date + Quick
+        // nested cards also share PopupGlass' one clone-of-parent pipeline;
+        // do not stack the legacy QuickSettingsManager renderer on top.
 
         this._monitorsChangedId = Main.layoutManager.connect(
             'monitors-changed',
@@ -566,54 +533,6 @@ export class LiquidGlassIntegration {
         );
 
         this._installDebugState();
-    }
-
-    _ensureQuickSettingsGlassProfile() {
-        if (!this._settings)
-            return;
-
-        const adapter =
-            VELORA_GLASS_ADAPTERS.quickMenu;
-        const role =
-            VELORA_GLASS_ROLES.innerCard;
-
-        const writes = [
-            ['boolean', 'enable-quick-settings-glass', adapter.enabled],
-            ['boolean', 'enable-quick-settings-animation', adapter.animation],
-            ['int', 'quick-settings-apply-to', adapter.applyTo],
-            ['string', 'quick-settings-tint-color', adapter.tintColor],
-            ['double', 'quick-settings-tint-strength', role.tintStrength],
-            ['int', 'quick-settings-blur-radius', adapter.blurRadius],
-            ['double', 'quick-settings-toggle-tint-strength', adapter.baseColorStrength],
-            ['double', 'quick-settings-toggle-corner-radius', adapter.cornerRadius],
-            ['int', 'quick-settings-glass-expand', adapter.glassExpand],
-            ['int', 'quick-settings-x-offset', adapter.xOffset],
-            ['int', 'quick-settings-y-offset', adapter.yOffset],
-            ['double', 'quick-settings-brightness', adapter.brightness],
-            ['double', 'quick-settings-contrast', adapter.contrast],
-            ['double', 'quick-settings-saturation', adapter.saturation],
-            ['boolean', 'quick-settings-enable-adaptive-text-color', adapter.adaptiveText],
-            ['string', 'quick-settings-adaptive-text-preference', adapter.adaptivePreference],
-            ['int', 'quick-settings-sample-interval-ms', adapter.sampleIntervalMs],
-        ];
-
-        for (const [type, key, value] of writes) {
-            try {
-                if (type === 'boolean')
-                    this._settings.set_boolean(key, value);
-                else if (type === 'int')
-                    this._settings.set_int(key, value);
-                else if (type === 'double')
-                    this._settings.set_double(key, value);
-                else if (type === 'string')
-                    this._settings.set_string(key, value);
-            } catch (error) {
-                console.warn(
-                    '[Velora][QuickMenuGlass] profile key skipped ' +
-                    key + ': ' + error
-                );
-            }
-        }
     }
 
     _ensureFullGlassOpticsProfile() {
@@ -1693,9 +1612,6 @@ export class LiquidGlassIntegration {
                 popupGlassManager: Boolean(
                     this._popupGlassManager
                 ),
-                quickSettingsGlassManager: Boolean(
-                    this._quickSettingsGlassManager
-                ),
                 shellCardGlassManager: Boolean(
                     this._shellCardGlassManager
                 ),
@@ -1845,12 +1761,6 @@ export class LiquidGlassIntegration {
 
         cleanup('popupGlassManager', this._popupGlassManager);
         this._popupGlassManager = null;
-
-        cleanup(
-            'quickSettingsGlassManager',
-            this._quickSettingsGlassManager
-        );
-        this._quickSettingsGlassManager = null;
 
         cleanup(
             'shellCardGlassManager',
