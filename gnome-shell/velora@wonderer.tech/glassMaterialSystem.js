@@ -127,12 +127,6 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveSampleDelayMs: 220,
         adaptiveResampleMs: 0,
 
-        contentPadding: Object.freeze({
-            topRadiusScale: 0.34,
-            sideRadiusScale: 0.18,
-            bottomRadiusScale: 0.26,
-            maxPx: 9,
-        }),
         contentInset: Object.freeze({
             topRadiusScale: 0.08,
             sideRadiusScale: 0.05,
