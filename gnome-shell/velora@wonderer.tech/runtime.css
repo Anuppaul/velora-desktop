@@ -785,6 +785,53 @@
     opacity: 0.75;
 }
 
+/* Adaptive control material follows each card's sampled backdrop. */
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-month-label,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-month-header .pager-button,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-day-heading,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-day {
+    background-color: rgba(255, 255, 255, 0.060) !important;
+    border-color: rgba(255, 255, 255, 0.115) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-month-label,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-month-header .pager-button,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-day-heading,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-day {
+    background-color: rgba(0, 0, 0, 0.040) !important;
+    border-color: rgba(0, 0, 0, 0.105) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.075) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-day:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-day:focus,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-month-label:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-light .calendar-month-header .pager-button:hover {
+    background-color: rgba(255, 255, 255, 0.120) !important;
+    border-color: rgba(255, 255, 255, 0.205) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-day:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-day:focus,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-month-label:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar.velora-date-card-text-dark .calendar-month-header .pager-button:hover {
+    background-color: rgba(0, 0, 0, 0.075) !important;
+    border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+/* Keyboard focus: one clean accent outline, no outer shadow. */
+.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,
+.velora-liquid-popup-content.datemenu-popover .events-button:focus,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-button:focus,
+.velora-liquid-popup-content.datemenu-popover .weather-button:focus,
+.velora-liquid-popup-content.datemenu-popover .message:focus,
+.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:focus,
+.velora-liquid-popup-content.datemenu-popover .calendar-month-label:focus,
+.velora-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:focus {
+    border-color: -st-accent-color !important;
+    box-shadow: none !important;
+}
+
 /* Preserve the user's accent for today; it is the one intentional solid state
  * in the calendar and therefore remains immediately scannable. */
 .velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today {
