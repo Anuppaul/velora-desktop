@@ -80,6 +80,9 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
     dateMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
         filterUsesContentBounds: true,
+        adaptiveText: true,
+        adaptiveSampleDelayMs: 220,
+        adaptiveResampleMs: 2600,
     }),
     quickMenu: Object.freeze({
         // Same body density as the approved Date Menu.
