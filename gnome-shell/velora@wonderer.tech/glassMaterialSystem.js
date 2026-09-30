@@ -120,8 +120,12 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
     }),
     notificationBanner: Object.freeze({
         multiRegion: false,
-        filterOpacityScale: 0.72,
-        filterOpacityMax: 0.08,
+        appearanceProfile: 'dateMenu',
+        filterOpacityOverride: 0.0,
+        sceneFpsCap: 24,
+        adaptiveText: true,
+        adaptiveSampleDelayMs: 220,
+        adaptiveResampleMs: 0,
         borderAlpha: 0.0,
     }),
     shellCard: Object.freeze({
