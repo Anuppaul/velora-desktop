@@ -379,7 +379,7 @@ export class NotificationGlassManager {
 
         if (header && headerTopInset > 0) {
             const headerInsetStyle =
-                'padding-top: ' +
+                'margin-top: ' +
                 Math.round(headerTopInset) +
                 'px !important;';
 
