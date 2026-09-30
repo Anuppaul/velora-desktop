@@ -683,66 +683,36 @@
     font-weight: normal;
 }
 
-/* PopupGlass samples the rendered Date Menu once after opening and applies one
- * of these two classes. This follows the actual backdrop, not GNOME light/dark
- * mode, which is critical for transparent glass over arbitrary wallpapers. */
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .date-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-month-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-day-heading,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .events-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .event-summary,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .world-clocks-header,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .world-clocks-city,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .world-clocks-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .weather-header,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .weather-forecast-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .weather-forecast-temp,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-source-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-body,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-media-control,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-list-clear-button,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-month-header .pager-button,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-month-header .pager-button StIcon {
+/* One rendered Date Menu frame is sampled in a single batch; each major
+ * nested-glass card then receives its own stable foreground polarity. This
+ * follows the real backdrop per card rather than GNOME light/dark mode. */
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light StLabel,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light StIcon,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .message-media-control {
     color: rgba(248, 249, 253, 0.96) !important;
 }
 
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .day-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .event-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .event-placeholder,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .world-clocks-timezone,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-header {
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .day-label,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .event-time,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .event-placeholder,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .world-clocks-timezone,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .message-header {
     color: rgba(248, 249, 253, 0.66) !important;
 }
 
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .date-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-month-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-day-heading,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .events-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .event-summary,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .world-clocks-header,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .world-clocks-city,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .world-clocks-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .weather-header,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .weather-forecast-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .weather-forecast-temp,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-source-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-title,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-body,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-media-control,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-list-clear-button,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-month-header .pager-button,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-month-header .pager-button StIcon {
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark StLabel,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark StIcon,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .message-media-control {
     color: rgba(23, 25, 31, 0.95) !important;
 }
 
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .day-label,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .event-time,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .event-placeholder,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .world-clocks-timezone,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-header {
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .day-label,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .event-time,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .event-placeholder,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .world-clocks-timezone,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .message-header {
     color: rgba(23, 25, 31, 0.64) !important;
 }
 
@@ -777,11 +747,11 @@
     transition-duration: 120ms;
 }
 
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-day {
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day {
     color: rgba(248, 249, 253, 0.91) !important;
 }
 
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-day {
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day {
     color: rgba(23, 25, 31, 0.90) !important;
 }
 
