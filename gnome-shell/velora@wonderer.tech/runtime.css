@@ -1046,3 +1046,62 @@
 .velora-liquid-popup-content.quick-settings .quick-toggle-separator {
     background-color: rgba(255, 255, 255, 0.16);
 }
+
+/* Quick Settings expanded overlay ---------------------------------------- */
+/* QuickToggleMenu lives in QuickSettingsMenu._overlay, a sibling of the
+ * BoxPointer rather than a descendant of .quick-settings. Scope it through
+ * the top-level Quick Settings actor so the expanded Power/Wi-Fi/Bluetooth
+ * card gets the same neutral nested glass and adaptive foreground. */
+.velora-liquid-quick-menu-root .quick-toggle-menu-container,
+.velora-liquid-quick-menu-root .quick-toggle-menu {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item:hover,
+.velora-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.045) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-quick-menu-root .quick-toggle-menu .header .icon {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-quick-menu-root .quick-toggle-menu .header .icon.active {
+    background-color: transparent !important;
+    color: inherit !important;
+    border-color: transparent !important;
+}
+
+.velora-liquid-quick-menu-root .velora-quick-card-text-light,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light StLabel,
+.velora-liquid-quick-menu-root .velora-quick-card-text-light StIcon {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark StLabel,
+.velora-liquid-quick-menu-root .velora-quick-card-text-dark StIcon {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+/* Active Quick tiles use the theme accent on text only, including standalone
+ * toggles such as Dark Style / Night Light / Do Not Disturb. */
+.velora-liquid-quick-menu-root .velora-quick-active StLabel,
+.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-title,
+.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-subtitle {
+    color: -st-accent-color !important;
+}
