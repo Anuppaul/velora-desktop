@@ -192,6 +192,22 @@
     -arrow-border-color: transparent;
 }
 
+/* Date Menu micro-fix: remove only GNOME/Yaru's native inner outline.
+ * Geometry, LiquidEffect rim, refraction and drop shadow are untouched. */
+.velora-liquid-popup-content.datemenu-popover {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-date-menu-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
+}
+
 /* The top panel's native solid paint must not cover its Liquid Glass layer. */
 #panel.velora-liquid-top-panel,
 .velora-liquid-top-panel {
