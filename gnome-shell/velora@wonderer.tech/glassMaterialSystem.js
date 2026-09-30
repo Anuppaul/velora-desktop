@@ -126,6 +126,15 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveText: true,
         adaptiveSampleDelayMs: 220,
         adaptiveResampleMs: 0,
+
+        // Extra optical breathing room derived from the live theme radius.
+        // The card grows around native content; content itself never moves.
+        contentInset: Object.freeze({
+            topRadiusScale: 0.28,
+            sideRadiusScale: 0.12,
+            bottomRadiusScale: 0.14,
+            maxPx: 10,
+        }),
         borderAlpha: 0.0,
     }),
     shellCard: Object.freeze({
