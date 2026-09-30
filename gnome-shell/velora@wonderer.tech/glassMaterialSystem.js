@@ -42,20 +42,28 @@ const INNER_CARD_OPTICS = Object.freeze({
     shadow_intensity: 0.0,
 });
 
+const PREMIUM_CARD_ROLE = Object.freeze({
+    optics: INNER_CARD_OPTICS,
+    tintStrength: 0.026,
+    blurScale: 0.85,
+    blurMin: 4,
+    blurMax: 7,
+    contrastFloor: 1.04,
+    multiRegion: true,
+    surfaceLight: true,
+    blurMethod: 1,
+    interaction: GLASS_INTERACTION,
+    text: GLASS_TEXT_PALETTE,
+});
+
 export const VELORA_GLASS_ROLES = Object.freeze({
-    innerCard: Object.freeze({
-        optics: INNER_CARD_OPTICS,
-        tintStrength: 0.026,
-        blurScale: 0.85,
-        blurMin: 4,
-        blurMax: 7,
-        contrastFloor: 1.04,
-        multiRegion: true,
-        surfaceLight: true,
-        blurMethod: 1,
-        interaction: GLASS_INTERACTION,
-        text: GLASS_TEXT_PALETTE,
-    }),
+    // Aliases intentionally point to the SAME frozen role object.
+    // One material tune therefore updates every adopted Velora card surface.
+    innerCard: PREMIUM_CARD_ROLE,
+    quickMenuCard: PREMIUM_CARD_ROLE,
+    notificationCard: PREMIUM_CARD_ROLE,
+    shellCard: PREMIUM_CARD_ROLE,
+    osdCard: PREMIUM_CARD_ROLE,
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
@@ -77,6 +85,16 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptivePreference: 'auto',
         sampleIntervalMs: 900,
     }),
+    notificationBanner: Object.freeze({
+        filterOpacityScale: 0.72,
+        filterOpacityMax: 0.08,
+        borderAlpha: 0.0,
+    }),
+    shellCard: Object.freeze({
+        inheritGlobalTint: true,
+        inheritGlobalBlur: true,
+    }),
+
 });
 
 export function clampGlass(value, min, max) {
