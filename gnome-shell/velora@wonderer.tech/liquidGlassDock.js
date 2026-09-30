@@ -166,7 +166,6 @@ async function importVendorModules(root) {
         unpickable,
         dockManager,
         osdManager,
-        contrastSampler,
         logger,
         utils,
         background,
@@ -178,7 +177,6 @@ async function importVendorModules(root) {
         import(moduleUri(root, 'dist/actors/unpickable.js')),
         import(moduleUri(root, 'dist/dockManager.js')),
         import(moduleUri(root, 'dist/osdManager.js')),
-        import(moduleUri(root, 'dist/contrastSampler.js')),
         import(moduleUri(root, 'dist/logger.js')),
         import(moduleUri(root, 'dist/utils.js')),
         import(moduleUri(root, 'dist/capture/background.js')),
@@ -196,7 +194,6 @@ async function importVendorModules(root) {
         UnpickableActor: unpickable.UnpickableActor,
         DashManager: dockManager.DashManager,
         OsdManager: osdManager.OsdManager,
-        StageContrastSampler: contrastSampler.StageContrastSampler,
         Logger: logger.Logger,
         setUtilsLogger: utils.setUtilsLogger,
         adaptiveColorTweener: utils.adaptiveColorTweener,
@@ -229,7 +226,6 @@ function validateVendorApi(vendor) {
         'WindowCloneManager',
         'DashManager',
         'OsdManager',
-        'StageContrastSampler',
         'Logger',
         'setUtilsLogger',
         'createBackgroundMirror',
@@ -259,11 +255,20 @@ function validateVendorApi(vendor) {
 export async function loadLiquidGlassVendorModules(veloraSettings) {
     const ensureContrastSampler = async vendor => {
         if (vendor?.root && !vendor.StageContrastSampler) {
-            const contrastSampler = await import(
-                moduleUri(vendor.root, 'dist/contrastSampler.js')
-            );
-            vendor.StageContrastSampler =
-                contrastSampler.StageContrastSampler;
+            try {
+                const contrastSampler = await import(
+                    moduleUri(vendor.root, 'dist/contrastSampler.js')
+                );
+                vendor.StageContrastSampler =
+                    contrastSampler.StageContrastSampler;
+            } catch (error) {
+                // Adaptive text is an enhancement, never a reason to lose the
+                // glass renderer on an older compatible upstream install.
+                console.warn(
+                    '[Velora][LiquidGlass] adaptive contrast sampler unavailable: ' +
+                    error
+                );
+            }
         }
         return vendor;
     };
@@ -328,6 +333,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     }
 
     const promise = importVendorModules(root)
+        .then(modules => ensureContrastSampler(modules))
         .then(modules => {
             globalThis[VENDOR_CACHE_KEY] = modules;
             return modules;
