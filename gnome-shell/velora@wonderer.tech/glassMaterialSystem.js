@@ -52,6 +52,9 @@ const PREMIUM_CARD_ROLE = Object.freeze({
     multiRegion: true,
     surfaceLight: true,
     blurMethod: 1,
+    // MaterialSettings owns optical uniforms so advanced preference controls
+    // remain live and survive ordinary appearance updates.
+    settingsOwnOptics: true,
     interaction: GLASS_INTERACTION,
     text: GLASS_TEXT_PALETTE,
 });
@@ -192,6 +195,11 @@ export function stepGlassInteraction(
 
 export function resolveRoleBlur(baseBlur, role = VELORA_GLASS_ROLES.innerCard) {
     const blur = Number.isFinite(baseBlur) ? baseBlur : 7;
+
+    // Zero is an explicit off state, not a request for the role floor.
+    if (blur <= 0)
+        return 0;
+
     return clampGlass(
         Math.round(blur * role.blurScale),
         role.blurMin,
@@ -241,12 +249,14 @@ export function applyVeloraGlassRole(
     if (saturation !== null)
         effect.setSaturation?.(saturation);
 
-    try {
-        const uniforms = effect._uniforms;
-        for (const [name, value] of Object.entries(role.optics))
-            uniforms?.set?.(name, value);
-        effect.queue_repaint?.();
-    } catch {
-        // The public renderer API remains sufficient if internals change.
+    if (!role.settingsOwnOptics) {
+        try {
+            const uniforms = effect._uniforms;
+            for (const [name, value] of Object.entries(role.optics))
+                uniforms?.set?.(name, value);
+            effect.queue_repaint?.();
+        } catch {
+            // The public renderer API remains sufficient if internals change.
+        }
     }
 }
