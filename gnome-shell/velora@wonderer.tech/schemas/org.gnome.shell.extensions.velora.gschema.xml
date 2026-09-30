@@ -128,7 +128,7 @@
       <summary>Internal Velora full-glass optics profile version</summary>
     </key>
     <key name="glass-opacity" type="i">
-      <default>12</default>
+      <default>3</default>
       <range min="0" max="100"/>
       <summary>System Liquid Glass tint strength percentage</summary>
     </key>
@@ -137,9 +137,15 @@
       <summary>System Liquid Glass tint color</summary>
     </key>
     <key name="glass-blur" type="i">
-      <default>20</default>
+      <default>9</default>
       <range min="0" max="80"/>
       <summary>System Liquid Glass blur radius</summary>
+    </key>
+    <key name="glass-filter-opacity" type="i">
+      <default>5</default>
+      <range min="0" max="20"/>
+      <summary>Neutral white filter opacity percentage</summary>
+      <description>Low-opacity white veil painted above the refractive material and below native content.</description>
     </key>
   </schema>
 </schemalist>
