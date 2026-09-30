@@ -217,6 +217,83 @@
 }
 
 
+/* Generic panel / context popups ----------------------------------------- */
+/* Keep menu semantics and geometry native; only replace opaque menu-item
+ * fills with light translucent states over the parent glass. */
+.velora-liquid-popup-content .popup-menu-item {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.velora-liquid-popup-content .popup-menu-item:hover,
+.velora-liquid-popup-content .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.velora-liquid-popup-content .popup-menu-item:active,
+.velora-liquid-popup-content .popup-menu-item:checked {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.velora-liquid-popup-content .popup-separator-menu-item-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Preserve native submenu shape while keeping it visually part of the same
+ * glass surface instead of a second opaque card. */
+.velora-liquid-popup-content .popup-sub-menu {
+    background-color: rgba(255, 255, 255, 0.07);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+}
+
+.velora-liquid-popup-content .popup-sub-menu .popup-menu-item:hover,
+.velora-liquid-popup-content .popup-sub-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Modal dialogs / switchers ---------------------------------------------- */
+.velora-liquid-shell-card .modal-dialog-button,
+.velora-liquid-shell-card .audio-selection-device,
+.velora-liquid-shell-card .run-dialog-entry,
+.velora-liquid-shell-card .prompt-dialog-password-entry {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    box-shadow: none;
+}
+
+.velora-liquid-shell-card .modal-dialog-button:hover,
+.velora-liquid-shell-card .audio-selection-device:hover,
+.velora-liquid-shell-card .run-dialog-entry:focus,
+.velora-liquid-shell-card .prompt-dialog-password-entry:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.velora-liquid-shell-card .modal-dialog-button:active,
+.velora-liquid-shell-card .audio-selection-device:active {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Alt-Tab / window switcher: keep thumbnails/icons native, only soften the
+ * tile state that sits on top of the glass card. */
+.velora-liquid-shell-card .item-box {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.velora-liquid-shell-card .item-box:selected {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.velora-liquid-shell-card .separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
 /* -------------------------------------------------------------------------
  * Inner material unification
  *
