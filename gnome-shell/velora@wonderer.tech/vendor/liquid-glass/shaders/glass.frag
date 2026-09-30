@@ -251,6 +251,11 @@ uniform float region_tint_b[MAX_GLASS_REGIONS];
 // Per-region rather than a single uniform so a region whose real color could
 // not be resolved at all can simply opt out with 0.
 uniform float region_base_strength[MAX_GLASS_REGIONS];
+// Optional per-region interaction response, 0..1. Consumers that never set
+// it (e.g. Quick Settings) stay visually identical because the default array
+// value is 0. Date Menu uses it to make hover/focus/press change the optical
+// surface itself rather than only adding a CSS veil.
+uniform float region_response[MAX_GLASS_REGIONS];
 
 // Signed Distance Field (SDF) function for a rounded rectangle.
 // Returns negative values inside the shape, positive outside, and 0 on the exact edge.
@@ -272,12 +277,13 @@ float sdRoundRect(vec2 p, vec2 b, float r) {
 // insideMask/outsideMask smoothstep further down in main() already treats
 // a large positive distance as fully transparent, so no extra handling is
 // needed here for the empty/out-of-range case.
-float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out vec2 outBoxSize, out vec3 outTint, out float outBaseStrength) {
+float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out vec2 outBoxSize, out vec3 outTint, out float outBaseStrength, out float outResponse) {
     float bestD = 1.0e6;
     outLocalPos = vec2(1.0e6);
     outBoxSize = vec2(1.0);
     outTint = vec3(1.0);
     outBaseStrength = 0.0;
+    outResponse = 0.0;
 
     int count = int(min(region_count, float(MAX_GLASS_REGIONS)));
 
@@ -299,6 +305,7 @@ float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out ve
             outBoxSize = rBox;
             outTint = vec3(region_tint_r[i], region_tint_g[i], region_tint_b[i]);
             outBaseStrength = region_base_strength[i];
+            outResponse = clamp(region_response[i], 0.0, 1.0);
         }
     }
 
@@ -670,10 +677,11 @@ void main() {
     // legacy (single-rect) mode, which has no per-element "own color" concept
     // — that path is bit-for-bit unchanged.
     float activeBaseStrength = 0.0;
+    float activeResponse = 0.0;
     float d;
 
     if (multi_region_mode > 0.5) {
-        d = findActiveRegion(pixel_coord, padding, local_pos, box_size, activeTint, activeBaseStrength);
+        d = findActiveRegion(pixel_coord, padding, local_pos, box_size, activeTint, activeBaseStrength, activeResponse);
     } else {
         // dock_center is in the same pixel space as pixel_coord (monitor-local).
         vec2 dock_center = vec2(dock_x + dock_w * 0.5, dock_y + dock_h * 0.5);
@@ -708,6 +716,11 @@ void main() {
     // by on a glass too small to hold it. See EDGE_LENS_BAND.
     float lensBand = lensBandFor(min(box_size.x, box_size.y));
     float lensScale = lensScaleFor(lensBand);
+    // A small physical lift while a region is engaged. 0 keeps the legacy
+    // multi-region look byte-for-byte; 1 strengthens the edge lens without
+    // changing region geometry or allocating another render pass.
+    float opticalResponse = clamp(activeResponse, 0.0, 1.0);
+    float responseLensScale = 1.0 + opticalResponse * 0.18;
     
     // Geometry Anti-Aliasing: Smoothstep forces a sub-pixel soft transition.
     // Inside = 1.0, Outside = 0.0.
@@ -830,8 +843,9 @@ void main() {
         vec3 lightDirFlat = normalize(vec3(cos(radians(light_angle_deg)),
                                            sin(radians(light_angle_deg)), 0.38));
         float facing = max(lightDirFlat.z, 0.0);
-        float specFlat = pow(facing, max(shininess, 1.0)) * specular_intensity * 0.65;
-        float sheenFlat = pow(facing, 1.65) * sheen_intensity;
+        float flatResponse = 1.0 + opticalResponse * 0.28;
+        float specFlat = pow(facing, max(shininess, 1.0)) * specular_intensity * 0.65 * flatResponse;
+        float sheenFlat = pow(facing, 1.65) * sheen_intensity * flatResponse;
         vec3 addedFlat = vec3(specFlat + sheenFlat) * surface_light_enabled;
 
         // Screen blend, then the same overflow normalization as the full path.
@@ -1033,10 +1047,18 @@ void main() {
     // reliably for a texture lookup, and there is nothing to gain by leaving
     // it to chance.
 
-    vec2 gradH = heightGradient(local_pos, box_size, corner_radius, lensBand, max_z * lensScale, resolution);
+    vec2 gradH = heightGradient(
+        local_pos,
+        box_size,
+        corner_radius,
+        lensBand,
+        max_z * lensScale * responseLensScale,
+        resolution
+    );
     vec3 normal = getNormal(gradH);
 
     vec2 disp = getDisplacement(d, normal, resolution);
+    disp *= 1.0 + opticalResponse * 0.10;
 
     // ── Edge lensing ──────────────────────────────────────────────────────
     //
@@ -1286,7 +1308,7 @@ void main() {
     vec3 lightDir = normalize(vec3(cos(lightAngleRad), sin(lightAngleRad), 0.38));
     vec3 viewDir = vec3(0.0, 0.0, 1.0);
     vec3 reflectDir = reflect(-lightDir, normal);
-    float response = 1.0;
+    float response = 1.0 + opticalResponse * 0.34;
 
     // Create a sharp band for the rim lighting near the edges.
     // [FIX] Same undefined-behavior ordering issue as insideMask above
@@ -1352,6 +1374,7 @@ void main() {
     // double-premultiplication issue as baseColor/finalRimLight/idleRim
     // above; the final `litColor * alpha` composite already covers it.
     surfaceSheen *= mix(1.0, 0.55, edgeBand);
+    surfaceSheen *= 1.0 + opticalResponse * 0.22;
     vec3 sheenColor = vec3(1.0) * surfaceSheen * sheen_intensity;
 
     float alpha = insideMask;
