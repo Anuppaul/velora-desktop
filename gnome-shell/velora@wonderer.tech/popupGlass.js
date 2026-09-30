@@ -275,6 +275,9 @@ class PopupGlassSurface {
         this._quickRegionDirty = true;
         this._quickNeedsRescan = true;
         this._quickSignalEntries = [];
+        this._quickThemeContext = null;
+        this._quickThemeChangedId = 0;
+        this._quickPatchedMenus = new Map();
 
         this._dateScreenshot = null;
         this._dateTextSampleSourceId = 0;
@@ -578,6 +581,7 @@ class PopupGlassSurface {
                 QUICK_ROOT_CLASS
             );
             this._suppressNativeQuickBoxPointerBorder();
+            this._setupQuickThemeSync();
         }
 
         this._root = root;
@@ -605,6 +609,9 @@ class PopupGlassSurface {
                     this._lastSceneSyncUs = GLib.get_monotonic_time();
 
                     this._scanDateCardActors(true);
+                    if (this._isQuickSettings)
+                        this._applyQuickThemeForegroundPolarity();
+
                     if (this._surfaceAdapter?.adaptiveText) {
                         this._scheduleDateTextSample(
                             this._surfaceAdapter.adaptiveSampleDelayMs
@@ -653,6 +660,141 @@ class PopupGlassSurface {
         this._lastMonitorY = NaN;
         this._lastScreenW = 0;
         this._lastScreenH = 0;
+    }
+
+    _applyQuickThemeForegroundPolarity() {
+        if (
+            !this._isQuickSettings ||
+            !this._box
+        ) {
+            return;
+        }
+
+        try {
+            this._box.ensure_style?.();
+            const color =
+                this._box.get_theme_node?.()
+                    ?.get_foreground_color?.();
+            if (!color)
+                return;
+
+            const luma = rgbLuminance(
+                color.red,
+                color.green,
+                color.blue
+            );
+
+            // Light theme foreground is dark -> use dark text. Dark theme
+            // foreground is light -> use light text.
+            const useDarkText = luma < 0.5;
+
+            for (const actor of this._dateCardActors) {
+                if (actor?.visible && actor?.mapped)
+                    this._applyDateCardTextPolarity(
+                        actor,
+                        useDarkText
+                    );
+            }
+        } catch {
+            // Backdrop sampling remains the correction path.
+        }
+    }
+
+    _setupQuickThemeSync() {
+        if (
+            !this._isQuickSettings ||
+            this._quickThemeChangedId
+        ) {
+            return;
+        }
+
+        try {
+            const context =
+                St.ThemeContext.get_for_stage(global.stage);
+            this._quickThemeContext = context;
+            this._quickThemeChangedId =
+                context.connect('changed', () => {
+                    if (
+                        this._destroyed ||
+                        !this._menu?.isOpen
+                    ) {
+                        return;
+                    }
+
+                    this._applyQuickThemeForegroundPolarity();
+                    this._quickRegionDirty = true;
+                    this._dateInnerRoot?.queue_redraw?.();
+
+                    if (this._surfaceAdapter?.adaptiveText) {
+                        this._scheduleDateTextSample(
+                            this._surfaceAdapter
+                                ?.themeResampleDelayMs
+                                ?? 16
+                        );
+                    }
+                });
+        } catch {
+            this._quickThemeContext = null;
+            this._quickThemeChangedId = 0;
+        }
+    }
+
+    _cleanupQuickThemeSync() {
+        if (
+            this._quickThemeContext &&
+            this._quickThemeChangedId
+        ) {
+            try {
+                this._quickThemeContext.disconnect(
+                    this._quickThemeChangedId
+                );
+            } catch {}
+        }
+
+        this._quickThemeContext = null;
+        this._quickThemeChangedId = 0;
+    }
+
+    _patchQuickOverlayMenuClose(actor) {
+        if (
+            !this._isQuickSettings ||
+            this._surfaceAdapter?.collapseFade !== false
+        ) {
+            return;
+        }
+
+        const classes = actorClasses(actor);
+        if (!classes.includes('quick-toggle-menu-container'))
+            return;
+
+        const menu = actor?._delegate ?? null;
+        if (
+            !menu ||
+            typeof menu.close !== 'function' ||
+            this._quickPatchedMenus.has(menu)
+        ) {
+            return;
+        }
+
+        const originalClose = menu.close;
+        this._quickPatchedMenus.set(menu, originalClose);
+
+        menu.close = function (_animate) {
+            // PopupAnimation.NONE is numeric 0 in GNOME Shell. Passing 0 to
+            // the native implementation removes both opacity fade and the
+            // delayed collapse while preserving all close signals/cleanup.
+            return originalClose.call(this, 0);
+        };
+    }
+
+    _restoreQuickOverlayMenuCloses() {
+        for (const [menu, originalClose] of this._quickPatchedMenus) {
+            try {
+                if (menu)
+                    menu.close = originalClose;
+            } catch {}
+        }
+        this._quickPatchedMenus.clear();
     }
 
     _clearQuickSignalEntries() {
@@ -734,6 +876,9 @@ class PopupGlassSurface {
         const walk = (actor, inSystemItem = false) => {
             if (!actor)
                 return;
+
+            if (this._isQuickSettings)
+                this._patchQuickOverlayMenuClose(actor);
 
             let systemItem = inSystemItem;
             if (actor !== this._box) {
@@ -2021,6 +2166,8 @@ class PopupGlassSurface {
 
         this._cancelDateTextSample();
         this._clearQuickSignalEntries();
+        this._cleanupQuickThemeSync();
+        this._restoreQuickOverlayMenuCloses();
 
         try {
             this._effect?.setLiveGeometryHook?.(null);
