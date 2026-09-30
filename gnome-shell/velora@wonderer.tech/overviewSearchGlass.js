@@ -231,7 +231,8 @@ export class OverviewSearchGlassManager {
 
         for (const actor of found) {
             try {
-                actor.add_style_class_name?.(REGION_CLASS);
+                if (!actorClasses(actor).includes(REGION_CLASS))
+                    actor.add_style_class_name?.(REGION_CLASS);
             } catch {}
         }
 
