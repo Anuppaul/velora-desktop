@@ -258,11 +258,46 @@ export class NotificationGlassManager {
             )
         );
 
+        const adapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
+        const extra =
+            adapter.contentInset ?? {};
+        const radius =
+            this._readCornerRadius(actor);
+        const maxExtra =
+            extra.maxPx ?? 10;
+        const topExtra = Math.max(
+            0,
+            Math.min(
+                maxExtra,
+                radius * (extra.topRadiusScale ?? 0)
+            )
+        );
+        const sideExtra = Math.max(
+            0,
+            Math.min(
+                maxExtra,
+                radius * (extra.sideRadiusScale ?? 0)
+            )
+        );
+        const bottomExtra = Math.max(
+            0,
+            Math.min(
+                maxExtra,
+                radius * (extra.bottomRadiusScale ?? 0)
+            )
+        );
+
         return [
-            minX - inset,
-            minY - inset,
-            (maxX - minX) + inset * 2,
-            (maxY - minY) + inset * 2,
+            minX - inset - sideExtra,
+            minY - inset - topExtra,
+            (maxX - minX) +
+                inset * 2 +
+                sideExtra * 2,
+            (maxY - minY) +
+                inset * 2 +
+                topExtra +
+                bottomExtra,
         ];
     }
 
