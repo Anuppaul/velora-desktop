@@ -1883,6 +1883,12 @@ class PopupGlassSurface {
                     actor.remove_style_class_name?.(
                         DATE_CARD_TEXT_DARK_CLASS
                     );
+                    actor.remove_style_class_name?.(
+                        QUICK_CARD_TEXT_LIGHT_CLASS
+                    );
+                    actor.remove_style_class_name?.(
+                        QUICK_CARD_TEXT_DARK_CLASS
+                    );
                 } catch {}
             }
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
