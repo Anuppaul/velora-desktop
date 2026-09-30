@@ -776,37 +776,28 @@ class PopupGlassSurface {
         }
     }
 
-    _dateCardResponse(actor, klass) {
+    _dateCardResponse(actor, klass, quickState = null) {
         if (this._isDateMenu && klass === 'calendar')
             return 0;
 
-        const pressed =
-            this._isQuickSettings
-                ? treeHasPseudo(actor, 'active')
-                : hasPseudo(actor, 'active');
-        const selected =
-            this._isQuickSettings
-                ? (
-                    treeHasPseudo(actor, 'checked') ||
-                    treeHasPseudo(actor, 'selected')
-                )
-                : (
-                    hasPseudo(actor, 'checked') ||
-                    hasPseudo(actor, 'selected')
-                );
-        const engaged =
-            pressed ||
-            (
-                this._isQuickSettings
-                    ? (
-                        treeHasPseudo(actor, 'hover') ||
-                        treeHasPseudo(actor, 'focus')
-                    )
-                    : (
-                        hasPseudo(actor, 'hover') ||
-                        hasPseudo(actor, 'focus')
-                    )
-            );
+        let pressed;
+        let selected;
+        let engaged;
+
+        if (this._isQuickSettings) {
+            const state =
+                quickState ?? quickCardState(actor);
+            ({pressed, selected, engaged} = state);
+        } else {
+            pressed = hasPseudo(actor, 'active');
+            selected =
+                hasPseudo(actor, 'checked') ||
+                hasPseudo(actor, 'selected');
+            engaged =
+                pressed ||
+                hasPseudo(actor, 'hover') ||
+                hasPseudo(actor, 'focus');
+        }
 
         const role = VELORA_GLASS_ROLES.innerCard;
         const target = resolveGlassInteractionTarget(
@@ -860,12 +851,12 @@ class PopupGlassSurface {
 
             const quickAdapter =
                 VELORA_GLASS_ADAPTERS.quickMenu;
+            const state =
+                this._isQuickSettings
+                    ? quickCardState(actor)
+                    : null;
             const quickSelected =
-                this._isQuickSettings &&
-                (
-                    treeHasPseudo(actor, 'checked') ||
-                    treeHasPseudo(actor, 'selected')
-                );
+                Boolean(state?.selected);
 
             const baseStrength = (() => {
                 if (this._isQuickSettings) {
@@ -889,7 +880,11 @@ class PopupGlassSurface {
             })();
 
             const response =
-                this._dateCardResponse(actor, klass);
+                this._dateCardResponse(
+                    actor,
+                    klass,
+                    state
+                );
 
             const strengthCeiling = 0.11;
 
