@@ -1,5 +1,8 @@
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -13,12 +16,74 @@ import {
 const DEFAULT_RADIUS = 24;
 const SAMPLE_MARGIN_MIN = 48;
 const SAMPLE_MARGIN_MAX = 180;
+const TEXT_LIGHT_CLASS = 'velora-notification-text-light';
+const TEXT_DARK_CLASS = 'velora-notification-text-dark';
+const LIGHT_TEXT = '#f7f8fc';
+const DARK_TEXT = '#17191f';
+const TEXT_SWITCH_ADVANTAGE = 1.18;
+const MIN_READABLE_CONTRAST = 4.5;
 
 function finiteRect(values) {
     return values.every(Number.isFinite) &&
         values[2] > 1 &&
         values[3] > 1;
 }
+
+function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function srgbToLinear(channel) {
+    const n = channel / 255;
+    return n <= 0.04045
+        ? n / 12.92
+        : Math.pow((n + 0.055) / 1.055, 2.4);
+}
+
+function rgbLuminance(r, g, b) {
+    return (
+        0.2126 * srgbToLinear(r) +
+        0.7152 * srgbToLinear(g) +
+        0.0722 * srgbToLinear(b)
+    );
+}
+
+function hexLuminance(hex) {
+    const value = Number.parseInt(hex.slice(1), 16);
+    return rgbLuminance(
+        (value >> 16) & 255,
+        (value >> 8) & 255,
+        value & 255
+    );
+}
+
+function contrastRatio(a, b) {
+    return (
+        (Math.max(a, b) + 0.05) /
+        (Math.min(a, b) + 0.05)
+    );
+}
+
+function trimmedMean(values, trimRatio = 0.30) {
+    if (!values.length)
+        return null;
+
+    const sorted = values.slice().sort((a, b) => a - b);
+    const trim = Math.min(
+        Math.floor(sorted.length * trimRatio),
+        Math.floor((sorted.length - 1) / 2)
+    );
+
+    let sum = 0;
+    for (let i = trim; i < sorted.length - trim; i++)
+        sum += sorted[i];
+
+    return sum / Math.max(1, sorted.length - trim * 2);
+}
+
+const LIGHT_LUMA = hexLuminance(LIGHT_TEXT);
+const DARK_LUMA = hexLuminance(DARK_TEXT);
+
 
 export class NotificationGlassManager {
     constructor(params) {
@@ -31,7 +96,7 @@ export class NotificationGlassManager {
         this._settingsSignals = [];
         this._materials = new Map();
         this._appearance = null;
-        this._stageSyncId = 0;
+        this._screenshot = null;
     }
 
     setup() {
