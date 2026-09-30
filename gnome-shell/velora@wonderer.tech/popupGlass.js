@@ -52,6 +52,7 @@ const QUICK_INNER_CARD_CLASSES = new Set([
     'quick-toggle-menu',
 ]);
 const DATE_INNER_PAD = 20;
+const MAX_INNER_GLASS_REGIONS = 16;
 const DATE_INNER_SCAN_INTERVAL_US = 500000;
 const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
@@ -129,6 +130,21 @@ function hasPseudo(actor, name) {
     } catch {
         return false;
     }
+}
+
+function actorIsDescendantOf(actor, ancestor) {
+    if (!actor || !ancestor)
+        return false;
+
+    let current = actor;
+    let guard = 64;
+    while (current && guard-- > 0) {
+        if (current === ancestor)
+            return true;
+        current = current.get_parent?.() ?? null;
+    }
+
+    return false;
 }
 
 function quickCardState(actor) {
@@ -926,7 +942,22 @@ class PopupGlassSurface {
                 (DATE_INNER_CARD_PRIORITY.get(b.klass) ?? 99)
             );
         } else {
+            const overlay =
+                this._menu?._overlay ?? null;
+
+            // The shader can draw at most 16 regions, but adaptive foreground
+            // must cover every visible Quick Settings card. Keep the full
+            // actor registry and order expanded overlay menus first so Power
+            // Mode / Wi-Fi / Bluetooth can never be dropped from the shader
+            // region budget by the main grid's many buttons/sliders.
             found.sort((a, b) => {
+                const aOverlay =
+                    actorIsDescendantOf(a.actor, overlay) ? 0 : 1;
+                const bOverlay =
+                    actorIsDescendantOf(b.actor, overlay) ? 0 : 1;
+                if (aOverlay !== bOverlay)
+                    return aOverlay - bOverlay;
+
                 const [ax, ay] =
                     a.actor.get_transformed_position?.() ?? [0, 0];
                 const [bx, by] =
@@ -935,8 +966,10 @@ class PopupGlassSurface {
             });
         }
 
+        // Keep every discovered actor for adaptive text and state tracking.
+        // Region limiting happens only at the shader boundary below.
         this._dateCardActors =
-            found.slice(0, 16).map(item => item.actor);
+            found.map(item => item.actor);
 
         if (this._isQuickSettings) {
             this._rebuildQuickSignalEntries();
@@ -1198,9 +1231,12 @@ class PopupGlassSurface {
             });
         }
 
-        this._dateInnerRegionCount = regions.length;
+        const shaderRegions =
+            regions.slice(0, MAX_INNER_GLASS_REGIONS);
+
+        this._dateInnerRegionCount = shaderRegions.length;
         this._dateInnerEffect.setResolution?.(screenW, screenH);
-        this._dateInnerEffect.setGlassRegions?.(regions);
+        this._dateInnerEffect.setGlassRegions?.(shaderRegions);
 
         if (this._isQuickSettings)
             this._quickRegionDirty = false;
