@@ -215,3 +215,104 @@
     border-color: transparent;
     box-shadow: none;
 }
+
+
+/* -------------------------------------------------------------------------
+ * Inner material unification
+ *
+ * These selectors keep GNOME's native geometry, radii, checked state and
+ * interaction. Only opaque card fills are reduced so the parent LiquidEffect
+ * remains visually continuous through Date Menu and Quick Settings.
+ * No nested blur/effect is created here.
+ * ---------------------------------------------------------------------- */
+
+/* Date / Calendar -------------------------------------------------------- */
+.velora-liquid-popup-content.datemenu-popover .datemenu-today-button,
+.velora-liquid-popup-content.datemenu-popover .calendar,
+.velora-liquid-popup-content.datemenu-popover .events-button,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-button,
+.velora-liquid-popup-content.datemenu-popover .weather-button,
+.velora-liquid-popup-content.datemenu-popover .message {
+    background-color: rgba(255, 255, 255, 0.09);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.11);
+    box-shadow: none;
+}
+
+.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:hover,
+.velora-liquid-popup-content.datemenu-popover .events-button:hover,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-button:hover,
+.velora-liquid-popup-content.datemenu-popover .weather-button:hover,
+.velora-liquid-popup-content.datemenu-popover .message:hover {
+    background-color: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.velora-liquid-popup-content.datemenu-popover .message:active,
+.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:active,
+.velora-liquid-popup-content.datemenu-popover .events-button:active,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-button:active,
+.velora-liquid-popup-content.datemenu-popover .weather-button:active {
+    background-color: rgba(255, 255, 255, 0.17);
+}
+
+.velora-liquid-popup-content.datemenu-popover .message-list {
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Preserve GNOME's accent/today semantics. We only remove the outer card fill;
+ * selected/today day buttons keep their native state styling. */
+.velora-liquid-popup-content.datemenu-popover .calendar-month-header,
+.velora-liquid-popup-content.datemenu-popover .events-box,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-grid,
+.velora-liquid-popup-content.datemenu-popover .weather-box {
+    background-color: transparent;
+    background-image: none;
+}
+
+/* Quick Settings --------------------------------------------------------- */
+.velora-liquid-popup-content.quick-settings .quick-toggle,
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button,
+.velora-liquid-popup-content.quick-settings .slider-bin,
+.velora-liquid-popup-content.quick-settings .icon-button,
+.velora-liquid-popup-content.quick-settings .button {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.velora-liquid-popup-content.quick-settings .quick-toggle:hover,
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:hover,
+.velora-liquid-popup-content.quick-settings .slider-bin:hover,
+.velora-liquid-popup-content.quick-settings .icon-button:hover,
+.velora-liquid-popup-content.quick-settings .button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Checked quick toggles keep GNOME's accent semantics. */
+.velora-liquid-popup-content.quick-settings .quick-toggle:checked,
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked,
+.velora-liquid-popup-content.quick-settings .button:checked,
+.velora-liquid-popup-content.quick-settings .icon-button:checked {
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
+    border-color: transparent;
+}
+
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:hover,
+.velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.velora-liquid-popup-content.quick-settings .quick-toggle-separator {
+    background-color: rgba(255, 255, 255, 0.20);
+}
