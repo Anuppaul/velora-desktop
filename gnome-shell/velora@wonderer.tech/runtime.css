@@ -586,9 +586,9 @@
  * Inner material unification
  *
  * These selectors keep GNOME's native geometry, radii, checked state and
- * interaction. Only opaque card fills are reduced so the parent LiquidEffect
- * remains visually continuous through Date Menu and Quick Settings.
- * No nested blur/effect is created here.
+ * interaction. Date Menu now has a dedicated shared nested LiquidEffect for
+ * its major cards; CSS only clears the old opaque paint and styles controls.
+ * Quick Settings remains on the lightweight CSS material path.
  * ---------------------------------------------------------------------- */
 
 /* Date / Calendar -------------------------------------------------------- */
@@ -616,8 +616,8 @@
 .velora-liquid-popup-content.datemenu-popover .weather-button:hover,
 .velora-liquid-popup-content.datemenu-popover .message:hover,
 .velora-liquid-popup-content.datemenu-popover .message-list-clear-button:hover {
-    background-color: rgba(255, 255, 255, 0.055) !important;
-    border-color: rgba(255, 255, 255, 0.10) !important;
+    background-color: rgba(255, 255, 255, 0.045) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .message:active,
@@ -626,7 +626,7 @@
 .velora-liquid-popup-content.datemenu-popover .world-clocks-button:active,
 .velora-liquid-popup-content.datemenu-popover .weather-button:active,
 .velora-liquid-popup-content.datemenu-popover .message-list-clear-button:active {
-    background-color: rgba(255, 255, 255, 0.09) !important;
+    background-color: rgba(255, 255, 255, 0.075) !important;
 }
 
 /* Keep the two-column divider quiet; no fake second panel behind the cards. */
@@ -643,7 +643,11 @@
 }
 
 /* Premium hierarchy ------------------------------------------------------ */
-.velora-liquid-popup-content.datemenu-popover .date-label,
+.velora-liquid-popup-content.datemenu-popover .date-label {
+    font-size: 1.18em;
+    font-weight: 600;
+}
+
 .velora-liquid-popup-content.datemenu-popover .calendar-month-label,
 .velora-liquid-popup-content.datemenu-popover .events-title,
 .velora-liquid-popup-content.datemenu-popover .event-summary,
@@ -655,6 +659,12 @@
 .velora-liquid-popup-content.datemenu-popover .message-source-title,
 .velora-liquid-popup-content.datemenu-popover .message-title {
     font-weight: 600;
+}
+
+.velora-liquid-popup-content.datemenu-popover .message-source-title,
+.velora-liquid-popup-content.datemenu-popover .events-title,
+.velora-liquid-popup-content.datemenu-popover .world-clocks-header {
+    opacity: 0.88;
 }
 
 .velora-liquid-popup-content.datemenu-popover .day-label,
@@ -733,31 +743,31 @@
 /* Month navigation is a control layer inside the nested calendar card. */
 .velora-liquid-popup-content.datemenu-popover .calendar-month-label,
 .velora-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button {
-    background-color: rgba(255, 255, 255, 0.075) !important;
+    background-color: rgba(255, 255, 255, 0.050) !important;
     background-image: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.07) !important;
+    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.045) !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-month-label:hover,
 .velora-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:hover {
-    background-color: rgba(255, 255, 255, 0.13) !important;
-    border-color: rgba(255, 255, 255, 0.23) !important;
+    background-color: rgba(255, 255, 255, 0.095) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 /* Calendar day beads: low-opacity optical controls rather than opaque grey
  * circles. They sit over the real nested calendar glass, so a second blur per
  * day would be both wasteful and visually noisy. */
 .velora-liquid-popup-content.datemenu-popover .calendar-day-heading {
-    background-color: rgba(255, 255, 255, 0.055) !important;
-    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    background-color: rgba(255, 255, 255, 0.035) !important;
+    border: 1px solid rgba(255, 255, 255, 0.075) !important;
     box-shadow: none !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day {
-    background-color: rgba(255, 255, 255, 0.085) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.065) !important;
+    background-color: rgba(255, 255, 255, 0.060) !important;
+    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.045) !important;
     transition-duration: 120ms;
 }
 
@@ -771,16 +781,16 @@
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day:hover,
 .velora-liquid-popup-content.datemenu-popover .calendar-day:focus {
-    background-color: rgba(255, 255, 255, 0.16) !important;
-    border-color: rgba(255, 255, 255, 0.27) !important;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.085) !important;
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.21) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.065) !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day:active,
 .velora-liquid-popup-content.datemenu-popover .calendar-day:selected {
-    background-color: rgba(255, 255, 255, 0.22) !important;
-    border-color: rgba(255, 255, 255, 0.34) !important;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10) !important;
+    background-color: rgba(255, 255, 255, 0.17) !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-weekend {
@@ -788,15 +798,15 @@
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month {
-    background-color: rgba(255, 255, 255, 0.035) !important;
-    border-color: rgba(255, 255, 255, 0.075) !important;
-    opacity: 0.52;
+    background-color: rgba(255, 255, 255, 0.020) !important;
+    border-color: rgba(255, 255, 255, 0.050) !important;
+    opacity: 0.48;
 }
 
 .velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:hover,
 .velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:focus {
-    background-color: rgba(255, 255, 255, 0.095) !important;
-    opacity: 0.78;
+    background-color: rgba(255, 255, 255, 0.070) !important;
+    opacity: 0.75;
 }
 
 /* Preserve the user's accent for today; it is the one intentional solid state
