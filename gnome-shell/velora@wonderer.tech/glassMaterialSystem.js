@@ -86,10 +86,17 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveResampleMs: 2600,
     }),
     quickMenu: Object.freeze({
-        // Same body density as the approved Date Menu.
-        appearanceProfile: 'dateMenu',
-        filterOpacityOverride: 0.0,
+        // Quick Settings is a system surface: it follows the global System
+        // Liquid Glass appearance. Date Menu calibration stays independent.
+        useSystemAppearance: true,
         filterUsesContentBounds: true,
+        multiRegion: false,
+
+        // Preserve the accepted pod density at the current 2% system tint:
+        // 0.02 * 2.3 = 0.046. Unlike the old constant, this now tracks the
+        // global Tint slider all the way down to a real zero.
+        nestedTintScale: 2.3,
+        nestedTintMax: 0.11,
 
         // One popup capture serves every visible pod. Sampling starts after
         // the open animation settles and stays deliberately low-frequency.
