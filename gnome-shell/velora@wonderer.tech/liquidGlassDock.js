@@ -20,6 +20,9 @@ import {
     ShellCardGlassManager,
 } from './shellCards.js';
 import {
+    OverviewSearchGlassManager,
+} from './overviewSearchGlass.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -368,6 +371,7 @@ export class LiquidGlassIntegration {
 
         this._popupGlassManager = null;
         this._shellCardGlassManager = null;
+        this._overviewSearchGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -482,6 +486,17 @@ export class LiquidGlassIntegration {
             this._shellCardGlassManager.setup();
         });
 
+        start('overviewSearchGlassManager', () => {
+            this._overviewSearchGlassManager =
+                new OverviewSearchGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._overviewSearchGlassManager.setup();
+        });
+
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
@@ -510,6 +525,7 @@ export class LiquidGlassIntegration {
                 this._notificationGlassManager?.updateAppearance();
                 this._popupGlassManager?.updateAppearance();
                 this._shellCardGlassManager?.updateAppearance();
+                this._overviewSearchGlassManager?.updateAppearance();
             }
         );
 
@@ -991,6 +1007,7 @@ export class LiquidGlassIntegration {
 
         this._popupGlassManager?.updateAppearance(state);
         this._shellCardGlassManager?.updateAppearance(state);
+        this._overviewSearchGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
         this._osdManager?.updateMaterialAppearance?.(state);
@@ -1757,6 +1774,9 @@ export class LiquidGlassIntegration {
                 shellCardGlassManager: Boolean(
                     this._shellCardGlassManager
                 ),
+                overviewSearchGlassManager: Boolean(
+                    this._overviewSearchGlassManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -1909,6 +1929,12 @@ export class LiquidGlassIntegration {
             this._shellCardGlassManager
         );
         this._shellCardGlassManager = null;
+
+        cleanup(
+            'overviewSearchGlassManager',
+            this._overviewSearchGlassManager
+        );
+        this._overviewSearchGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
