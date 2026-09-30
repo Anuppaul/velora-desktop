@@ -948,6 +948,54 @@
     opacity: 0.95;
 }
 
+/* Adaptive foreground/control polarity follows each pod's actual rendered
+ * backdrop. One batched popup capture supplies all decisions. */
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light StLabel,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light StIcon {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .quick-toggle-subtitle,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .device-subtitle,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .subtitle {
+    color: rgba(248, 249, 253, 0.68) !important;
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark StLabel,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark StIcon {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .quick-toggle-subtitle,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .device-subtitle,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .subtitle {
+    color: rgba(23, 25, 31, 0.66) !important;
+}
+
+/* Interaction sheen changes polarity with the material below it instead of
+ * always painting white. The LiquidEffect remains the actual card surface. */
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light:hover,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light:focus {
+    background-color: rgba(255, 255, 255, 0.045) !important;
+    border-color: rgba(255, 255, 255, 0.085) !important;
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark:hover,
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark:focus {
+    background-color: rgba(0, 0, 0, 0.040) !important;
+    border-color: rgba(0, 0, 0, 0.095) !important;
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .slider {
+    -barlevel-background-color: rgba(255, 255, 255, 0.20);
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .slider {
+    -barlevel-background-color: rgba(0, 0, 0, 0.16);
+}
+
 /* Slider track is a control painted on top of the glass pod. */
 .velora-liquid-popup-content.quick-settings .quick-slider .slider {
     -barlevel-background-color: rgba(255, 255, 255, 0.18);
