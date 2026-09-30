@@ -763,6 +763,67 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] Date Menu micro-tune/performance profile v4 seeded'
             );
         }
+
+        if (version < 5) {
+            // v5 moves optical uniforms to renderer GSettings. Migrate only
+            // untouched legacy seed values; manual preference edits survive.
+            // Replacement values exactly match the premium role that used to
+            // be written directly into each effect, so the accepted baseline
+            // stays visually unchanged.
+            const migrateDoubleIfSeeded = (
+                key,
+                previousValue,
+                premiumValue
+            ) => {
+                try {
+                    const current = this._settings.get_double(key);
+                    if (Math.abs(current - previousValue) < 0.0001)
+                        this._settings.set_double(key, premiumValue);
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] optics v5 key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            migrateDoubleIfSeeded('glass-max-z', 82.0, 90.0);
+            migrateDoubleIfSeeded('glass-displacement-scale', 24.0, 31.0);
+            migrateDoubleIfSeeded('glass-edge-smoothing', 0.85, 0.82);
+            migrateDoubleIfSeeded('glass-profile-shape-n', 3.8, 3.9);
+            migrateDoubleIfSeeded('glass-ior', 1.72, 1.68);
+            migrateDoubleIfSeeded('glass-chroma-strength', 2.2, 1.4);
+            migrateDoubleIfSeeded('glass-specular-intensity', 0.48, 0.55);
+            migrateDoubleIfSeeded('glass-shininess', 56.0, 62.0);
+            migrateDoubleIfSeeded('glass-rim-width', 3.4, 2.8);
+            migrateDoubleIfSeeded('glass-rim-intensity', 0.78, 0.90);
+            migrateDoubleIfSeeded('glass-rim-directional-power', 1.7, 1.55);
+            migrateDoubleIfSeeded('glass-rim-power', 2.5, 2.3);
+            migrateDoubleIfSeeded('glass-rim-light-color-intensity', 1.15, 1.18);
+            migrateDoubleIfSeeded('glass-sheen-intensity', 0.14, 0.10);
+            migrateDoubleIfSeeded('glass-light-angle-deg', 105.0, 108.0);
+            migrateDoubleIfSeeded('shadow-radius', 30.0, 0.0);
+            migrateDoubleIfSeeded('shadow-intensity', 0.16, 0.0);
+            migrateDoubleIfSeeded('glass-ao-intensity', 0.42, 0.34);
+            migrateDoubleIfSeeded('glass-ao-radius', 2.2, 1.3);
+
+            try {
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    5
+                );
+                version = 5;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] optics v5 migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] live optics controls profile v5 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
