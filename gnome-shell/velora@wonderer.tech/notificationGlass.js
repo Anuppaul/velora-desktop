@@ -173,123 +173,6 @@ export class NotificationGlassManager {
         }
     }
 
-    _readBannerPadding(actor) {
-        const padding = {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-        };
-
-        try {
-            actor?.ensure_style?.();
-            const node = actor?.get_theme_node?.();
-            padding.top =
-                node?.get_padding?.(St.Side.TOP) ?? 0;
-            padding.right =
-                node?.get_padding?.(St.Side.RIGHT) ?? 0;
-            padding.bottom =
-                node?.get_padding?.(St.Side.BOTTOM) ?? 0;
-            padding.left =
-                node?.get_padding?.(St.Side.LEFT) ?? 0;
-        } catch {}
-
-        return padding;
-    }
-
-    _readPaintedBounds(actor) {
-        const base =
-            this._vendor.getTransformedRect(actor);
-        if (!finiteRect(base))
-            return null;
-
-        let minX = base[0];
-        let minY = base[1];
-        let maxX = base[0] + base[2];
-        let maxY = base[1] + base[3];
-
-        const walk = node => {
-            for (const child of node?.get_children?.() ?? []) {
-                if (
-                    child?.visible &&
-                    child?.mapped &&
-                    (child.get_paint_opacity?.() ??
-                        child.opacity ??
-                        255) > 0
-                ) {
-                    const rect =
-                        this._vendor.getTransformedRect(
-                            child
-                        );
-
-                    if (finiteRect(rect)) {
-                        minX = Math.min(minX, rect[0]);
-                        minY = Math.min(minY, rect[1]);
-                        maxX = Math.max(
-                            maxX,
-                            rect[0] + rect[2]
-                        );
-                        maxY = Math.max(
-                            maxY,
-                            rect[1] + rect[3]
-                        );
-                    }
-                }
-
-                walk(child);
-            }
-        };
-
-        walk(actor);
-
-        // Layout padding already lives inside actor allocation. Do not
-        // count it again as an outer inset; only the small shared optical
-        // breathing room below expands the material beyond painted content.
-        const inset = 0;
-
-        const adapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
-        const extra =
-            adapter.contentInset ?? {};
-        const radius =
-            this._readCornerRadius(actor);
-        const maxExtra =
-            extra.maxPx ?? 10;
-        const topExtra = Math.max(
-            0,
-            Math.min(
-                maxExtra,
-                radius * (extra.topRadiusScale ?? 0)
-            )
-        );
-        const sideExtra = Math.max(
-            0,
-            Math.min(
-                maxExtra,
-                radius * (extra.sideRadiusScale ?? 0)
-            )
-        );
-        const bottomExtra = Math.max(
-            0,
-            Math.min(
-                maxExtra,
-                radius * (extra.bottomRadiusScale ?? 0)
-            )
-        );
-
-        return [
-            minX - inset - sideExtra,
-            minY - inset - topExtra,
-            (maxX - minX) +
-                inset * 2 +
-                sideExtra * 2,
-            (maxY - minY) +
-                inset * 2 +
-                topExtra +
-                bottomExtra,
-        ];
-    }
-
     _readCornerRadius(actor) {
         try {
             actor?.ensure_style?.();
@@ -331,33 +214,6 @@ export class NotificationGlassManager {
             actor.style ??
             '';
 
-        const header = actor?._header ?? null;
-        const originalHeaderStyle =
-            header?.get_style?.() ??
-            header?.style ??
-            '';
-        let headerTopInset = 0;
-
-        try {
-            header?.ensure_style?.();
-            const node = header?.get_theme_node?.();
-            const horizontalBasePadding = Math.max(
-                node?.get_padding?.(St.Side.LEFT) ?? 0,
-                node?.get_padding?.(St.Side.RIGHT) ?? 0
-            );
-            const messageBasePadding =
-                this._readBannerPadding(actor).top ?? 0;
-
-            // GNOME's .message-header uses vertical padding 0 and horizontal
-            // $base_padding. Reuse that exact live theme token for top inset.
-            headerTopInset = Math.max(
-                horizontalBasePadding,
-                messageBasePadding
-            );
-        } catch {
-            headerTopInset = 0;
-        }
-
         actor.add_style_class_name?.(
             'velora-native-notification-glass'
         );
@@ -376,19 +232,6 @@ export class NotificationGlassManager {
                 ? originalInlineStyle + ' ' + transparentStyle
                 : transparentStyle
         );
-
-        if (header && headerTopInset > 0) {
-            const headerInsetStyle =
-                'margin-top: ' +
-                Math.round(headerTopInset) +
-                'px !important;';
-
-            header.set_style?.(
-                originalHeaderStyle
-                    ? originalHeaderStyle + ' ' + headerInsetStyle
-                    : headerInsetStyle
-            );
-        }
 
         const bannerRoot = this._resolveBannerRoot(actor);
 
@@ -428,9 +271,11 @@ export class NotificationGlassManager {
             owner: 'velora-notification-lite',
         });
 
-        // The notification's GNOME bounds are the visible material bounds.
-        // Sampling headroom comes from the root clip, not from a larger card.
-        effect.setPadding?.(20);
+        const notificationAdapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
+        effect.setPadding?.(
+            notificationAdapter.shaderPadding ?? 20
+        );
         effect.setIsDock?.(false);
         liquidBox.add_effect(effect);
 
@@ -477,9 +322,6 @@ export class NotificationGlassManager {
             filterLayer,
             effect,
             radius,
-            header,
-            originalHeaderStyle,
-            headerTopInset,
             originalInlineStyle,
             signals: [],
             laterId: 0,
@@ -888,7 +730,7 @@ export class NotificationGlassManager {
         }
 
         const rect =
-            this._readPaintedBounds(
+            this._vendor.getTransformedRect(
                 material.actor
             );
         if (!finiteRect(rect))
@@ -932,8 +774,6 @@ export class NotificationGlassManager {
 
         const role =
             VELORA_GLASS_ROLES.notificationCard;
-        const adapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
         const scopedAppearance =
             adapter.appearanceProfile
                 ? state?.[adapter.appearanceProfile]
@@ -1079,7 +919,8 @@ export class NotificationGlassManager {
             return;
         }
 
-        const rect = this._readPaintedBounds(actor);
+        const rect =
+            this._vendor.getTransformedRect(actor);
         if (!finiteRect(rect)) {
             if (!shaderOnly)
                 material.root.hide?.();
@@ -1129,26 +970,43 @@ export class NotificationGlassManager {
             monitor.height ?? global.stage.height
         );
 
-        const glassX = absX - monitorX;
-        const glassY = absY - monitorY;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
+        const shaderPad = Math.max(
+            0,
+            adapter.shaderPadding ?? 20
+        );
+
+        // LiquidEffect single-rect mode subtracts padding*2 from dock_w/h.
+        // Expand the supplied geometry by the same padding so the resulting
+        // visible rounded rect is exactly the native NotificationMessage
+        // allocation. This is the same geometry contract used by PopupGlass.
+        const glassAbsX = absX - shaderPad;
+        const glassAbsY = absY - shaderPad;
+        const glassW = width + shaderPad * 2;
+        const glassH = height + shaderPad * 2;
+        const glassX = glassAbsX - monitorX;
+        const glassY = glassAbsY - monitorY;
+        const contentX = absX - monitorX;
+        const contentY = absY - monitorY;
 
         const geometryChanged =
             material.lastShaderX !== glassX ||
             material.lastShaderY !== glassY ||
-            material.lastShaderW !== width ||
-            material.lastShaderH !== height;
+            material.lastShaderW !== glassW ||
+            material.lastShaderH !== glassH;
 
         if (geometryChanged) {
             material.lastShaderX = glassX;
             material.lastShaderY = glassY;
-            material.lastShaderW = width;
-            material.lastShaderH = height;
+            material.lastShaderW = glassW;
+            material.lastShaderH = glassH;
 
             material.effect.setGlassGeometry?.(
                 glassX,
                 glassY,
-                width,
-                height
+                glassW,
+                glassH
             );
         }
 
@@ -1177,8 +1035,8 @@ export class NotificationGlassManager {
         );
         this._vendor.setPositionIfChanged(
             material.filterLayer,
-            glassX,
-            glassY
+            contentX,
+            contentY
         );
         this._vendor.setSizeIfChanged(
             material.filterLayer,
@@ -1222,15 +1080,15 @@ export class NotificationGlassManager {
             material.root,
             glassX - margin,
             glassY - margin,
-            width + margin * 2,
-            height + margin * 2
+            glassW + margin * 2,
+            glassH + margin * 2
         );
 
         const captureRect = [
-            absX - margin,
-            absY - margin,
-            width + margin * 2,
-            height + margin * 2,
+            glassAbsX - margin,
+            glassAbsY - margin,
+            glassW + margin * 2,
+            glassH + margin * 2,
         ];
         const configuredSceneFps =
             this._appearance?.sceneFps ?? 30;
@@ -1313,12 +1171,6 @@ export class NotificationGlassManager {
         }
 
         try {
-            if (material.header?.set_style) {
-                material.header.set_style(
-                    material.originalHeaderStyle ?? ''
-                );
-            }
-
             if (actor?.set_style)
                 actor.set_style(material.originalInlineStyle ?? '');
 
