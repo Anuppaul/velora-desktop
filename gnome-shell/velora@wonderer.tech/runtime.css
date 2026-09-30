@@ -256,6 +256,16 @@
     box-shadow: none;
 }
 
+/* Neutral optical veil. The per-surface runtime supplies opacity/radius
+ * inline; this class only guarantees that no theme image/shadow competes with
+ * the refractive material underneath. */
+.velora-glass-white-filter {
+    background-image: none;
+    box-shadow: none;
+    transition: none;
+    transition-duration: 0ms;
+}
+
 
 /* Generic panel / context popups ----------------------------------------- */
 /* Keep menu semantics and geometry native; only replace opaque menu-item
