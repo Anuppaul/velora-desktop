@@ -996,6 +996,24 @@
     -barlevel-background-color: rgba(0, 0, 0, 0.16);
 }
 
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .quick-toggle-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .quick-toggle-separator {
+    background-color: rgba(0, 0, 0, 0.16);
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .header .icon:not(.active) {
+    background-color: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.095);
+}
+
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark .header .icon:not(.active) {
+    background-color: rgba(0, 0, 0, 0.042);
+    border-color: rgba(0, 0, 0, 0.085);
+}
+
 /* Slider track is a control painted on top of the glass pod. */
 .velora-liquid-popup-content.quick-settings .quick-slider .slider {
     -barlevel-background-color: rgba(255, 255, 255, 0.18);
