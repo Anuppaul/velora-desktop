@@ -661,18 +661,55 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] panel/dock optical profile v2 seeded'
             );
         }
+
+        if (version < 3) {
+            // Material profile v3: reduce bulk tint/blur so refraction remains
+            // readable, then add a separate low-opacity neutral white veil.
+            // The veil is painted by each surface above LiquidEffect and below
+            // native content; it should read as glass body, not colored fog.
+            try {
+                this._veloraSettings.set_int('glass-opacity', 3);
+                this._veloraSettings.set_int('glass-blur', 9);
+                this._veloraSettings.set_int('glass-filter-opacity', 5);
+                this._veloraSettings.set_string(
+                    'glass-tint-color',
+                    '#ffffff'
+                );
+
+                // Top panel / Ubuntu Dock share DockManager material settings.
+                // Keep them even clearer than cards so icons stay crisp.
+                this._settings.set_double('dock-tint-strength', 0.03);
+                this._settings.set_int('dock-blur-radius', 6);
+
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    3
+                );
+                version = 3;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] clear-glass profile migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] clear-glass material profile v3 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
         if (!this._veloraSettings) {
             return {
                 opacity: 0,
-                tint: '#000000',
-                r: 0,
-                g: 0,
-                b: 0,
+                tint: '#ffffff',
+                r: 255,
+                g: 255,
+                b: 255,
                 blur: 0,
-                fill: 'rgba(0,0,0,0)',
+                filterOpacity: 0.05,
+                fill: 'rgba(255,255,255,0)',
             };
         }
 
@@ -698,6 +735,14 @@ export class LiquidGlassIntegration {
             80
         );
 
+        const filterOpacity = clampNumber(
+            this._veloraSettings.get_int(
+                'glass-filter-opacity'
+            ),
+            0,
+            20
+        ) / 100;
+
         return {
             opacity,
             tint,
@@ -705,6 +750,7 @@ export class LiquidGlassIntegration {
             g,
             b,
             blur,
+            filterOpacity,
             fill:
                 `rgba(${r}, ${g}, ${b}, ${opacity.toFixed(2)})`,
         };
@@ -725,7 +771,9 @@ export class LiquidGlassIntegration {
             ' tint=' +
             state.tint +
             ' blur=' +
-            state.blur
+            state.blur +
+            ' filter=' +
+            Math.round((state.filterOpacity ?? 0) * 100)
         );
     }
 
@@ -761,6 +809,7 @@ export class LiquidGlassIntegration {
                             'glass-opacity',
                             'glass-tint-color',
                             'glass-blur',
+                            'glass-filter-opacity',
                         ].includes(key)) {
                             this._queueSharedCardAppearanceApply();
                         }
