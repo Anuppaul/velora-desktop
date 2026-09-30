@@ -79,6 +79,7 @@ export const VELORA_GLASS_ROLES = Object.freeze({
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
     dateMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
+        filterUsesContentBounds: true,
     }),
     quickMenu: Object.freeze({
         enabled: true,
@@ -101,6 +102,8 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         // Use the same low-opacity/blur/filter profile as the approved
         // Date Menu so both popups share not only optics but body density.
         appearanceProfile: 'dateMenu',
+        filterOpacityOverride: 0.0,
+        filterUsesContentBounds: true,
 
         // Selected pods stay physical glass. Accent is a restrained material
         // tint plus the native accent edge, not a flat filled rectangle.
