@@ -33,6 +33,7 @@ const DATE_INNER_CARD_PRIORITY = new Map([
 ]);
 const DATE_INNER_PAD = 20;
 const DATE_INNER_SCAN_INTERVAL_US = 500000;
+const DATE_TEXT_RESAMPLE_MS = 2600;
 const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
 const DATE_LIGHT_TEXT = '#f7f8fc';
@@ -495,8 +496,20 @@ class PopupGlassSurface {
 
             const [absX, absY, width, height] = rect;
             const klass = dateCardClass(actor);
-            const baseStrength =
-                klass === 'calendar' ? 0.018 : 0.032;
+            const baseStrength = (() => {
+                switch (klass) {
+                case 'calendar':
+                    return 0.024;
+                case 'message':
+                    return 0.036;
+                case 'datemenu-today-button':
+                    return 0.052;
+                case 'message-list-clear-button':
+                    return 0.058;
+                default:
+                    return 0.046;
+                }
+            })();
 
             regions.push({
                 x: absX - monitorX - DATE_INNER_PAD,
@@ -644,6 +657,21 @@ class PopupGlassSurface {
             String(chosen).toLowerCase() ===
             DATE_DARK_TEXT.toLowerCase()
         );
+
+        // Menus are usually open for only a few seconds, so this costs one
+        // screenshot at open and then at most one every 2.6s while the popup
+        // remains visible. That is enough to follow a changing window/
+        // wallpaper backdrop without turning contrast sampling into a frame
+        // loop.
+        if (
+            !this._destroyed &&
+            generation === this._dateTextGeneration &&
+            this._menu?.isOpen
+        ) {
+            this._scheduleDateTextSample(
+                DATE_TEXT_RESAMPLE_MS
+            );
+        }
     }
 
     _applyDateTextPolarity(useDarkText) {
@@ -661,6 +689,46 @@ class PopupGlassSurface {
                 ? DATE_TEXT_DARK_CLASS
                 : DATE_TEXT_LIGHT_CLASS
         );
+    }
+
+    _applyDateInnerOptics() {
+        const effect = this._dateInnerEffect;
+        if (!effect)
+            return;
+
+        // Per-surface optical signature. The parent glass stays soft and
+        // spacious; the inner cards use a tighter, stronger edge lens so they
+        // read as raised glass laid on top of glass instead of pale boxes.
+        // These are buffered uniforms only — no extra actors or render passes.
+        try {
+            const uniforms = effect._uniforms;
+            uniforms?.set?.('max_z', 90.0);
+            uniforms?.set?.('displacement_scale', 31.0);
+            uniforms?.set?.('edge_smoothing', 0.82);
+            uniforms?.set?.('profile_shape_n', 3.9);
+            uniforms?.set?.('ior', 1.68);
+            uniforms?.set?.('chroma_strength', 1.4);
+            uniforms?.set?.('specular_intensity', 0.55);
+            uniforms?.set?.('shininess', 62.0);
+            uniforms?.set?.('rim_width', 2.8);
+            uniforms?.set?.('rim_intensity', 0.90);
+            uniforms?.set?.('rim_directional_power', 1.55);
+            uniforms?.set?.('rim_power', 2.3);
+            uniforms?.set?.('rim_light_color_intensity', 1.18);
+            uniforms?.set?.('sheen_intensity', 0.10);
+            uniforms?.set?.('light_angle_deg', 108.0);
+            uniforms?.set?.('ao_intensity', 0.34);
+            uniforms?.set?.('ao_radius', 1.3);
+
+            // Multi-region cards intentionally have no external drop shadow;
+            // depth comes from refraction + rim + AO, so the parent remains
+            // clean in both bright and dark backdrops.
+            uniforms?.set?.('shadow_radius', 0.0);
+            uniforms?.set?.('shadow_intensity', 0.0);
+            effect.queue_repaint?.();
+        } catch {
+            // Renderer internals are optional tuning; base glass remains valid.
+        }
     }
 
     updateAppearance(state) {
@@ -697,19 +765,20 @@ class PopupGlassSurface {
                 (profile.g ?? 255) / 255,
                 (profile.b ?? 255) / 255
             );
-            this._dateInnerEffect.setTintStrength?.(0.018);
+            this._dateInnerEffect.setTintStrength?.(0.026);
             this._dateInnerEffect.setBlurRadius?.(
                 Math.max(
-                    3,
+                    4,
                     Math.min(
-                        6,
-                        Math.round((profile.blur ?? 7) * 0.7)
+                        7,
+                        Math.round((profile.blur ?? 7) * 0.85)
                     )
                 )
             );
             this._dateInnerEffect.setCornerRadius?.(16);
             this._dateInnerEffect.setBlurMethod?.(1);
             this._dateInnerEffect.setMultiRegionMode?.(true);
+            this._applyDateInnerOptics();
         }
 
         if (this._isDateMenu) {
