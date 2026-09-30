@@ -58,6 +58,9 @@ const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
 const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
 const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
+const QUICK_CARD_TEXT_LIGHT_CLASS = 'velora-quick-card-text-light';
+const QUICK_CARD_TEXT_DARK_CLASS = 'velora-quick-card-text-dark';
+const QUICK_TEXT_RESAMPLE_MS = 3600;
 const DATE_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
 const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
@@ -142,6 +145,39 @@ function treeHasPseudo(actor, name) {
     }
 
     return false;
+}
+
+function quickCardState(actor) {
+    let pressed = false;
+    let selected = false;
+    let hovered = false;
+    let focused = false;
+
+    const walk = node => {
+        if (!node)
+            return;
+
+        pressed ||= hasPseudo(node, 'active');
+        selected ||=
+            hasPseudo(node, 'checked') ||
+            hasPseudo(node, 'selected');
+        hovered ||= hasPseudo(node, 'hover');
+        focused ||= hasPseudo(node, 'focus');
+
+        if (pressed && selected && hovered && focused)
+            return;
+
+        for (const child of node.get_children?.() ?? [])
+            walk(child);
+    };
+
+    walk(actor);
+
+    return {
+        pressed,
+        selected,
+        engaged: pressed || hovered || focused,
+    };
 }
 
 function clampNumber(value, min, max) {
