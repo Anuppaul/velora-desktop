@@ -163,13 +163,15 @@ export class OsdManager {
       tintStrength: Number.isFinite(appearance.opacity)
         ? appearance.opacity
         : (role.tintStrength ?? this._baseTint),
-      blurRadius: Math.min(
-        blurMax,
-        Math.max(
-          blurMin,
-          Math.round(baseBlur * blurScale)
-        )
-      ),
+      blurRadius: baseBlur <= 0
+        ? 0
+        : Math.min(
+            blurMax,
+            Math.max(
+              blurMin,
+              Math.round(baseBlur * blurScale)
+            )
+          ),
     };
   }
 
@@ -465,12 +467,14 @@ export class OsdManager {
       effect.setBlurMethod?.(role.blurMethod);
       effect.setMultiRegionMode?.(false);
 
-      try {
-        const uniforms = (effect as any)._uniforms;
-        for (const [name, value] of Object.entries(role.optics ?? {}))
-          uniforms?.set?.(name, value);
-      } catch {
-        // Generic renderer path remains valid.
+      if (!role.settingsOwnOptics) {
+        try {
+          const uniforms = (effect as any)._uniforms;
+          for (const [name, value] of Object.entries(role.optics ?? {}))
+            uniforms?.set?.(name, value);
+        } catch {
+          // Generic renderer path remains valid.
+        }
       }
 
       contrast = Math.max(
