@@ -1,17 +1,18 @@
-import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DEFAULT_RADIUS = 18;
-// glass.frag's edge lens can reach ~96px beyond the visible rim. Keep source
-// pixels around the native popup without enlarging the visible card itself.
-const OPTICAL_MARGIN = 104;
+const SAMPLE_MARGIN_MIN = 64;
+const SAMPLE_MARGIN_MAX = 200;
 
-function finitePositive(value) {
-    return Number.isFinite(value) && value > 0;
+function finiteRect(values) {
+    return values.every(Number.isFinite) &&
+        values[2] > 1 &&
+        values[3] > 1;
 }
 
 function readRadius(actor) {
@@ -25,7 +26,7 @@ function readRadius(actor) {
             St.Corner.BOTTOMLEFT,
         ].map(corner => node?.get_border_radius?.(corner) ?? 0);
         const radius = Math.max(...values);
-        if (finitePositive(radius))
+        if (Number.isFinite(radius) && radius > 0)
             return radius;
     } catch {
         // Theme-derived fallback below.
@@ -34,16 +35,18 @@ function readRadius(actor) {
 }
 
 /**
- * A single native PopupMenu material host.
+ * Standard GNOME PopupMenu Liquid Glass.
  *
- * GNOME Shell 50 owns popup geometry/animation in this hierarchy:
+ * Native hierarchy stays untouched:
  *
- *   BoxPointer -> BoxPointer.bin -> menu.box (.popup-menu-content)
+ *   Main.uiGroup
+ *     └─ menu.actor = BoxPointer
+ *          └─ BoxPointer.bin
+ *               └─ menu.box (.popup-menu-content)
  *
- * We keep BoxPointer.bin -> menu.box completely untouched. The glass material
- * is an extra no-layout paint child of BoxPointer, positioned underneath the
- * native bin. That preserves GNOME's preferred-size and anchor calculations
- * while still inheriting BoxPointer position/scale/opacity animation.
+ * Velora adds a separate, unpickable, full-monitor paint layer directly below
+ * menu.actor in Main.uiGroup. Its shader mask follows menu.box's transformed
+ * stage rect. This avoids participating in BoxPointer layout/allocation at all.
  */
 class PopupGlassSurface {
     constructor(manager, menu) {
@@ -55,24 +58,22 @@ class PopupGlassSurface {
         this._boxPointer = menu?._boxPointer ?? menu?.actor ?? null;
         this._bin = menu?._boxPointer?.bin ?? null;
 
-        this._material = null;
-        this._sceneRoot = null;
+        this._root = null;
+        this._liquidBox = null;
         this._sceneManager = null;
         this._effect = null;
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
-        this._lastStageW = 0;
-        this._lastStageH = 0;
-        this._lastSceneX = NaN;
-        this._lastSceneY = NaN;
-        this._lastSceneScaleX = NaN;
-        this._lastSceneScaleY = NaN;
         this._openStateId = 0;
-        this._mappedStateId = 0;
-        this._lastHostW = 0;
-        this._lastHostH = 0;
-        this._lastHostX = NaN;
-        this._lastHostY = NaN;
+
+        this._lastShaderX = NaN;
+        this._lastShaderY = NaN;
+        this._lastShaderW = NaN;
+        this._lastShaderH = NaN;
+        this._lastMonitorX = NaN;
+        this._lastMonitorY = NaN;
+        this._lastScreenW = 0;
+        this._lastScreenH = 0;
     }
 
     attach() {
@@ -81,13 +82,13 @@ class PopupGlassSurface {
             !this._box ||
             !this._bin ||
             !this._boxPointer ||
-            this._material
+            this._root
         ) {
-            return Boolean(this._material);
+            return Boolean(this._root);
         }
 
-        // Recover a stale wrapper left by older Velora revisions before attaching
-        // the new no-layout paint child.
+        // Recover stale wrapper/direct-material remnants from older Velora
+        // revisions before installing the stage-level material.
         const currentChild = this._bin.get_child?.() ?? null;
         if (
             currentChild !== this._box &&
@@ -100,57 +101,63 @@ class PopupGlassSurface {
                 currentChild.destroy?.();
             } catch (error) {
                 console.error(
-                    '[Velora][PopupGlass] stale stack recovery failed: ' +
+                    '[Velora][PopupGlass] stale wrapper recovery failed: ' +
                     error
                 );
                 return false;
             }
         }
 
-        // Only touch the canonical GNOME hierarchy. If another extension has
-        // replaced the St.Bin child, fail closed instead of reparenting an
-        // unknown tree.
+        for (const child of this._boxPointer.get_children?.() ?? []) {
+            if (
+                child !== this._bin &&
+                child.get_name?.() === 'velora-popup-glass-material'
+            ) {
+                try {
+                    child.destroy?.();
+                } catch {
+                    // Best-effort recovery from an older runtime.
+                }
+            }
+        }
+
         if (this._bin.get_child?.() !== this._box)
             return false;
 
         this._radius = readRadius(this._box);
 
-        const material = new this._vendor.UnpickableActor({
-            name: 'velora-popup-glass-material',
+        const root = new this._vendor.UnpickableActor({
+            name: 'velora-popup-material-root',
             reactive: false,
         });
-        // The material is manually allocated larger than the visible popup.
-        // It is paint input only and must never influence GNOME's layout.
-        material.set_no_layout?.(true);
-        material.set_clip_to_allocation(true);
+        root.set_size(1, 1);
+        root.hide();
 
-        // Build the optical source entirely from compositor-native GPU actors:
-        // a shared wallpaper mirror plus live Meta.WindowActor clones. There is
-        // no CPU screenshot/readback path here.
-        const sceneRoot = new this._vendor.UnpickableActor({
-            name: 'velora-popup-live-scene',
+        const liquidBox = new this._vendor.UnpickableActor({
+            name: 'velora-popup-liquid-box',
             reactive: false,
         });
-        sceneRoot.set_no_layout?.(true);
-        material.add_child(sceneRoot);
+        liquidBox.set_clip_to_allocation(true);
+        liquidBox.set_position(0, 0);
+        liquidBox.set_size(1, 1);
+        root.add_child(liquidBox);
 
+        // GPU-native scene source: shared wallpaper + live Meta.WindowActor
+        // clones. No CPU screenshot/readback.
         const sceneManager =
             new this._vendor.WindowCloneManager(
-                sceneRoot,
+                liquidBox,
                 null,
                 'velora-popup-scene'
             );
 
-        // Prevent the offscreen-cache black-frame edge case already handled by
-        // the proven notification path and vendored managers.
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-popup-optimization-breaker',
             reactive: false,
         });
         breaker.set_size(1, 1);
         breaker.set_opacity(0);
-        breaker.set_no_layout?.(true);
-        material.add_child(breaker);
+        liquidBox.add_child(breaker);
 
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
@@ -158,28 +165,44 @@ class PopupGlassSurface {
             owner: 'velora-popup',
         });
         effect.setPadding?.(20);
-        effect.setShadowMaxRadius?.(OPTICAL_MARGIN - 8);
         effect.setIsDock?.(false);
         effect.setSurfaceLightEnabled?.(true);
         effect.setCornerRadius?.(this._radius);
         effect.setBlurMethod?.(1);
-        material.add_effect(effect);
+        liquidBox.add_effect(effect);
 
-        // Keep GNOME's native hierarchy unchanged:
-        // BoxPointer.bin -> menu.box remains exactly as GNOME created it.
-        // The material is paint-only and excluded from layout, so it cannot
-        // change BoxPointer preferred size or anchor positioning.
-        this._boxPointer.add_child(material);
-        this._boxPointer.set_child_below_sibling?.(
-            material,
-            this._bin
-        );
+        try {
+            if (
+                this._boxPointer.get_parent?.() ===
+                Main.layoutManager.uiGroup
+            ) {
+                Main.layoutManager.uiGroup.insert_child_below(
+                    root,
+                    this._boxPointer
+                );
+            } else {
+                Main.layoutManager.uiGroup.add_child(root);
+            }
+        } catch (error) {
+            try {
+                sceneManager.destroy?.();
+            } catch {}
+            try {
+                root.destroy?.();
+            } catch {}
+
+            console.error(
+                '[Velora][PopupGlass] stage material attach failed: ' +
+                error
+            );
+            return false;
+        }
 
         this._box.add_style_class_name?.(GLASS_CLASS);
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
 
-        this._material = material;
-        this._sceneRoot = sceneRoot;
+        this._root = root;
+        this._liquidBox = liquidBox;
         this._sceneManager = sceneManager;
         this._effect = effect;
 
@@ -190,51 +213,23 @@ class PopupGlassSurface {
                     if (!isOpen)
                         return;
 
-                    // BoxPointer is hidden/unmapped on close. Because our
-                    // material is a no-layout child, its previous allocation is
-                    // no longer trustworthy when the same menu opens again even
-                    // when width/height are identical. Force the next frame to
-                    // allocate it again instead of accepting stale cache values.
-                    this._invalidateHostGeometry();
-
-                    const sceneManager =
-                        this._ensureSceneManager();
-
-                    // Match the vendored UIManager lifecycle: keep the same
-                    // manager/effect across close/open cycles, but rebuild the
-                    // source actors on every open.
-                    sceneManager?.rebuildClones?.();
-
-                    // Scene transforms are derived from the newly allocated
-                    // material; invalidate those caches too.
-                    this._lastSceneX = NaN;
-                    this._lastSceneY = NaN;
-                    this._lastSceneScaleX = NaN;
-                    this._lastSceneScaleY = NaN;
-                    this._lastStageW = 0;
-                    this._lastStageH = 0;
-
-                    this._material?.queue_redraw?.();
+                    this._sceneManager?.rebuildClones?.();
+                    this._invalidateGeometry();
+                    this._root?.queue_redraw?.();
                 }
             );
         } catch {
             this._openStateId = 0;
         }
 
-        try {
-            this._mappedStateId = this._boxPointer.connect(
-                'notify::mapped',
-                () => {
-                    if (!this._boxPointer?.mapped)
-                        this._invalidateHostGeometry();
-                }
-            );
-        } catch {
-            this._mappedStateId = 0;
-        }
+        effect.setLiveGeometryHook?.(() => {
+            // Paint-time path is uniforms only; actor tree writes remain in
+            // the stage before-update sync.
+            this._syncShaderGeometry();
+        });
 
-        effect.setLiveGeometryHook?.(() => this._syncPaintGeometry());
         this.updateAppearance(this._manager._appearance);
+        this._sync(false);
 
         console.log(
             '[Velora][PopupGlass] attached ' +
@@ -243,12 +238,21 @@ class PopupGlassSurface {
         return true;
     }
 
+    _invalidateGeometry() {
+        this._lastShaderX = NaN;
+        this._lastShaderY = NaN;
+        this._lastShaderW = NaN;
+        this._lastShaderH = NaN;
+        this._lastMonitorX = NaN;
+        this._lastMonitorY = NaN;
+        this._lastScreenW = 0;
+        this._lastScreenH = 0;
+    }
+
     updateAppearance(state) {
         if (!this._effect || !state)
             return;
 
-        // Our class does not override border-radius, so this remains the
-        // current Yaru/Adwaita/custom-theme radius even after glass is active.
         this._radius = readRadius(this._box);
 
         this._effect.setTintColor?.(
@@ -256,8 +260,8 @@ class PopupGlassSurface {
             (state.g ?? 255) / 255,
             (state.b ?? 255) / 255
         );
-        this._effect.setTintStrength?.(state.opacity ?? 0.12);
-        this._effect.setBlurRadius?.(state.blur ?? 20);
+        this._effect.setTintStrength?.(state.opacity ?? 0.08);
+        this._effect.setBlurRadius?.(state.blur ?? 12);
         this._effect.setCornerRadius?.(this._radius);
         this._effect.setBlurMethod?.(1);
 
@@ -275,265 +279,239 @@ class PopupGlassSurface {
             // Renderer defaults remain valid.
         }
 
-        this._material?.queue_redraw?.();
-    }
-
-    _invalidateHostGeometry() {
-        this._lastHostW = 0;
-        this._lastHostH = 0;
-        this._lastHostX = NaN;
-        this._lastHostY = NaN;
-    }
-
-    _syncHostGeometry() {
-        const material = this._material;
-        const bin = this._bin;
-        const box = this._box;
-        if (!material || !bin || !box)
-            return;
-
-        const binAllocation = bin.get_allocation_box?.();
-        const boxAllocation = box.get_allocation_box?.();
-
-        const w =
-            boxAllocation?.get_width?.() ??
-            box.width ??
-            0;
-        const h =
-            boxAllocation?.get_height?.() ??
-            box.height ??
-            0;
-
-        if (!finitePositive(w) || !finitePositive(h))
-            return;
-
-        const x =
-            (binAllocation?.x1 ?? bin.x ?? 0) +
-            (boxAllocation?.x1 ?? box.x ?? 0);
-        const y =
-            (binAllocation?.y1 ?? bin.y ?? 0) +
-            (boxAllocation?.y1 ?? box.y ?? 0);
-
-        if (
-            this._lastHostW === w &&
-            this._lastHostH === h &&
-            this._lastHostX === x &&
-            this._lastHostY === y
-        ) {
-            return;
-        }
-
-        this._lastHostW = w;
-        this._lastHostH = h;
-        this._lastHostX = x;
-        this._lastHostY = y;
-
-        // BoxPointer has a custom vfunc_allocate() that only allocates its
-        // native border and bin. Our no-layout paint child therefore needs an
-        // explicit allocation in BoxPointer-local coordinates.
-        const materialBox = new Clutter.ActorBox();
-        materialBox.x1 = x - OPTICAL_MARGIN;
-        materialBox.y1 = y - OPTICAL_MARGIN;
-        materialBox.x2 = x + w + OPTICAL_MARGIN;
-        materialBox.y2 = y + h + OPTICAL_MARGIN;
-        material.allocate(materialBox);
-        material.queue_redraw?.();
-    }
-
-    _ensureSceneManager() {
-        if (this._sceneManager || !this._sceneRoot)
-            return this._sceneManager;
-
-        this._sceneManager =
-            new this._vendor.WindowCloneManager(
-                this._sceneRoot,
-                null,
-                'velora-popup-scene'
-            );
-        return this._sceneManager;
-    }
-
-    _releaseSceneManager() {
-        if (!this._sceneManager)
-            return;
-
-        try {
-            this._sceneManager.destroy?.();
-        } catch {
-            // Scene clones may already be tearing down.
-        }
-        this._sceneManager = null;
+        this._root?.queue_redraw?.();
     }
 
     syncFrame() {
-        if (
-            this._destroyed ||
-            !this._menu?.isOpen
-        ) {
-            return;
-        }
-
-        // Allocate first. A no-layout BoxPointer child cannot become mapped
-        // until we give it a valid allocation ourselves.
-        this._syncHostGeometry();
-
-        if (!this._material?.mapped)
+        if (this._destroyed)
             return;
 
-        this._ensureSceneManager();
-        this._syncSceneLayers();
+        this._sync(false);
     }
 
-    _syncSceneLayers() {
-        const material = this._material;
-        const sceneRoot = this._sceneRoot;
-        const sceneManager = this._ensureSceneManager();
-        if (!material || !sceneRoot || !sceneManager)
+    _measure() {
+        const box = this._box;
+        const actor = this._boxPointer;
+        if (!box || !actor)
+            return null;
+
+        const rect = this._vendor.getTransformedRect(box);
+        if (!finiteRect(rect))
+            return null;
+
+        const opacity =
+            actor.get_paint_opacity?.() ??
+            actor.opacity ??
+            255;
+
+        if (
+            !actor.mapped ||
+            !actor.visible ||
+            opacity <= 0
+        ) {
+            return null;
+        }
+
+        const monitor =
+            this._vendor.resolveMonitorGeometry([
+                box,
+                actor,
+                this._menu?.sourceActor,
+            ]) ??
+            Main.layoutManager.primaryMonitor ??
+            {
+                x: 0,
+                y: 0,
+                width: global.stage.width,
+                height: global.stage.height,
+            };
+
+        return {
+            rect,
+            opacity,
+            monitor,
+        };
+    }
+
+    _sync(shaderOnly) {
+        const measured = this._measure();
+        if (!measured) {
+            if (!shaderOnly && this._root?.visible)
+                this._root.hide?.();
+            return;
+        }
+
+        const {
+            rect: [absX, absY, width, height],
+            opacity,
+            monitor,
+        } = measured;
+
+        const monitorX = monitor.x ?? 0;
+        const monitorY = monitor.y ?? 0;
+        const screenW = Math.max(
+            1,
+            monitor.width ?? global.stage.width
+        );
+        const screenH = Math.max(
+            1,
+            monitor.height ?? global.stage.height
+        );
+
+        const glassX = absX - monitorX;
+        const glassY = absY - monitorY;
+
+        const geometryChanged =
+            this._lastShaderX !== glassX ||
+            this._lastShaderY !== glassY ||
+            this._lastShaderW !== width ||
+            this._lastShaderH !== height;
+
+        if (geometryChanged) {
+            this._lastShaderX = glassX;
+            this._lastShaderY = glassY;
+            this._lastShaderW = width;
+            this._lastShaderH = height;
+
+            this._effect?.setGlassGeometry?.(
+                glassX,
+                glassY,
+                width,
+                height
+            );
+        }
+
+        this._effect?.setResolution?.(
+            screenW,
+            screenH
+        );
+
+        if (shaderOnly)
             return;
 
-        const [w, h] = material.get_size?.() ?? [0, 0];
-        if (!finitePositive(w) || !finitePositive(h))
-            return;
+        const rootChanged =
+            this._lastMonitorX !== monitorX ||
+            this._lastMonitorY !== monitorY ||
+            this._lastScreenW !== screenW ||
+            this._lastScreenH !== screenH;
 
-        const [absX, absY] =
-            material.get_transformed_position?.() ?? [0, 0];
-        const [transformedW, transformedH] =
-            material.get_transformed_size?.() ?? [w, h];
-
-        const scaleX =
-            finitePositive(transformedW) ? transformedW / w : 1;
-        const scaleY =
-            finitePositive(transformedH) ? transformedH / h : 1;
-
-        const sceneScaleX = 1 / Math.max(scaleX, 0.001);
-        const sceneScaleY = 1 / Math.max(scaleY, 0.001);
-        const sceneX = -absX / Math.max(scaleX, 0.001);
-        const sceneY = -absY / Math.max(scaleY, 0.001);
-
-        if (
-            this._lastStageW !== global.stage.width ||
-            this._lastStageH !== global.stage.height
-        ) {
-            sceneRoot.set_size(
-                global.stage.width,
-                global.stage.height
+        if (rootChanged) {
+            this._vendor.setPositionIfChanged(
+                this._root,
+                monitorX,
+                monitorY
             );
-            this._lastStageW = global.stage.width;
-            this._lastStageH = global.stage.height;
-        }
-
-        if (
-            this._lastSceneScaleX !== sceneScaleX ||
-            this._lastSceneScaleY !== sceneScaleY
-        ) {
-            sceneRoot.set_scale(sceneScaleX, sceneScaleY);
-            this._lastSceneScaleX = sceneScaleX;
-            this._lastSceneScaleY = sceneScaleY;
-        }
-
-        if (
-            this._lastSceneX !== sceneX ||
-            this._lastSceneY !== sceneY
-        ) {
-            if (sceneRoot.x !== 0 || sceneRoot.y !== 0)
-                sceneRoot.set_position(0, 0);
-            this._vendor.setTranslationIfChanged(
-                sceneRoot,
-                sceneX,
-                sceneY
+            this._vendor.setSizeIfChanged(
+                this._root,
+                screenW,
+                screenH
             );
-            this._lastSceneX = sceneX;
-            this._lastSceneY = sceneY;
+            this._vendor.setPositionIfChanged(
+                this._liquidBox,
+                0,
+                0
+            );
+            this._vendor.setSizeIfChanged(
+                this._liquidBox,
+                screenW,
+                screenH
+            );
+
+            this._lastMonitorX = monitorX;
+            this._lastMonitorY = monitorY;
+            this._lastScreenW = screenW;
+            this._lastScreenH = screenH;
         }
+
+        const blur = Math.max(
+            0,
+            this._manager._appearance?.blur ?? 0
+        );
+        const margin = Math.max(
+            SAMPLE_MARGIN_MIN,
+            Math.min(
+                SAMPLE_MARGIN_MAX,
+                Math.round(blur * 3 + 48)
+            )
+        );
+
+        this._vendor.setClipIfChanged(
+            this._root,
+            glassX - margin,
+            glassY - margin,
+            width + margin * 2,
+            height + margin * 2
+        );
+
+        this._effect?.setShadowMaxRadius?.(
+            Math.max(0, margin - 16)
+        );
+
+        this._sceneManager?.setOffset?.(
+            -monitorX,
+            -monitorY
+        );
 
         const captureRect = [
-            absX,
-            absY,
-            transformedW,
-            transformedH,
+            absX - margin,
+            absY - margin,
+            width + margin * 2,
+            height + margin * 2,
         ];
-        sceneManager.setCullRect?.(captureRect);
-        sceneManager.applyBgCloneClip?.(captureRect);
-        sceneManager.sync?.();
+        this._sceneManager?.setCullRect?.(captureRect);
+        this._sceneManager?.applyBgCloneClip?.(captureRect);
+        this._sceneManager?.sync?.();
+
+        if (this._root.opacity !== opacity)
+            this._root.opacity = opacity;
+
+        if (!this._root.visible)
+            this._root.show?.();
     }
 
-    _syncPaintGeometry() {
-        const material = this._material;
-        const effect = this._effect;
+    _syncShaderGeometry() {
         if (
             this._destroyed ||
-            !material ||
-            !effect ||
-            !material.mapped
+            !this._effect ||
+            !this._root?.mapped
         ) {
             return;
         }
 
-        const [w, h] = material.get_size?.() ?? [0, 0];
-        if (!finitePositive(w) || !finitePositive(h))
-            return;
-
-        // Paint-time hook is uniforms-only. Actor/clone mutations happen in
-        // PopupGlassManager's stage before-update loop.
-        const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
-        const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
-        effect.setResolution?.(w, h);
-        effect.setGlassGeometry?.(
-            OPTICAL_MARGIN,
-            OPTICAL_MARGIN,
-            glassW,
-            glassH
-        );
+        this._sync(true);
     }
 
-    detach({restore = true} = {}) {
+    detach() {
         if (this._destroyed)
             return;
         this._destroyed = true;
 
         try {
             this._effect?.setLiveGeometryHook?.(null);
-        } catch {
-            // Effect may already be tearing down.
-        }
+        } catch {}
 
         if (this._openStateId && this._menu) {
             try {
                 this._menu.disconnect(this._openStateId);
-            } catch {
-                // Menu may already be tearing down.
-            }
+            } catch {}
         }
         this._openStateId = 0;
-
-        if (this._mappedStateId && this._boxPointer) {
-            try {
-                this._boxPointer.disconnect(this._mappedStateId);
-            } catch {
-                // BoxPointer may already be tearing down.
-            }
-        }
-        this._mappedStateId = 0;
-
-        this._releaseSceneManager();
 
         try {
             this._box?.remove_style_class_name?.(GLASS_CLASS);
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
-        } catch {
-            // Popup actors may already be destroyed.
-        }
+        } catch {}
 
-        // Native BoxPointer.bin -> menu.box was never changed, so cleanup
-        // only removes our paint child. There is no native content to reparent.
         try {
-            this._material?.destroy?.();
-        } catch {
-            // Material may already have been destroyed with BoxPointer.
-        }
+            this._sceneManager?.destroy?.();
+        } catch {}
 
-        this._material = null;
-        this._sceneRoot = null;
+        try {
+            this._root?.destroy?.();
+        } catch {}
+
+        this._root = null;
+        this._liquidBox = null;
         this._sceneManager = null;
         this._effect = null;
         this._menu = null;
@@ -583,7 +561,7 @@ export class PopupGlassManager {
         };
 
         this._patchedDestroy = function (...args) {
-            manager.detach(this, {restore: true});
+            manager.detach(this);
             return manager._originalDestroy.apply(this, args);
         };
 
@@ -611,7 +589,7 @@ export class PopupGlassManager {
                             '\n' +
                             (error?.stack ?? '')
                         );
-                        this.detach(menu, {restore: true});
+                        this.detach(menu);
                     }
                 }
             }
@@ -634,6 +612,7 @@ export class PopupGlassManager {
             menu.sourceActor?.get_name?.() ??
             menu.sourceActor?.constructor?.name ??
             '';
+
         return (
             (sourceName ? sourceName + ' ' : '') +
             '[' + boxClasses + ']'
@@ -656,13 +635,13 @@ export class PopupGlassManager {
         return surface;
     }
 
-    detach(menu, options = {}) {
+    detach(menu) {
         const surface = this._surfaces.get(menu);
         if (!surface)
             return;
 
         this._surfaces.delete(menu);
-        surface.detach(options);
+        surface.detach();
     }
 
     updateAppearance(state = this._readAppearance()) {
@@ -680,9 +659,7 @@ export class PopupGlassManager {
         if (this._stageSyncId) {
             try {
                 global.stage.disconnect(this._stageSyncId);
-            } catch {
-                // Stage may already be tearing down.
-            }
+            } catch {}
             this._stageSyncId = 0;
         }
 
@@ -694,7 +671,7 @@ export class PopupGlassManager {
 
         for (const [menu, surface] of [...this._surfaces]) {
             this._surfaces.delete(menu);
-            surface.detach({restore: true});
+            surface.detach();
         }
 
         this._originalOpen = null;
