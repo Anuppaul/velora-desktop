@@ -197,32 +197,6 @@ export class NotificationGlassManager {
         return padding;
     }
 
-    _readBannerMargins(actor) {
-        const margins = {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-        };
-
-        try {
-            actor?.ensure_style?.();
-            const node = actor?.get_theme_node?.();
-            margins.top =
-                node?.get_margin?.(St.Side.TOP) ?? 0;
-            margins.right =
-                node?.get_margin?.(St.Side.RIGHT) ?? 0;
-            margins.bottom =
-                node?.get_margin?.(St.Side.BOTTOM) ?? 0;
-            margins.left =
-                node?.get_margin?.(St.Side.LEFT) ?? 0;
-        } catch {
-            // Zero margins are safe fallback.
-        }
-
-        return margins;
-    }
-
     _readCornerRadius(actor) {
         try {
             actor?.ensure_style?.();
@@ -380,7 +354,6 @@ export class NotificationGlassManager {
             filterLayer,
             effect,
             radius,
-            margins: this._readBannerMargins(actor),
             nativePadding,
             originalInlineStyle,
             signals: [],
@@ -449,8 +422,6 @@ export class NotificationGlassManager {
             watched.add(this._bannerBin);
 
         const queue = () => {
-            material.margins =
-                this._readBannerMargins(material.actor);
             this._queueSync(material);
 
             if (
@@ -990,23 +961,7 @@ export class NotificationGlassManager {
             return;
         }
 
-        const [actorX, actorY, actorWidth, actorHeight] = rect;
-        const margins =
-            material.margins ??
-            this._readBannerMargins(actor);
-
-        const absX =
-            actorX - (margins.left ?? 0);
-        const absY =
-            actorY - (margins.top ?? 0);
-        const width =
-            actorWidth +
-            (margins.left ?? 0) +
-            (margins.right ?? 0);
-        const height =
-            actorHeight +
-            (margins.top ?? 0) +
-            (margins.bottom ?? 0);
+        const [absX, absY, width, height] = rect;
 
         const opacity =
             actor.get_paint_opacity?.() ??
