@@ -225,6 +225,7 @@ export class QuickSettingsManager {
   private _toggleBaseStrength: number = 0.5;
   private _toggleCornerRadius: number = 18.0;
   private _toggleResponses = new Map<Clutter.Actor, number>();
+  private _materialRole: any = null;
 
   // [FIX-6] Last successfully computed Toggles-mode region set, plus how many
   // consecutive frames we have been falling back on it. Used to ride out the
@@ -242,10 +243,11 @@ export class QuickSettingsManager {
   } | null = null;
   private _regionGraceFrames: number = 0;
 
-  constructor(extensionPath: string, settings: Gio.Settings, logger: Logger) {
+  constructor(extensionPath: string, settings: Gio.Settings, logger: Logger, materialRole: any = null) {
     this.extensionPath = extensionPath;
     this._settings = settings;
     this._logger = logger;
+    this._materialRole = materialRole;
 
     // Target the main container of the Quick Settings menu
     this.targetActor = Main.panel.statusArea.quickSettings.menu.actor;
@@ -527,6 +529,12 @@ export class QuickSettingsManager {
       sampleIntervalMs: this._settings.get_int('quick-settings-sample-interval-ms'),
       preference: sanitizeColorPreference(
         this._settings.get_string('quick-settings-adaptive-text-preference')),
+      lightTextColor:
+        this._materialRole?.text?.light ??
+        AdaptiveContrastConfig.lightTextColor,
+      darkTextColor:
+        this._materialRole?.text?.dark ??
+        AdaptiveContrastConfig.darkTextColor,
     };
 
     // ── 1. bgActor: full monitor, no effect ──────────────────────────────────
@@ -700,6 +708,12 @@ export class QuickSettingsManager {
       sampleIntervalMs: this._settings.get_int('quick-settings-sample-interval-ms'),
       preference: sanitizeColorPreference(
         this._settings.get_string('quick-settings-adaptive-text-preference')),
+      lightTextColor:
+        this._materialRole?.text?.light ??
+        AdaptiveContrastConfig.lightTextColor,
+      darkTextColor:
+        this._materialRole?.text?.dark ??
+        AdaptiveContrastConfig.darkTextColor,
     };
 
     // ── 1. bgActor: full monitor, no effect ──────────────────────────────────
@@ -1316,6 +1330,10 @@ export class QuickSettingsManager {
   }
 
   private _toggleOpticalResponse(toggle: Clutter.Actor): number {
+    const profile = this._materialRole?.interaction;
+    if (!profile)
+      return 0.0;
+
     const pressed = this._podHasPseudo(toggle, 'active');
     const engaged =
       pressed ||
@@ -1326,18 +1344,19 @@ export class QuickSettingsManager {
       this._podHasPseudo(toggle, 'selected');
 
     const target =
-      pressed ? 1.0 :
-      engaged ? 0.62 :
-      selected ? 0.18 :
+      pressed ? profile.pressed :
+      engaged ? profile.engaged :
+      selected ? profile.selected :
       0.0;
 
     const previous =
       this._toggleResponses.get(toggle) ?? 0.0;
 
     let next =
-      previous + (target - previous) * 0.24;
+      previous +
+      (target - previous) * profile.damping;
 
-    if (Math.abs(target - next) < 0.008)
+    if (Math.abs(target - next) < profile.epsilon)
       next = target;
 
     this._toggleResponses.set(toggle, next);
