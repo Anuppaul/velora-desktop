@@ -208,6 +208,23 @@
     box-shadow: none !important;
 }
 
+/* Quick Menu uses the same single-rim popup chrome as Date Menu. The shader
+ * owns the visible edge; Yaru/GNOME shell paint must not add a second outline
+ * or drop shadow around the right-side Quick Settings popup. */
+.velora-liquid-popup-content.quick-settings {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-liquid-quick-menu-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
+}
+
 /* The top panel's native solid paint must not cover its Liquid Glass layer. */
 #panel.velora-liquid-top-panel,
 .velora-liquid-top-panel {
