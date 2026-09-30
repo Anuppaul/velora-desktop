@@ -82,36 +82,24 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         filterUsesContentBounds: true,
     }),
     quickMenu: Object.freeze({
-        enabled: true,
-        animation: false,
-        applyTo: 1,
-        tintColor: '#ffffff',
-        blurRadius: 6,
-        baseColorStrength: 0.085,
-        cornerRadius: 18.0,
-        glassExpand: 0,
-        xOffset: 0,
-        yOffset: 0,
-        brightness: 1.03,
-        contrast: 1.06,
-        saturation: 1.14,
-        adaptiveText: true,
-        adaptivePreference: 'auto',
-        sampleIntervalMs: 900,
-
-        // Use the same low-opacity/blur/filter profile as the approved
-        // Date Menu so both popups share not only optics but body density.
+        // Same body density as the approved Date Menu.
         appearanceProfile: 'dateMenu',
         filterOpacityOverride: 0.0,
         filterUsesContentBounds: true,
 
-        // Selected pods stay physical glass. Accent is a restrained material
-        // tint plus the native accent edge, not a flat filled rectangle.
+        // One popup capture serves every visible pod. Sampling starts after
+        // the open animation settles and stays deliberately low-frequency.
+        adaptiveText: true,
+        adaptiveSampleDelayMs: 180,
+        adaptiveResampleMs: 3600,
+
+        // Selected pods remain physical glass; Ubuntu/GNOME's live theme
+        // accent only tints the material and marks the edge.
         idleBaseStrength: 0.046,
         selectedBaseStrength: 0.072,
         accentSource: 'shell-theme',
 
-        // Date Menu and Quick Menu share the same one-rim popup policy.
+        // One physical rim. Native/filter borders and shadows stay out.
         popupChrome: CLEAN_POPUP_CHROME,
         innerNativeBorder: false,
         innerNativeShadow: false,
