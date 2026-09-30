@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -59,6 +60,11 @@ class ShellCardSurface {
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
+        this._lastSceneSyncUs = 0;
+        this._lastCaptureX = NaN;
+        this._lastCaptureY = NaN;
+        this._lastCaptureW = NaN;
+        this._lastCaptureH = NaN;
     }
 
     attach() {
@@ -215,6 +221,11 @@ class ShellCardSurface {
                 null,
                 'velora-shell-card-scene'
             );
+        this._lastSceneSyncUs = 0;
+        this._lastCaptureX = NaN;
+        this._lastCaptureY = NaN;
+        this._lastCaptureW = NaN;
+        this._lastCaptureH = NaN;
         return this._sceneManager;
     }
 
@@ -228,6 +239,11 @@ class ShellCardSurface {
             // Scene may already be tearing down.
         }
         this._sceneManager = null;
+        this._lastSceneSyncUs = 0;
+        this._lastCaptureX = NaN;
+        this._lastCaptureY = NaN;
+        this._lastCaptureW = NaN;
+        this._lastCaptureH = NaN;
     }
 
     _sync() {
@@ -370,9 +386,39 @@ class ShellCardSurface {
             tw,
             th,
         ];
+
+        const captureChanged =
+            this._lastCaptureX !== absX ||
+            this._lastCaptureY !== absY ||
+            this._lastCaptureW !== tw ||
+            this._lastCaptureH !== th;
+
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                60,
+                this._manager?._appearance?.sceneFps ?? 30
+            )
+        );
+        const nowUs = GLib.get_monotonic_time();
+        const intervalUs = 1000000 / sceneFps;
+        const sceneDue =
+            captureChanged ||
+            this._lastSceneSyncUs === 0 ||
+            nowUs - this._lastSceneSyncUs >= intervalUs;
+
+        if (!sceneDue)
+            return;
+
         sceneManager.setCullRect?.(captureRect);
         sceneManager.applyBgCloneClip?.(captureRect);
         sceneManager.sync?.();
+
+        this._lastCaptureX = absX;
+        this._lastCaptureY = absY;
+        this._lastCaptureW = tw;
+        this._lastCaptureH = th;
+        this._lastSceneSyncUs = nowUs;
     }
 
     _syncPaint() {
