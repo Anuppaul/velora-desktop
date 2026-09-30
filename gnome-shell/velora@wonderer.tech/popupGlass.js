@@ -1197,6 +1197,11 @@ class PopupGlassSurface {
         if (!actor || useDarkText === null)
             return;
 
+        const previous =
+            this._dateCardTextState.get(actor);
+        if (previous === useDarkText)
+            return;
+
         const lightClass =
             this._isQuickSettings
                 ? QUICK_CARD_TEXT_LIGHT_CLASS
@@ -1216,6 +1221,13 @@ class PopupGlassSurface {
             actor,
             useDarkText
         );
+
+        // Polarity also drives the adaptive material tint on Quick Settings,
+        // so repaint only when the decision actually changes.
+        if (this._isQuickSettings) {
+            this._dateInnerEffect?.queue_repaint?.();
+            this._dateInnerRoot?.queue_redraw?.();
+        }
     }
 
     _cancelDateTextSample() {
