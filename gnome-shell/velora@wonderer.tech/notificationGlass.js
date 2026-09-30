@@ -160,35 +160,6 @@ export class NotificationGlassManager {
             }
         }
 
-        this._stageSyncId = global.stage.connect(
-            'before-update',
-            () => {
-                if (!this._enabled)
-                    return;
-
-                for (const [actor, material] of [...this._materials]) {
-                    if (
-                        !actor?.mapped ||
-                        !actor?.visible
-                    ) {
-                        continue;
-                    }
-
-                    try {
-                        this._sync(material, false);
-                    } catch (error) {
-                        console.error(
-                            '[Velora][NotificationGlass] frame sync failed; restoring native banner: ' +
-                            error +
-                            '\n' +
-                            (error?.stack ?? '')
-                        );
-                        this._detach(actor);
-                    }
-                }
-            }
-        );
-
         console.log(
             '[Velora][NotificationGlass] live refractive material active'
         );
@@ -337,6 +308,9 @@ export class NotificationGlassManager {
             lastShaderW: null,
             lastShaderH: null,
             lastSceneSyncUs: 0,
+            textSampleSourceId: 0,
+            textGeneration: 0,
+            useDarkText: null,
         };
 
         this._materials.set(actor, material);
@@ -356,6 +330,11 @@ export class NotificationGlassManager {
         });
 
         this._queueSync(material);
+        this._scheduleTextSample(
+            material,
+            VELORA_GLASS_ADAPTERS.notificationBanner
+                .adaptiveSampleDelayMs ?? 220
+        );
     }
 
     _resolveBannerRoot(actor) {
@@ -794,15 +773,6 @@ export class NotificationGlassManager {
     cleanup() {
         this._enabled = false;
 
-        if (this._stageSyncId) {
-            try {
-                global.stage.disconnect(this._stageSyncId);
-            } catch {
-                // Stage may already be tearing down.
-            }
-            this._stageSyncId = 0;
-        }
-
         for (const signal of this._signals) {
             try {
                 signal.obj.disconnect(signal.id);
@@ -826,5 +796,6 @@ export class NotificationGlassManager {
 
         this._materials.clear();
         this._bannerBin = null;
+        this._screenshot = null;
     }
 }
