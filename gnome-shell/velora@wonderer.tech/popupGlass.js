@@ -1,4 +1,3 @@
-import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -39,10 +38,10 @@ function readRadius(actor) {
  *
  *   BoxPointer -> BoxPointer.bin -> menu.box (.popup-menu-content)
  *
- * We replace the St.Bin child with an overlay whose top child is the exact
- * original menu.box and whose bottom child is the glass material. Because the
- * overlay lives INSIDE BoxPointer, GNOME itself carries position, scale,
- * translation, opacity, monitor placement and open/close animation.
+ * We keep BoxPointer.bin -> menu.box completely untouched. The glass material
+ * is an extra no-layout paint child of BoxPointer, positioned underneath the
+ * native bin. That preserves GNOME's preferred-size and anchor calculations
+ * while still inheriting BoxPointer position/scale/opacity animation.
  */
 class PopupGlassSurface {
     constructor(manager, menu) {
@@ -54,7 +53,6 @@ class PopupGlassSurface {
         this._boxPointer = menu?._boxPointer ?? menu?.actor ?? null;
         this._bin = menu?._boxPointer?.bin ?? null;
 
-        this._overlay = null;
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
@@ -70,6 +68,8 @@ class PopupGlassSurface {
         this._openStateId = 0;
         this._lastHostW = 0;
         this._lastHostH = 0;
+        this._lastHostX = NaN;
+        this._lastHostY = NaN;
     }
 
     attach() {
@@ -77,13 +77,14 @@ class PopupGlassSurface {
             this._destroyed ||
             !this._box ||
             !this._bin ||
-            this._overlay
+            !this._boxPointer ||
+            this._material
         ) {
-            return Boolean(this._overlay);
+            return Boolean(this._material);
         }
 
-        // Recover a stale Velora wrapper left by a failed hot-swap before
-        // deciding that another extension owns this Bin.
+        // Recover a stale wrapper left by older Velora revisions before attaching
+        // the new no-layout paint child.
         const currentChild = this._bin.get_child?.() ?? null;
         if (
             currentChild !== this._box &&
@@ -110,14 +111,6 @@ class PopupGlassSurface {
             return false;
 
         this._radius = readRadius(this._box);
-
-        const overlay = new St.Widget({
-            name: 'velora-popup-glass-stack',
-            layout_manager: new Clutter.BinLayout(),
-            x_expand: true,
-            y_expand: true,
-            reactive: false,
-        });
 
         const material = new this._vendor.UnpickableActor({
             name: 'velora-popup-glass-material',
@@ -169,16 +162,18 @@ class PopupGlassSurface {
         effect.setBlurMethod?.(1);
         material.add_effect(effect);
 
-        // St.Bin.set_child() removes the old child without destroying it.
-        // Reparent only after that removal; St.Bin explicitly rejects an
-        // already-parented replacement child.
-        this._bin.set_child(overlay);
-        overlay.add_child(material);
-        overlay.add_child(this._box);
+        // Keep GNOME's native hierarchy unchanged:
+        // BoxPointer.bin -> menu.box remains exactly as GNOME created it.
+        // The material is paint-only and excluded from layout, so it cannot
+        // change BoxPointer preferred size or anchor positioning.
+        this._boxPointer.add_child(material);
+        this._boxPointer.set_child_below_sibling?.(
+            material,
+            this._bin
+        );
 
         this._box.add_style_class_name?.(GLASS_CLASS);
 
-        this._overlay = overlay;
         this._material = material;
         this._sceneRoot = sceneRoot;
         this._sceneManager = sceneManager;
@@ -246,26 +241,55 @@ class PopupGlassSurface {
     }
 
     _syncHostGeometry() {
-        const overlay = this._overlay;
         const material = this._material;
-        if (!overlay || !material)
+        const bin = this._bin;
+        const box = this._box;
+        if (!material || !bin || !box)
             return;
 
-        const [w, h] = overlay.get_size?.() ?? [0, 0];
+        const binAllocation = bin.get_allocation_box?.();
+        const boxAllocation = box.get_allocation_box?.();
+
+        const w =
+            boxAllocation?.get_width?.() ??
+            box.width ??
+            0;
+        const h =
+            boxAllocation?.get_height?.() ??
+            box.height ??
+            0;
+
         if (!finitePositive(w) || !finitePositive(h))
             return;
 
-        if (this._lastHostW === w && this._lastHostH === h)
+        const x =
+            (binAllocation?.x1 ?? bin.x ?? 0) +
+            (boxAllocation?.x1 ?? box.x ?? 0);
+        const y =
+            (binAllocation?.y1 ?? bin.y ?? 0) +
+            (boxAllocation?.y1 ?? box.y ?? 0);
+
+        if (
+            this._lastHostW === w &&
+            this._lastHostH === h &&
+            this._lastHostX === x &&
+            this._lastHostY === y
+        ) {
             return;
+        }
 
         this._lastHostW = w;
         this._lastHostH = h;
+        this._lastHostX = x;
+        this._lastHostY = y;
 
-        material.set_position(
-            -OPTICAL_MARGIN,
-            -OPTICAL_MARGIN
+        this._vendor.setPositionIfChanged(
+            material,
+            x - OPTICAL_MARGIN,
+            y - OPTICAL_MARGIN
         );
-        material.set_size(
+        this._vendor.setSizeIfChanged(
+            material,
             w + OPTICAL_MARGIN * 2,
             h + OPTICAL_MARGIN * 2
         );
@@ -440,48 +464,14 @@ class PopupGlassSurface {
             // Box may already be destroyed.
         }
 
-        // Restore GNOME's canonical hierarchy before destroying our overlay.
-        // If restore fails, NEVER destroy the wrapper while it still owns
-        // menu.box; that would destroy native Shell content. In that rare case
-        // we leave a neutral wrapper in place and only tear down glass actors.
-        let safeToDestroyOverlay = true;
-
-        if (restore && this._bin && this._box) {
-            try {
-                if (this._box.get_parent?.() === this._overlay)
-                    this._overlay.remove_child(this._box);
-
-                if (!this._box.get_parent?.())
-                    this._bin.set_child(this._box);
-            } catch (error) {
-                console.error(
-                    '[Velora][PopupGlass] native hierarchy restore failed: ' +
-                    error
-                );
-            }
-
-            safeToDestroyOverlay =
-                this._box.get_parent?.() !== this._overlay;
+        // Native BoxPointer.bin -> menu.box was never changed, so cleanup
+        // only removes our paint child. There is no native content to reparent.
+        try {
+            this._material?.destroy?.();
+        } catch {
+            // Material may already have been destroyed with BoxPointer.
         }
 
-        if (safeToDestroyOverlay) {
-            try {
-                this._overlay?.destroy?.();
-            } catch {
-                // Popup may already have destroyed the entire subtree.
-            }
-        } else {
-            try {
-                this._material?.destroy?.();
-            } catch {
-                // Material teardown is best-effort.
-            }
-            console.warn(
-                '[Velora][PopupGlass] kept neutral wrapper to protect native menu content'
-            );
-        }
-
-        this._overlay = null;
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
