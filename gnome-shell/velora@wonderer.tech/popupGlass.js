@@ -53,14 +53,12 @@ const QUICK_INNER_CARD_CLASSES = new Set([
 ]);
 const DATE_INNER_PAD = 20;
 const DATE_INNER_SCAN_INTERVAL_US = 500000;
-const DATE_TEXT_RESAMPLE_MS = 2600;
 const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
 const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
 const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
 const QUICK_CARD_TEXT_LIGHT_CLASS = 'velora-quick-card-text-light';
 const QUICK_CARD_TEXT_DARK_CLASS = 'velora-quick-card-text-dark';
-const QUICK_TEXT_RESAMPLE_MS = 3600;
 const DATE_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
 const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
@@ -130,21 +128,6 @@ function hasPseudo(actor, name) {
     } catch {
         return false;
     }
-}
-
-function treeHasPseudo(actor, name) {
-    if (!actor)
-        return false;
-
-    if (hasPseudo(actor, name))
-        return true;
-
-    for (const child of actor.get_children?.() ?? []) {
-        if (treeHasPseudo(child, name))
-            return true;
-    }
-
-    return false;
 }
 
 function quickCardState(actor) {
@@ -619,10 +602,12 @@ class PopupGlassSurface {
                     }
 
                     this._scanDateCardActors(true);
-                    if (this._isDateMenu)
-                        this._scheduleDateTextSample(220);
-                    else if (this._isQuickSettings)
-                        this._scheduleDateTextSample(180);
+                    if (this._surfaceAdapter?.adaptiveText) {
+                        this._scheduleDateTextSample(
+                            this._surfaceAdapter.adaptiveSampleDelayMs
+                                ?? 220
+                        );
+                    }
                     this._invalidateGeometry();
                     this._root?.queue_redraw?.();
                     this._dateInnerRoot?.queue_redraw?.();
@@ -666,7 +651,7 @@ class PopupGlassSurface {
 
     _scanDateCardActors(force = false) {
         if (
-            (!this._isDateMenu && !this._isQuickSettings) ||
+            !this._surfaceAdapter?.adaptiveText ||
             !this._box
         ) {
             return;
@@ -1322,9 +1307,8 @@ class PopupGlassSurface {
             this._menu?.isOpen
         ) {
             this._scheduleDateTextSample(
-                this._isQuickSettings
-                    ? QUICK_TEXT_RESAMPLE_MS
-                    : DATE_TEXT_RESAMPLE_MS
+                this._surfaceAdapter?.adaptiveResampleMs
+                    ?? 3000
             );
         }
     }
