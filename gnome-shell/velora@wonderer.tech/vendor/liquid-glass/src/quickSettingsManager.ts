@@ -79,7 +79,12 @@ function _findSubmenuGap(n: Clutter.Actor, submenu: Clutter.Actor, gap: SubmenuG
 }
 
 type ToggleRegionLayout = {
-  regions: { x: number; y: number; w: number; h: number; tintR: number; tintG: number; tintB: number; baseStrength: number }[];
+  regions: {
+    x: number; y: number; w: number; h: number;
+    tintR: number; tintG: number; tintB: number;
+    baseStrength: number;
+    response?: number;
+  }[];
   minX: number; minY: number; maxX: number; maxY: number;
 };
 
@@ -219,6 +224,7 @@ export class QuickSettingsManager {
   // apply the toggle's own color at all", 1 means "apply it fully".
   private _toggleBaseStrength: number = 0.5;
   private _toggleCornerRadius: number = 18.0;
+  private _toggleResponses = new Map<Clutter.Actor, number>();
 
   // [FIX-6] Last successfully computed Toggles-mode region set, plus how many
   // consecutive frames we have been falling back on it. Used to ride out the
@@ -226,7 +232,12 @@ export class QuickSettingsManager {
   // being added/removed) during which a pod can be visible but not yet
   // allocated — see _syncToggleRegions().
   private _lastGoodRegions: {
-    regions: { x: number; y: number; w: number; h: number; tintR: number; tintG: number; tintB: number; baseStrength: number }[];
+    regions: {
+      x: number; y: number; w: number; h: number;
+      tintR: number; tintG: number; tintB: number;
+      baseStrength: number;
+      response?: number;
+    }[];
     minX: number; minY: number; maxX: number; maxY: number;
   } | null = null;
   private _regionGraceFrames: number = 0;
@@ -1156,6 +1167,12 @@ export class QuickSettingsManager {
       return;
     }
 
+    const live = new Set(toggles);
+    for (const actor of this._toggleResponses.keys()) {
+      if (!live.has(actor))
+        this._toggleResponses.delete(actor);
+    }
+
     const layout = this._resolveToggleRegions(this._collectToggleRegions(toggles, monitorX, monitorY));
     if (!layout) {
       this.bgActor.hide();
@@ -1277,6 +1294,56 @@ export class QuickSettingsManager {
     return [(monitorX - hostAbsX) / accScaleX, (monitorY - hostAbsY) / accScaleY];
   }
 
+  private _podHasPseudo(actor: Clutter.Actor, name: string): boolean {
+    if (
+      actor instanceof St.Widget &&
+      actor.has_style_pseudo_class(name)
+    ) {
+      return true;
+    }
+
+    const children =
+      typeof actor.get_children === 'function'
+        ? actor.get_children()
+        : [];
+
+    for (const child of children) {
+      if (this._podHasPseudo(child, name))
+        return true;
+    }
+
+    return false;
+  }
+
+  private _toggleOpticalResponse(toggle: Clutter.Actor): number {
+    const pressed = this._podHasPseudo(toggle, 'active');
+    const engaged =
+      pressed ||
+      this._podHasPseudo(toggle, 'hover') ||
+      this._podHasPseudo(toggle, 'focus');
+    const selected =
+      this._podHasPseudo(toggle, 'checked') ||
+      this._podHasPseudo(toggle, 'selected');
+
+    const target =
+      pressed ? 1.0 :
+      engaged ? 0.62 :
+      selected ? 0.18 :
+      0.0;
+
+    const previous =
+      this._toggleResponses.get(toggle) ?? 0.0;
+
+    let next =
+      previous + (target - previous) * 0.24;
+
+    if (Math.abs(target - next) < 0.008)
+      next = target;
+
+    this._toggleResponses.set(toggle, next);
+    return next;
+  }
+
   private _collectToggleRegions(toggles: Clutter.Actor[], monitorX: number, monitorY: number): ToggleRegionLayout {
     const layout: ToggleRegionLayout = { regions: [], minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
     for (let toggle of toggles) {
@@ -1364,11 +1431,13 @@ export class QuickSettingsManager {
       // paint the pod genuinely contributes. It is a no-op wherever the
       // ancestry is opaque, i.e. for every Adwaita pod.
       let baseStrength = hasBase ? this._toggleBaseStrength * entry!.baseAlpha : 0.0;
+      const response = this._toggleOpticalResponse(toggle);
 
       layout.regions.push({
         x: regionX, y: regionY, w: regionW, h: regionH,
         tintR: base[0], tintG: base[1], tintB: base[2],
         baseStrength,
+        response,
       });
 
       layout.minX = Math.min(layout.minX, regionX); layout.minY = Math.min(layout.minY, regionY);
@@ -2262,6 +2331,7 @@ export class QuickSettingsManager {
   }
 
   cleanup() {
+    this._toggleResponses.clear();
     this._torndown = true;
 
     this._teardownStep('frameSync', () => {
