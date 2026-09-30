@@ -182,6 +182,16 @@
     box-shadow: none;
 }
 
+/* BoxPointer draws its own background/border through -arrow-* theme
+ * properties. Keep its geometry (border width/rise) unchanged, but make that
+ * native paint transparent so only the LiquidEffect silhouette is visible. */
+.velora-liquid-popup-shell {
+    background-color: transparent;
+    background-image: none;
+    -arrow-background-color: transparent;
+    -arrow-border-color: transparent;
+}
+
 /* The top panel's native solid paint must not cover its Liquid Glass layer. */
 #panel.velora-liquid-top-panel,
 .velora-liquid-top-panel {
