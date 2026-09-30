@@ -341,6 +341,39 @@ export class NotificationGlassManager {
             actor.get_style?.() ??
             actor.style ??
             '';
+        const nativePadding =
+            this._readBannerPadding(actor);
+        const paddingProfile =
+            VELORA_GLASS_ADAPTERS.notificationBanner
+                .contentPadding ?? {};
+        const paddingMax =
+            paddingProfile.maxPx ?? 9;
+
+        const extraTop = Math.min(
+            paddingMax,
+            radius * (
+                paddingProfile.topRadiusScale ?? 0
+            )
+        );
+        const extraSide = Math.min(
+            paddingMax,
+            radius * (
+                paddingProfile.sideRadiusScale ?? 0
+            )
+        );
+        const extraBottom = Math.min(
+            paddingMax,
+            radius * (
+                paddingProfile.bottomRadiusScale ?? 0
+            )
+        );
+
+        const contentPadding = {
+            top: nativePadding.top + extraTop,
+            right: nativePadding.right + extraSide,
+            bottom: nativePadding.bottom + extraBottom,
+            left: nativePadding.left + extraSide,
+        };
 
         actor.add_style_class_name?.(
             'velora-native-notification-glass'
@@ -354,7 +387,19 @@ export class NotificationGlassManager {
             'background-color: transparent !important; ' +
             'background-image: none !important; ' +
             'border-color: transparent !important; ' +
-            'box-shadow: none !important;';
+            'box-shadow: none !important; ' +
+            'padding-top: ' +
+            Math.round(contentPadding.top) +
+            'px !important; ' +
+            'padding-right: ' +
+            Math.round(contentPadding.right) +
+            'px !important; ' +
+            'padding-bottom: ' +
+            Math.round(contentPadding.bottom) +
+            'px !important; ' +
+            'padding-left: ' +
+            Math.round(contentPadding.left) +
+            'px !important;';
         actor.set_style?.(
             originalInlineStyle
                 ? originalInlineStyle + ' ' + transparentStyle
@@ -448,6 +493,7 @@ export class NotificationGlassManager {
             filterLayer,
             effect,
             radius,
+            contentPadding,
             originalInlineStyle,
             signals: [],
             laterId: 0,
