@@ -923,7 +923,7 @@
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked,
 .velora-liquid-popup-content.quick-settings .button:checked,
 .velora-liquid-popup-content.quick-settings .icon-button:checked {
-    background-color: rgba(255, 255, 255, 0.055) !important;
+    background-color: transparent !important;
     border-color: -st-accent-color !important;
     box-shadow: none !important;
 }
