@@ -747,6 +747,12 @@ class PopupGlassSurface {
                 actor.remove_style_class_name?.(
                     DATE_CARD_TEXT_DARK_CLASS
                 );
+                actor.remove_style_class_name?.(
+                    QUICK_CARD_TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    QUICK_CARD_TEXT_DARK_CLASS
+                );
             } catch {}
             this._dateCardTextState.delete(actor);
         }
