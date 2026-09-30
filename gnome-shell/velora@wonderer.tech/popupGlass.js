@@ -224,6 +224,7 @@ class PopupGlassSurface {
         this._box = menu?.box ?? null;
         this._boxPointer = menu?._boxPointer ?? menu?.actor ?? null;
         this._bin = menu?._boxPointer?.bin ?? null;
+        this._paintRoot = null;
 
         this._root = null;
         this._liquidBox = null;
@@ -285,6 +286,28 @@ class PopupGlassSurface {
         this._lastScreenH = 0;
     }
 
+    _resolvePaintRoot() {
+        let root =
+            this._boxPointer ??
+            this._menu?.actor ??
+            null;
+
+        let guard = 32;
+        while (
+            root?.get_parent?.() &&
+            root.get_parent() !== Main.layoutManager.uiGroup &&
+            guard-- > 0
+        ) {
+            root = root.get_parent();
+        }
+
+        return (
+            root?.get_parent?.() === Main.layoutManager.uiGroup
+                ? root
+                : null
+        );
+    }
+
     attach() {
         if (
             this._destroyed ||
@@ -334,6 +357,7 @@ class PopupGlassSurface {
             return false;
 
         this._radius = readRadius(this._box);
+        this._paintRoot = this._resolvePaintRoot();
 
         const root = new this._vendor.UnpickableActor({
             name: 'velora-popup-material-root',
@@ -435,13 +459,36 @@ class PopupGlassSurface {
         }
 
         try {
-            if (
-                this._boxPointer.get_parent?.() ===
-                Main.layoutManager.uiGroup
-            ) {
+            const paintRoot =
+                this._paintRoot ??
+                this._resolvePaintRoot();
+
+            if (paintRoot) {
+                // Both material layers must remain BELOW the full native popup
+                // paint root. QuickSettingsMenu wraps BoxPointer + overlay in
+                // an extra actor, unlike Date Menu; anchoring to BoxPointer
+                // alone put glass above Quick Settings content.
                 Main.layoutManager.uiGroup.insert_child_below(
                     root,
-                    this._boxPointer
+                    paintRoot
+                );
+
+                if (dateInnerRoot) {
+                    Main.layoutManager.uiGroup.insert_child_above(
+                        dateInnerRoot,
+                        root
+                    );
+                    Main.layoutManager.uiGroup.set_child_below_sibling?.(
+                        dateInnerRoot,
+                        paintRoot
+                    );
+                }
+            } else {
+                // Unknown hierarchy: fail safe by keeping material below other
+                // UI-group children rather than painting over native content.
+                Main.layoutManager.uiGroup.insert_child_at_index?.(
+                    root,
+                    0
                 );
                 if (dateInnerRoot) {
                     Main.layoutManager.uiGroup.insert_child_above(
@@ -449,10 +496,6 @@ class PopupGlassSurface {
                         root
                     );
                 }
-            } else {
-                Main.layoutManager.uiGroup.add_child(root);
-                if (dateInnerRoot)
-                    Main.layoutManager.uiGroup.add_child(dateInnerRoot);
             }
         } catch (error) {
             try {
@@ -1387,6 +1430,39 @@ class PopupGlassSurface {
     }
 
     _sync(shaderOnly) {
+        const paintRoot =
+            this._paintRoot ??
+            this._resolvePaintRoot();
+
+        if (
+            !shaderOnly &&
+            paintRoot?.get_parent?.() === Main.layoutManager.uiGroup
+        ) {
+            try {
+                if (this._root?.get_parent?.() === Main.layoutManager.uiGroup) {
+                    Main.layoutManager.uiGroup.set_child_below_sibling?.(
+                        this._root,
+                        paintRoot
+                    );
+                }
+                if (
+                    this._dateInnerRoot?.get_parent?.() ===
+                    Main.layoutManager.uiGroup
+                ) {
+                    Main.layoutManager.uiGroup.set_child_above_sibling?.(
+                        this._dateInnerRoot,
+                        this._root
+                    );
+                    Main.layoutManager.uiGroup.set_child_below_sibling?.(
+                        this._dateInnerRoot,
+                        paintRoot
+                    );
+                }
+            } catch {
+                // Ordering self-heal is best effort.
+            }
+        }
+
         const measured = this._measure();
         if (!measured) {
             if (!shaderOnly && this._root?.visible)
@@ -1737,6 +1813,7 @@ class PopupGlassSurface {
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
+        this._paintRoot = null;
         this._bin = null;
     }
 }
