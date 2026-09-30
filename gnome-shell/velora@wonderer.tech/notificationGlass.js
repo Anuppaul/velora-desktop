@@ -366,7 +366,21 @@ export class NotificationGlassManager {
         if (this._bannerBin)
             watched.add(this._bannerBin);
 
-        const queue = () => this._queueSync(material);
+        const queue = () => {
+            this._queueSync(material);
+
+            if (
+                material.actor?.mapped &&
+                material.actor?.visible &&
+                material.useDarkText === null &&
+                !material.textSampleSourceId
+            ) {
+                this._scheduleTextSample(
+                    material,
+                    80
+                );
+            }
+        };
 
         for (const target of watched) {
             for (const signal of [
@@ -997,9 +1011,23 @@ export class NotificationGlassManager {
             -monitorY
         );
 
+        const adapter =
+            VELORA_GLASS_ADAPTERS.notificationBanner;
+        const scopedAppearance =
+            adapter.appearanceProfile
+                ? this._appearance?.[adapter.appearanceProfile]
+                : null;
+        const surfaceAppearance =
+            scopedAppearance
+                ? {
+                    ...this._appearance,
+                    ...scopedAppearance,
+                }
+                : this._appearance;
+
         const blur = Math.max(
             0,
-            this._appearance?.blur ?? 0
+            surfaceAppearance?.blur ?? 0
         );
         const margin = Math.max(
             SAMPLE_MARGIN_MIN,
@@ -1023,11 +1051,13 @@ export class NotificationGlassManager {
             width + margin * 2,
             height + margin * 2,
         ];
+        const configuredSceneFps =
+            this._appearance?.sceneFps ?? 30;
         const sceneFps = Math.max(
             15,
             Math.min(
-                60,
-                this._appearance?.sceneFps ?? 30
+                adapter.sceneFpsCap ?? 60,
+                configuredSceneFps
             )
         );
         const nowUs = GLib.get_monotonic_time();
@@ -1065,6 +1095,7 @@ export class NotificationGlassManager {
             return;
 
         this._materials.delete(actor);
+        this._cancelTextSample(material);
 
         if (material.laterId) {
             try {
@@ -1103,6 +1134,12 @@ export class NotificationGlassManager {
         try {
             actor?.remove_style_class_name?.(
                 'velora-native-notification-glass'
+            );
+            actor?.remove_style_class_name?.(
+                TEXT_LIGHT_CLASS
+            );
+            actor?.remove_style_class_name?.(
+                TEXT_DARK_CLASS
             );
         } catch {
             // Notification may already be destroyed.
