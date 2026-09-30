@@ -1065,6 +1065,14 @@ export const LiquidEffect = GObject.registerClass({
     setShadowMaxRadius(radius) {
         this._uniforms.set('shadow_max_radius', radius);
     }
+    setShadowRadius(radius) {
+        this._uniforms.set('shadow_radius', radius);
+        this._queueRepaintIfDirty();
+    }
+    setShadowIntensity(intensity) {
+        this._uniforms.set('shadow_intensity', intensity);
+        this._queueRepaintIfDirty();
+    }
     setBlurMethod(method) { this._blur.setBlurMethod(method); }
     setBlurRadius(radius) { this._blur.setBlurRadius(radius); }
     /**
