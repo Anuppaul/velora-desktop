@@ -70,6 +70,8 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     notificationCard: PREMIUM_CARD_ROLE,
     shellCard: PREMIUM_CARD_ROLE,
     osdCard: PREMIUM_CARD_ROLE,
+    topPanel: PREMIUM_CARD_ROLE,
+    dock: PREMIUM_CARD_ROLE,
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
@@ -137,6 +139,18 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         multiRegion: false,
         inheritGlobalTint: true,
         inheritGlobalBlur: true,
+    }),
+    topPanel: Object.freeze({
+        multiRegion: false,
+        inheritGlobalTint: true,
+        inheritGlobalBlur: true,
+        cornerRadius: 0,
+    }),
+    dock: Object.freeze({
+        multiRegion: false,
+        inheritGlobalTint: true,
+        inheritGlobalBlur: true,
+        preserveNativeGeometry: true,
     }),
     osd: Object.freeze({
         multiRegion: false,
