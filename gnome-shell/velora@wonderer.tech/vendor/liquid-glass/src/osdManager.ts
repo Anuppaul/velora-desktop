@@ -89,11 +89,13 @@ export class OsdManager {
   private _adaptiveInFlight: boolean;
   private _styledActors: Map<Clutter.Actor, string>;
   private _isFirstAdaptiveRun: boolean;
+  private _materialRole: any = null;
 
-  constructor(extensionPath: string, settings: Gio.Settings, logger: Logger) {
+  constructor(extensionPath: string, settings: Gio.Settings, logger: Logger, materialRole: any = null) {
     this.extensionPath = extensionPath;
     this._settings = settings;
     this._logger = logger;
+    this._materialRole = materialRole;
 
     this._osdStates = [];
     this._settingsSignals = [];
@@ -107,6 +109,12 @@ export class OsdManager {
       enabled: true,
       samplePerElement: false,
       sampleIntervalMs: 400,
+      lightTextColor:
+        this._materialRole?.text?.light ??
+        AdaptiveContrastConfig.lightTextColor,
+      darkTextColor:
+        this._materialRole?.text?.dark ??
+        AdaptiveContrastConfig.darkTextColor,
     };
     this._adaptiveTimerId = 0;
     this._adaptiveInFlight = false;
@@ -344,6 +352,51 @@ export class OsdManager {
     return targetBox;
   }
 
+  private _applyMaterialRole(
+    effect: LiquidEffect,
+    {
+      tintColor,
+      tintStrength,
+      blurRadius,
+      cornerRadius,
+      brightness,
+      contrast,
+      saturation,
+    }: any
+  ): void {
+    const role = this._materialRole;
+
+    effect.setTintColor(...tintColor);
+    effect.setTintStrength(tintStrength);
+    effect.setBlurRadius(blurRadius);
+    effect.setCornerRadius(cornerRadius);
+    effect.setIsDock(false);
+
+    if (role) {
+      effect.setSurfaceLightEnabled?.(role.surfaceLight);
+      effect.setBlurMethod?.(role.blurMethod);
+      effect.setMultiRegionMode?.(false);
+
+      try {
+        const uniforms = (effect as any)._uniforms;
+        for (const [name, value] of Object.entries(role.optics ?? {}))
+          uniforms?.set?.(name, value);
+      } catch {
+        // Generic renderer path remains valid.
+      }
+
+      contrast = Math.max(
+        role.contrastFloor ?? 0,
+        contrast
+      );
+    }
+
+    effect.setBrightness(brightness);
+    effect.setSaturation(saturation);
+    effect.setContrast(contrast);
+    effect.queue_repaint?.();
+  }
+
   _setupOsdEffect(osdWindow) {
     const targetBox = this._findOsdTarget(osdWindow);
 
@@ -405,14 +458,15 @@ export class OsdManager {
     // LiquidEffect on liquidBox (includes built-in dual-Kawase blur)
     let effect = new LiquidEffect({ extensionPath: this.extensionPath, settings: this._settings, owner: 'osd' } as any);
     effect.setPadding(SHADER_PADDING);
-    effect.setTintColor(...this._hexToColorArray(tintColorStr));
-    effect.setTintStrength(this._baseTint);
-    effect.setCornerRadius(cornerRadius);
-    effect.setIsDock(false);
-    effect.setBrightness(brightness);
-    effect.setSaturation(saturation);
-    effect.setContrast(contrast);
-    effect.setBlurRadius(blurRadius);
+    this._applyMaterialRole(effect, {
+      tintColor: this._hexToColorArray(tintColorStr),
+      tintStrength: this._baseTint,
+      blurRadius,
+      cornerRadius,
+      brightness,
+      contrast,
+      saturation,
+    });
     liquidBox.add_effect(effect);
 
     bgActor.hide();
