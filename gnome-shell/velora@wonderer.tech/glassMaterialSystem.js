@@ -127,12 +127,10 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveSampleDelayMs: 220,
         adaptiveResampleMs: 0,
 
-        contentInset: Object.freeze({
-            topRadiusScale: 0.08,
-            sideRadiusScale: 0.05,
-            bottomRadiusScale: 0.06,
-            maxPx: 4,
-        }),
+        // LiquidEffect single-rect mode subtracts padding*2 from geometry.
+        // Geometry must therefore be expanded by this exact amount before
+        // being supplied to the shader (same contract as PopupGlass).
+        shaderPadding: 20,
         borderAlpha: 0.0,
     }),
     shellCard: Object.freeze({
