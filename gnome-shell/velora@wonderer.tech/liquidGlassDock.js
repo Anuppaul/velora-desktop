@@ -253,31 +253,11 @@ function validateVendorApi(vendor) {
 
 
 export async function loadLiquidGlassVendorModules(veloraSettings) {
-    const ensureContrastSampler = async vendor => {
-        if (vendor?.root && !vendor.StageContrastSampler) {
-            try {
-                const contrastSampler = await import(
-                    moduleUri(vendor.root, 'dist/contrastSampler.js')
-                );
-                vendor.StageContrastSampler =
-                    contrastSampler.StageContrastSampler;
-            } catch (error) {
-                // Adaptive text is an enhancement, never a reason to lose the
-                // glass renderer on an older compatible upstream install.
-                console.warn(
-                    '[Velora][LiquidGlass] adaptive contrast sampler unavailable: ' +
-                    error
-                );
-            }
-        }
-        return vendor;
-    };
-
     if (globalThis[VENDOR_CACHE_KEY])
-        return ensureContrastSampler(globalThis[VENDOR_CACHE_KEY]);
+        return globalThis[VENDOR_CACHE_KEY];
 
     if (globalThis[VENDOR_PROMISE_KEY])
-        return ensureContrastSampler(await globalThis[VENDOR_PROMISE_KEY]);
+        return globalThis[VENDOR_PROMISE_KEY];
 
     // Hot-swap compatibility: reuse the exact vendor module graph already
     // loaded by the previous V2 runtime. Re-importing the whole vendor tree
@@ -294,8 +274,6 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
             legacyCache.WindowCloneManager =
                 windowClones.WindowCloneManager;
         }
-        await ensureContrastSampler(legacyCache);
-
         globalThis[VENDOR_CACHE_KEY] = legacyCache;
         globalThis[VENDOR_ROOT_KEY] = legacyCache.root;
         return legacyCache;
@@ -333,7 +311,6 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     }
 
     const promise = importVendorModules(root)
-        .then(modules => ensureContrastSampler(modules))
         .then(modules => {
             globalThis[VENDOR_CACHE_KEY] = modules;
             return modules;
