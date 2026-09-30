@@ -856,6 +856,75 @@ export class LiquidGlassIntegration {
         };
     }
 
+    _applySharedDashMaterial(manager, surface = 'dock') {
+        const effect = manager?.effect;
+        if (!effect)
+            return;
+
+        const isTopPanel = surface === 'topPanel';
+        const role = isTopPanel
+            ? VELORA_GLASS_ROLES.topPanel
+            : VELORA_GLASS_ROLES.dock;
+        const adapter = isTopPanel
+            ? VELORA_GLASS_ADAPTERS.topPanel
+            : VELORA_GLASS_ADAPTERS.dock;
+        const state = this._readSharedCardAppearance();
+
+        let brightness = null;
+        let contrast = null;
+        let saturation = null;
+        let cornerRadius = isTopPanel
+            ? (adapter.cornerRadius ?? 0)
+            : null;
+
+        try {
+            brightness =
+                this._settings.get_double('dock-brightness');
+            contrast =
+                this._settings.get_double('dock-contrast');
+            saturation =
+                this._settings.get_double('dock-saturation');
+
+            if (!isTopPanel) {
+                cornerRadius =
+                    this._settings.get_double(
+                        'dock-corner-radius'
+                    );
+            }
+        } catch {
+            // Keep renderer defaults if an optional dock key is unavailable.
+        }
+
+        applyVeloraGlassRole(
+            effect,
+            role,
+            {
+                tintColor: [
+                    (state.r ?? 255) / 255,
+                    (state.g ?? 255) / 255,
+                    (state.b ?? 255) / 255,
+                ],
+                tintStrength:
+                    adapter.inheritGlobalTint
+                        ? (state.opacity ?? role.tintStrength)
+                        : role.tintStrength,
+                baseBlur:
+                    adapter.inheritGlobalBlur
+                        ? (state.blur ?? 7)
+                        : 7,
+                cornerRadius,
+                brightness,
+                contrast,
+                saturation,
+                multiRegion: adapter.multiRegion,
+            }
+        );
+
+        // DashManager owns geometry/capture semantics for both surfaces.
+        // Shared material application must never change that contract.
+        effect.setIsDock?.(true);
+    }
+
     _applySharedCardAppearance() {
         const state = this._readSharedCardAppearance();
 
@@ -863,6 +932,14 @@ export class LiquidGlassIntegration {
         this._shellCardGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
+        this._applySharedDashMaterial(
+            this._topPanelManager,
+            'topPanel'
+        );
+        for (const entry of this._nativeDashEntries) {
+            if (entry.manager)
+                this._applySharedDashMaterial(entry.manager, 'dock');
+        }
 
         console.log(
             '[Velora][CardAppearance] applied ' +
@@ -1157,9 +1234,10 @@ export class LiquidGlassIntegration {
         }
 
         // A full-width top bar should meet the screen edges cleanly.
+        // Material optics come from the same shared premium role as the
+        // other Velora glass surfaces; geometry remains owned by DashManager.
         manager.effect?.setCornerRadius(0);
-        manager.effect?.setSurfaceLightEnabled?.(true);
-        manager.effect?.setBlurMethod?.(1);
+        this._applySharedDashMaterial(manager, 'topPanel');
 
         // DashManager also marks its parent transparent for dock themes. For
         // Main.panel that parent is a broad Shell container, not part of the
@@ -1316,8 +1394,10 @@ export class LiquidGlassIntegration {
                     this._logger
                 );
             entry.manager.setup();
-            entry.manager.effect?.setSurfaceLightEnabled?.(true);
-            entry.manager.effect?.setBlurMethod?.(1);
+            this._applySharedDashMaterial(
+                entry.manager,
+                'dock'
+            );
             return true;
         } catch (error) {
             console.error(
