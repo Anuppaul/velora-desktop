@@ -635,6 +635,71 @@
     background-image: none;
 }
 
+
+/* Date Menu premium day beads ------------------------------------------- */
+/* Backdrop-adaptive by construction, not by GNOME theme mode:
+ * - translucent pearl fill lets the real scene influence luminance
+ * - light outer edge stays visible on dark backdrops
+ * - dark inset edge stays visible on light backdrops
+ * No extra blur/effect is created for each day, so this is effectively free. */
+.velora-liquid-popup-content.datemenu-popover .calendar-day {
+    background-color: rgba(255, 255, 255, 0.56) !important;
+    color: rgba(24, 26, 32, 0.94) !important;
+    border: 1px solid rgba(255, 255, 255, 0.46) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.13) !important;
+    transition-duration: 120ms;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar-day:focus {
+    background-color: rgba(255, 255, 255, 0.70) !important;
+    border-color: rgba(255, 255, 255, 0.62) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day:active {
+    background-color: rgba(255, 255, 255, 0.76) !important;
+    border-color: rgba(255, 255, 255, 0.68) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day:selected {
+    background-color: rgba(255, 255, 255, 0.80) !important;
+    color: rgba(18, 20, 26, 0.98) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.17) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-weekend {
+    color: rgba(32, 34, 40, 0.72) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month {
+    background-color: rgba(255, 255, 255, 0.42) !important;
+    color: rgba(34, 36, 42, 0.58) !important;
+    border-color: rgba(255, 255, 255, 0.34) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:focus {
+    background-color: rgba(255, 255, 255, 0.58) !important;
+    color: rgba(26, 28, 34, 0.78) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today {
+    background-color: -st-accent-color !important;
+    color: -st-accent-fg-color !important;
+    border-color: rgba(255, 255, 255, 0.46) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14) !important;
+}
+
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today:hover,
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today:focus {
+    border-color: rgba(255, 255, 255, 0.68) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16) !important;
+}
+
 /* Quick Settings --------------------------------------------------------- */
 .velora-liquid-popup-content.quick-settings .quick-toggle,
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu-button,
