@@ -14,7 +14,6 @@ import {
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
     resolveGlassInteractionTarget,
-    resolveShellAccentRgb,
     stepGlassInteraction,
 } from './glassMaterialSystem.js';
 
@@ -59,6 +58,7 @@ const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
 const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
 const QUICK_CARD_TEXT_LIGHT_CLASS = 'velora-quick-card-text-light';
 const QUICK_CARD_TEXT_DARK_CLASS = 'velora-quick-card-text-dark';
+const QUICK_ACTIVE_CLASS = 'velora-quick-active';
 const DATE_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
 const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
@@ -264,9 +264,9 @@ class PopupGlassSurface {
         this._dateCardActors = [];
         this._dateCardResponses = new Map();
         this._dateCardTextState = new Map();
+        this._quickSelectedState = new Map();
         this._dateInnerRegionCount = 0;
         this._dateInnerRadius = 16;
-        this._accentRgb = [1.0, 1.0, 1.0];
         this._lastDateCardScanUs = 0;
 
         this._dateScreenshot = null;
@@ -594,13 +594,6 @@ class PopupGlassSurface {
                     this._sceneManager?.rebuildClones?.();
                     this._lastSceneSyncUs = GLib.get_monotonic_time();
 
-                    if (this._isQuickSettings) {
-                        this._accentRgb =
-                            resolveShellAccentRgb(
-                                this._accentRgb
-                            );
-                    }
-
                     this._scanDateCardActors(true);
                     if (this._surfaceAdapter?.adaptiveText) {
                         this._scheduleDateTextSample(
@@ -719,6 +712,18 @@ class PopupGlassSurface {
         for (const actor of this._dateCardResponses.keys()) {
             if (!live.has(actor))
                 this._dateCardResponses.delete(actor);
+        }
+
+        for (const actor of this._quickSelectedState.keys()) {
+            if (live.has(actor))
+                continue;
+
+            try {
+                actor.remove_style_class_name?.(
+                    QUICK_ACTIVE_CLASS
+                );
+            } catch {}
+            this._quickSelectedState.delete(actor);
         }
 
         for (const actor of this._dateCardTextState.keys()) {
@@ -850,22 +855,31 @@ class PopupGlassSurface {
                     : null;
             const quickSelected =
                 Boolean(state?.selected);
-            const useDarkText =
-                this._isQuickSettings
-                    ? this._dateCardTextState.get(actor)
-                    : undefined;
-            const adaptiveMaterial =
-                quickAdapter.adaptiveMaterial;
+
+            if (this._isQuickSettings) {
+                const previousSelected =
+                    this._quickSelectedState.get(actor);
+
+                if (previousSelected !== quickSelected) {
+                    if (quickSelected) {
+                        actor.add_style_class_name?.(
+                            QUICK_ACTIVE_CLASS
+                        );
+                    } else {
+                        actor.remove_style_class_name?.(
+                            QUICK_ACTIVE_CLASS
+                        );
+                    }
+                    this._quickSelectedState.set(
+                        actor,
+                        quickSelected
+                    );
+                }
+            }
 
             const baseStrength = (() => {
-                if (this._isQuickSettings) {
-                    if (quickSelected)
-                        return quickAdapter.selectedBaseStrength;
-
-                    return useDarkText === true
-                        ? adaptiveMaterial.lightBackdropStrength
-                        : adaptiveMaterial.darkBackdropStrength;
-                }
+                if (this._isQuickSettings)
+                    return quickAdapter.neutralBaseStrength;
 
                 switch (klass) {
                 case 'calendar':
@@ -896,17 +910,10 @@ class PopupGlassSurface {
                     baseStrength + response * 0.025
                 );
 
-            const tint = (() => {
-                if (quickSelected)
-                    return this._accentRgb;
-
-                if (!this._isQuickSettings)
-                    return [1.0, 1.0, 1.0];
-
-                return useDarkText === true
-                    ? adaptiveMaterial.lightBackdropTint
-                    : adaptiveMaterial.darkBackdropTint;
-            })();
+            const tint =
+                this._isQuickSettings
+                    ? quickAdapter.neutralTint
+                    : [1.0, 1.0, 1.0];
 
             regions.push({
                 x: absX - monitorX - DATE_INNER_PAD,
@@ -1901,6 +1908,9 @@ class PopupGlassSurface {
                     actor.remove_style_class_name?.(
                         QUICK_CARD_TEXT_DARK_CLASS
                     );
+                    actor.remove_style_class_name?.(
+                        QUICK_ACTIVE_CLASS
+                    );
                 } catch {}
             }
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
@@ -1933,6 +1943,7 @@ class PopupGlassSurface {
         this._dateCardActors = [];
         this._dateCardResponses.clear();
         this._dateCardTextState.clear();
+        this._quickSelectedState.clear();
         this._dateInnerRegionCount = 0;
         this._dateScreenshot = null;
         this._menu = null;
