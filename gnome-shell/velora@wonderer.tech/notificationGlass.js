@@ -1050,8 +1050,6 @@ export class NotificationGlassManager {
             -monitorY
         );
 
-        const adapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
         const scopedAppearance =
             adapter.appearanceProfile
                 ? this._appearance?.[adapter.appearanceProfile]
