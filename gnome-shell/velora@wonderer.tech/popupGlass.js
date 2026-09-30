@@ -8,6 +8,14 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
+import {
+    GLASS_TEXT_PALETTE,
+    VELORA_GLASS_ROLES,
+    applyVeloraGlassRole,
+    resolveGlassInteractionTarget,
+    stepGlassInteraction,
+} from './glassMaterialSystem.js';
+
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
@@ -41,8 +49,8 @@ const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
 const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
 const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
 const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
-const DATE_LIGHT_TEXT = '#f7f8fc';
-const DATE_DARK_TEXT = '#17191f';
+const DATE_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
+const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
 const DATE_MIN_READABLE_CONTRAST = 4.5;
 const DATE_CARD_SAMPLE_GRID = 28;
@@ -581,7 +589,7 @@ class PopupGlassSurface {
 
     _dateCardResponse(actor, klass) {
         // Calendar itself is a material panel, not a button. Keep it stable
-        // while the genuinely interactive cards gain a subtle optical lift.
+        // while interactive cards use the shared Velora response curve.
         if (klass === 'calendar')
             return 0;
 
@@ -594,22 +602,18 @@ class PopupGlassSurface {
             hasPseudo(actor, 'hover') ||
             hasPseudo(actor, 'focus');
 
-        const target =
-            pressed ? 1.0 :
-            engaged ? 0.62 :
-            0.0;
-
+        const role = VELORA_GLASS_ROLES.innerCard;
+        const target = resolveGlassInteractionTarget(
+            {pressed, engaged},
+            role.interaction
+        );
         const previous =
             this._dateCardResponses.get(actor) ?? 0.0;
-
-        // Critically damped-feeling optical response without creating a
-        // Clutter animation/timeline per card. It runs inside the existing
-        // frame sync and stops changing uniforms once it converges.
-        let next =
-            previous + (target - previous) * 0.24;
-
-        if (Math.abs(target - next) < 0.008)
-            next = target;
+        const next = stepGlassInteraction(
+            previous,
+            target,
+            role.interaction
+        );
 
         this._dateCardResponses.set(actor, next);
         return next;
@@ -1085,46 +1089,6 @@ class PopupGlassSurface {
         }
     }
 
-    _applyDateInnerOptics() {
-        const effect = this._dateInnerEffect;
-        if (!effect)
-            return;
-
-        // Per-surface optical signature. The parent glass stays soft and
-        // spacious; the inner cards use a tighter, stronger edge lens so they
-        // read as raised glass laid on top of glass instead of pale boxes.
-        // These are buffered uniforms only — no extra actors or render passes.
-        try {
-            const uniforms = effect._uniforms;
-            uniforms?.set?.('max_z', 90.0);
-            uniforms?.set?.('displacement_scale', 31.0);
-            uniforms?.set?.('edge_smoothing', 0.82);
-            uniforms?.set?.('profile_shape_n', 3.9);
-            uniforms?.set?.('ior', 1.68);
-            uniforms?.set?.('chroma_strength', 1.4);
-            uniforms?.set?.('specular_intensity', 0.55);
-            uniforms?.set?.('shininess', 62.0);
-            uniforms?.set?.('rim_width', 2.8);
-            uniforms?.set?.('rim_intensity', 0.90);
-            uniforms?.set?.('rim_directional_power', 1.55);
-            uniforms?.set?.('rim_power', 2.3);
-            uniforms?.set?.('rim_light_color_intensity', 1.18);
-            uniforms?.set?.('sheen_intensity', 0.10);
-            uniforms?.set?.('light_angle_deg', 108.0);
-            uniforms?.set?.('ao_intensity', 0.34);
-            uniforms?.set?.('ao_radius', 1.3);
-
-            // Multi-region cards intentionally have no external drop shadow;
-            // depth comes from refraction + rim + AO, so the parent remains
-            // clean in both bright and dark backdrops.
-            uniforms?.set?.('shadow_radius', 0.0);
-            uniforms?.set?.('shadow_intensity', 0.0);
-            effect.queue_repaint?.();
-        } catch {
-            // Renderer internals are optional tuning; base glass remains valid.
-        }
-    }
-
     updateAppearance(state) {
         if (!this._effect || !state)
             return;
@@ -1150,31 +1114,37 @@ class PopupGlassSurface {
         this._effect.setBlurMethod?.(1);
 
         if (this._dateInnerEffect && this._isDateMenu) {
-            // The inner material intentionally differs from the outer card:
-            // it bends/blurs the already-glassed parent, with very little
-            // extra tint. This reads as a second physical glass layer rather
-            // than a semi-transparent rectangle.
-            this._dateInnerEffect.setTintColor?.(
-                (profile.r ?? 255) / 255,
-                (profile.g ?? 255) / 255,
-                (profile.b ?? 255) / 255
+            let brightness = null;
+            let contrast = null;
+            let saturation = null;
+
+            try {
+                brightness =
+                    this._settings.get_double('menu-brightness');
+                contrast =
+                    this._settings.get_double('menu-contrast');
+                saturation =
+                    this._settings.get_double('menu-saturation');
+            } catch {
+                // Shared role defaults still produce the approved material.
+            }
+
+            applyVeloraGlassRole(
+                this._dateInnerEffect,
+                VELORA_GLASS_ROLES.innerCard,
+                {
+                    tintColor: [
+                        (profile.r ?? 255) / 255,
+                        (profile.g ?? 255) / 255,
+                        (profile.b ?? 255) / 255,
+                    ],
+                    baseBlur: profile.blur ?? 7,
+                    cornerRadius: this._dateInnerRadius,
+                    brightness,
+                    contrast,
+                    saturation,
+                }
             );
-            this._dateInnerEffect.setTintStrength?.(0.026);
-            this._dateInnerEffect.setBlurRadius?.(
-                Math.max(
-                    4,
-                    Math.min(
-                        7,
-                        Math.round((profile.blur ?? 7) * 0.85)
-                    )
-                )
-            );
-            this._dateInnerEffect.setCornerRadius?.(
-                this._dateInnerRadius
-            );
-            this._dateInnerEffect.setBlurMethod?.(1);
-            this._dateInnerEffect.setMultiRegionMode?.(true);
-            this._applyDateInnerOptics();
         }
 
         if (this._isDateMenu) {
@@ -1223,20 +1193,7 @@ class PopupGlassSurface {
                 this._settings.get_double('menu-saturation')
             );
 
-            if (this._dateInnerEffect) {
-                this._dateInnerEffect.setBrightness?.(
-                    this._settings.get_double('menu-brightness')
-                );
-                this._dateInnerEffect.setContrast?.(
-                    Math.max(
-                        1.04,
-                        this._settings.get_double('menu-contrast')
-                    )
-                );
-                this._dateInnerEffect.setSaturation?.(
-                    this._settings.get_double('menu-saturation')
-                );
-            }
+            // Nested cards consume the same values through the shared role.
         } catch {
             // Renderer defaults remain valid.
         }
