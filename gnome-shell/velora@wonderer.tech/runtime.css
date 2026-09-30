@@ -686,7 +686,9 @@
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-title,
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-body,
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-media-control,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-list-clear-button {
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .message-list-clear-button,
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-month-header .pager-button,
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-light .calendar-month-header .pager-button StIcon {
     color: rgba(248, 249, 253, 0.96) !important;
 }
 
@@ -714,7 +716,9 @@
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-title,
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-body,
 .velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-media-control,
-.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-list-clear-button {
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .message-list-clear-button,
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-month-header .pager-button,
+.velora-liquid-popup-content.datemenu-popover.velora-date-text-dark .calendar-month-header .pager-button StIcon {
     color: rgba(23, 25, 31, 0.95) !important;
 }
 
