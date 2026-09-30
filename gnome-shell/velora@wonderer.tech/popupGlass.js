@@ -298,11 +298,21 @@ class PopupGlassSurface {
         this._effect.setBlurMethod?.(1);
 
         if (this._isDateMenu) {
-            // shadow_max_radius is only a clamp; the shader intentionally
-            // floors it to 5px. Zero the actual shadow uniforms as well.
+            // The vendored LiquidEffect module is process-cached across Velora
+            // hot swaps. Call the public setters when present, but also write
+            // the already-existing uniform buffer directly so this takes effect
+            // immediately in the current Shell session without a logout.
             this._effect.setShadowRadius?.(0);
             this._effect.setShadowIntensity?.(0);
             this._effect.setShadowMaxRadius?.(0);
+            try {
+                this._effect._uniforms?.set?.('shadow_radius', 0);
+                this._effect._uniforms?.set?.('shadow_intensity', 0);
+                this._effect._uniforms?.set?.('shadow_max_radius', 0);
+                this._effect.queue_repaint?.();
+            } catch {
+                // Public setters above remain the fresh-session path.
+            }
         }
 
         const filterOpacity = Math.max(
@@ -541,6 +551,11 @@ class PopupGlassSurface {
             this._effect?.setShadowRadius?.(0);
             this._effect?.setShadowIntensity?.(0);
             this._effect?.setShadowMaxRadius?.(0);
+            try {
+                this._effect?._uniforms?.set?.('shadow_radius', 0);
+                this._effect?._uniforms?.set?.('shadow_intensity', 0);
+                this._effect?._uniforms?.set?.('shadow_max_radius', 0);
+            } catch {}
         } else {
             this._effect?.setShadowMaxRadius?.(
                 Math.max(0, margin - 16)
