@@ -301,14 +301,22 @@ class PopupGlassSurface {
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
         );
+        const filterBorder = this._isDateMenu
+            ? 'border: none;'
+            : (
+                'border: 1px solid rgba(255,255,255,' +
+                Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+                ');'
+            );
+
         this._filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
             '); border-radius: ' +
             Math.round(this._radius) +
-            'px; border: 1px solid rgba(255,255,255,' +
-            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
-            '); box-shadow: none;'
+            'px; ' +
+            filterBorder +
+            ' box-shadow: none;'
         );
 
         try {
@@ -478,15 +486,32 @@ class PopupGlassSurface {
             this._lastScreenH = screenH;
         }
 
+        const filterX =
+            this._isDateMenu
+                ? absX - monitorX
+                : glassX;
+        const filterY =
+            this._isDateMenu
+                ? absY - monitorY
+                : glassY;
+        const filterW =
+            this._isDateMenu
+                ? width
+                : glassW;
+        const filterH =
+            this._isDateMenu
+                ? height
+                : glassH;
+
         this._vendor.setPositionIfChanged(
             this._filterLayer,
-            glassX,
-            glassY
+            filterX,
+            filterY
         );
         this._vendor.setSizeIfChanged(
             this._filterLayer,
-            glassW,
-            glassH
+            filterW,
+            filterH
         );
 
         const surfaceAppearance =
