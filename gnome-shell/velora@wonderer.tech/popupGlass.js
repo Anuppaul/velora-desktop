@@ -850,12 +850,21 @@ class PopupGlassSurface {
                     : null;
             const quickSelected =
                 Boolean(state?.selected);
+            const useDarkText =
+                this._isQuickSettings
+                    ? this._dateCardTextState.get(actor)
+                    : undefined;
+            const adaptiveMaterial =
+                quickAdapter.adaptiveMaterial;
 
             const baseStrength = (() => {
                 if (this._isQuickSettings) {
-                    return quickSelected
-                        ? quickAdapter.selectedBaseStrength
-                        : quickAdapter.idleBaseStrength;
+                    if (quickSelected)
+                        return quickAdapter.selectedBaseStrength;
+
+                    return useDarkText === true
+                        ? adaptiveMaterial.lightBackdropStrength
+                        : adaptiveMaterial.darkBackdropStrength;
                 }
 
                 switch (klass) {
@@ -887,10 +896,17 @@ class PopupGlassSurface {
                     baseStrength + response * 0.025
                 );
 
-            const tint =
-                quickSelected
-                    ? this._accentRgb
-                    : [1.0, 1.0, 1.0];
+            const tint = (() => {
+                if (quickSelected)
+                    return this._accentRgb;
+
+                if (!this._isQuickSettings)
+                    return [1.0, 1.0, 1.0];
+
+                return useDarkText === true
+                    ? adaptiveMaterial.lightBackdropTint
+                    : adaptiveMaterial.darkBackdropTint;
+            })();
 
             regions.push({
                 x: absX - monitorX - DATE_INNER_PAD,
