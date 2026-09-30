@@ -21,6 +21,7 @@ const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
 const QUICK_SHELL_CLASS = 'velora-liquid-quick-menu-shell';
+const QUICK_ROOT_CLASS = 'velora-liquid-quick-menu-root';
 const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
@@ -142,6 +143,8 @@ function quickCardState(actor) {
 
         pressed ||= hasPseudo(node, 'active');
         selected ||=
+            node?.checked === true ||
+            node?.get_checked?.() === true ||
             hasPseudo(node, 'checked') ||
             hasPseudo(node, 'selected');
         hovered ||= hasPseudo(node, 'hover');
@@ -567,6 +570,9 @@ class PopupGlassSurface {
             this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
         if (this._isQuickSettings) {
             this._boxPointer.add_style_class_name?.(QUICK_SHELL_CLASS);
+            this._menu?.actor?.add_style_class_name?.(
+                QUICK_ROOT_CLASS
+            );
             this._suppressNativeQuickBoxPointerBorder();
         }
 
@@ -679,7 +685,13 @@ class PopupGlassSurface {
                     : quickCardClass(actor, systemItem);
 
                 if (klass) {
-                    found.push({actor, klass});
+                    if (
+                        !this._isQuickSettings ||
+                        actor.visible ||
+                        actor.mapped
+                    ) {
+                        found.push({actor, klass});
+                    }
                     return;
                 }
             }
@@ -689,6 +701,17 @@ class PopupGlassSurface {
         };
 
         walk(this._box);
+
+        // GNOME QuickSettingsMenu renders expanded Wi-Fi/Bluetooth/Power
+        // menus in a sibling overlay, not inside menu.box. Scan that overlay
+        // as part of the same physical popup so collapsible cards receive the
+        // exact same nested glass material.
+        if (
+            this._isQuickSettings &&
+            this._menu?._overlay
+        ) {
+            walk(this._menu._overlay);
+        }
 
         if (this._isDateMenu) {
             found.sort((a, b) =>
@@ -799,7 +822,16 @@ class PopupGlassSurface {
 
         const role = VELORA_GLASS_ROLES.innerCard;
         const target = resolveGlassInteractionTarget(
-            {pressed, engaged, selected},
+            {
+                pressed,
+                engaged,
+                // Quick Settings active state is foreground-only. Selected
+                // must not alter tile body/material at rest.
+                selected:
+                    this._isQuickSettings
+                        ? false
+                        : selected,
+            },
             role.interaction
         );
         const previous =
@@ -1916,6 +1948,9 @@ class PopupGlassSurface {
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
             this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
             this._boxPointer?.remove_style_class_name?.(QUICK_SHELL_CLASS);
+            this._menu?.actor?.remove_style_class_name?.(
+                QUICK_ROOT_CLASS
+            );
         } catch {}
 
         // Destroy the clone layer before its source (root).
