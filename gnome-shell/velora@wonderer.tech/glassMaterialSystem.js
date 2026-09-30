@@ -56,6 +56,12 @@ const PREMIUM_CARD_ROLE = Object.freeze({
     text: GLASS_TEXT_PALETTE,
 });
 
+const CLEAN_POPUP_CHROME = Object.freeze({
+    shadow: false,
+    filterBorder: false,
+    nativeBorder: false,
+});
+
 export const VELORA_GLASS_ROLES = Object.freeze({
     // Aliases intentionally point to the SAME frozen role object.
     // One material tune therefore updates every adopted Velora card surface.
@@ -67,6 +73,9 @@ export const VELORA_GLASS_ROLES = Object.freeze({
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
+    dateMenu: Object.freeze({
+        popupChrome: CLEAN_POPUP_CHROME,
+    }),
     quickMenu: Object.freeze({
         enabled: true,
         animation: false,
@@ -85,11 +94,8 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptivePreference: 'auto',
         sampleIntervalMs: 900,
 
-        // One physical edge only: LiquidEffect owns the rim. Native/filter
-        // borders and the outer popup drop shadow must not stack on top.
-        outerShadow: false,
-        outerFilterBorder: false,
-        outerNativeBorder: false,
+        // Date Menu and Quick Menu share the same one-rim popup policy.
+        popupChrome: CLEAN_POPUP_CHROME,
         innerNativeBorder: false,
         innerNativeShadow: false,
     }),
