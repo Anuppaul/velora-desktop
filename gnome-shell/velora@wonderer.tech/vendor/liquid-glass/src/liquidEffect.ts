@@ -1537,6 +1537,7 @@ export const LiquidEffect = GObject.registerClass({
     x: number; y: number; w: number; h: number;
     tintR: number; tintG: number; tintB: number;
     baseStrength?: number;
+    response?: number;
   }[]): void {
     const clamped = regions.slice(0, LiquidEffect.MAX_GLASS_REGIONS);
 
@@ -1548,6 +1549,7 @@ export const LiquidEffect = GObject.registerClass({
     const rTintG = new Array(LiquidEffect.MAX_GLASS_REGIONS).fill(1.0);
     const rTintB = new Array(LiquidEffect.MAX_GLASS_REGIONS).fill(1.0);
     const rBaseStrength = new Array(LiquidEffect.MAX_GLASS_REGIONS).fill(0.0);
+    const rResponse = new Array(LiquidEffect.MAX_GLASS_REGIONS).fill(0.0);
 
     clamped.forEach((region, i) => {
       rx[i] = region.x;
@@ -1558,6 +1560,7 @@ export const LiquidEffect = GObject.registerClass({
       rTintG[i] = region.tintG;
       rTintB[i] = region.tintB;
       rBaseStrength[i] = Math.max(0.0, Math.min(1.0, region.baseStrength ?? 0.0));
+      rResponse[i] = Math.max(0.0, Math.min(1.0, region.response ?? 0.0));
     });
 
     // [PERF] Mirrored for GlassGeometry — see setGlassGeometry().
@@ -1572,6 +1575,7 @@ export const LiquidEffect = GObject.registerClass({
     this._uniforms.setArray('region_tint_g', rTintG);
     this._uniforms.setArray('region_tint_b', rTintB);
     this._uniforms.setArray('region_base_strength', rBaseStrength);
+    this._uniforms.setArray('region_response', rResponse);
     this._queueRepaintIfDirty();
   }
 
