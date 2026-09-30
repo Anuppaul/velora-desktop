@@ -272,6 +272,8 @@ class PopupGlassSurface {
         this._dateInnerRadius = 16;
         this._lastDateCardScanUs = 0;
         this._lastQuickOverlayOpen = false;
+        this._quickRegionDirty = true;
+        this._quickSignalEntries = [];
 
         this._dateScreenshot = null;
         this._dateTextSampleSourceId = 0;
@@ -649,26 +651,69 @@ class PopupGlassSurface {
         this._lastScreenH = 0;
     }
 
+    _clearQuickSignalEntries() {
+        for (const {obj, id} of this._quickSignalEntries) {
+            try {
+                obj?.disconnect?.(id);
+            } catch {}
+        }
+        this._quickSignalEntries = [];
+    }
+
+    _watchQuickActorTree(actor, seen = new Set()) {
+        if (
+            !this._isQuickSettings ||
+            !actor ||
+            seen.has(actor)
+        ) {
+            return;
+        }
+        seen.add(actor);
+
+        const markDirty = () => {
+            this._quickRegionDirty = true;
+            this._dateInnerRoot?.queue_redraw?.();
+        };
+
+        for (const signal of [
+            'style-changed',
+            'notify::checked',
+            'notify::hover',
+            'notify::visible',
+            'notify::mapped',
+            'notify::allocation',
+        ]) {
+            try {
+                const id = actor.connect(signal, markDirty);
+                this._quickSignalEntries.push({obj: actor, id});
+            } catch {
+                // Not every Clutter/St actor exposes every signal/property.
+            }
+        }
+
+        for (const child of actor.get_children?.() ?? [])
+            this._watchQuickActorTree(child, seen);
+    }
+
+    _rebuildQuickSignalEntries() {
+        if (!this._isQuickSettings)
+            return;
+
+        this._clearQuickSignalEntries();
+        const seen = new Set();
+        for (const actor of this._dateCardActors)
+            this._watchQuickActorTree(actor, seen);
+    }
+
     _scanDateCardActors(force = false) {
         if (
-            !this._surfaceAdapter?.adaptiveText ||
+            (!this._isDateMenu && !this._isQuickSettings) ||
             !this._box
         ) {
             return;
         }
 
         const nowUs = GLib.get_monotonic_time();
-        const quickOverlayOpen =
-            this._isQuickSettings &&
-            Boolean(this._menu?._activeMenu?.isOpen);
-
-        if (
-            this._isQuickSettings &&
-            quickOverlayOpen !== this._lastQuickOverlayOpen
-        ) {
-            this._lastQuickOverlayOpen = quickOverlayOpen;
-            force = true;
-        }
 
         if (
             !force &&
@@ -743,6 +788,9 @@ class PopupGlassSurface {
 
         this._dateCardActors =
             found.slice(0, 16).map(item => item.actor);
+
+        if (this._isQuickSettings)
+            this._rebuildQuickSignalEntries();
 
         const live = new Set(this._dateCardActors);
         for (const actor of this._dateCardResponses.keys()) {
@@ -849,11 +897,14 @@ class PopupGlassSurface {
         );
         const previous =
             this._dateCardResponses.get(actor) ?? 0.0;
-        const next = stepGlassInteraction(
-            previous,
-            target,
-            role.interaction
-        );
+        const next =
+            this._isQuickSettings
+                ? target
+                : stepGlassInteraction(
+                    previous,
+                    target,
+                    role.interaction
+                );
 
         this._dateCardResponses.set(actor, next);
         return next;
@@ -921,6 +972,9 @@ class PopupGlassSurface {
                     );
                 }
             }
+
+            if (this._isQuickSettings)
+                this._quickRegionDirty = false;
 
             const baseStrength = (() => {
                 if (this._isQuickSettings)
@@ -1908,6 +1962,7 @@ class PopupGlassSurface {
         this._destroyed = true;
 
         this._cancelDateTextSample();
+        this._clearQuickSignalEntries();
 
         try {
             this._effect?.setLiveGeometryHook?.(null);
@@ -1995,6 +2050,7 @@ class PopupGlassSurface {
         this._dateInnerRegionCount = 0;
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
+        this._quickRegionDirty = false;
         this._menu = null;
         this._box = null;
         this._boxPointer = null;
