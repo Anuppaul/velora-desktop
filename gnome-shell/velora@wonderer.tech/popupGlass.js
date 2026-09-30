@@ -298,14 +298,22 @@ class PopupGlassSurface {
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
         );
+        const filterBorder = this._isDateMenu
+            ? 'border: none;'
+            : (
+                'border: 1px solid rgba(255,255,255,' +
+                Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+                ');'
+            );
+
         this._filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
             '); border-radius: ' +
             Math.round(this._radius) +
-            'px; border: 1px solid rgba(255,255,255,' +
-            Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
-            '); box-shadow: none;'
+            'px; ' +
+            filterBorder +
+            ' box-shadow: none;'
         );
 
         try {
@@ -515,7 +523,9 @@ class PopupGlassSurface {
         );
 
         this._effect?.setShadowMaxRadius?.(
-            Math.max(0, margin - 16)
+            this._isDateMenu
+                ? 0
+                : Math.max(0, margin - 16)
         );
 
         const captureRect = [
