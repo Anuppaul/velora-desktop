@@ -986,15 +986,11 @@
 /* Interaction sheen changes polarity with the material below it instead of
  * always painting white. The LiquidEffect remains the actual card surface. */
 .velora-liquid-popup-content.quick-settings .velora-quick-card-text-light:hover,
-.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light:focus {
-    background-color: rgba(255, 255, 255, 0.045) !important;
-    border-color: rgba(255, 255, 255, 0.085) !important;
-}
-
+.velora-liquid-popup-content.quick-settings .velora-quick-card-text-light:focus,
 .velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark:hover,
 .velora-liquid-popup-content.quick-settings .velora-quick-card-text-dark:focus {
-    background-color: rgba(0, 0, 0, 0.040) !important;
-    border-color: rgba(0, 0, 0, 0.095) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
 }
 
 .velora-liquid-popup-content.quick-settings .velora-quick-card-text-light .slider {
@@ -1037,9 +1033,9 @@
 }
 
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .header .icon.active {
-    background-color: -st-accent-color;
-    color: -st-accent-fg-color;
-    border-color: rgba(255, 255, 255, 0.24);
+    background-color: transparent !important;
+    color: inherit;
+    border-color: transparent !important;
 }
 
 .velora-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:hover,
