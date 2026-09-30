@@ -58,6 +58,27 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     }),
 });
 
+export const VELORA_GLASS_ADAPTERS = Object.freeze({
+    quickMenu: Object.freeze({
+        enabled: true,
+        animation: false,
+        applyTo: 1,
+        tintColor: '#ffffff',
+        blurRadius: 6,
+        baseColorStrength: 0.085,
+        cornerRadius: 18.0,
+        glassExpand: 0,
+        xOffset: 0,
+        yOffset: 0,
+        brightness: 1.03,
+        contrast: 1.06,
+        saturation: 1.14,
+        adaptiveText: true,
+        adaptivePreference: 'auto',
+        sampleIntervalMs: 900,
+    }),
+});
+
 export function clampGlass(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
