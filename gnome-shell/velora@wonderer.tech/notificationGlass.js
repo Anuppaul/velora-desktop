@@ -209,9 +209,28 @@ export class NotificationGlassManager {
         }
 
         const radius = this._readCornerRadius(actor);
+        const originalInlineStyle =
+            actor.get_style?.() ??
+            actor.style ??
+            '';
 
         actor.add_style_class_name?.(
             'velora-native-notification-glass'
+        );
+
+        // NotificationMessage itself is the painted GNOME/Yaru card
+        // (.message + .notification-banner). Inline paint neutralization is
+        // intentional here: it outranks theme specificity without changing
+        // geometry, content, input or MessageTray animation.
+        const transparentStyle =
+            'background-color: transparent !important; ' +
+            'background-image: none !important; ' +
+            'border-color: transparent !important; ' +
+            'box-shadow: none !important;';
+        actor.set_style?.(
+            originalInlineStyle
+                ? originalInlineStyle + ' ' + transparentStyle
+                : transparentStyle
         );
 
         const bannerRoot = this._resolveBannerRoot(actor);
@@ -301,6 +320,7 @@ export class NotificationGlassManager {
             filterLayer,
             effect,
             radius,
+            originalInlineStyle,
             signals: [],
             laterId: 0,
             lastShaderX: null,
@@ -1132,6 +1152,9 @@ export class NotificationGlassManager {
         }
 
         try {
+            if (actor?.set_style)
+                actor.set_style(material.originalInlineStyle ?? '');
+
             actor?.remove_style_class_name?.(
                 'velora-native-notification-glass'
             );
