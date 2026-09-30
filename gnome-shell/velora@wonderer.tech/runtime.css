@@ -586,9 +586,10 @@
  * Inner material unification
  *
  * These selectors keep GNOME's native geometry, radii, checked state and
- * interaction. Date Menu now has a dedicated shared nested LiquidEffect for
- * its major cards; CSS only clears the old opaque paint and styles controls.
- * Quick Settings remains on the lightweight CSS material path.
+ * interaction. Date Menu and Quick Settings now use the shared Velora
+ * premium-card LiquidEffect role; CSS only clears/falls back around native
+ * paint and styles controls. Notification/Shell/OSD cards consume the same
+ * optical role through their surface adapters.
  * ---------------------------------------------------------------------- */
 
 /* Date / Calendar -------------------------------------------------------- */
