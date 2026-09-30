@@ -186,6 +186,7 @@ export class QuickSettingsManager {
     // apply the toggle's own color at all", 1 means "apply it fully".
     _toggleBaseStrength = 0.5;
     _toggleCornerRadius = 18.0;
+    _toggleResponses = new Map();
     // [FIX-6] Last successfully computed Toggles-mode region set, plus how many
     // consecutive frames we have been falling back on it. Used to ride out the
     // one-or-two frames after a structural change (submenu open/close, a toggle
@@ -1022,6 +1023,11 @@ export class QuickSettingsManager {
         // _placeToggleHost() computed; see the [FIX-6] note there.
         this.bgActor.set_position(bgPosX, bgPosY);
         const toggles = this._toggleStyles.sync(this.menu?.actor);
+        const live = new Set(toggles);
+        for (const actor of this._toggleResponses.keys()) {
+            if (!live.has(actor))
+                this._toggleResponses.delete(actor);
+        }
         this._ensurePanelContentClone(monitorX, monitorY);
         if (toggles.length === 0 && !this._canReuseLastRegions()) {
             this.bgActor.hide();
@@ -1142,6 +1148,38 @@ export class QuickSettingsManager {
         bgActor.set_scale(1.0 / accScaleX, 1.0 / accScaleY);
         return [(monitorX - hostAbsX) / accScaleX, (monitorY - hostAbsY) / accScaleY];
     }
+    _podHasPseudo(actor, name) {
+        if (actor instanceof St.Widget &&
+            actor.has_style_pseudo_class(name)) {
+            return true;
+        }
+        const children = typeof actor.get_children === 'function'
+            ? actor.get_children()
+            : [];
+        for (const child of children) {
+            if (this._podHasPseudo(child, name))
+                return true;
+        }
+        return false;
+    }
+    _toggleOpticalResponse(toggle) {
+        const pressed = this._podHasPseudo(toggle, 'active');
+        const engaged = pressed ||
+            this._podHasPseudo(toggle, 'hover') ||
+            this._podHasPseudo(toggle, 'focus');
+        const selected = this._podHasPseudo(toggle, 'checked') ||
+            this._podHasPseudo(toggle, 'selected');
+        const target = pressed ? 1.0 :
+            engaged ? 0.62 :
+                selected ? 0.18 :
+                    0.0;
+        const previous = this._toggleResponses.get(toggle) ?? 0.0;
+        let next = previous + (target - previous) * 0.24;
+        if (Math.abs(target - next) < 0.008)
+            next = target;
+        this._toggleResponses.set(toggle, next);
+        return next;
+    }
     _collectToggleRegions(toggles, monitorX, monitorY) {
         const layout = { regions: [], minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
         for (let toggle of toggles) {
@@ -1228,10 +1266,12 @@ export class QuickSettingsManager {
             // paint the pod genuinely contributes. It is a no-op wherever the
             // ancestry is opaque, i.e. for every Adwaita pod.
             let baseStrength = hasBase ? this._toggleBaseStrength * entry.baseAlpha : 0.0;
+            const response = this._toggleOpticalResponse(toggle);
             layout.regions.push({
                 x: regionX, y: regionY, w: regionW, h: regionH,
                 tintR: base[0], tintG: base[1], tintB: base[2],
                 baseStrength,
+                response,
             });
             layout.minX = Math.min(layout.minX, regionX);
             layout.minY = Math.min(layout.minY, regionY);
@@ -2083,6 +2123,7 @@ export class QuickSettingsManager {
         }
     }
     cleanup() {
+        this._toggleResponses.clear();
         this._torndown = true;
         this._teardownStep('frameSync', () => {
             this._stopFrameSync();
