@@ -96,9 +96,15 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveSampleDelayMs: 180,
         adaptiveResampleMs: 3600,
 
-        // Selected pods remain physical glass; Ubuntu/GNOME's live theme
-        // accent only tints the material and marks the edge.
-        idleBaseStrength: 0.046,
+        // Inactive/secondary pods adapt their material tone as well as text.
+        // Bright backdrop -> subtle graphite smoke; dark backdrop -> pearl.
+        // Selected state still uses the live Shell accent.
+        adaptiveMaterial: Object.freeze({
+            lightBackdropTint: Object.freeze([0.18, 0.19, 0.22]),
+            lightBackdropStrength: 0.060,
+            darkBackdropTint: Object.freeze([1.0, 1.0, 1.0]),
+            darkBackdropStrength: 0.046,
+        }),
         selectedBaseStrength: 0.072,
         accentSource: 'shell-theme',
 
