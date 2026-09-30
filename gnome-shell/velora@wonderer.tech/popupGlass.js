@@ -10,6 +10,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {
     GLASS_TEXT_PALETTE,
+    VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
     resolveGlassInteractionTarget,
@@ -19,6 +20,7 @@ import {
 const GLASS_CLASS = 'velora-liquid-popup-content';
 const SHELL_CLASS = 'velora-liquid-popup-shell';
 const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
+const QUICK_SHELL_CLASS = 'velora-liquid-quick-menu-shell';
 const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
@@ -215,12 +217,25 @@ class PopupGlassSurface {
         this._radius = DEFAULT_RADIUS;
         this._destroyed = false;
         this._openStateId = 0;
+        const popupClasses = String(
+            this._box?.get_style_class_name?.() ??
+            this._box?.style_class ??
+            ''
+        ).split(/\s+/);
+
         this._isDateMenu =
-            String(
-                this._box?.get_style_class_name?.() ??
-                this._box?.style_class ??
-                ''
-            ).split(/\s+/).includes('datemenu-popover');
+            popupClasses.includes('datemenu-popover');
+        this._isQuickSettings =
+            popupClasses.includes('quick-settings');
+
+        this._surfaceAdapter =
+            this._isDateMenu
+                ? VELORA_GLASS_ADAPTERS.dateMenu
+                : (
+                    this._isQuickSettings
+                        ? VELORA_GLASS_ADAPTERS.quickMenu
+                        : null
+                );
         this._lastSceneSyncUs = 0;
 
         this._lastShaderX = NaN;
@@ -424,6 +439,8 @@ class PopupGlassSurface {
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
         if (this._isDateMenu)
             this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
+        if (this._isQuickSettings)
+            this._boxPointer.add_style_class_name?.(QUICK_SHELL_CLASS);
 
         this._root = root;
         this._liquidBox = liquidBox;
@@ -1147,16 +1164,18 @@ class PopupGlassSurface {
             );
         }
 
-        if (this._isDateMenu) {
-            // Date Menu keeps the same glass geometry/material, but has no
-            // outer drop shadow. Write the existing uniform buffer directly
-            // so this also works during current-session hot swaps.
+        const popupChrome =
+            this._surfaceAdapter?.popupChrome ?? null;
+
+        if (popupChrome?.shadow === false) {
+            // Single-rim popup policy: LiquidEffect owns depth; no second
+            // outer drop shadow from the popup material.
             try {
                 this._effect._uniforms?.set?.('shadow_radius', 0);
                 this._effect._uniforms?.set?.('shadow_intensity', 0);
                 this._effect.queue_repaint?.();
             } catch {
-                // If the renderer internals change, leave the rest untouched.
+                // Renderer internals are optional.
             }
         }
 
@@ -1164,13 +1183,14 @@ class PopupGlassSurface {
             0,
             Math.min(0.20, profile.filterOpacity ?? 0.04)
         );
-        const filterBorder = this._isDateMenu
-            ? 'border: none;'
-            : (
-                'border: 1px solid rgba(255,255,255,' +
-                Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
-                ');'
-            );
+        const filterBorder =
+            popupChrome?.filterBorder === false
+                ? 'border: none;'
+                : (
+                    'border: 1px solid rgba(255,255,255,' +
+                    Math.min(0.12, filterOpacity + 0.025).toFixed(3) +
+                    ');'
+                );
 
         this._filterLayer?.set_style?.(
             'background-color: rgba(255,255,255,' +
@@ -1571,6 +1591,7 @@ class PopupGlassSurface {
             }
             this._boxPointer?.remove_style_class_name?.(SHELL_CLASS);
             this._boxPointer?.remove_style_class_name?.(DATE_SHELL_CLASS);
+            this._boxPointer?.remove_style_class_name?.(QUICK_SHELL_CLASS);
         } catch {}
 
         // Destroy the clone layer before its source (root).
