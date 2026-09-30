@@ -200,6 +200,46 @@
     box-shadow: none;
 }
 
+/* Top Panel controls: keep GNOME spacing/iconography untouched. Only hover,
+ * focus and active paint are softened to sit on the parent glass material. */
+.velora-liquid-top-panel .panel-button {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.velora-liquid-top-panel .panel-button:hover,
+.velora-liquid-top-panel .panel-button:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+
+.velora-liquid-top-panel .panel-button:active,
+.velora-liquid-top-panel .panel-button:checked {
+    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+/* Ubuntu Dock / Dash-to-Dock icon tiles. The dock renderer owns the real
+ * background material; icon hit-target geometry and running indicators remain
+ * native. */
+#dashtodockDashContainer.liquid-glass-transparent .overview-icon,
+.liquid-glass-transparent #dashtodockContainer .overview-icon {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+#dashtodockDashContainer.liquid-glass-transparent .dash-item-container:hover .overview-icon,
+.liquid-glass-transparent #dashtodockContainer .dash-item-container:hover .overview-icon {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+#dashtodockDashContainer.liquid-glass-transparent .dash-item-container:focus .overview-icon,
+.liquid-glass-transparent #dashtodockContainer .dash-item-container:focus .overview-icon {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
 /* Nested submenus sit inside the already-glassed parent popup. A translucent
  * tint preserves hierarchy without adding another blur pass. */
 .velora-liquid-popup-content .popup-sub-menu {
