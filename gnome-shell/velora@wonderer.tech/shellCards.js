@@ -12,6 +12,13 @@ const TARGET_CLASSES = new Set([
     'screenshot-ui-panel',
     'app-folder-dialog',
     'resize-popup',
+    'search-entry',
+    'dash-background',
+]);
+
+const OVERVIEW_ONLY_CLASSES = new Set([
+    'search-entry',
+    'dash-background',
 ]);
 
 function classesOf(actor) {
@@ -586,8 +593,19 @@ export class ShellCardGlassManager {
         }
 
         const classes = classesOf(actor);
-        if (!classes.some(name => TARGET_CLASSES.has(name)))
+        const targetClass =
+            classes.find(name => TARGET_CLASSES.has(name)) ?? null;
+        if (!targetClass)
             return;
+
+        // search-entry and dash-background are reused/related classes in other
+        // Shell surfaces. Only glassify these when they belong to GNOME's
+        // overviewGroup, so Ubuntu Dock and unrelated St actors are untouched.
+        if (OVERVIEW_ONLY_CLASSES.has(targetClass)) {
+            const overview = Main.layoutManager.overviewGroup;
+            if (!overview?.contains?.(actor))
+                return;
+        }
 
         const surface = new ShellCardSurface(this, actor);
         if (surface.attach())
