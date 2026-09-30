@@ -552,11 +552,10 @@
     border-color: rgba(255, 255, 255, 0.28);
 }
 
-/* Search provider sections intentionally stay lightweight. GNOME can create,
- * resize and destroy several of these while typing; a separate full-scene
- * LiquidEffect per provider causes capture/blur allocation churn. The single
- * glass Search Entry + translucent provider cards preserve the visual language
- * without stalling the compositor. */
+/* Search provider sections use one shared multi-region LiquidEffect.
+ * GNOME can create, resize and destroy several providers while typing, so
+ * individual per-provider effects are deliberately forbidden. This fallback
+ * veil is visible only until the shared search manager adopts the actor. */
 #overviewGroup .search-section-content {
     background-color: rgba(255, 255, 255, 0.055);
     background-image: none;
