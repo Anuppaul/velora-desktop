@@ -171,6 +171,38 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'Sheen', 'Soft surface sheen across the glass', 0, 1, 0.02, 2
         );
 
+        const dateMenu = new Adw.PreferencesGroup({
+            title: 'Date Menu calibration',
+            description:
+                'Micro-tune one reference surface first. These controls affect only the clock/calendar popup.',
+        });
+        page.add(dateMenu);
+
+        addIntSpin(
+            dateMenu, settings, 'date-menu-glass-blur',
+            'Blur', 'Date Menu blur radius only', 0, 20, 1
+        );
+        addIntSpin(
+            dateMenu, settings, 'date-menu-glass-opacity',
+            'Tint', 'Date Menu tint strength percentage only', 0, 20, 1
+        );
+        addIntSpin(
+            dateMenu, settings, 'date-menu-glass-filter-opacity',
+            'White filter', 'Date Menu neutral white veil percentage', 0, 20, 1
+        );
+
+        const performance = new Adw.PreferencesGroup({
+            title: 'Performance',
+            description:
+                'Caps expensive live scene synchronization; Shell geometry and interactions still follow the native frame clock.',
+        });
+        page.add(performance);
+
+        addIntSpin(
+            performance, settings, 'glass-live-scene-fps',
+            'Live scene FPS', '30 is the recommended balance; 60 maximizes scene freshness', 15, 60, 5
+        );
+
         const orb = new Adw.PreferencesGroup({
             title: 'Orb',
             description:
