@@ -86,13 +86,18 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         sampleIntervalMs: 900,
     }),
     notificationBanner: Object.freeze({
+        multiRegion: false,
         filterOpacityScale: 0.72,
         filterOpacityMax: 0.08,
         borderAlpha: 0.0,
     }),
     shellCard: Object.freeze({
+        multiRegion: false,
         inheritGlobalTint: true,
         inheritGlobalBlur: true,
+    }),
+    osd: Object.freeze({
+        multiRegion: false,
     }),
 
 });
