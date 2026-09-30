@@ -1139,8 +1139,14 @@ class PopupGlassSurface {
 
             const baseStrength = tintEnabled
                 ? (() => {
-                    if (this._isQuickSettings)
-                        return quickAdapter.neutralBaseStrength;
+                    if (this._isQuickSettings) {
+                        return clampNumber(
+                            (surfaceAppearance?.opacity ?? 0) *
+                                (quickAdapter.nestedTintScale ?? 2.3),
+                            0,
+                            quickAdapter.nestedTintMax ?? 0.11
+                        );
+                    }
 
                     switch (klass) {
                     case 'calendar':
@@ -1643,35 +1649,68 @@ class PopupGlassSurface {
                 }
                 : state;
 
-        this._effect.setTintColor?.(
-            (profile.r ?? 255) / 255,
-            (profile.g ?? 255) / 255,
-            (profile.b ?? 255) / 255
-        );
-        this._effect.setTintStrength?.(profile.opacity ?? 0.02);
-        this._effect.setBlurRadius?.(profile.blur ?? 7);
-        this._effect.setCornerRadius?.(this._radius);
-        this._effect.setBlurMethod?.(1);
+        let brightness = null;
+        let contrast = null;
+        let saturation = null;
+
+        try {
+            brightness =
+                this._settings.get_double('menu-brightness');
+            contrast =
+                this._settings.get_double('menu-contrast');
+            saturation =
+                this._settings.get_double('menu-saturation');
+        } catch {
+            // Shared role defaults still produce the approved material.
+        }
+
+        if (this._isQuickSettings) {
+            applyVeloraGlassRole(
+                this._effect,
+                VELORA_GLASS_ROLES.quickMenuCard,
+                {
+                    tintColor: [
+                        (profile.r ?? 255) / 255,
+                        (profile.g ?? 255) / 255,
+                        (profile.b ?? 255) / 255,
+                    ],
+                    tintStrength:
+                        profile.opacity ??
+                        VELORA_GLASS_ROLES.quickMenuCard.tintStrength,
+                    // Outer popup tracks the System Blur slider exactly;
+                    // nested pods retain the role's slightly clearer scaling.
+                    blurRadius: profile.blur ?? 7,
+                    cornerRadius: this._radius,
+                    brightness,
+                    contrast,
+                    saturation,
+                    multiRegion:
+                        this._surfaceAdapter?.multiRegion ?? false,
+                }
+            );
+        } else {
+            this._effect.setTintColor?.(
+                (profile.r ?? 255) / 255,
+                (profile.g ?? 255) / 255,
+                (profile.b ?? 255) / 255
+            );
+            this._effect.setTintStrength?.(profile.opacity ?? 0.02);
+            this._effect.setBlurRadius?.(profile.blur ?? 7);
+            this._effect.setCornerRadius?.(this._radius);
+            this._effect.setBlurMethod?.(1);
+
+            if (brightness !== null)
+                this._effect.setBrightness?.(brightness);
+            if (contrast !== null)
+                this._effect.setContrast?.(contrast);
+            if (saturation !== null)
+                this._effect.setSaturation?.(saturation);
+        }
 
         if (
             this._dateInnerEffect &&
             (this._isDateMenu || this._isQuickSettings)
         ) {
-            let brightness = null;
-            let contrast = null;
-            let saturation = null;
-
-            try {
-                brightness =
-                    this._settings.get_double('menu-brightness');
-                contrast =
-                    this._settings.get_double('menu-contrast');
-                saturation =
-                    this._settings.get_double('menu-saturation');
-            } catch {
-                // Shared role defaults still produce the approved material.
-            }
-
             applyVeloraGlassRole(
                 this._dateInnerEffect,
                 VELORA_GLASS_ROLES.innerCard,
@@ -1733,22 +1772,8 @@ class PopupGlassSurface {
             ' box-shadow: none;'
         );
 
-        try {
-            this._effect.setBrightness?.(
-                this._settings.get_double('menu-brightness')
-            );
-            this._effect.setContrast?.(
-                this._settings.get_double('menu-contrast')
-            );
-            this._effect.setSaturation?.(
-                this._settings.get_double('menu-saturation')
-            );
-
-            // Nested cards consume the same values through the shared role.
-        } catch {
-            // Renderer defaults remain valid.
-        }
-
+        // Outer + nested Quick Settings now consume the same live
+        // brightness/contrast/saturation values resolved above.
         this._root?.queue_redraw?.();
         this._dateInnerRoot?.queue_redraw?.();
     }
