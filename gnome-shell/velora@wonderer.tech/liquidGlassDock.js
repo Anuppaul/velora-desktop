@@ -2709,10 +2709,12 @@ export class LiquidGlassIntegration {
 
         // Intellihide must test the rectangle where the dock WOULD BE fully
         // visible, not its current autohide-translated allocation.
+        const verticalOffset =
+            this._readDockVerticalOffset();
         let x = absX;
         let y =
             absY -
-            this._readDockVerticalOffset();
+            verticalOffset;
         const position =
             dock._position ??
             dock.position ??
@@ -2729,13 +2731,16 @@ export class LiquidGlassIntegration {
                 width;
             break;
         case St.Side.TOP:
-            y = monitor.y;
+            y =
+                monitor.y -
+                verticalOffset;
             break;
         case St.Side.BOTTOM:
             y =
                 monitor.y +
                 monitor.height -
-                height;
+                height -
+                verticalOffset;
             break;
         default:
             return false;
