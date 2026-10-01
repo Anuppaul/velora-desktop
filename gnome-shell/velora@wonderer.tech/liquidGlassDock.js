@@ -62,6 +62,12 @@ const DOCK_PANEL_BACKGROUND_CLASS =
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 10;
+const DOCK_PANEL_PREMIUM_STYLE =
+    'background-color: rgba(255,255,255,0.085); ' +
+    'background-image: none; ' +
+    'border-color: rgba(255,255,255,0.13); ' +
+    'border-radius: 0px; ' +
+    'box-shadow: none;';
 const DOCK_MODE_SETTLE_FRAMES = 2;
 const DOCK_HANDOFF_POLL_MS = 24;
 const DOCK_HANDOFF_MAX_MS = 5000;
@@ -2457,12 +2463,157 @@ export class LiquidGlassIntegration {
         } catch {}
     }
 
+    _dockPanelPaintShouldOwn(entry) {
+        return Boolean(
+            entry?.panelPaintActive ||
+            this._dockIsPanelMode() ||
+            this._dockModeTransitionTarget === false ||
+            this._dockHandoffActive
+        );
+    }
+
+    _disconnectDockPanelBackgroundWatcher(entry) {
+        if (
+            entry?.panelBackgroundActor &&
+            entry.panelBackgroundStyleId
+        ) {
+            try {
+                entry.panelBackgroundActor.disconnect(
+                    entry.panelBackgroundStyleId
+                );
+            } catch {}
+        }
+
+        if (entry) {
+            entry.panelBackgroundStyleId = 0;
+            entry.panelBackgroundStyleGuard = false;
+        }
+    }
+
+    _setDockPanelPremiumStyle(entry, actor) {
+        if (
+            !entry ||
+            !actor ||
+            entry.panelBackgroundStyleGuard
+        ) {
+            return;
+        }
+
+        const current =
+            actor.get_style?.() ??
+            actor.style ??
+            '';
+
+        if (current === DOCK_PANEL_PREMIUM_STYLE)
+            return;
+
+        entry.panelBackgroundStyleGuard = true;
+        try {
+            actor.set_style?.(
+                DOCK_PANEL_PREMIUM_STYLE
+            );
+        } catch {}
+        finally {
+            entry.panelBackgroundStyleGuard = false;
+        }
+    }
+
+    _watchDockPanelBackground(entry) {
+        if (!entry?.container)
+            return null;
+
+        const actor =
+            this._findDockPanelBackground(
+                entry.container
+            );
+        if (!actor)
+            return null;
+
+        if (actor === entry.panelBackgroundActor)
+            return actor;
+
+        const previous =
+            entry.panelBackgroundActor;
+
+        if (previous) {
+            this._removeDockPanelBlur(previous);
+            this._disconnectDockPanelBackgroundWatcher(
+                entry
+            );
+
+            try {
+                previous.remove_style_class_name?.(
+                    DOCK_PANEL_BACKGROUND_CLASS
+                );
+            } catch {}
+        }
+
+        entry.panelBackgroundActor = actor;
+        entry.panelBackgroundOriginalStyle =
+            actor.get_style?.() ??
+            actor.style ??
+            null;
+        entry.panelBackgroundStyleId = 0;
+        entry.panelBackgroundStyleGuard = false;
+
+        try {
+            entry.panelBackgroundStyleId =
+                actor.connect(
+                    'notify::style',
+                    () => {
+                        if (
+                            !this._enabled ||
+                            entry.panelBackgroundActor !==
+                                actor ||
+                            entry.panelBackgroundStyleGuard
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            this._dockPanelPaintShouldOwn(
+                                entry
+                            )
+                        ) {
+                            // Ubuntu Dock's ThemeManager can write its Yaru
+                            // opaque style synchronously during
+                            // changed::extend-height. Re-assert our premium
+                            // paint in the SAME signal turn, before the stage
+                            // gets a chance to paint the black intermediate.
+                            this._setDockPanelPremiumStyle(
+                                entry,
+                                actor
+                            );
+                        } else {
+                            // Outside panel/handoff mode, remember the latest
+                            // native style so restoration never jumps back to
+                            // a stale panel-era theme.
+                            entry.panelBackgroundOriginalStyle =
+                                actor.get_style?.() ??
+                                actor.style ??
+                                null;
+                        }
+                    }
+                );
+        } catch {
+            entry.panelBackgroundStyleId = 0;
+        }
+
+        return actor;
+    }
+
     _applyDockPanelPaint(entry, enabled) {
         if (!entry?.container)
             return;
 
+        const actor =
+            this._watchDockPanelBackground(
+                entry
+            );
+
         if (!enabled) {
-            const actor = entry.panelBackgroundActor;
+            entry.panelPaintActive = false;
+
             if (actor) {
                 this._removeDockPanelBlur(actor);
 
@@ -2470,71 +2621,43 @@ export class LiquidGlassIntegration {
                     actor.remove_style_class_name?.(
                         DOCK_PANEL_BACKGROUND_CLASS
                     );
+                } catch {}
+
+                entry.panelBackgroundStyleGuard = true;
+                try {
                     actor.set_style?.(
                         entry.panelBackgroundOriginalStyle ?? null
                     );
                 } catch {}
-            }
+                finally {
+                    entry.panelBackgroundStyleGuard = false;
+                }
 
-            entry.panelBackgroundActor = null;
-            entry.panelBackgroundOriginalStyle = null;
-            return;
-        }
-
-        const actor =
-            this._findDockPanelBackground(
-                entry.container
-            );
-        if (!actor)
-            return;
-
-        if (actor !== entry.panelBackgroundActor) {
-            if (entry.panelBackgroundActor) {
-                this._removeDockPanelBlur(
-                    entry.panelBackgroundActor
-                );
-
+                // Ask Ubuntu Dock to resolve the CURRENT mode's native style
+                // now, instead of waiting for a later theme pass.
                 try {
-                    entry.panelBackgroundActor
-                        .remove_style_class_name?.(
-                            DOCK_PANEL_BACKGROUND_CLASS
-                        );
-                    entry.panelBackgroundActor.set_style?.(
-                        entry.panelBackgroundOriginalStyle ?? null
-                    );
+                    entry.nativeDock
+                        ?._themeManager
+                        ?.updateCustomTheme?.();
                 } catch {}
             }
 
-            entry.panelBackgroundActor = actor;
-            entry.panelBackgroundOriginalStyle =
-                actor.get_style?.() ??
-                actor.style ??
-                null;
+            return;
         }
+
+        if (!actor)
+            return;
+
+        entry.panelPaintActive = true;
 
         actor.add_style_class_name?.(
             DOCK_PANEL_BACKGROUND_CLASS
         );
         this._ensureDockPanelBlur(actor);
-
-        // Ubuntu Dock/Yaru may write an opaque background inline after theme
-        // updates. Own paint only on the real background actor; geometry stays
-        // entirely native.
-        const premiumStyle =
-            'background-color: rgba(255,255,255,0.085); ' +
-            'background-image: none; ' +
-            'border-color: rgba(255,255,255,0.13); ' +
-            'border-radius: 0px; ' +
-            'box-shadow: none;';
-
-        try {
-            if (
-                (actor.get_style?.() ?? actor.style ?? '') !==
-                premiumStyle
-            ) {
-                actor.set_style?.(premiumStyle);
-            }
-        } catch {}
+        this._setDockPanelPremiumStyle(
+            entry,
+            actor
+        );
     }
 
     _syncNativeDashEntryMode(entry) {
@@ -2545,6 +2668,7 @@ export class LiquidGlassIntegration {
             this._dockIsPanelMode();
 
         this._syncNativeDockBinding(entry);
+        this._watchDockPanelBackground(entry);
 
         if (panelMode) {
             this._setDockPanelModeClass(
@@ -2713,6 +2837,12 @@ export class LiquidGlassIntegration {
                     this._settings,
                     this._logger
                 );
+
+            // Ubuntu Dock owns position, size, centering, extend-height and
+            // hide/reveal geometry. Velora may paint it, never move it.
+            entry.manager.setPreserveNativeGeometry?.(
+                true
+            );
             entry.manager.setup();
             entry.manager.setMaterialOverride?.(
                 () => this._applySharedDashMaterial(
@@ -2765,6 +2895,9 @@ export class LiquidGlassIntegration {
                     nativeDockStateId: 0,
                     panelBackgroundActor: null,
                     panelBackgroundOriginalStyle: null,
+                    panelBackgroundStyleId: 0,
+                    panelBackgroundStyleGuard: false,
+                    panelPaintActive: false,
                 };
                 this._nativeDashEntries.push(entry);
 
@@ -2855,6 +2988,10 @@ export class LiquidGlassIntegration {
             entry.nativeDockStateId = 0;
         }
         entry.nativeDock = null;
+
+        this._disconnectDockPanelBackgroundWatcher(
+            entry
+        );
 
         this._cleanupNativeDashManager(entry);
         this._applyDockPanelPaint(
