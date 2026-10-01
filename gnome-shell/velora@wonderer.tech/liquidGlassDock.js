@@ -29,6 +29,9 @@ import {
     SharedAdaptiveTextManager,
 } from './sharedAdaptiveText.js';
 import {
+    OrbGlassManager,
+} from './orbGlass.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -395,6 +398,7 @@ export class LiquidGlassIntegration {
         this._appGridBackdropManager = null;
         this._overviewCloseGlassManager = null;
         this._sharedAdaptiveTextManager = null;
+        this._orbGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._desktopInterfaceSettings = null;
@@ -536,6 +540,17 @@ export class LiquidGlassIntegration {
             this._sharedAdaptiveTextManager.setup();
         });
 
+        start('orbGlassManager', () => {
+            this._orbGlassManager =
+                new OrbGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._orbGlassManager.setup();
+        });
+
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
@@ -565,6 +580,7 @@ export class LiquidGlassIntegration {
                 this._popupGlassManager?.updateAppearance();
                 this._shellCardGlassManager?.updateAppearance();
                 this._overviewCloseGlassManager?.updateAppearance();
+                this._orbGlassManager?.updateAppearance();
                 this._sharedAdaptiveTextManager?.refresh();
             }
         );
@@ -1169,6 +1185,7 @@ export class LiquidGlassIntegration {
         this._shellCardGlassManager?.updateAppearance(state);
         this._appGridBackdropManager?.updateAppearance(state);
         this._overviewCloseGlassManager?.updateAppearance(state);
+        this._orbGlassManager?.updateAppearance(state);
         this._sharedAdaptiveTextManager?.refresh();
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
@@ -2058,6 +2075,9 @@ export class LiquidGlassIntegration {
                 sharedAdaptiveTextManager: Boolean(
                     this._sharedAdaptiveTextManager
                 ),
+                orbGlassManager: Boolean(
+                    this._orbGlassManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -2228,6 +2248,12 @@ export class LiquidGlassIntegration {
             this._sharedAdaptiveTextManager
         );
         this._sharedAdaptiveTextManager = null;
+
+        cleanup(
+            'orbGlassManager',
+            this._orbGlassManager
+        );
+        this._orbGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
