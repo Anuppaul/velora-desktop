@@ -263,9 +263,11 @@
 #dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,
 #dashtodockDashContainer.velora-dock-panel-mode .dashtodock-box,
 #dashtodockDashContainer.velora-dock-panel-mode .dash-background {
-    background-color: rgba(18, 20, 25, 0.965) !important;
+    /* Premium non-glass panel: transparent neutral-white body.
+     * No blur/refraction — the wallpaper remains visible through the panel. */
+    background-color: rgba(255, 255, 255, 0.115) !important;
     background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.085) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
 }
@@ -279,12 +281,12 @@
 
 #dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:hover .overview-icon,
 #dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:focus .overview-icon {
-    background-color: rgba(255, 255, 255, 0.095) !important;
+    background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 #dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:active .overview-icon,
 #dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:checked .overview-icon {
-    background-color: rgba(255, 255, 255, 0.145) !important;
+    background-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 /* Ubuntu Dock / Dash-to-Dock icon tiles. The dock renderer owns the real
