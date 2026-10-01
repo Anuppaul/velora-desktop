@@ -1,76 +1,197 @@
-# Velora
+# Velora Desktop
 
-Velora is a GNOME Shell 50 Liquid Glass theme/material extension for Ubuntu.
+**Velora** is an open-source Liquid Glass material layer for **GNOME Shell 50** on Ubuntu.
 
-The floating dock and unrelated launcher-era desktop replacements are retired. The **Velora Orb keeps its full functionality**: click toggles GNOME Applications; hover opens the radial app launcher with tooltips, running indicators and live app previews.
+It keeps the desktop's native interaction model, layout, controls, menus, content, and animations intact while progressively replacing supported GNOME Shell surface backgrounds with a GPU-rendered refractive glass material.
 
-Everything else follows one rule:
+> Native GNOME/Ubuntu behavior first. Velora changes the material underneath it.
 
-> Keep GNOME/Ubuntu's existing design, layout, controls, content and animation. Replace only the supported Shell surface material with Velora Liquid Glass.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![GNOME Shell](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg)
+![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)
 
-## Current architecture
+## Highlights
 
-Velora keeps the production renderer under:
+- **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
+- **Liquid Glass surfaces** — blur, refraction, chromatic dispersion, tint, saturation, rim/specular lighting, and optical depth.
+- **Velora Orb** — draggable, multi-monitor aware radial launcher with app previews, tooltips, running indicators, and idle hide/fade behavior.
+- **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
+- **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
+- **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
+- **Performance-conscious renderer** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, and no permanent JS polling loop for popup surfaces.
+- **Open source** — released under the MIT License.
 
-    gnome-shell/velora@wonderer.tech/vendor/liquid-glass/
+## Design contract
 
-The renderer provides shared wallpaper mirroring, Gaussian/Dual-Kawase blur, downscaled blur, cache/reuse, refraction, chromatic fringe, tint/saturation and rim/specular terms.
+Velora follows a strict rule:
 
-The active runtime is intentionally small:
+1. GNOME owns layout, geometry, content, controls, hit targets, accessibility, and animation.
+2. Velora owns the supported surface material underneath that content.
+3. Existing desktop behavior should remain familiar and native.
 
-    runtime.js
-      -> orbThemeRuntime.js
-      -> liquidGlassDock.js
-           -> popupGlass.js
-           -> notificationGlass.js
-           -> vendored panel / OSD / native-dock renderer
+This makes Velora a **Shell material extension**, not a replacement desktop environment.
 
-### Popup surfaces
+## Supported environment
 
-GNOME Shell 50 popup geometry is owned by BoxPointer:
+- **GNOME Shell 50**
+- Ubuntu / GNOME installations running GNOME Shell 50
+- Extension UUID: `velora@wonderer.tech`
 
-    BoxPointer
-      -> BoxPointer.bin
-           -> menu.box (.popup-menu-content)
-
-Velora's generic PopupGlassManager patches PopupMenu.open() and replaces the St.Bin child with an in-tree overlay:
-
-    BoxPointer.bin
-      -> Velora overlay
-           -> Liquid Glass material
-           -> original menu.box
-
-The original menu content remains the top layer. GNOME continues to own positioning, scale, opacity and open/close animation. Velora only makes the original card paint transparent.
-
-This single adapter covers Date/Calendar, Quick Settings outer surfaces, panel dropdowns and other GNOME PopupMenu instances.
-
-### Notifications
-
-Notifications keep the already-proven wallpaper-only Liquid Glass pilot. Their native icon, text, actions, spacing and animation are unchanged.
-
-### Orb
-
-The Orb remains draggable, multi-monitor aware, auto-hide/auto-fade capable, and retains its radial hover launcher. Click still toggles GNOME Applications.
-
-## Scope
-
-Velora directly themes GNOME Shell/compositor-owned UI. GTK/libadwaita application interiors are a separate theming domain and require a separate GTK/libadwaita theme layer for true whole-desktop consistency.
+Velora directly targets **GNOME Shell/compositor-owned UI**. GTK/libadwaita application interiors are a separate theming domain and are not transparently restyled by a Shell extension.
 
 ## Install
 
-    git pull --ff-only origin main
-    bash gnome-shell/install.sh
+Clone the repository:
 
-The installer targets GNOME Shell 50 and uses Velora's stable-bootstrap/runtime hot-swap mechanism.
+```bash
+git clone https://github.com/Anuppaul/velora-launcher.git
+cd velora-launcher
+```
 
-See:
+Install Velora:
 
-    docs/ARCHITECTURE.md
-    gnome-shell/README.md
+```bash
+bash gnome-shell/install.sh
+```
 
+The installer uses Velora's stable-bootstrap/runtime hot-swap path. On a fresh bootstrap or schema installation, follow any unsafe-mode prompt shown by the installer.
 
-## Full refractive glass
+## Update
 
-Velora does not use CPU screenshots to fake glass. Standard popup, notification and Shell-card materials compose compositor-native GPU actors: the shared wallpaper source plus live Meta.WindowActor clones. LiquidEffect then performs blur, edge displacement/refraction, chromatic dispersion, rim/specular light, sheen, AO and tint.
+From the repository root:
 
-The visible GNOME card remains the original actor; only its material paint is replaced. Optical source headroom extends beyond the visible card so edge lensing can bend real scene pixels instead of collapsing to a flat translucent background.
+```bash
+git pull --ff-only origin main
+bash gnome-shell/install.sh
+```
+
+## Preferences
+
+Open the extension preferences with:
+
+```bash
+gnome-extensions prefs velora@wonderer.tech
+```
+
+The main Velora preferences page exposes the shared system-glass profile and Orb controls. Advanced renderer controls are provided by the vendored Liquid Glass preference pages.
+
+## Architecture
+
+The production renderer lives under:
+
+```text
+gnome-shell/velora@wonderer.tech/vendor/liquid-glass/
+```
+
+The active integration layer is intentionally small:
+
+```text
+runtime.js
+├── orbThemeRuntime.js
+└── liquidGlassDock.js
+    ├── popupGlass.js
+    ├── notificationGlass.js
+    └── vendored panel / OSD / native-dock renderer
+```
+
+### Popup surfaces
+
+GNOME Shell 50 owns popup geometry through `BoxPointer`.
+
+Velora's `PopupGlassManager` inserts its material inside the native popup hierarchy, below the original menu content. GNOME therefore continues to control positioning, scale, opacity, accessibility, and open/close animation.
+
+This shared adapter covers standard GNOME `PopupMenu` surfaces, including:
+
+- Date / Calendar
+- Quick Settings
+- panel and status menus
+- supported context/background menus
+- future standard PopupMenu instances created while Velora is active
+
+### Refractive glass renderer
+
+Velora does not use CPU screenshots to fake transparency.
+
+The renderer composes compositor-native GPU actors using the shared wallpaper source and, where required, live `Meta.WindowActor` clones. The Liquid Effect pipeline provides:
+
+- Gaussian and Dual-Kawase blur
+- downscaled blur and cache/reuse
+- edge displacement / refraction
+- chromatic dispersion
+- tint, brightness, contrast, and saturation
+- rim and specular lighting
+- sheen and ambient-occlusion terms
+- optical sampling headroom around native card bounds
+
+The visible GNOME card remains the original actor; Velora replaces only its supported material paint.
+
+## Performance principles
+
+Velora is designed to keep the visual effect practical on a live desktop:
+
+- no permanent JavaScript polling loop for PopupMenu surfaces
+- shared wallpaper source instead of CPU framebuffer readback
+- GPU-native Clutter/Mutter rendering paths
+- downscaled/cached blur where appropriate
+- property writes avoided when values have not changed
+- popup material created only when required
+- native GNOME animation remains responsible for transforms
+
+## Repository structure
+
+```text
+velora-launcher/
+├── docs/
+│   └── ARCHITECTURE.md
+├── gnome-shell/
+│   ├── install.sh
+│   ├── README.md
+│   └── velora@wonderer.tech/
+├── README.md
+└── LICENSE
+```
+
+For implementation details, see:
+
+- [Architecture documentation](docs/ARCHITECTURE.md)
+- [GNOME Shell integration notes](gnome-shell/README.md)
+
+## Development
+
+Useful GNOME Shell logs:
+
+```bash
+journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'
+```
+
+Expected popup adapter startup output includes:
+
+```text
+[Velora][PopupGlass] global PopupMenu adapter active
+```
+
+When a popup is converted, Velora logs an attached surface entry.
+
+## Contributing
+
+Contributions are welcome.
+
+If you are changing Shell integration behavior, keep the core contract intact:
+
+- preserve native GNOME/Ubuntu interaction and layout
+- avoid replacing native controls when material-only integration is possible
+- keep cleanup/disable paths safe
+- avoid unnecessary polling or expensive CPU capture paths
+- document architectural changes that affect surface ownership or rendering
+
+For substantial changes, open an issue or pull request with the GNOME Shell version, reproduction steps, and relevant Shell logs.
+
+## License
+
+Velora is free and open-source software released under the **MIT License**.
+
+See [LICENSE](LICENSE) for the full license text.
+
+---
+
+**Velora Desktop** — native GNOME behavior, refracted.
