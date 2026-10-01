@@ -253,6 +253,53 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
 
         // -----------------------------------------------------------------
+        // Search
+        // -----------------------------------------------------------------
+        const searchPage = addPage(
+            window,
+            'Search',
+            'system-search-symbolic'
+        );
+
+        const spotlight = new Adw.PreferencesGroup({
+            title: 'Spotlight Search',
+            description:
+                'Fast centered application search without opening GNOME Overview.',
+        });
+        searchPage.add(spotlight);
+
+        addSwitch(
+            spotlight,
+            settings,
+            'spotlight-enabled',
+            'Enable Spotlight Search',
+            'Super+Space opens Velora Search. GNOME’s input-source shortcut is restored automatically when this is disabled.'
+        );
+
+        const spotlightShortcut = new Adw.ActionRow({
+            title: 'Shortcut',
+            subtitle: 'Open or close Velora Search',
+        });
+        const shortcutLabel = new Gtk.ShortcutLabel({
+            accelerator: '<Super>space',
+            valign: Gtk.Align.CENTER,
+        });
+        spotlightShortcut.add_suffix(shortcutLabel);
+        spotlight.add(spotlightShortcut);
+
+        const syncSpotlightSensitivity = () => {
+            spotlightShortcut.sensitive =
+                settings.get_boolean(
+                    'spotlight-enabled'
+                );
+        };
+        syncSpotlightSensitivity();
+        settings.connect(
+            'changed::spotlight-enabled',
+            syncSpotlightSensitivity
+        );
+
+        // -----------------------------------------------------------------
         // Menus
         // -----------------------------------------------------------------
         const menusPage = addPage(

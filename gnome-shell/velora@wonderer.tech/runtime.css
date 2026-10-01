@@ -1367,3 +1367,103 @@
 .velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-subtitle {
     color: -st-accent-color !important;
 }
+
+
+/* Velora Spotlight ------------------------------------------------------- */
+
+.velora-spotlight-layer {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.velora-spotlight-card {
+    spacing: 8px;
+    padding: 10px;
+    border-radius: 24px;
+    color: #f7f8fc;
+    background-color: rgba(20, 22, 28, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 22px 70px 0 rgba(0, 0, 0, 0.42);
+}
+
+.velora-spotlight-entry {
+    min-height: 64px;
+    padding: 0 18px;
+    border-radius: 17px;
+    color: #f7f8fc;
+    caret-color: #ffffff;
+    selection-background-color: rgba(112, 168, 255, 0.42);
+    selected-color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.075);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+    font-size: 21px;
+    font-weight: 520;
+}
+
+.velora-spotlight-entry:focus {
+    background-color: rgba(255, 255, 255, 0.095);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: none;
+}
+
+.velora-spotlight-search-icon {
+    icon-size: 22px;
+    color: rgba(247, 248, 252, 0.82);
+}
+
+.velora-spotlight-results {
+    spacing: 3px;
+    padding-top: 2px;
+}
+
+.velora-spotlight-result {
+    padding: 10px 12px;
+    border-radius: 14px;
+    color: #f7f8fc;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.velora-spotlight-result:hover,
+.velora-spotlight-result:selected {
+    background-color: rgba(255, 255, 255, 0.105);
+    box-shadow: none;
+}
+
+.velora-spotlight-result-row {
+    spacing: 12px;
+}
+
+.velora-spotlight-result-icon {
+    icon-size: 34px;
+}
+
+.velora-spotlight-result-labels {
+    spacing: 2px;
+}
+
+.velora-spotlight-result-title {
+    color: #f7f8fc;
+    font-size: 14px;
+    font-weight: 650;
+}
+
+.velora-spotlight-result-subtitle {
+    color: rgba(247, 248, 252, 0.58);
+    font-size: 11px;
+    font-weight: 450;
+}
+
+.velora-spotlight-result-action {
+    color: rgba(247, 248, 252, 0.48);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.velora-spotlight-empty {
+    padding: 14px 16px 16px;
+    color: rgba(247, 248, 252, 0.55);
+    font-size: 12px;
+    text-align: center;
+}

@@ -10,6 +10,7 @@ import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js'
 
 import {collectDockApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
+import {SpotlightSearchController} from './spotlightSearch.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -118,6 +119,7 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentY = 0;
         this._dragGrab = null;
         this._liquidGlassIntegration = null;
+        this._spotlightSearch = null;
 
         this._removeStaleLayers();
         this._createLayer();
@@ -140,6 +142,19 @@ export default class VeloraRuntime extends Extension {
             }
             this._liquidGlassIntegration = null;
         }
+
+        this._spotlightSearch =
+            new SpotlightSearchController({
+                settings: this._settings,
+                appSystem: this._appSystem,
+                beforeOpen: () => {
+                    this._cancelOpenTimer();
+                    this._cancelCloseTimer();
+                    this._hideAppPreview(true);
+                    this._closeMenu(true);
+                },
+            });
+        this._spotlightSearch.setup();
 
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
@@ -168,6 +183,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._spotlightSearch?.destroy?.();
+        this._spotlightSearch = null;
         this._cleanupDockHoverPreviews();
         this._closeMenu(true);
         this._destroyClosingActors();
@@ -210,6 +227,7 @@ export default class VeloraRuntime extends Extension {
         this._closingActors.clear();
         this._closingActors = null;
         this._liquidGlassIntegration = null;
+        this._spotlightSearch = null;
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;

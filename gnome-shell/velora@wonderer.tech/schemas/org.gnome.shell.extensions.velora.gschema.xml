@@ -122,6 +122,16 @@
       <summary>Live Orb application preview size percentage</summary>
     </key>
 
+    <key name="spotlight-enabled" type="b">
+      <default>true</default>
+      <summary>Enable Velora Spotlight search</summary>
+      <description>Shows the centered Velora application search with Super+Space.</description>
+    </key>
+    <key name="spotlight-keybinding" type="as">
+      <default>['&lt;Super&gt;space']</default>
+      <summary>Velora Spotlight shortcut</summary>
+    </key>
+
     <key name="panel-menu-hover-switch" type="b">
       <default>false</default>
       <summary>Switch between open panel menus on hover</summary>
