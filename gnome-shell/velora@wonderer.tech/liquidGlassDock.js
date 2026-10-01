@@ -941,6 +941,65 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] thicker shared glass profile v6 seeded'
             );
         }
+
+        if (version < 7) {
+            // v7 pushes the accepted thicker profile one step further while
+            // leaving blur, tint, IOR, rim and shader topology unchanged.
+            // Only exact v6 seed values migrate; manual optics overrides stay.
+            const migrateThicknessV7IfSeeded = (
+                key,
+                previousValue,
+                thickerValue
+            ) => {
+                try {
+                    const current =
+                        this._settings.get_double(key);
+                    if (
+                        Math.abs(
+                            current - previousValue
+                        ) < 0.0001
+                    ) {
+                        this._settings.set_double(
+                            key,
+                            thickerValue
+                        );
+                    }
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] thickness v7 key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            migrateThicknessV7IfSeeded(
+                'glass-max-z',
+                104.0,
+                118.0
+            );
+            migrateThicknessV7IfSeeded(
+                'glass-displacement-scale',
+                36.0,
+                42.0
+            );
+
+            try {
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    7
+                );
+                version = 7;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] thickness v7 migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] extra-thick shared glass profile v7 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
