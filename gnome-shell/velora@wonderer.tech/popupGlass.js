@@ -319,7 +319,7 @@ class PopupGlassSurface {
                 : (
                     this._isQuickSettings
                         ? VELORA_GLASS_ADAPTERS.quickMenu
-                        : null
+                        : VELORA_GLASS_ADAPTERS.popupMenu
                 );
         this._lastSceneSyncUs = 0;
 
@@ -333,10 +333,7 @@ class PopupGlassSurface {
         this._lastScreenH = 0;
     }
 
-    _suppressNativeQuickBoxPointerBorder() {
-        if (!this._isQuickSettings)
-            return;
-
+    _suppressNativeBoxPointerBorder() {
         const border =
             this._boxPointer?._border ??
             null;
@@ -589,6 +586,7 @@ class PopupGlassSurface {
 
         this._box.add_style_class_name?.(GLASS_CLASS);
         this._boxPointer.add_style_class_name?.(SHELL_CLASS);
+        this._suppressNativeBoxPointerBorder();
         if (this._isDateMenu)
             this._boxPointer.add_style_class_name?.(DATE_SHELL_CLASS);
         if (this._isQuickSettings) {
@@ -596,7 +594,6 @@ class PopupGlassSurface {
             this._menu?.actor?.add_style_class_name?.(
                 QUICK_ROOT_CLASS
             );
-            this._suppressNativeQuickBoxPointerBorder();
             this._setupQuickThemeSync();
         }
 
@@ -1936,8 +1933,8 @@ class PopupGlassSurface {
             this._paintRoot ??
             this._resolvePaintRoot();
 
-        if (!shaderOnly && this._isQuickSettings)
-            this._suppressNativeQuickBoxPointerBorder();
+        if (!shaderOnly)
+            this._suppressNativeBoxPointerBorder();
 
         if (
             !shaderOnly &&
@@ -1994,14 +1991,16 @@ class PopupGlassSurface {
             monitor.height ?? global.stage.height
         );
 
-        // GNOME's menu children (notably message cards) intentionally paint
-        // shadows slightly outside menu.box. The vendored UIManager reserves
-        // shader padding for this exact reason. Expand only the material mask;
-        // native layout/position remains untouched.
-        const glassAbsX = absX - GLASS_EDGE_PAD;
-        const glassAbsY = absY - GLASS_EDGE_PAD;
-        const glassW = width + GLASS_EDGE_PAD * 2;
-        const glassH = height + GLASS_EDGE_PAD * 2;
+        // Date/Quick Settings need optical headroom for inner card shadows.
+        // Generic indicator/context PopupMenu surfaces do not: expanding them
+        // created a second-looking outer card around the native menu bounds.
+        const edgePad =
+            this._surfaceAdapter?.edgePadding ??
+            GLASS_EDGE_PAD;
+        const glassAbsX = absX - edgePad;
+        const glassAbsY = absY - edgePad;
+        const glassW = width + edgePad * 2;
+        const glassH = height + edgePad * 2;
 
         const glassX = glassAbsX - monitorX;
         const glassY = glassAbsY - monitorY;

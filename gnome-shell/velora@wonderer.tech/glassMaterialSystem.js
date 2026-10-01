@@ -79,14 +79,22 @@ export const VELORA_GLASS_ROLES = Object.freeze({
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
+    popupMenu: Object.freeze({
+        popupChrome: CLEAN_POPUP_CHROME,
+        filterUsesContentBounds: true,
+        edgePadding: 0,
+        sceneFpsCap: 24,
+    }),
     dateMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
         filterUsesContentBounds: true,
+        edgePadding: 20,
         adaptiveText: true,
         adaptiveSampleDelayMs: 220,
         adaptiveResampleMs: 2600,
     }),
     quickMenu: Object.freeze({
+        edgePadding: 20,
         // Quick Settings is a system surface: it follows the global System
         // Liquid Glass appearance. Date Menu calibration stays independent.
         useSystemAppearance: true,

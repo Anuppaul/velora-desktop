@@ -176,21 +176,24 @@
 
 /* PopupGlassManager keeps the original GNOME menu.box as the content layer.
  * Only its painted card material is removed. */
-.velora-liquid-popup-content {
-    background-color: transparent;
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
+.velora-liquid-popup-content,
+.velora-liquid-popup-content.popup-menu-content {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* BoxPointer draws its own background/border through -arrow-* theme
  * properties. Keep its geometry (border width/rise) unchanged, but make that
  * native paint transparent so only the LiquidEffect silhouette is visible. */
 .velora-liquid-popup-shell {
-    background-color: transparent;
-    background-image: none;
-    -arrow-background-color: transparent;
-    -arrow-border-color: transparent;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Date Menu micro-fix: remove only GNOME/Yaru's native inner outline.
