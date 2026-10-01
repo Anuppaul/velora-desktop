@@ -232,6 +232,11 @@ export class SharedAdaptiveTextManager {
 
         walk(Main.uiGroup);
 
+        const screenshotRoot =
+            Main.layoutManager?.screenshotUIGroup;
+        if (screenshotRoot)
+            walk(screenshotRoot);
+
         for (const [actor] of this._targets) {
             if (found.has(actor))
                 continue;
