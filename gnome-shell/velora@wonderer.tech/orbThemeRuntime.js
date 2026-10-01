@@ -27,7 +27,7 @@ const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
-const APP_PREVIEW_PADDING = 6;
+const APP_PREVIEW_PADDING = 0;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
@@ -1868,7 +1868,7 @@ export default class VeloraRuntime extends Extension {
     }
 
     _createWindowPreviewTile(window, tileWidth, tileHeight) {
-        const inset = 2;
+        const inset = 1;
         const wrapWidth = Math.max(1, tileWidth - inset * 2);
         const wrapHeight = Math.max(1, tileHeight - inset * 2);
 
