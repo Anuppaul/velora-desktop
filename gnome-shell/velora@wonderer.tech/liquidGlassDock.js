@@ -880,6 +880,67 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] live optics controls profile v5 seeded'
             );
         }
+
+        if (version < 6) {
+            // v6 increases perceived glass thickness without increasing blur,
+            // tint, IOR or renderer count. glass-max-z controls physical dome
+            // depth; glass-displacement-scale controls optical thickness /
+            // refraction magnitude. Only exact v5 seed values are migrated so
+            // manual advanced optics edits survive.
+            const migrateThicknessIfSeeded = (
+                key,
+                previousValue,
+                thickerValue
+            ) => {
+                try {
+                    const current =
+                        this._settings.get_double(key);
+                    if (
+                        Math.abs(
+                            current - previousValue
+                        ) < 0.0001
+                    ) {
+                        this._settings.set_double(
+                            key,
+                            thickerValue
+                        );
+                    }
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] thickness v6 key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            };
+
+            migrateThicknessIfSeeded(
+                'glass-max-z',
+                90.0,
+                104.0
+            );
+            migrateThicknessIfSeeded(
+                'glass-displacement-scale',
+                31.0,
+                36.0
+            );
+
+            try {
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    6
+                );
+                version = 6;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] thickness v6 migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] thicker shared glass profile v6 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
