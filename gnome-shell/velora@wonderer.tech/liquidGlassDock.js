@@ -444,6 +444,9 @@ export class LiquidGlassIntegration {
         this._topPanelSettingIds = [];
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
+        this._dashToDockFixedModeId = 0;
+        this._dockFixedSettleStageId = 0;
+        this._dockFixedSettleGeneration = 0;
         this._dockGlassBeforePanelMode = null;
         this._ubuntuDockModule = null;
         this._ubuntuDockManager = null;
@@ -1842,6 +1845,17 @@ export class LiquidGlassIntegration {
                         );
                     }
                 );
+
+            this._dashToDockFixedModeId =
+                this._dashToDockSettings.connect(
+                    'changed::dock-fixed',
+                    () => {
+                        if (!this._enabled)
+                            return;
+
+                        this._handleDockFixedModeChanged();
+                    }
+                );
         } catch (error) {
             this._dashToDockSettings = null;
             this._dashToDockPanelModeId = 0;
@@ -1868,8 +1882,237 @@ export class LiquidGlassIntegration {
             } catch {}
         }
 
+        if (
+            this._dashToDockSettings &&
+            this._dashToDockFixedModeId
+        ) {
+            try {
+                this._dashToDockSettings.disconnect(
+                    this._dashToDockFixedModeId
+                );
+            } catch {}
+        }
+
         this._dashToDockPanelModeId = 0;
+        this._dashToDockFixedModeId = 0;
+        this._cancelDockFixedSettle();
         this._dashToDockSettings = null;
+    }
+
+    _dockIsFixedMode() {
+        try {
+            return Boolean(
+                this._dashToDockSettings?.get_boolean?.(
+                    'dock-fixed'
+                )
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    _cancelDockFixedSettle() {
+        this._dockFixedSettleGeneration++;
+
+        if (this._dockFixedSettleStageId) {
+            try {
+                global.stage.disconnect(
+                    this._dockFixedSettleStageId
+                );
+            } catch {}
+            this._dockFixedSettleStageId = 0;
+        }
+
+        for (const entry of this._nativeDashEntries) {
+            entry.nativeFixedModeSettling = false;
+            entry.nativeFixedSettleKey = '';
+            entry.nativeFixedSettleFrames = 0;
+        }
+    }
+
+    _handleDockFixedModeChanged() {
+        this._cancelDockFixedSettle();
+
+        // Intelligent Autohide ON (dock-fixed=false): native lifecycle owns
+        // reveal/hide immediately; no special handoff is needed.
+        if (
+            !this._dockIsFixedMode() ||
+            this._dockIsPanelMode()
+        ) {
+            for (const entry of this._nativeDashEntries) {
+                this._syncNativeDockBinding(entry);
+                this._syncNativeDockVisualState(
+                    entry,
+                    true
+                );
+            }
+            return;
+        }
+
+        // Intelligent Autohide OFF (dock-fixed=true): Ubuntu Dock animates
+        // from its current hidden/partial allocation to the permanent shown
+        // allocation. Keep glass completely invisible until that native
+        // geometry has reached slide=1 and stayed identical for two painted
+        // frames. This prevents the short 3–4-icon-wide glass flash.
+        for (const entry of this._nativeDashEntries) {
+            entry.nativeFixedModeSettling = true;
+            entry.nativeFixedSettleKey = '';
+            entry.nativeFixedSettleFrames = 0;
+            entry.nativeDockStableW = NaN;
+            entry.nativeDockStableH = NaN;
+
+            if (
+                entry.manager?.bgActor &&
+                entry.manager.bgActor.opacity !== 0
+            ) {
+                entry.manager.bgActor.opacity = 0;
+            }
+        }
+
+        const generation =
+            this._dockFixedSettleGeneration;
+
+        this._dockFixedSettleStageId =
+            global.stage.connect(
+                'after-paint',
+                () => {
+                    if (
+                        !this._enabled ||
+                        generation !==
+                            this._dockFixedSettleGeneration
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        !this._dockIsFixedMode() ||
+                        this._dockIsPanelMode()
+                    ) {
+                        this._cancelDockFixedSettle();
+                        return;
+                    }
+
+                    let allSettled = true;
+                    let hasManagedDock = false;
+
+                    for (const entry of this._nativeDashEntries) {
+                        const manager = entry.manager;
+                        if (
+                            !manager ||
+                            !this._nativeDashIsReady(
+                                entry.container
+                            )
+                        ) {
+                            continue;
+                        }
+
+                        hasManagedDock = true;
+
+                        const slide =
+                            this._readNativeDockSlide(
+                                entry
+                            );
+                        const state =
+                            this._readNativeDockState(
+                                entry
+                            );
+                        const fullyShown =
+                            (
+                                Number.isFinite(slide) &&
+                                slide >=
+                                    1 -
+                                    NATIVE_DOCK_SLIDE_EPSILON
+                            ) ||
+                            state ===
+                                NATIVE_DOCK_STATE.SHOWN;
+
+                        if (!fullyShown) {
+                            entry.nativeFixedSettleKey = '';
+                            entry.nativeFixedSettleFrames = 0;
+                            allSettled = false;
+                            continue;
+                        }
+
+                        let bounds = null;
+                        try {
+                            bounds =
+                                manager._readDockBounds?.() ??
+                                null;
+                        } catch {}
+
+                        const valid =
+                            bounds &&
+                            Number.isFinite(bounds.baseW) &&
+                            Number.isFinite(bounds.baseH) &&
+                            bounds.baseW > 9 &&
+                            bounds.baseH > 9;
+
+                        if (!valid) {
+                            entry.nativeFixedSettleKey = '';
+                            entry.nativeFixedSettleFrames = 0;
+                            allSettled = false;
+                            continue;
+                        }
+
+                        const key = [
+                            Math.round(bounds.absX * 10) / 10,
+                            Math.round(bounds.absY * 10) / 10,
+                            Math.round(bounds.baseW * 10) / 10,
+                            Math.round(bounds.baseH * 10) / 10,
+                        ].join(':');
+
+                        if (
+                            key ===
+                            entry.nativeFixedSettleKey
+                        ) {
+                            entry.nativeFixedSettleFrames++;
+                        } else {
+                            entry.nativeFixedSettleKey = key;
+                            entry.nativeFixedSettleFrames = 1;
+                        }
+
+                        if (
+                            entry.nativeFixedSettleFrames <
+                            2
+                        ) {
+                            allSettled = false;
+                        }
+                    }
+
+                    if (!hasManagedDock || !allSettled)
+                        return;
+
+                    try {
+                        global.stage.disconnect(
+                            this._dockFixedSettleStageId
+                        );
+                    } catch {}
+                    this._dockFixedSettleStageId = 0;
+
+                    for (const entry of this._nativeDashEntries) {
+                        if (!entry.nativeFixedModeSettling)
+                            continue;
+
+                        entry.nativeFixedModeSettling = false;
+                        entry.nativeFixedSettleKey = '';
+                        entry.nativeFixedSettleFrames = 0;
+
+                        // Push the now-final native geometry into the shader
+                        // while the glass is still at opacity 0, then reveal.
+                        try {
+                            entry.manager?._syncGeometry?.();
+                        } catch {}
+
+                        this._ensureNativeDockPaintState(
+                            entry
+                        );
+                        this._syncNativeDockVisualState(
+                            entry,
+                            true
+                        );
+                    }
+                }
+            );
     }
 
     _dockIsPanelMode() {
@@ -2534,6 +2777,9 @@ export class LiquidGlassIntegration {
             return false;
 
         if (this._dockIsPanelMode())
+            return false;
+
+        if (entry.nativeFixedModeSettling)
             return false;
 
         if (
@@ -4076,6 +4322,9 @@ export class LiquidGlassIntegration {
                     nativeIntellihideRectKey: '',
                     nativeLastSlideEndpoint: null,
                     nativeDockTransition: null,
+                    nativeFixedModeSettling: false,
+                    nativeFixedSettleKey: '',
+                    nativeFixedSettleFrames: 0,
                     nativeVisibilityGate: null,
                     nativeVisibilityGateInstalled: false,
                     nativeGlassVisible: null,
@@ -4168,6 +4417,9 @@ export class LiquidGlassIntegration {
             entry
         );
         entry.nativeDock = null;
+        entry.nativeFixedModeSettling = false;
+        entry.nativeFixedSettleKey = '';
+        entry.nativeFixedSettleFrames = 0;
 
         this._disconnectDockPanelBackgroundWatcher(
             entry
