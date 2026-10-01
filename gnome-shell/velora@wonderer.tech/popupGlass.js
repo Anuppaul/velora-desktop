@@ -851,20 +851,26 @@ class PopupGlassSurface {
         this._quickSignalEntries = [];
     }
 
-    _watchQuickActorTree(actor, seen = new Set()) {
+    _watchQuickActor(actor) {
         if (
             !this._isQuickSettings ||
-            !actor ||
-            seen.has(actor)
+            !actor
         ) {
             return;
         }
-        seen.add(actor);
 
         const markDirty = () => {
+            const wasDirty =
+                this._quickRegionDirty;
+
             this._quickRegionDirty = true;
             this._fullSyncDirty = true;
-            this._dateInnerRoot?.queue_redraw?.();
+
+            // A burst of child/style notifications can arrive from one user
+            // gesture. One queued redraw is sufficient until the next sync
+            // consumes the dirty flag.
+            if (!wasDirty)
+                this._dateInnerRoot?.queue_redraw?.();
         };
 
         for (const signal of [
@@ -876,15 +882,18 @@ class PopupGlassSurface {
             'notify::allocation',
         ]) {
             try {
-                const id = actor.connect(signal, markDirty);
-                this._quickSignalEntries.push({obj: actor, id});
+                const id = actor.connect(
+                    signal,
+                    markDirty
+                );
+                this._quickSignalEntries.push({
+                    obj: actor,
+                    id,
+                });
             } catch {
-                // Not every Clutter/St actor exposes every signal/property.
+                // Not every card actor exposes every property notification.
             }
         }
-
-        for (const child of actor.get_children?.() ?? [])
-            this._watchQuickActorTree(child, seen);
     }
 
     _rebuildQuickSignalEntries() {
@@ -892,9 +901,12 @@ class PopupGlassSurface {
             return;
 
         this._clearQuickSignalEntries();
-        const seen = new Set();
+
+        // The region registry already contains the semantic Quick Settings
+        // cards we care about. Watching every descendant multiplied signal
+        // traffic during hover/animation with no extra visual information.
         for (const actor of this._dateCardActors)
-            this._watchQuickActorTree(actor, seen);
+            this._watchQuickActor(actor);
     }
 
     _scanDateCardActors(force = false) {
@@ -1682,7 +1694,7 @@ class PopupGlassSurface {
         const generation = this._dateTextGeneration;
 
         this._dateTextSampleSourceId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
+            GLib.PRIORITY_DEFAULT_IDLE,
             delayMs,
             () => {
                 this._dateTextSampleSourceId = 0;
@@ -2574,6 +2586,8 @@ export class PopupGlassManager {
         this._appearance = null;
         this._stageSyncId = 0;
         this._pendingAttachSources = new Map();
+        this._systemPopupPrewarmSourceId = 0;
+        this._systemPopupPrewarmQueue = [];
 
         this._panelMenuManager = null;
         this._originalPanelChangeMenu = null;
@@ -2680,6 +2694,7 @@ export class PopupGlassManager {
         prototype.destroy = this._patchedDestroy;
 
         this._installPanelHoverSwitchDebounce();
+        this._scheduleSystemPopupPrewarm();
 
         // Frame work is armed only while at least one managed popup is open.
         // Closed PopupMenu instances can stay alive for the whole Shell
@@ -3178,6 +3193,73 @@ export class PopupGlassManager {
         this._patchedPanelRemoveMenu = null;
     }
 
+    _cancelSystemPopupPrewarm() {
+        if (this._systemPopupPrewarmSourceId) {
+            try {
+                GLib.source_remove(
+                    this._systemPopupPrewarmSourceId
+                );
+            } catch {}
+            this._systemPopupPrewarmSourceId = 0;
+        }
+        this._systemPopupPrewarmQueue = [];
+    }
+
+    _scheduleSystemPopupPrewarm() {
+        this._cancelSystemPopupPrewarm();
+
+        const candidates = [
+            Main.panel?.statusArea?.dateMenu?.menu ?? null,
+            Main.panel?.statusArea?.quickSettings?.menu ?? null,
+        ].filter(Boolean);
+
+        this._systemPopupPrewarmQueue =
+            candidates.filter(menu =>
+                !this._surfaces.has(menu)
+            );
+
+        if (!this._systemPopupPrewarmQueue.length)
+            return;
+
+        this._systemPopupPrewarmSourceId =
+            GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT_IDLE,
+                350,
+                () => {
+                    if (!this._enabled) {
+                        this._systemPopupPrewarmSourceId = 0;
+                        this._systemPopupPrewarmQueue = [];
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    const menu =
+                        this._systemPopupPrewarmQueue.shift() ??
+                        null;
+
+                    if (
+                        menu &&
+                        !this._surfaces.has(menu)
+                    ) {
+                        try {
+                            this.attach(menu);
+                        } catch (error) {
+                            console.error(
+                                '[Velora][PopupGlass] system popup prewarm failed: ' +
+                                error
+                            );
+                        }
+                    }
+
+                    if (!this._systemPopupPrewarmQueue.length) {
+                        this._systemPopupPrewarmSourceId = 0;
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    return GLib.SOURCE_CONTINUE;
+                }
+            );
+    }
+
     _ensureStageSync() {
         if (!this._enabled || this._stageSyncId)
             return;
@@ -3412,6 +3494,7 @@ export class PopupGlassManager {
         this._enabled = false;
 
         this._stopStageSync();
+        this._cancelSystemPopupPrewarm();
         this._uninstallPanelHoverSwitchDebounce();
 
         for (const [menu, sourceId] of this._pendingAttachSources) {

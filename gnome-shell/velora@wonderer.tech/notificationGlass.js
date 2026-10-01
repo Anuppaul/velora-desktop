@@ -470,7 +470,7 @@ export class NotificationGlassManager {
 
         material.textSampleSourceId =
             GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
+                GLib.PRIORITY_DEFAULT_IDLE,
                 Math.max(0, delayMs),
                 () => {
                     material.textSampleSourceId = 0;
