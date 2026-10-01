@@ -27,7 +27,7 @@ const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
-const APP_PREVIEW_PADDING = 10;
+const APP_PREVIEW_PADDING = 6;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
@@ -1469,10 +1469,39 @@ export default class VeloraRuntime extends Extension {
             return;
         }
 
+        const item =
+            actor.get_parent?.() ?? null;
+        const label =
+            item?.label ?? null;
+
         const entry = {
             hoverId: 0,
             destroyId: 0,
+            label,
+            labelVisibleId: 0,
         };
+
+        if (label) {
+            try {
+                entry.labelVisibleId = label.connect(
+                    'notify::visible',
+                    () => {
+                        if (
+                            this._appPreviewAnchor !== actor ||
+                            !label.visible
+                        ) {
+                            return;
+                        }
+
+                        try {
+                            label.remove_all_transitions?.();
+                            label.opacity = 0;
+                            label.hide();
+                        } catch {}
+                    }
+                );
+            } catch {}
+        }
 
         try {
             entry.hoverId = actor.connect(
@@ -1501,11 +1530,6 @@ export default class VeloraRuntime extends Extension {
                             // DashItemContainer. It has showLabel(), but no
                             // hideLabel() helper, so suppress the real label
                             // actor directly after cancelling its fade-in.
-                            const item =
-                                actor.get_parent?.() ?? null;
-                            const label =
-                                item?.label ?? null;
-
                             try {
                                 label?.remove_all_transitions?.();
                                 if (label)
@@ -1513,8 +1537,6 @@ export default class VeloraRuntime extends Extension {
                                 label?.hide?.();
                             } catch {}
 
-                            // Dash label show is itself scheduled/faded; repeat
-                            // once in idle so it cannot win the same-frame race.
                             GLib.idle_add(
                                 GLib.PRIORITY_DEFAULT_IDLE,
                                 () => {
@@ -1594,6 +1616,17 @@ export default class VeloraRuntime extends Extension {
                     actor.disconnect(entry.destroyId);
             } catch {}
 
+            try {
+                if (
+                    entry.label &&
+                    entry.labelVisibleId
+                ) {
+                    entry.label.disconnect(
+                        entry.labelVisibleId
+                    );
+                }
+            } catch {}
+
             this._dockPreviewHooks.delete(actor);
         }
     }
@@ -1640,6 +1673,17 @@ export default class VeloraRuntime extends Extension {
             try {
                 if (entry.destroyId)
                     actor.disconnect(entry.destroyId);
+            } catch {}
+
+            try {
+                if (
+                    entry.label &&
+                    entry.labelVisibleId
+                ) {
+                    entry.label.disconnect(
+                        entry.labelVisibleId
+                    );
+                }
             } catch {}
         }
 
@@ -1709,8 +1753,31 @@ export default class VeloraRuntime extends Extension {
             count === 1 ? 176 :
             count === 2 ? 140 :
             120;
-        const tileWidth = Math.round(baseTileWidth * previewScale);
-        const tileHeight = Math.round(baseTileHeight * previewScale);
+
+        let tileWidth =
+            Math.round(baseTileWidth * previewScale);
+        let tileHeight =
+            Math.round(baseTileHeight * previewScale);
+
+        if (count === 1) {
+            const frame = windows[0].get_frame_rect();
+            const frameWidth = Math.max(1, frame.width);
+            const frameHeight = Math.max(1, frame.height);
+            const fitScale = Math.min(
+                tileWidth / frameWidth,
+                tileHeight / frameHeight,
+                1
+            );
+
+            tileWidth = Math.max(
+                1,
+                Math.round(frameWidth * fitScale)
+            );
+            tileHeight = Math.max(
+                1,
+                Math.round(frameHeight * fitScale)
+            );
+        }
 
         const cardWidth =
             APP_PREVIEW_PADDING * 2 +
@@ -1801,7 +1868,7 @@ export default class VeloraRuntime extends Extension {
     }
 
     _createWindowPreviewTile(window, tileWidth, tileHeight) {
-        const inset = 8;
+        const inset = 2;
         const wrapWidth = Math.max(1, tileWidth - inset * 2);
         const wrapHeight = Math.max(1, tileHeight - inset * 2);
 
