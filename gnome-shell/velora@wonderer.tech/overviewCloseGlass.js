@@ -134,6 +134,7 @@ export class OverviewCloseGlassManager {
         this._overviewSignals = [];
         this._lastScanUs = 0;
         this._lastRegionKey = '';
+        this._lastRegionGeometry = [];
         this._enabled = false;
     }
 
@@ -441,6 +442,12 @@ export class OverviewCloseGlassManager {
                         : 'velora-window-close-icon-clone'
                 );
                 clone.set_no_layout?.(true);
+                clone.remove_transition?.('position');
+                clone.remove_transition?.('size');
+                clone.remove_transition?.('scale-x');
+                clone.remove_transition?.('scale-y');
+                clone.set_pivot_point?.(0, 0);
+                clone.set_scale?.(1, 1);
                 this._iconLayer.add_child(clone);
             } catch {
                 clone = null;
@@ -1033,28 +1040,6 @@ export class OverviewCloseGlassManager {
             });
 
             if (entry.clone) {
-                entry.clone.remove_transition?.('position');
-                entry.clone.remove_transition?.('size');
-                entry.clone.remove_transition?.('scale-x');
-                entry.clone.remove_transition?.('scale-y');
-
-                const [clonePivotX, clonePivotY] =
-                    entry.clone.get_pivot_point?.() ??
-                    [NaN, NaN];
-                if (
-                    clonePivotX !== 0 ||
-                    clonePivotY !== 0
-                ) {
-                    entry.clone.set_pivot_point?.(0, 0);
-                }
-
-                if (
-                    entry.clone.scale_x !== 1 ||
-                    entry.clone.scale_y !== 1
-                ) {
-                    entry.clone.set_scale?.(1, 1);
-                }
-
                 if (entry.kind === 'icon') {
                     const visualSize = Math.min(
                         ICON_VISUAL_SIZE,
@@ -1108,17 +1093,41 @@ export class OverviewCloseGlassManager {
             return;
         }
 
-        const key = JSON.stringify(
-            regions.map(region => [
-                Math.round(region.x),
-                Math.round(region.y),
-                Math.round(region.w),
-                Math.round(region.h),
-            ])
-        );
+        let regionsChanged =
+            this._lastRegionGeometry.length !==
+            regions.length * 4;
 
-        if (key !== this._lastRegionKey) {
-            this._lastRegionKey = key;
+        if (!regionsChanged) {
+            let index = 0;
+            for (const region of regions) {
+                const x = Math.round(region.x);
+                const y = Math.round(region.y);
+                const w = Math.round(region.w);
+                const h = Math.round(region.h);
+
+                if (
+                    this._lastRegionGeometry[index++] !== x ||
+                    this._lastRegionGeometry[index++] !== y ||
+                    this._lastRegionGeometry[index++] !== w ||
+                    this._lastRegionGeometry[index++] !== h
+                ) {
+                    regionsChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (regionsChanged) {
+            const nextGeometry =
+                new Array(regions.length * 4);
+            let index = 0;
+            for (const region of regions) {
+                nextGeometry[index++] = Math.round(region.x);
+                nextGeometry[index++] = Math.round(region.y);
+                nextGeometry[index++] = Math.round(region.w);
+                nextGeometry[index++] = Math.round(region.h);
+            }
+            this._lastRegionGeometry = nextGeometry;
             this._effect.setCornerRadius?.(SHARED_RADIUS);
             this._effect.setResolution?.(
                 rootW,
@@ -1202,6 +1211,7 @@ export class OverviewCloseGlassManager {
         this._effect = null;
         this._appearance = null;
         this._lastRegionKey = '';
+        this._lastRegionGeometry = [];
 
         console.log(
             '[Velora][OverviewCloseGlass] stopped'

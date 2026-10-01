@@ -89,6 +89,7 @@ export class OverviewSearchGlassManager {
         this._lastScanUs = 0;
         this._lastSceneSyncUs = 0;
         this._lastRegionKey = '';
+        this._lastRegionGeometry = [];
         this._lastRootW = 0;
         this._lastRootH = 0;
     }
@@ -534,17 +535,41 @@ export class OverviewSearchGlassManager {
             radii.push(readRadius(actor));
         }
 
-        const regionKey = JSON.stringify(
-            regions.map(region => [
-                Math.round(region.x),
-                Math.round(region.y),
-                Math.round(region.w),
-                Math.round(region.h),
-            ])
-        );
+        let regionsChanged =
+            this._lastRegionGeometry.length !==
+            regions.length * 4;
 
-        if (regionKey !== this._lastRegionKey) {
-            this._lastRegionKey = regionKey;
+        if (!regionsChanged) {
+            let index = 0;
+            for (const region of regions) {
+                const x = Math.round(region.x);
+                const y = Math.round(region.y);
+                const w = Math.round(region.w);
+                const h = Math.round(region.h);
+
+                if (
+                    this._lastRegionGeometry[index++] !== x ||
+                    this._lastRegionGeometry[index++] !== y ||
+                    this._lastRegionGeometry[index++] !== w ||
+                    this._lastRegionGeometry[index++] !== h
+                ) {
+                    regionsChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (regionsChanged) {
+            const nextGeometry =
+                new Array(regions.length * 4);
+            let index = 0;
+            for (const region of regions) {
+                nextGeometry[index++] = Math.round(region.x);
+                nextGeometry[index++] = Math.round(region.y);
+                nextGeometry[index++] = Math.round(region.w);
+                nextGeometry[index++] = Math.round(region.h);
+            }
+            this._lastRegionGeometry = nextGeometry;
             this._effect.setGlassRegions?.(regions);
 
             const cleanRadii =
@@ -647,6 +672,7 @@ export class OverviewSearchGlassManager {
         this._overview = null;
         this._appearance = null;
         this._lastRegionKey = '';
+        this._lastRegionGeometry = [];
         this._lastSceneSyncUs = 0;
 
         console.log(

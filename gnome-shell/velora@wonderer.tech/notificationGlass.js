@@ -329,6 +329,9 @@ export class NotificationGlassManager {
             lastShaderY: null,
             lastShaderW: null,
             lastShaderH: null,
+            lastResolutionW: 0,
+            lastResolutionH: 0,
+            lastShadowMaxRadius: NaN,
             lastSceneSyncUs: 0,
             textSampleSourceId: 0,
             textGeneration: 0,
@@ -1113,13 +1116,30 @@ export class NotificationGlassManager {
             material.lastSceneSyncUs = nowUs;
         }
 
-        material.effect.setResolution?.(
-            screenW,
-            screenH
-        );
-        material.effect.setShadowMaxRadius?.(
-            Math.max(0, margin - 12)
-        );
+        if (
+            material.lastResolutionW !== screenW ||
+            material.lastResolutionH !== screenH
+        ) {
+            material.lastResolutionW = screenW;
+            material.lastResolutionH = screenH;
+            material.effect.setResolution?.(
+                screenW,
+                screenH
+            );
+        }
+
+        const shadowMaxRadius =
+            Math.max(0, margin - 12);
+        if (
+            material.lastShadowMaxRadius !==
+            shadowMaxRadius
+        ) {
+            material.lastShadowMaxRadius =
+                shadowMaxRadius;
+            material.effect.setShadowMaxRadius?.(
+                shadowMaxRadius
+            );
+        }
 
         if (material.root.opacity !== opacity)
             material.root.opacity = opacity;

@@ -463,6 +463,7 @@ export class LiquidGlassIntegration {
         this._dumpLoopId = 0;
         this._dumpSettingsId = 0;
         this._dumpKeybindingInstalled = false;
+        this._glassRingSamplerActive = false;
         this._enabled = false;
         this._externalGlobalStack = false;
         this._managerHealth = {};
@@ -4735,12 +4736,9 @@ export class LiquidGlassIntegration {
     }
 
     _setupDiagnostics() {
-        try {
-            this._vendor.startGlassRingSampler(50);
-        } catch {
-            // Diagnostics are optional.
-        }
-
+        // Production stays sampler-free. The ring sampler is useful only for
+        // explicit dump diagnostics and otherwise adds permanent background
+        // timer/work to the Shell process.
         this._dumpSettingsId = this._settings.connect(
             'changed::enable-dump-shortcut',
             () => this._syncDumpKeybinding()
@@ -4752,6 +4750,20 @@ export class LiquidGlassIntegration {
         const wanted = this._settings.get_boolean(
             'enable-dump-shortcut'
         );
+
+        if (wanted && !this._glassRingSamplerActive) {
+            try {
+                this._vendor.startGlassRingSampler(50);
+                this._glassRingSamplerActive = true;
+            } catch {
+                this._glassRingSamplerActive = false;
+            }
+        } else if (!wanted && this._glassRingSamplerActive) {
+            try {
+                this._vendor.stopGlassRingSampler();
+            } catch {}
+            this._glassRingSamplerActive = false;
+        }
 
         if (wanted && !this._dumpKeybindingInstalled) {
             Main.wm.addKeybinding(
@@ -4955,6 +4967,7 @@ export class LiquidGlassIntegration {
             } catch {
                 // Diagnostic cleanup is best-effort.
             }
+            this._glassRingSamplerActive = false;
 
             // Match upstream teardown ordering for shared compositor state.
             try {
