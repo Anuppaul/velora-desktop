@@ -122,6 +122,13 @@
       <summary>Live Orb application preview size percentage</summary>
     </key>
 
+    <key name="dock-vertical-offset" type="i">
+      <default>0</default>
+      <range min="-64" max="64"/>
+      <summary>Floating Ubuntu Dock vertical offset</summary>
+      <description>Vertical paint offset in pixels. Positive values move the floating dock upward; negative values move it downward. Panel mode ignores this setting.</description>
+    </key>
+
     <key name="glass-optics-profile-version" type="i">
       <default>0</default>
       <range min="0" max="100"/>

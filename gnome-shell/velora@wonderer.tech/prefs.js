@@ -203,6 +203,35 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'Live scene FPS', '30 is the recommended balance; 60 maximizes scene freshness', 15, 60, 5
         );
 
+        const dock = new Adw.PreferencesGroup({
+            title: 'Floating Dock',
+            description:
+                'Position tuning for Ubuntu Dock while panel mode is off. Intelligent Autohide remains native.',
+        });
+        page.add(dock);
+
+        addIntSpin(
+            dock, settings, 'dock-vertical-offset',
+            'Vertical offset',
+            'Positive moves the floating dock up; negative moves it down. Panel mode ignores this setting.',
+            -64, 64, 1
+        );
+
+        const resetDockOffset = new Adw.ActionRow({
+            title: 'Reset dock offset',
+            subtitle: 'Return the floating dock to Ubuntu Dock’s native vertical position.',
+        });
+        const resetDockOffsetButton = new Gtk.Button({
+            label: 'Reset',
+            valign: Gtk.Align.CENTER,
+        });
+        resetDockOffsetButton.connect('clicked', () => {
+            settings.reset('dock-vertical-offset');
+        });
+        resetDockOffset.add_suffix(resetDockOffsetButton);
+        resetDockOffset.activatable_widget = resetDockOffsetButton;
+        dock.add(resetDockOffset);
+
         const orb = new Adw.PreferencesGroup({
             title: 'Orb',
             description:

@@ -445,6 +445,7 @@ export class LiquidGlassIntegration {
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
         this._dashToDockFixedModeId = 0;
+        this._dockVerticalOffsetSettingId = 0;
         this._dockFixedSettleStageId = 0;
         this._dockFixedSettleGeneration = 0;
         this._dockGlassBeforePanelMode = null;
@@ -539,6 +540,7 @@ export class LiquidGlassIntegration {
         // can intentionally use a premium non-glass surface.
         await this._setupUbuntuDockBridge();
         this._setupDashToDockModeWatch();
+        this._setupDockVerticalOffsetWatch();
 
         if (this._dockIsPanelMode())
             this._syncDockGlassPreferenceForPanelMode(true);
@@ -1812,6 +1814,133 @@ export class LiquidGlassIntegration {
         this._notificationGlassManager = null;
     }
 
+    _readDockVerticalOffset() {
+        try {
+            return clampNumber(
+                this._veloraSettings.get_int(
+                    'dock-vertical-offset'
+                ),
+                -64,
+                64
+            );
+        } catch {
+            return 0;
+        }
+    }
+
+    _applyDockVerticalOffset(
+        entry,
+        slideOverride = null
+    ) {
+        const dock = entry?.nativeDock;
+        const dash = dock?.dash ?? null;
+        if (!dash)
+            return;
+
+        // Panel mode remains exact/native and deliberately ignores this
+        // floating-dock preference.
+        if (this._dockIsPanelMode()) {
+            if (dash.translation_y !== 0)
+                dash.translation_y = 0;
+            return;
+        }
+
+        const offset =
+            this._readDockVerticalOffset();
+
+        let slide =
+            Number(slideOverride);
+        if (!Number.isFinite(slide))
+            slide =
+                this._readNativeDockSlide(
+                    entry
+                );
+        if (!Number.isFinite(slide))
+            slide = 1;
+
+        slide = clampNumber(slide, 0, 1);
+
+        // Positive preference values mean "move upward". Interpolate the
+        // offset with Dash-to-Dock's own slide progress so TOP/BOTTOM docks
+        // return to their native edge while hidden instead of leaving a visible
+        // strip. The write is paint-transform only; native allocation, pressure
+        // barrier, dock size and icon layout stay untouched.
+        const translationY =
+            -offset * slide;
+
+        if (
+            Math.abs(
+                (dash.translation_y ?? 0) -
+                translationY
+            ) > 0.01
+        ) {
+            dash.translation_y =
+                translationY;
+        }
+    }
+
+    _applyAllDockVerticalOffsets() {
+        for (const entry of this._nativeDashEntries) {
+            this._applyDockVerticalOffset(
+                entry
+            );
+            this._syncNativeIntellihideTarget(
+                entry,
+                true
+            );
+        }
+    }
+
+    _setupDockVerticalOffsetWatch() {
+        if (this._dockVerticalOffsetSettingId)
+            return;
+
+        try {
+            this._dockVerticalOffsetSettingId =
+                this._veloraSettings.connect(
+                    'changed::dock-vertical-offset',
+                    () => {
+                        if (!this._enabled)
+                            return;
+
+                        this._applyAllDockVerticalOffsets();
+                    }
+                );
+        } catch {
+            this._dockVerticalOffsetSettingId = 0;
+        }
+    }
+
+    _cleanupDockVerticalOffsetWatch() {
+        if (
+            this._dockVerticalOffsetSettingId &&
+            this._veloraSettings
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._dockVerticalOffsetSettingId
+                );
+            } catch {}
+        }
+
+        this._dockVerticalOffsetSettingId = 0;
+
+        // Restore native paint transform on teardown.
+        for (const entry of this._nativeDashEntries) {
+            try {
+                const dash =
+                    entry.nativeDock?.dash ??
+                    null;
+                if (
+                    dash &&
+                    dash.translation_y !== 0
+                ) {
+                    dash.translation_y = 0;
+                }
+            } catch {}
+        }
+    }
+
     _setupDashToDockModeWatch() {
         if (this._dashToDockSettings)
             return;
@@ -2581,7 +2710,9 @@ export class LiquidGlassIntegration {
         // Intellihide must test the rectangle where the dock WOULD BE fully
         // visible, not its current autohide-translated allocation.
         let x = absX;
-        let y = absY;
+        let y =
+            absY -
+            this._readDockVerticalOffset();
         const position =
             dock._position ??
             dock.position ??
@@ -2924,6 +3055,9 @@ export class LiquidGlassIntegration {
             );
 
         if (dock === entry.nativeDock) {
+            this._applyDockVerticalOffset(
+                entry
+            );
             this._syncNativeIntellihideTarget(
                 entry
             );
@@ -2953,6 +3087,9 @@ export class LiquidGlassIntegration {
             entry.nativeBox = box;
 
             this._normalizeLegacyNativeDockState(
+                entry
+            );
+            this._applyDockVerticalOffset(
                 entry
             );
 
@@ -3043,6 +3180,15 @@ export class LiquidGlassIntegration {
                                     );
                                 if (!Number.isFinite(slide))
                                     return;
+
+                                // This is intentionally the only per-frame
+                                // Velora work on slide-x: one conditional
+                                // paint-transform write. Heavy glass/state work
+                                // below still runs at endpoints only.
+                                this._applyDockVerticalOffset(
+                                    entry,
+                                    slide
+                                );
 
                                 let endpoint = null;
                                 if (
@@ -3833,6 +3979,9 @@ export class LiquidGlassIntegration {
             this._dockIsPanelMode();
 
         this._syncNativeDockBinding(entry);
+        this._applyDockVerticalOffset(
+            entry
+        );
         this._watchDockPanelBackground(entry);
 
         if (panelMode) {
@@ -4222,6 +4371,9 @@ export class LiquidGlassIntegration {
             manager._readDockBounds?.();
         } catch {}
 
+        this._applyDockVerticalOffset(
+            entry
+        );
         this._ensureNativeDockPaintState(
             entry
         );
@@ -4792,6 +4944,7 @@ export class LiquidGlassIntegration {
 
         this._cleanupTopPanelGlass();
         this._cancelDockModeTransition();
+        this._cleanupDockVerticalOffsetWatch();
 
         for (const entry of [
             ...this._nativeDashEntries,
