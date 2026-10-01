@@ -466,7 +466,10 @@ class PopupGlassSurface {
             settings: this._settings,
             owner: 'velora-popup',
         });
-        effect.setPadding?.(20);
+        effect.setPadding?.(
+            this._surfaceAdapter?.shaderPadding ??
+            GLASS_EDGE_PAD
+        );
         effect.setIsDock?.(false);
         effect.setSurfaceLightEnabled?.(true);
         effect.setCornerRadius?.(this._radius);

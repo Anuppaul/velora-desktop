@@ -82,19 +82,27 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
     popupMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
         filterUsesContentBounds: true,
+        // LiquidEffect single-rect mode subtracts shader padding from BOTH
+        // sides of the supplied geometry. Generic PopupMenu glass uses the
+        // exact native menu bounds, so both geometry and shader padding are 0.
         edgePadding: 0,
+        shaderPadding: 0,
         sceneFpsCap: 24,
     }),
     dateMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
         filterUsesContentBounds: true,
+        // Geometry expands by the same amount that LiquidEffect subtracts,
+        // leaving the visible glass shape exactly on menu.box.
         edgePadding: 20,
+        shaderPadding: 20,
         adaptiveText: true,
         adaptiveSampleDelayMs: 220,
         adaptiveResampleMs: 2600,
     }),
     quickMenu: Object.freeze({
         edgePadding: 20,
+        shaderPadding: 20,
         // Quick Settings is a system surface: it follows the global System
         // Liquid Glass appearance. Date Menu calibration stays independent.
         useSystemAppearance: true,
