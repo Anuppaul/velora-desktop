@@ -715,6 +715,25 @@
     box-shadow: none !important;
 }
 
+/* Overview window app icon ----------------------------------------------- */
+/* The same root-level shared LiquidEffect draws a compact badge under each
+ * WindowPreview app icon. Keep the icon itself crisp and remove GNOME's stock
+ * drop shadow so the shared glass is the only background treatment. */
+#overviewGroup .window-icon.velora-window-icon-shared-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    icon-shadow: none !important;
+}
+
+#overviewGroup .window-icon.velora-window-icon-shared-glass:hover,
+#overviewGroup .window-icon.velora-window-icon-shared-glass:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    icon-shadow: none !important;
+}
+
 /* Workspace switcher strip ---------------------------------------------- */
 /* The whole GNOME workspace-thumbnails actor receives one ShellCard
  * LiquidEffect. Individual workspace previews stay native window clones;
