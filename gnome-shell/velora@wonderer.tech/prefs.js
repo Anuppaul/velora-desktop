@@ -206,7 +206,13 @@ export default class VeloraPreferences extends ExtensionPreferences {
         addSwitch(
             performance, settings, 'panel-menu-hover-switch',
             'Switch panel menus on hover',
-            'Off prevents ChatGPT, Codex, EasyEffects and other panel menus from opening while the pointer crosses their icons. When enabled, switching requires a 300 ms dwell. Click and keyboard opening are always immediate.'
+            'Off prevents ChatGPT, Codex, EasyEffects and other panel menus from opening while the pointer crosses their icons. Click and keyboard opening are always immediate.'
+        );
+        addIntSpin(
+            performance, settings, 'panel-menu-hover-delay-ms',
+            'Hover switch delay',
+            'Milliseconds the pointer must remain on another panel icon before its menu opens.',
+            0, 1000, 25
         );
 
         const dock = new Adw.PreferencesGroup({

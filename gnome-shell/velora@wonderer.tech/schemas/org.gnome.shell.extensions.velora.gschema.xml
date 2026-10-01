@@ -125,7 +125,13 @@
     <key name="panel-menu-hover-switch" type="b">
       <default>false</default>
       <summary>Switch between open panel menus on hover</summary>
-      <description>When enabled, moving the pointer onto another panel menu source switches to it after a 300 millisecond dwell. When disabled, crossing panel icons does not open their menus; click and keyboard activation remain immediate.</description>
+      <description>When enabled, moving the pointer onto another panel menu source can switch to it after the configured dwell. When disabled, crossing panel icons does not open their menus; click and keyboard activation remain immediate.</description>
+    </key>
+    <key name="panel-menu-hover-delay-ms" type="i">
+      <default>300</default>
+      <range min="0" max="1000"/>
+      <summary>Panel menu hover switch delay</summary>
+      <description>Milliseconds the pointer must continuously remain over another panel menu source before switching to it while a panel menu is already open.</description>
     </key>
 
     <key name="dock-vertical-offset" type="i">

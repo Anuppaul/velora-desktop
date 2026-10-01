@@ -31,7 +31,7 @@ const SAMPLE_MARGIN_MAX = 200;
 // using PopupAnimation.FADE. Do not build a new GPU glass stack for a menu the
 // pointer merely crosses on the way to another indicator.
 const HOVER_SWITCH_GLASS_DWELL_MS = 120;
-const PANEL_MENU_HOVER_DWELL_MS = 300;
+const DEFAULT_PANEL_MENU_HOVER_DWELL_MS = 300;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -2514,6 +2514,7 @@ export class PopupGlassManager {
         this._panelHoverSwitchSourceId = 0;
         this._panelHoverSwitchTarget = null;
         this._panelHoverSettingId = 0;
+        this._panelHoverDelaySettingId = 0;
     }
 
     setup() {
@@ -2630,6 +2631,19 @@ export class PopupGlassManager {
             // merely because the pointer crosses their icons.
             return false;
         }
+    }
+
+    _panelHoverSwitchDelayMs() {
+        try {
+            const value =
+                this._veloraSettings?.get_int?.(
+                    'panel-menu-hover-delay-ms'
+                );
+            if (Number.isFinite(value))
+                return Math.max(0, Math.min(1000, value));
+        } catch {}
+
+        return DEFAULT_PANEL_MENU_HOVER_DWELL_MS;
     }
 
     _cancelPanelHoverSwitch() {
@@ -2762,7 +2776,7 @@ export class PopupGlassManager {
         let sourceId = 0;
         sourceId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT_IDLE,
-            PANEL_MENU_HOVER_DWELL_MS,
+            this._panelHoverSwitchDelayMs(),
             () => {
                 if (
                     this._panelHoverSwitchSourceId ===
@@ -3001,6 +3015,23 @@ export class PopupGlassManager {
                 this._panelHoverSettingId = 0;
             }
         }
+
+        if (
+            this._veloraSettings &&
+            !this._panelHoverDelaySettingId
+        ) {
+            try {
+                this._panelHoverDelaySettingId =
+                    this._veloraSettings.connect(
+                        'changed::panel-menu-hover-delay-ms',
+                        () => {
+                            this._cancelPanelHoverSwitch();
+                        }
+                    );
+            } catch {
+                this._panelHoverDelaySettingId = 0;
+            }
+        }
     }
 
     _uninstallPanelHoverSwitchDebounce() {
@@ -3017,6 +3048,18 @@ export class PopupGlassManager {
             } catch {}
         }
         this._panelHoverSettingId = 0;
+
+        if (
+            this._veloraSettings &&
+            this._panelHoverDelaySettingId
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._panelHoverDelaySettingId
+                );
+            } catch {}
+        }
+        this._panelHoverDelaySettingId = 0;
 
         for (
             const menu of
