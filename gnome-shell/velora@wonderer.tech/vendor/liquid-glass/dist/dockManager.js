@@ -80,6 +80,7 @@ export class DashManager {
     _windowCloneManager = null;
     _logger;
     _materialOverride = null;
+    _visibilityGate = null;
     // コンストラクタに settings を追加
     constructor(extensionPath, targetActor, settings, logger) {
         this.extensionPath = extensionPath;
@@ -108,6 +109,32 @@ export class DashManager {
             typeof callback === 'function' ? callback : null;
         if (this.effect && this._isEffectActive)
             this._applyMaterialOverride();
+    }
+    setVisibilityGate(callback) {
+        this._visibilityGate =
+            typeof callback === 'function' ? callback : null;
+
+        if (!this.bgActor)
+            return;
+
+        let visible = true;
+        try {
+            visible =
+                this._visibilityGate
+                    ? Boolean(this._visibilityGate())
+                    : true;
+        }
+        catch {
+            visible = true;
+        }
+
+        if (!visible) {
+            this.bgActor.opacity = 0;
+            this.bgActor.hide();
+        }
+        else {
+            this.bgActor.show();
+        }
     }
     _applyMaterialOverride() {
         if (!this._materialOverride)
@@ -425,6 +452,14 @@ export class DashManager {
         const ref = this._liveRef;
         if (!ref || !this.effect)
             return;
+
+        if (this._visibilityGate) {
+            try {
+                if (!this._visibilityGate())
+                    return;
+            }
+            catch {}
+        }
         if (!ref.actor?.mapped)
             return;
         const [nx, ny] = ref.actor.get_transformed_position();
@@ -435,6 +470,24 @@ export class DashManager {
     _syncGeometry() {
         if (!this.bgActor || !this.targetActor || !this.targetActor.mapped)
             return;
+
+        if (this._visibilityGate) {
+            let visible = true;
+            try {
+                visible =
+                    Boolean(this._visibilityGate());
+            }
+            catch {
+                visible = true;
+            }
+
+            if (!visible) {
+                this.bgActor.opacity = 0;
+                this.bgActor.hide();
+                return;
+            }
+        }
+
         let bounds = this._readDockBounds();
         if (!bounds)
             return;
@@ -768,6 +821,7 @@ export class DashManager {
     }
     cleanup() {
         this._torndown = true;
+        this._visibilityGate = null;
         // Nothing for a late paint-time hook to act on. (The effect drops the
         // hook itself in its own cleanup(); this covers the window before that.)
         this._liveRef = null;
