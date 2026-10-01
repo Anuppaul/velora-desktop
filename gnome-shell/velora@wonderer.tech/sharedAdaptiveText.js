@@ -18,6 +18,7 @@ const POPUP_CLASS = 'velora-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
 
 const SCAN_INTERVAL_US = 1000000;
+const FRAME_TICK_GATE_US = 250000;
 const SURFACE_SAMPLE_INTERVAL_US = 1800000;
 const PANEL_SAMPLE_INTERVAL_US = 3200000;
 const SAMPLE_GRID = 24;
@@ -136,6 +137,7 @@ export class SharedAdaptiveTextManager {
         this._styledActors = new Map();
 
         this._stageId = 0;
+        this._lastTickUs = 0;
         this._lastScanUs = 0;
 
         this._surfaceSamplePending = false;
@@ -839,6 +841,16 @@ export class SharedAdaptiveTextManager {
         if (!this._enabled)
             return;
 
+        const nowUs = GLib.get_monotonic_time();
+        if (
+            this._lastTickUs > 0 &&
+            nowUs - this._lastTickUs <
+                FRAME_TICK_GATE_US
+        ) {
+            return;
+        }
+        this._lastTickUs = nowUs;
+
         this._scan(false);
         this._maybeSample('surface');
         this._maybeSample('panel');
@@ -849,6 +861,7 @@ export class SharedAdaptiveTextManager {
         this._panelGeneration++;
         this._surfaceSamplePending = false;
         this._panelSamplePending = false;
+        this._lastTickUs = 0;
         this._lastSurfaceSampleUs = 0;
         this._lastPanelSampleUs = 0;
         this._scan(true);
@@ -903,6 +916,7 @@ export class SharedAdaptiveTextManager {
         this._screenshot = null;
         this._surfaceSamplePending = false;
         this._panelSamplePending = false;
+        this._lastTickUs = 0;
         this._lastSurfaceSampleUs = 0;
         this._lastPanelSampleUs = 0;
 

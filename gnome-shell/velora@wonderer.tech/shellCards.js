@@ -658,7 +658,7 @@ export class ShellCardGlassManager {
                 if (!this._enabled)
                     return;
 
-                for (const [actor, surface] of [...this._surfaces]) {
+                for (const [actor, surface] of this._surfaces) {
                     if (
                         !surface?._target?.mapped ||
                         !surface?._target?.visible

@@ -336,6 +336,11 @@ class PopupGlassSurface {
         this._lastShaderY = NaN;
         this._lastShaderW = NaN;
         this._lastShaderH = NaN;
+        this._lastEffectResolutionW = 0;
+        this._lastEffectResolutionH = 0;
+        this._lastInnerResolutionW = 0;
+        this._lastInnerResolutionH = 0;
+        this._lastInnerRegions = [];
         this._lastMonitorX = NaN;
         this._lastMonitorY = NaN;
         this._lastScreenW = 0;
@@ -674,13 +679,10 @@ class PopupGlassSurface {
             this._syncShaderGeometry();
         });
 
-        dateInnerEffect?.setLiveGeometryHook?.(() => {
-            // Date Menu keeps its smooth paint-time region interpolation.
-            // Quick Settings is event/damage-driven to avoid walking a much
-            // larger actor tree on every shader paint.
-            if (!this._isQuickSettings)
-                this._syncDateInnerShaderGeometry();
-        });
+        // The outer effect's paint hook already calls _sync(true), which
+        // updates Date Menu inner regions once per compositor paint. A second
+        // live hook on dateInnerEffect duplicated the full region traversal.
+        dateInnerEffect?.setLiveGeometryHook?.(null);
 
         this.updateAppearance(this._manager._appearance);
         this._sync(false);
@@ -1263,8 +1265,66 @@ class PopupGlassSurface {
             regions.slice(0, MAX_INNER_GLASS_REGIONS);
 
         this._dateInnerRegionCount = shaderRegions.length;
-        this._dateInnerEffect.setResolution?.(screenW, screenH);
-        this._dateInnerEffect.setGlassRegions?.(shaderRegions);
+
+        if (
+            this._lastInnerResolutionW !== screenW ||
+            this._lastInnerResolutionH !== screenH
+        ) {
+            this._lastInnerResolutionW = screenW;
+            this._lastInnerResolutionH = screenH;
+            this._dateInnerEffect.setResolution?.(
+                screenW,
+                screenH
+            );
+        }
+
+        let regionsChanged =
+            this._lastInnerRegions.length !==
+            shaderRegions.length;
+
+        if (!regionsChanged) {
+            for (let i = 0; i < shaderRegions.length; i++) {
+                const next = shaderRegions[i];
+                const prev = this._lastInnerRegions[i];
+
+                if (
+                    !prev ||
+                    Math.abs(prev.x - next.x) > 0.01 ||
+                    Math.abs(prev.y - next.y) > 0.01 ||
+                    Math.abs(prev.w - next.w) > 0.01 ||
+                    Math.abs(prev.h - next.h) > 0.01 ||
+                    Math.abs(prev.tintR - next.tintR) > 0.001 ||
+                    Math.abs(prev.tintG - next.tintG) > 0.001 ||
+                    Math.abs(prev.tintB - next.tintB) > 0.001 ||
+                    Math.abs(
+                        prev.baseStrength -
+                        next.baseStrength
+                    ) > 0.001 ||
+                    Math.abs(prev.response - next.response) > 0.001
+                ) {
+                    regionsChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (regionsChanged) {
+            this._dateInnerEffect.setGlassRegions?.(
+                shaderRegions
+            );
+            this._lastInnerRegions =
+                shaderRegions.map(region => ({
+                    x: region.x,
+                    y: region.y,
+                    w: region.w,
+                    h: region.h,
+                    tintR: region.tintR,
+                    tintG: region.tintG,
+                    tintB: region.tintB,
+                    baseStrength: region.baseStrength,
+                    response: region.response,
+                }));
+        }
 
         if (this._isQuickSettings)
             this._quickRegionDirty = false;
@@ -2083,10 +2143,17 @@ class PopupGlassSurface {
             );
         }
 
-        this._effect?.setResolution?.(
-            screenW,
-            screenH
-        );
+        if (
+            this._lastEffectResolutionW !== screenW ||
+            this._lastEffectResolutionH !== screenH
+        ) {
+            this._lastEffectResolutionW = screenW;
+            this._lastEffectResolutionH = screenH;
+            this._effect?.setResolution?.(
+                screenW,
+                screenH
+            );
+        }
 
         if (this._isDateMenu) {
             this._syncDateInnerRegions(
@@ -2472,6 +2539,11 @@ class PopupGlassSurface {
         this._dateCardTextState.clear();
         this._quickSelectedState.clear();
         this._dateInnerRegionCount = 0;
+        this._lastInnerRegions = [];
+        this._lastEffectResolutionW = 0;
+        this._lastEffectResolutionH = 0;
+        this._lastInnerResolutionW = 0;
+        this._lastInnerResolutionH = 0;
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = false;
@@ -3116,7 +3188,7 @@ export class PopupGlassManager {
                 if (!this._enabled)
                     return;
 
-                for (const [menu, surface] of [...this._surfaces]) {
+                for (const [menu, surface] of this._surfaces) {
                     if (!menu?.isOpen)
                         continue;
 
