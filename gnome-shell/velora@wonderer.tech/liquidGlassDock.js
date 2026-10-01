@@ -23,6 +23,9 @@ import {
     AppGridBackdropManager,
 } from './appGridBackdrop.js';
 import {
+    OverviewCloseGlassManager,
+} from './overviewCloseGlass.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -372,6 +375,7 @@ export class LiquidGlassIntegration {
         this._popupGlassManager = null;
         this._shellCardGlassManager = null;
         this._appGridBackdropManager = null;
+        this._overviewCloseGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -492,6 +496,17 @@ export class LiquidGlassIntegration {
             this._appGridBackdropManager.setup();
         });
 
+        start('overviewCloseGlassManager', () => {
+            this._overviewCloseGlassManager =
+                new OverviewCloseGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._overviewCloseGlassManager.setup();
+        });
+
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
@@ -520,6 +535,7 @@ export class LiquidGlassIntegration {
                 this._notificationGlassManager?.updateAppearance();
                 this._popupGlassManager?.updateAppearance();
                 this._shellCardGlassManager?.updateAppearance();
+                this._overviewCloseGlassManager?.updateAppearance();
             }
         );
 
@@ -1002,6 +1018,7 @@ export class LiquidGlassIntegration {
         this._popupGlassManager?.updateAppearance(state);
         this._shellCardGlassManager?.updateAppearance(state);
         this._appGridBackdropManager?.updateAppearance(state);
+        this._overviewCloseGlassManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
         this._osdManager?.updateMaterialAppearance?.(state);
@@ -1783,6 +1800,9 @@ export class LiquidGlassIntegration {
                 appGridBackdropManager: Boolean(
                     this._appGridBackdropManager
                 ),
+                overviewCloseGlassManager: Boolean(
+                    this._overviewCloseGlassManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -1941,6 +1961,12 @@ export class LiquidGlassIntegration {
             this._appGridBackdropManager
         );
         this._appGridBackdropManager = null;
+
+        cleanup(
+            'overviewCloseGlassManager',
+            this._overviewCloseGlassManager
+        );
+        this._overviewCloseGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
