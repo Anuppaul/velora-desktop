@@ -1,3 +1,4 @@
+import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
@@ -73,6 +74,14 @@ const DOCK_PANEL_PREMIUM_STYLE =
 const DOCK_MODE_SETTLE_FRAMES = 2;
 const DOCK_HANDOFF_POLL_MS = 24;
 const DOCK_HANDOFF_MAX_MS = 5000;
+
+const NATIVE_DOCK_STATE = Object.freeze({
+    HIDDEN: 0,
+    SHOWING: 1,
+    SHOWN: 2,
+    HIDING: 3,
+});
+const NATIVE_DOCK_SLIDE_EPSILON = 0.002;
 
 const DESKTOP_INTERFACE_SCHEMA =
     'org.gnome.desktop.interface';
@@ -639,6 +648,12 @@ export class LiquidGlassIntegration {
             'monitors-changed',
             () => {
                 this._scheduleNativeDashRescan();
+                for (const entry of this._nativeDashEntries) {
+                    this._syncNativeIntellihideTarget(
+                        entry,
+                        true
+                    );
+                }
                 this._notificationGlassManager?.updateAppearance();
                 this._popupGlassManager?.updateAppearance();
                 this._shellCardGlassManager?.updateAppearance();
@@ -2028,47 +2043,357 @@ export class LiquidGlassIntegration {
         if (!entry)
             return;
 
-        if (
-            entry.nativeDock &&
-            entry.nativeDockStateId
-        ) {
+        const disconnect = (object, id) => {
+            if (!object || !id)
+                return;
             try {
-                entry.nativeDock.disconnect(
-                    entry.nativeDockStateId
-                );
+                object.disconnect(id);
             } catch {}
-        }
+        };
 
+        disconnect(
+            entry.nativeDock,
+            entry.nativeDockStateId
+        );
+        disconnect(
+            entry.nativeDock,
+            entry.nativeDockShowingId
+        );
+        disconnect(
+            entry.nativeDock,
+            entry.nativeDockHidingId
+        );
+        disconnect(
+            entry.nativeSlider,
+            entry.nativeSliderId
+        );
+        disconnect(
+            entry.nativeSlider,
+            entry.nativeSliderAllocationId
+        );
+        disconnect(
+            entry.nativeBox,
+            entry.nativeBoxAllocationId
+        );
+        disconnect(
+            Main.overview,
+            entry.nativeOverviewHiddenId
+        );
+
+        // If Velora supplied its own normalized overlap target, hand ownership
+        // back to Ubuntu Dock before dropping the binding.
         if (
             entry.nativeIntellihide &&
-            entry.nativeIntellihideId
+            entry.nativeDock
         ) {
-            try {
-                entry.nativeIntellihide.disconnect(
-                    entry.nativeIntellihideId
-                );
-            } catch {}
-        }
-
-        if (
-            entry.nativeSlider &&
-            entry.nativeSliderId
-        ) {
-            try {
-                entry.nativeSlider.disconnect(
-                    entry.nativeSliderId
-                );
-            } catch {}
+            const nativeBox =
+                entry.nativeDock._staticBox ??
+                entry.nativeDock.staticBox ??
+                null;
+            if (nativeBox) {
+                try {
+                    entry.nativeIntellihide
+                        .updateTargetBox?.(
+                            nativeBox
+                        );
+                } catch {}
+            }
         }
 
         entry.nativeDockStateId = 0;
+        entry.nativeDockShowingId = 0;
+        entry.nativeDockHidingId = 0;
         entry.nativeIntellihideId = 0;
         entry.nativeSliderId = 0;
+        entry.nativeSliderAllocationId = 0;
+        entry.nativeBoxAllocationId = 0;
+        entry.nativeOverviewHiddenId = 0;
         entry.nativeIntellihide = null;
         entry.nativeSlider = null;
+        entry.nativeBox = null;
+        entry.nativeIntellihideTargetBox = null;
+        entry.nativeIntellihideRectKey = '';
+        entry.nativeLastSlideEndpoint = null;
         entry.nativeVisibilityGate = null;
         entry.nativeVisibilityGateInstalled = false;
         entry.nativeGlassVisible = null;
+    }
+
+    _readNativeDockSlide(entry) {
+        const slider =
+            entry?.nativeSlider ??
+            entry?.nativeDock?._slider ??
+            null;
+        if (!slider)
+            return NaN;
+
+        for (const value of [
+            slider.slide_x,
+            slider.slideX,
+        ]) {
+            const n = Number(value);
+            if (Number.isFinite(n))
+                return Math.max(
+                    0,
+                    Math.min(1, n)
+                );
+        }
+
+        try {
+            const n = Number(
+                slider.get_property?.(
+                    'slide-x'
+                )
+            );
+            if (Number.isFinite(n)) {
+                return Math.max(
+                    0,
+                    Math.min(1, n)
+                );
+            }
+        } catch {}
+
+        return NaN;
+    }
+
+    _readNativeDockState(entry) {
+        const dock = entry?.nativeDock;
+        if (!dock)
+            return null;
+
+        const candidates = [];
+
+        try {
+            candidates.push(dock.dockState);
+        } catch {}
+
+        try {
+            candidates.push(
+                dock.getDockState?.()
+            );
+        } catch {}
+
+        try {
+            candidates.push(
+                dock._dockState
+            );
+        } catch {}
+
+        for (const value of candidates) {
+            const state = Number(value);
+            if (
+                Number.isFinite(state) &&
+                state >= NATIVE_DOCK_STATE.HIDDEN &&
+                state <= NATIVE_DOCK_STATE.HIDING
+            ) {
+                return state;
+            }
+        }
+
+        // Last-resort visual state for forks that do not expose dock state.
+        const slide =
+            this._readNativeDockSlide(entry);
+        if (Number.isFinite(slide)) {
+            if (
+                slide <=
+                NATIVE_DOCK_SLIDE_EPSILON
+            ) {
+                return NATIVE_DOCK_STATE.HIDDEN;
+            }
+
+            if (
+                slide >=
+                1 - NATIVE_DOCK_SLIDE_EPSILON
+            ) {
+                return NATIVE_DOCK_STATE.SHOWN;
+            }
+        }
+
+        return null;
+    }
+
+    _normalizeLegacyNativeDockState(entry) {
+        const dock = entry?.nativeDock;
+        if (!dock)
+            return;
+
+        // Dash-to-Dock v104 / Ubuntu Dock lineage initializes _dockState to
+        // HIDDEN even when a non-startup slider begins fully visible. Upstream
+        // PR #2511 corrects exactly this mismatch. Only repair the legacy
+        // private-state API; modern GObject dockState builds own their state.
+        let publicState = NaN;
+        try {
+            publicState = Number(
+                dock.dockState
+            );
+        } catch {}
+
+        if (Number.isFinite(publicState))
+            return;
+
+        const slide =
+            this._readNativeDockSlide(entry);
+
+        if (
+            Number.isFinite(slide) &&
+            slide >=
+                1 - NATIVE_DOCK_SLIDE_EPSILON &&
+            Number(dock._dockState) ===
+                NATIVE_DOCK_STATE.HIDDEN
+        ) {
+            try {
+                dock._dockState =
+                    NATIVE_DOCK_STATE.SHOWN;
+            } catch {}
+        }
+    }
+
+    _syncNativeIntellihideTarget(
+        entry,
+        force = false
+    ) {
+        const dock = entry?.nativeDock;
+        const intellihide =
+            entry?.nativeIntellihide;
+        const box =
+            entry?.nativeBox ??
+            dock?._box ??
+            null;
+
+        if (
+            !dock ||
+            !intellihide ||
+            !box
+        ) {
+            return false;
+        }
+
+        // Panel mode already has a correct native edge/static-box path. Restore
+        // native ownership there and apply this compatibility layer only to the
+        // floating dock where GNOME 50/v104 lineage can follow the hidden box
+        // off-screen.
+        if (this._dockIsPanelMode()) {
+            const nativeBox =
+                dock._staticBox ??
+                dock.staticBox ??
+                null;
+            if (
+                nativeBox &&
+                entry.nativeIntellihideTargetBox
+            ) {
+                try {
+                    intellihide.updateTargetBox?.(
+                        nativeBox
+                    );
+                } catch {}
+            }
+            entry.nativeIntellihideRectKey = '';
+            return false;
+        }
+
+        const monitor =
+            dock._monitor ??
+            Main.layoutManager.monitors?.[
+                dock.monitorIndex
+            ] ??
+            null;
+        if (!monitor)
+            return false;
+
+        const width = Number(box.width);
+        const height = Number(box.height);
+        if (
+            !Number.isFinite(width) ||
+            !Number.isFinite(height) ||
+            width <= 1 ||
+            height <= 1
+        ) {
+            return false;
+        }
+
+        let absX = NaN;
+        let absY = NaN;
+        try {
+            [absX, absY] =
+                box.get_transformed_position();
+        } catch {}
+
+        if (
+            !Number.isFinite(absX) ||
+            !Number.isFinite(absY)
+        ) {
+            return false;
+        }
+
+        // Intellihide must test the rectangle where the dock WOULD BE fully
+        // visible, not its current autohide-translated allocation.
+        let x = absX;
+        let y = absY;
+        const position =
+            dock._position ??
+            dock.position ??
+            null;
+
+        switch (position) {
+        case St.Side.LEFT:
+            x = monitor.x;
+            break;
+        case St.Side.RIGHT:
+            x =
+                monitor.x +
+                monitor.width -
+                width;
+            break;
+        case St.Side.TOP:
+            y = monitor.y;
+            break;
+        case St.Side.BOTTOM:
+            y =
+                monitor.y +
+                monitor.height -
+                height;
+            break;
+        default:
+            return false;
+        }
+
+        const key = [
+            Math.round(x * 100) / 100,
+            Math.round(y * 100) / 100,
+            Math.round(width * 100) / 100,
+            Math.round(height * 100) / 100,
+        ].join(':');
+
+        if (
+            !force &&
+            entry.nativeIntellihideRectKey ===
+                key
+        ) {
+            return true;
+        }
+
+        if (!entry.nativeIntellihideTargetBox) {
+            entry.nativeIntellihideTargetBox =
+                new Clutter.ActorBox();
+        }
+
+        entry.nativeIntellihideTargetBox
+            .init_rect(
+                x,
+                y,
+                width,
+                height
+            );
+        entry.nativeIntellihideRectKey = key;
+
+        try {
+            intellihide.updateTargetBox?.(
+                entry.nativeIntellihideTargetBox
+            );
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     _nativeDockGlassVisible(entry) {
@@ -2090,9 +2415,21 @@ export class LiquidGlassIntegration {
                 entry.container
             );
 
-        // Ubuntu Dock State.HIDDEN = 0. SHOWING/HIDING must remain visible so
-        // the glass follows the native slide animation instead of popping.
-        return dock.dockState !== 0;
+        // SHOWING/HIDING must remain visible so the glass follows the native
+        // slide animation instead of popping. Resolve both Ubuntu Dock v104
+        // private-state API and newer GObject dockState builds.
+        const state =
+            this._readNativeDockState(entry);
+        if (state !== null) {
+            return state !==
+                NATIVE_DOCK_STATE.HIDDEN;
+        }
+
+        const slide =
+            this._readNativeDockSlide(entry);
+        return !Number.isFinite(slide) ||
+            slide >
+                NATIVE_DOCK_SLIDE_EPSILON;
     }
 
     _syncNativeDockVisualState(
@@ -2170,6 +2507,9 @@ export class LiquidGlassIntegration {
             );
 
         if (dock === entry.nativeDock) {
+            this._syncNativeIntellihideTarget(
+                entry
+            );
             this._syncNativeDockVisualState(
                 entry
             );
@@ -2183,6 +2523,24 @@ export class LiquidGlassIntegration {
         entry.nativeDock = dock;
 
         if (dock) {
+            const intellihide =
+                dock._intellihide ?? null;
+            const slider =
+                dock._slider ?? null;
+            const box =
+                dock._box ?? null;
+
+            entry.nativeIntellihide =
+                intellihide;
+            entry.nativeSlider = slider;
+            entry.nativeBox = box;
+
+            this._normalizeLegacyNativeDockState(
+                entry
+            );
+
+            // Newer Dash-to-Dock exposes dockState as a GObject property.
+            // Older Ubuntu Dock/v104 builds do not, so this is optional.
             try {
                 entry.nativeDockStateId =
                     dock.connect(
@@ -2197,41 +2555,164 @@ export class LiquidGlassIntegration {
                 entry.nativeDockStateId = 0;
             }
 
-            const intellihide =
-                dock._intellihide ?? null;
-            entry.nativeIntellihide =
-                intellihide;
+            // These signals exist across the older and newer state-machine
+            // implementations and fire exactly once per transition.
+            try {
+                entry.nativeDockShowingId =
+                    dock.connect(
+                        'showing',
+                        () => {
+                            this._syncNativeIntellihideTarget(
+                                entry,
+                                true
+                            );
+                            this._syncNativeDockVisualState(
+                                entry,
+                                true
+                            );
+                        }
+                    );
+            } catch {
+                entry.nativeDockShowingId = 0;
+            }
 
-            if (intellihide) {
+            try {
+                entry.nativeDockHidingId =
+                    dock.connect(
+                        'hiding',
+                        () => {
+                            this._syncNativeIntellihideTarget(
+                                entry,
+                                true
+                            );
+                            // Keep glass visible for the entire native hide
+                            // animation; slider endpoint callback hides it.
+                            this._syncNativeDockVisualState(
+                                entry,
+                                true
+                            );
+                        }
+                    );
+            } catch {
+                entry.nativeDockHidingId = 0;
+            }
+
+            // Do NOT mirror intellihide status-changed into Velora repaint.
+            // Ubuntu Dock consumes that signal first and decides the actual
+            // transition. Reading its state in the same signal turn can observe
+            // the previous state and produces duplicate show/hide churn.
+            entry.nativeIntellihideId = 0;
+
+            if (slider) {
                 try {
-                    entry.nativeIntellihideId =
-                        intellihide.connect(
-                            'status-changed',
+                    entry.nativeSliderId =
+                        slider.connect(
+                            'notify::slide-x',
                             () => {
-                                // Ubuntu Dock itself decides whether to show
-                                // or hide. We only request a fresh paint after
-                                // its native decision/animation starts.
+                                const slide =
+                                    this._readNativeDockSlide(
+                                        entry
+                                    );
+                                if (!Number.isFinite(slide))
+                                    return;
+
+                                let endpoint = null;
+                                if (
+                                    slide <=
+                                    NATIVE_DOCK_SLIDE_EPSILON
+                                ) {
+                                    endpoint = 0;
+                                } else if (
+                                    slide >=
+                                    1 -
+                                    NATIVE_DOCK_SLIDE_EPSILON
+                                ) {
+                                    endpoint = 1;
+                                }
+
+                                // The signal still fires while animating, but
+                                // Velora performs no actor/shader work until an
+                                // endpoint actually changes.
+                                if (
+                                    endpoint === null ||
+                                    endpoint ===
+                                        entry.nativeLastSlideEndpoint
+                                ) {
+                                    return;
+                                }
+
+                                entry.nativeLastSlideEndpoint =
+                                    endpoint;
                                 this._syncNativeDockVisualState(
                                     entry,
-                                    true
+                                    endpoint === 1
                                 );
                             }
                         );
                 } catch {
-                    entry.nativeIntellihideId = 0;
+                    entry.nativeSliderId = 0;
+                }
+
+                try {
+                    entry.nativeSliderAllocationId =
+                        slider.connect(
+                            'notify::allocation',
+                            () =>
+                                this._syncNativeIntellihideTarget(
+                                    entry
+                                )
+                        );
+                } catch {
+                    entry.nativeSliderAllocationId = 0;
                 }
             }
 
-            const slider =
-                dock._slider ?? null;
-            entry.nativeSlider = slider;
+            if (box) {
+                try {
+                    entry.nativeBoxAllocationId =
+                        box.connect(
+                            'notify::allocation',
+                            () =>
+                                this._syncNativeIntellihideTarget(
+                                    entry
+                                )
+                        );
+                } catch {
+                    entry.nativeBoxAllocationId = 0;
+                }
+            }
 
-            // Do not subscribe to notify::slide-x. Dash-to-Dock already
-            // queues relayout/damage for every slider step, while DashManager
-            // follows the final allocation through its stage loop + live
-            // geometry hook. A second JS callback on every animation frame was
-            // both redundant and a source of autohide paint churn.
-            entry.nativeSliderId = 0;
+            // GNOME 50 can leave overlap/hover state stale across Overview.
+            // Re-anchor the target, sync hover, then force one native overlap
+            // evaluation when returning to the desktop.
+            try {
+                entry.nativeOverviewHiddenId =
+                    Main.overview.connect(
+                        'hidden',
+                        () => {
+                            try {
+                                box?.sync_hover?.();
+                            } catch {}
+
+                            this._syncNativeIntellihideTarget(
+                                entry,
+                                true
+                            );
+
+                            try {
+                                intellihide
+                                    ?.forceUpdate?.();
+                            } catch {}
+                        }
+                    );
+            } catch {
+                entry.nativeOverviewHiddenId = 0;
+            }
+
+            this._syncNativeIntellihideTarget(
+                entry,
+                true
+            );
         }
 
         this._syncNativeDockVisualState(
@@ -3367,10 +3848,19 @@ export class LiquidGlassIntegration {
                     mappedId: 0,
                     nativeDock: null,
                     nativeDockStateId: 0,
+                    nativeDockShowingId: 0,
+                    nativeDockHidingId: 0,
                     nativeIntellihide: null,
                     nativeIntellihideId: 0,
                     nativeSlider: null,
                     nativeSliderId: 0,
+                    nativeSliderAllocationId: 0,
+                    nativeBox: null,
+                    nativeBoxAllocationId: 0,
+                    nativeOverviewHiddenId: 0,
+                    nativeIntellihideTargetBox: null,
+                    nativeIntellihideRectKey: '',
+                    nativeLastSlideEndpoint: null,
                     nativeVisibilityGate: null,
                     nativeVisibilityGateInstalled: false,
                     nativeGlassVisible: null,
