@@ -25,7 +25,7 @@ export class AppGridBackdropManager {
         this._backgroundManagers = [];
         this._appGrid = null;
         this._searchResults = null;
-        this._stageId = 0;
+        this._visibilitySignals = [];
         this._monitorsId = 0;
         this._scaleId = 0;
     }
@@ -42,10 +42,28 @@ export class AppGridBackdropManager {
         this._createLayer();
         this._findOverviewSurfaces();
 
-        this._stageId = global.stage.connect(
-            'before-update',
-            () => this._syncVisibility()
-        );
+        const syncVisibility = () => this._syncVisibility();
+        const visibilitySources = [
+            [Main.overview, ['showing', 'shown', 'hiding', 'hidden']],
+            [overview, ['notify::visible', 'notify::mapped']],
+        ];
+
+        for (const [object, signals] of visibilitySources) {
+            if (!object)
+                continue;
+
+            for (const signal of signals) {
+                try {
+                    this._visibilitySignals.push({
+                        object,
+                        id: object.connect(signal, syncVisibility),
+                    });
+                } catch {
+                    // Signal availability varies slightly between Shell builds.
+                }
+            }
+        }
+        this._syncVisibility();
 
         this._monitorsId = Main.layoutManager.connect(
             'monitors-changed',
@@ -255,12 +273,12 @@ export class AppGridBackdropManager {
             return;
         this._enabled = false;
 
-        if (this._stageId) {
+        for (const {object, id} of this._visibilitySignals) {
             try {
-                global.stage.disconnect(this._stageId);
+                object?.disconnect?.(id);
             } catch {}
-            this._stageId = 0;
         }
+        this._visibilitySignals = [];
 
         if (this._monitorsId) {
             try {

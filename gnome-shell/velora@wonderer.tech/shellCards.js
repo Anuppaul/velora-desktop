@@ -185,6 +185,23 @@ class ShellCardSurface {
             });
         } catch {}
 
+        for (const signal of [
+            'notify::visible',
+            'notify::mapped',
+        ]) {
+            try {
+                this._signals.push({
+                    obj: this._target,
+                    id: this._target.connect(
+                        signal,
+                        () => this._manager?._syncStageLoopState?.()
+                    ),
+                });
+            } catch {
+                // Some actor types may not expose every property signal.
+            }
+        }
+
         effect.setLiveGeometryHook?.(() => this._syncPaint());
         this.updateAppearance(this._manager._appearance);
         this._sync();
@@ -611,6 +628,17 @@ export class ShellCardGlassManager {
 
         this._watchTree(Main.uiGroup);
 
+        this._syncStageLoopState();
+
+        console.log(
+            '[Velora][ShellCards] event-driven Shell card registry active'
+        );
+    }
+
+    _ensureStageSync() {
+        if (!this._enabled || this._stageSyncId)
+            return;
+
         this._stageSyncId = global.stage.connect(
             'before-update',
             () => {
@@ -618,6 +646,13 @@ export class ShellCardGlassManager {
                     return;
 
                 for (const [actor, surface] of [...this._surfaces]) {
+                    if (
+                        !surface?._target?.mapped ||
+                        !surface?._target?.visible
+                    ) {
+                        continue;
+                    }
+
                     try {
                         surface.syncFrame();
                     } catch (error) {
@@ -633,10 +668,35 @@ export class ShellCardGlassManager {
                 }
             }
         );
+    }
 
-        console.log(
-            '[Velora][ShellCards] event-driven Shell card registry active'
-        );
+    _stopStageSync() {
+        if (!this._stageSyncId)
+            return;
+
+        try {
+            global.stage.disconnect(this._stageSyncId);
+        } catch {}
+        this._stageSyncId = 0;
+    }
+
+    _syncStageLoopState() {
+        if (!this._enabled) {
+            this._stopStageSync();
+            return;
+        }
+
+        for (const surface of this._surfaces.values()) {
+            if (
+                surface?._target?.mapped &&
+                surface?._target?.visible
+            ) {
+                this._ensureStageSync();
+                return;
+            }
+        }
+
+        this._stopStageSync();
     }
 
     _watchTree(actor) {
@@ -705,13 +765,16 @@ export class ShellCardGlassManager {
         }
 
         const surface = new ShellCardSurface(this, actor);
-        if (surface.attach())
+        if (surface.attach()) {
             this._surfaces.set(actor, surface);
+            this._syncStageLoopState();
+        }
     }
 
     _surfaceDestroyed(actor, surface) {
         if (this._surfaces.get(actor) === surface)
             this._surfaces.delete(actor);
+        this._syncStageLoopState();
     }
 
     updateAppearance(state = this._readAppearance()) {
@@ -725,14 +788,7 @@ export class ShellCardGlassManager {
             return;
         this._enabled = false;
 
-        if (this._stageSyncId) {
-            try {
-                global.stage.disconnect(this._stageSyncId);
-            } catch {
-                // Stage may already be tearing down.
-            }
-            this._stageSyncId = 0;
-        }
+        this._stopStageSync();
 
         for (const surface of [...this._surfaces.values()])
             surface.destroy(true);

@@ -765,11 +765,6 @@ export class SharedAdaptiveTextManager {
 
     _maybeSample(kind) {
         const panel = kind === 'panel';
-        const entries = this._visibleEntries(kind);
-
-        if (!entries.length)
-            return;
-
         const nowUs = GLib.get_monotonic_time();
         const pending = panel
             ? this._panelSamplePending
@@ -781,6 +776,9 @@ export class SharedAdaptiveTextManager {
             ? PANEL_SAMPLE_INTERVAL_US
             : SURFACE_SAMPLE_INTERVAL_US;
 
+        // Cadence/pending checks must happen before _visibleEntries().
+        // That method reads transformed geometry for every registered target;
+        // doing it on every compositor frame defeated the sampling interval.
         if (
             pending ||
             (
@@ -788,6 +786,18 @@ export class SharedAdaptiveTextManager {
                 nowUs - last < interval
             )
         ) {
+            return;
+        }
+
+        const entries = this._visibleEntries(kind);
+        if (!entries.length) {
+            // Avoid re-walking an empty/invisible target set every frame.
+            // _scan() resets this timestamp to zero as soon as it discovers a
+            // new target, so newly-visible surfaces still get sampled quickly.
+            if (panel)
+                this._lastPanelSampleUs = nowUs;
+            else
+                this._lastSurfaceSampleUs = nowUs;
             return;
         }
 

@@ -426,6 +426,7 @@ export class LiquidGlassIntegration {
         this._desktopInterfaceSettings = null;
         this._desktopAccentChangedId = 0;
         this._cardCssFile = null;
+        this._cardCssSignature = '';
         this._cardCssCounter = 0;
         this._notificationGlassManager = null;
         this._osdManager = null;
@@ -1478,6 +1479,7 @@ export class LiquidGlassIntegration {
         }
 
         this._cardCssFile = null;
+        this._cardCssSignature = '';
     }
 
     _applyCardAppearanceStylesheet(
@@ -1570,6 +1572,13 @@ export class LiquidGlassIntegration {
             '  box-shadow: none !important;\n' +
             '}\n';
 
+        if (
+            this._cardCssFile &&
+            this._cardCssSignature === css
+        ) {
+            return;
+        }
+
         const dir = GLib.build_filenamev([
             GLib.get_user_cache_dir(),
             'velora@wonderer.tech',
@@ -1593,6 +1602,7 @@ export class LiquidGlassIntegration {
         const file = Gio.File.new_for_path(path);
         this._getShellTheme().load_stylesheet(file);
         this._cardCssFile = file;
+        this._cardCssSignature = css;
 
         Main.messageTray?._banner?.queue_redraw?.();
     }

@@ -618,11 +618,17 @@ class PopupGlassSurface {
                         this._root?.hide?.();
                         this._dateInnerRoot?.hide?.();
                         this._cancelDateTextSample();
+                        this._manager?._syncStageLoopState?.();
                         return;
                     }
 
-                    this._sceneManager?.rebuildClones?.();
-                    this._lastSceneSyncUs = GLib.get_monotonic_time();
+                    // Reopening a popup must not destroy and recreate the live
+                    // capture tree. WindowCloneManager.sync() already heals
+                    // added/removed windows. Rebuilding here allocated a new
+                    // background + clone tree and could expose an empty capture
+                    // for the first rendered frame.
+                    this._lastSceneSyncUs = 0;
+                    this._manager?._ensureStageSync?.();
 
                     this._scanDateCardActors(true);
                     if (this._isQuickSettings)
@@ -2475,6 +2481,20 @@ export class PopupGlassManager {
         prototype.open = this._patchedOpen;
         prototype.destroy = this._patchedDestroy;
 
+        // Frame work is armed only while at least one managed popup is open.
+        // Closed PopupMenu instances can stay alive for the whole Shell
+        // session, so an always-on stage callback becomes permanent overhead.
+        this._syncStageLoopState();
+
+        console.log(
+            '[Velora][PopupGlass] global PopupMenu adapter active'
+        );
+    }
+
+    _ensureStageSync() {
+        if (!this._enabled || this._stageSyncId)
+            return;
+
         this._stageSyncId = global.stage.connect(
             'before-update',
             () => {
@@ -2482,7 +2502,7 @@ export class PopupGlassManager {
                     return;
 
                 for (const [menu, surface] of [...this._surfaces]) {
-                    if (menu?.isOpen === false)
+                    if (!menu?.isOpen)
                         continue;
 
                     try {
@@ -2499,10 +2519,32 @@ export class PopupGlassManager {
                 }
             }
         );
+    }
 
-        console.log(
-            '[Velora][PopupGlass] global PopupMenu adapter active'
-        );
+    _stopStageSync() {
+        if (!this._stageSyncId)
+            return;
+
+        try {
+            global.stage.disconnect(this._stageSyncId);
+        } catch {}
+        this._stageSyncId = 0;
+    }
+
+    _syncStageLoopState() {
+        if (!this._enabled) {
+            this._stopStageSync();
+            return;
+        }
+
+        for (const menu of this._surfaces.keys()) {
+            if (menu?.isOpen) {
+                this._ensureStageSync();
+                return;
+            }
+        }
+
+        this._stopStageSync();
     }
 
     describeMenu(menu) {
@@ -2537,6 +2579,7 @@ export class PopupGlassManager {
             return null;
 
         this._surfaces.set(menu, surface);
+        this._syncStageLoopState();
         return surface;
     }
 
@@ -2547,6 +2590,7 @@ export class PopupGlassManager {
 
         this._surfaces.delete(menu);
         surface.detach();
+        this._syncStageLoopState();
     }
 
     updateAppearance(state = this._readAppearance()) {
@@ -2561,12 +2605,7 @@ export class PopupGlassManager {
 
         this._enabled = false;
 
-        if (this._stageSyncId) {
-            try {
-                global.stage.disconnect(this._stageSyncId);
-            } catch {}
-            this._stageSyncId = 0;
-        }
+        this._stopStageSync();
 
         const prototype = PopupMenu.PopupMenu.prototype;
         if (prototype.open === this._patchedOpen)
