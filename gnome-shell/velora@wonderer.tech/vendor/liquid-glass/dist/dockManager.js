@@ -132,10 +132,13 @@ export class DashManager {
         }
 
         if (!visible) {
-            this.bgActor.opacity = 0;
-            this.bgActor.hide();
+            if (this.bgActor.opacity !== 0)
+                this.bgActor.opacity = 0;
+            // Stay mapped. Autohide hides the native dock by translation; the
+            // glass actor is independent and can remain allocated at zero
+            // opacity, avoiding an empty/remapped first frame on reveal.
         }
-        else {
+        else if (!this.bgActor.visible) {
             this.bgActor.show();
         }
     }
@@ -570,10 +573,9 @@ export class DashManager {
             if (!visible) {
                 if (this.bgActor.opacity !== 0)
                     this.bgActor.opacity = 0;
-                if (this.bgActor.visible)
-                    this.bgActor.hide();
-                // Force one fresh scene sample when the dock becomes visible
-                // again instead of resuming from an old capture.
+                // Keep the effect tree mapped and warm while hidden. Geometry
+                // work stops here, so this does not reintroduce the heavy
+                // capture path.
                 this._lastSceneSyncUs = 0;
                 return;
             }

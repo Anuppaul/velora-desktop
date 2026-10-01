@@ -2127,8 +2127,10 @@ export class LiquidGlassIntegration {
         if (!visible) {
             if (manager.bgActor.opacity !== 0)
                 manager.bgActor.opacity = 0;
-            if (manager.bgActor.visible)
-                manager.bgActor.hide?.();
+            // Keep the independent glass actor mapped while Ubuntu Dock is
+            // hidden. Unmapping/remapping the full-monitor offscreen effect
+            // creates an empty first frame on reveal and can expose transient
+            // allocations as a one-frame size flash.
             entry.nativeGlassVisible = false;
             return;
         }
@@ -2222,25 +2224,12 @@ export class LiquidGlassIntegration {
                 dock._slider ?? null;
             entry.nativeSlider = slider;
 
-            if (slider) {
-                try {
-                    entry.nativeSliderId =
-                        slider.connect(
-                            'notify::slide-x',
-                            () => {
-                                // Native slider movement already schedules
-                                // compositor damage. Keep Velora's glass state
-                                // in sync without forcing another stage repaint.
-                                this._syncNativeDockVisualState(
-                                    entry,
-                                    false
-                                );
-                            }
-                        );
-                } catch {
-                    entry.nativeSliderId = 0;
-                }
-            }
+            // Do not subscribe to notify::slide-x. Dash-to-Dock already
+            // queues relayout/damage for every slider step, while DashManager
+            // follows the final allocation through its stage loop + live
+            // geometry hook. A second JS callback on every animation frame was
+            // both redundant and a source of autohide paint churn.
+            entry.nativeSliderId = 0;
         }
 
         this._syncNativeDockVisualState(
@@ -3032,6 +3021,8 @@ export class LiquidGlassIntegration {
         entry.nativeVisibilityGate = null;
         entry.nativeVisibilityGateInstalled = false;
         entry.nativeGlassVisible = null;
+        entry.nativeDockStableW = NaN;
+        entry.nativeDockStableH = NaN;
 
         try {
             entry.manager._veloraRestoreSceneThrottle?.();
@@ -3046,100 +3037,6 @@ export class LiquidGlassIntegration {
             );
         }
         entry.manager = null;
-    }
-
-    _patchCachedNativeDockSceneThrottle(manager) {
-        if (
-            !manager ||
-            typeof manager.setSceneFpsLimit === 'function' ||
-            manager._veloraSceneThrottlePatched
-        ) {
-            return;
-        }
-
-        const uiSampler = manager._uiSampler;
-        const windowClones = manager._windowCloneManager;
-        if (!uiSampler || !windowClones)
-            return;
-
-        const originalRefresh =
-            typeof uiSampler.refresh === 'function'
-                ? uiSampler.refresh.bind(uiSampler)
-                : null;
-        const originalUiSync =
-            typeof uiSampler.sync === 'function'
-                ? uiSampler.sync.bind(uiSampler)
-                : null;
-        const originalWindowSync =
-            typeof windowClones.sync === 'function'
-                ? windowClones.sync.bind(windowClones)
-                : null;
-
-        if (
-            !originalRefresh ||
-            !originalUiSync ||
-            !originalWindowSync
-        ) {
-            return;
-        }
-
-        const sceneFps = Math.max(
-            15,
-            Math.min(
-                24,
-                this._readSharedCardAppearance()
-                    ?.sceneFps ?? 24
-            )
-        );
-        const intervalUs = 1000000 / sceneFps;
-        const state = {
-            lastUs: 0,
-            due: false,
-            nowUs: 0,
-        };
-
-        uiSampler.refresh = (...args) => {
-            const nowUs = GLib.get_monotonic_time();
-            state.nowUs = nowUs;
-            state.due =
-                state.lastUs === 0 ||
-                nowUs - state.lastUs >= intervalUs;
-
-            if (state.due)
-                return originalRefresh(...args);
-            return undefined;
-        };
-
-        uiSampler.sync = (...args) => {
-            if (state.due)
-                return originalUiSync(...args);
-            return undefined;
-        };
-
-        windowClones.sync = (...args) => {
-            if (!state.due)
-                return undefined;
-
-            try {
-                return originalWindowSync(...args);
-            } finally {
-                state.lastUs =
-                    state.nowUs ||
-                    GLib.get_monotonic_time();
-                state.due = false;
-            }
-        };
-
-        manager._veloraSceneThrottlePatched = true;
-        manager._veloraRestoreSceneThrottle = () => {
-            try {
-                uiSampler.refresh = originalRefresh;
-                uiSampler.sync = originalUiSync;
-                windowClones.sync = originalWindowSync;
-            } catch {}
-            manager._veloraSceneThrottlePatched = false;
-            manager._veloraRestoreSceneThrottle = null;
-        };
     }
 
     _prepareUbuntuDockManagerInstance(entry, manager) {
@@ -3187,6 +3084,73 @@ export class LiquidGlassIntegration {
         manager._applyDockMargin =
             bounds => bounds;
 
+        const originalReadDockBounds =
+            typeof manager._readDockBounds === 'function'
+                ? manager._readDockBounds.bind(manager)
+                : null;
+
+        if (originalReadDockBounds) {
+            manager._readDockBounds = () => {
+                const bounds = originalReadDockBounds();
+                if (!bounds)
+                    return bounds;
+
+                const slider =
+                    entry.nativeSlider ??
+                    entry.nativeDock?._slider ??
+                    null;
+                const slide = Number(
+                    slider?.slide_x ??
+                    slider?.slideX ??
+                    NaN
+                );
+                const animating =
+                    Number.isFinite(slide) &&
+                    slide > 0.001 &&
+                    slide < 0.999;
+
+                const valid =
+                    Number.isFinite(bounds.baseW) &&
+                    Number.isFinite(bounds.baseH) &&
+                    bounds.baseW > 9 &&
+                    bounds.baseH > 9;
+
+                if (!animating && valid) {
+                    entry.nativeDockStableW =
+                        bounds.baseW;
+                    entry.nativeDockStableH =
+                        bounds.baseH;
+                    return bounds;
+                }
+
+                if (
+                    animating &&
+                    Number.isFinite(
+                        entry.nativeDockStableW
+                    ) &&
+                    Number.isFinite(
+                        entry.nativeDockStableH
+                    ) &&
+                    entry.nativeDockStableW > 9 &&
+                    entry.nativeDockStableH > 9
+                ) {
+                    // Autohide is a translation animation. Ubuntu Dock can
+                    // expose a transient clipped allocation for one frame while
+                    // relayout settles; never let that transient length/thickness
+                    // become the glass shape. Position remains live.
+                    return {
+                        ...bounds,
+                        baseW:
+                            entry.nativeDockStableW,
+                        baseH:
+                            entry.nativeDockStableH,
+                    };
+                }
+
+                return bounds;
+            };
+        }
+
         const originalSyncGeometry =
             typeof manager._syncGeometry ===
                 'function'
@@ -3204,9 +3168,11 @@ export class LiquidGlassIntegration {
                     entry
                 )
             ) {
-                if (manager.bgActor) {
+                if (
+                    manager.bgActor &&
+                    manager.bgActor.opacity !== 0
+                ) {
                     manager.bgActor.opacity = 0;
-                    manager.bgActor.hide?.();
                 }
                 return;
             }
@@ -3271,6 +3237,13 @@ export class LiquidGlassIntegration {
             entry,
             useGlassBackground
         );
+
+        try {
+            // Prime the stable shape before the first autohide reveal so even
+            // a dock that starts hidden has a valid non-transient geometry.
+            manager._readDockBounds?.();
+        } catch {}
+
         this._syncNativeDockVisualState(
             entry
         );
@@ -3318,14 +3291,6 @@ export class LiquidGlassIntegration {
             );
 
             entry.manager.setup();
-
-            // GNOME keeps ESM modules cached across extension hot-swaps. If
-            // this process still has an older vendored DashManager without the
-            // native scene-FPS limiter, patch only its expensive clone-sampler
-            // calls at runtime. Geometry still runs at the compositor rate.
-            this._patchCachedNativeDockSceneThrottle(
-                entry.manager
-            );
 
             entry.manager.setMaterialOverride?.(
                 () => this._applySharedDashMaterial(
@@ -3382,6 +3347,8 @@ export class LiquidGlassIntegration {
                     nativeVisibilityGate: null,
                     nativeVisibilityGateInstalled: false,
                     nativeGlassVisible: null,
+                    nativeDockStableW: NaN,
+                    nativeDockStableH: NaN,
                     panelBackgroundActor: null,
                     panelBackgroundOriginalStyle: null,
                     panelBackgroundStyleId: 0,
