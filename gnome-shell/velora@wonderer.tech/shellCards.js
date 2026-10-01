@@ -13,7 +13,7 @@ import {
 const CARD_CLASS = 'velora-liquid-shell-card';
 const WINDOW_CLOSE_CLASS = 'window-close';
 const OPTICAL_MARGIN = 104;
-const WINDOW_CLOSE_OPTICAL_MARGIN = 20;
+const WINDOW_CLOSE_OPTICAL_MARGIN = 28;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -71,30 +71,8 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
-        this._isWindowClose =
-            classesOf(target).includes(WINDOW_CLOSE_CLASS);
-        this._previewSource = null;
-        this._previewClone = null;
-
-        if (this._isWindowClose && this._parent) {
-            // GNOME 50 WindowPreview children are:
-            //   windowContainer, caption, app icon, close button.
-            // Capture ONLY windowContainer so the lens refracts the preview
-            // beneath it without recursively cloning the close button itself.
-            this._previewSource =
-                (this._parent.get_children?.() ?? []).find(child => {
-                    if (child === target)
-                        return false;
-                    const classes = classesOf(child);
-                    return (
-                        !classes.includes('window-caption') &&
-                        !classes.includes('window-icon')
-                    );
-                }) ?? null;
-        }
-
         this._opticalMargin =
-            this._isWindowClose
+            classesOf(target).includes(WINDOW_CLOSE_CLASS)
                 ? WINDOW_CLOSE_OPTICAL_MARGIN
                 : OPTICAL_MARGIN;
         this._effect = null;
@@ -125,19 +103,6 @@ class ShellCardSurface {
         sceneRoot.set_no_layout?.(true);
         material.add_child(sceneRoot);
 
-        let previewClone = null;
-        if (this._isWindowClose && this._previewSource) {
-            previewClone = new Clutter.Clone({
-                source: this._previewSource,
-                reactive: false,
-            });
-            previewClone.set_name?.(
-                'velora-window-close-preview-clone'
-            );
-            previewClone.set_no_layout?.(true);
-            sceneRoot.add_child(previewClone);
-        }
-
         let wallpaperMirror = null;
 
         const breaker = new this._vendor.UnpickableActor({
@@ -152,14 +117,9 @@ class ShellCardSurface {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner:
-                classesOf(this._target).includes(WINDOW_CLOSE_CLASS)
-                    ? 'velora-window-close'
-                    : (
-                        this._wallpaperOnly
-                            ? 'velora-app-grid-wallpaper'
-                            : 'velora-shell-card'
-                    ),
+            owner: this._wallpaperOnly
+                ? 'velora-app-grid-wallpaper'
+                : 'velora-shell-card',
         });
         effect.setPadding?.(20);
         effect.setShadowMaxRadius?.(
@@ -214,7 +174,6 @@ class ShellCardSurface {
         this._sceneRoot = sceneRoot;
         this._sceneManager = null;
         this._wallpaperMirror = wallpaperMirror;
-        this._previewClone = previewClone;
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
@@ -250,21 +209,20 @@ class ShellCardSurface {
         if (!this._effect || !state)
             return;
 
-        const isWindowClose =
-            classesOf(this._target).includes(WINDOW_CLOSE_CLASS);
-        const role = isWindowClose
-            ? VELORA_GLASS_ROLES.windowClose
-            : VELORA_GLASS_ROLES.shellCard;
+        const role =
+            VELORA_GLASS_ROLES.shellCard;
         const adapter =
             VELORA_GLASS_ADAPTERS.shellCard;
+        const isWindowClose =
+            classesOf(this._target).includes(WINDOW_CLOSE_CLASS);
         const [targetW, targetH] =
-            this._target.get_size?.() ?? [64, 64];
+            this._target.get_size?.() ?? [0, 0];
         const radius = isWindowClose
             ? Math.max(
-                12,
+                1,
                 Math.min(
-                    targetW > 1 ? targetW : 64,
-                    targetH > 1 ? targetH : 64
+                    targetW > 1 ? targetW : 48,
+                    targetH > 1 ? targetH : 48
                 ) / 2
             )
             : Math.max(0, radiusOf(this._target));
@@ -294,58 +252,18 @@ class ShellCardSurface {
                     (state.b ?? 255) / 255,
                 ],
                 tintStrength:
-                    isWindowClose
-                        ? (
-                            (state.opacity ?? 0) <= 0
-                                ? 0
-                                : Math.min(
-                                    0.11,
-                                    Math.max(
-                                        role.tintStrength,
-                                        (state.opacity ?? 0) * 3.2
-                                    )
-                                )
-                        )
-                        : (
-                            adapter.inheritGlobalTint
-                                ? (state.opacity ?? role.tintStrength)
-                                : role.tintStrength
-                        ),
+                    adapter.inheritGlobalTint
+                        ? (state.opacity ?? role.tintStrength)
+                        : role.tintStrength,
                 baseBlur:
                     adapter.inheritGlobalBlur
                         ? (state.blur ?? 7)
                         : 7,
-                blurRadius:
-                    isWindowClose
-                        ? (
-                            (state.blur ?? 0) <= 0
-                                ? 0
-                                : Math.min(
-                                    role.blurMax,
-                                    Math.max(
-                                        role.blurMin,
-                                        (state.blur ?? 7) + 2
-                                    )
-                                )
-                        )
-                        : null,
                 cornerRadius: radius,
-                brightness:
-                    isWindowClose
-                        ? Math.max(1.04, brightness ?? 1.0)
-                        : brightness,
-                contrast:
-                    isWindowClose
-                        ? Math.max(1.08, contrast ?? 1.0)
-                        : contrast,
-                saturation:
-                    isWindowClose
-                        ? Math.max(1.06, saturation ?? 1.0)
-                        : saturation,
-                multiRegion:
-                    isWindowClose
-                        ? false
-                        : adapter.multiRegion,
+                brightness,
+                contrast,
+                saturation,
+                multiRegion: adapter.multiRegion,
             }
         );
 
@@ -353,9 +271,6 @@ class ShellCardSurface {
     }
 
     _ensureSceneManager() {
-        if (this._isWindowClose)
-            return null;
-
         if (this._sceneManager || !this._sceneRoot)
             return this._sceneManager;
 
@@ -493,12 +408,8 @@ class ShellCardSurface {
             return;
         }
 
-        if (
-            !this._isWindowClose &&
-            !sceneManager
-        ) {
+        if (!sceneManager)
             return;
-        }
 
         const [w, h] = material.get_size?.() ?? [0, 0];
         if (w <= 1 || h <= 1)
@@ -531,51 +442,6 @@ class ShellCardSurface {
             -absX / sx,
             -absY / sy
         );
-
-        if (this._isWindowClose) {
-            const source = this._previewSource;
-            const clone = this._previewClone;
-            if (!source || !clone)
-                return;
-
-            const rect =
-                this._vendor.getTransformedRect?.(source);
-            if (
-                !Array.isArray(rect) ||
-                rect.length < 4 ||
-                !rect.every(Number.isFinite) ||
-                rect[2] <= 1 ||
-                rect[3] <= 1
-            ) {
-                return;
-            }
-
-            // sceneRoot is counter-transformed into stage coordinates above,
-            // so stage-space source bounds map 1:1 into the capture.
-            this._vendor.setPositionIfChanged(
-                clone,
-                rect[0],
-                rect[1]
-            );
-            this._vendor.setSizeIfChanged(
-                clone,
-                rect[2],
-                rect[3]
-            );
-
-            if (
-                clone.scale_x !== 1 ||
-                clone.scale_y !== 1
-            ) {
-                clone.set_scale(1, 1);
-            }
-
-            this._lastCaptureX = rect[0];
-            this._lastCaptureY = rect[1];
-            this._lastCaptureW = rect[2];
-            this._lastCaptureH = rect[3];
-            return;
-        }
 
         const captureRect = [
             absX,
@@ -652,12 +518,11 @@ class ShellCardSurface {
             glassH
         );
 
-        if (this._isWindowClose) {
+        if (
+            classesOf(this._target).includes(WINDOW_CLOSE_CLASS)
+        ) {
             effect.setCornerRadius?.(
-                Math.max(
-                    1,
-                    Math.min(glassW, glassH) / 2
-                )
+                Math.max(1, Math.min(glassW, glassH) / 2)
             );
         }
     }
@@ -747,8 +612,6 @@ class ShellCardSurface {
         this._sceneRoot = null;
         this._sceneManager = null;
         this._wallpaperMirror = null;
-        this._previewClone = null;
-        this._previewSource = null;
         this._effect = null;
         this._target = null;
         this._parent = null;
