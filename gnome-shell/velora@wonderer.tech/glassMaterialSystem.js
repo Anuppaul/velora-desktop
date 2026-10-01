@@ -21,8 +21,8 @@ export const GLASS_INTERACTION = Object.freeze({
 });
 
 const INNER_CARD_OPTICS = Object.freeze({
-    max_z: 90.0,
-    displacement_scale: 31.0,
+    max_z: 104.0,
+    displacement_scale: 36.0,
     edge_smoothing: 0.82,
     profile_shape_n: 3.9,
     ior: 1.68,
