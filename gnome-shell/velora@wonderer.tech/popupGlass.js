@@ -31,6 +31,7 @@ const SAMPLE_MARGIN_MAX = 200;
 // using PopupAnimation.FADE. Do not build a new GPU glass stack for a menu the
 // pointer merely crosses on the way to another indicator.
 const HOVER_SWITCH_GLASS_DWELL_MS = 120;
+const PANEL_MENU_HOVER_DWELL_MS = 120;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -2499,6 +2500,12 @@ export class PopupGlassManager {
         this._appearance = null;
         this._stageSyncId = 0;
         this._pendingAttachSources = new Map();
+
+        this._panelMenuManager = null;
+        this._originalPanelChangeMenu = null;
+        this._patchedPanelChangeMenu = null;
+        this._panelHoverSwitchSourceId = 0;
+        this._panelHoverSwitchTarget = null;
     }
 
     setup() {
@@ -2524,15 +2531,35 @@ export class PopupGlassManager {
             const hoverSwitch =
                 animation ===
                 BoxPointer.PopupAnimation.FADE;
+            const confirmedPanelHover =
+                this._veloraPanelHoverConfirmed === true;
+
+            if (
+                manager._enabled &&
+                !manager._surfaces.has(this) &&
+                confirmedPanelHover
+            ) {
+                // The panel-level dwell already confirmed user intent. Open
+                // native GNOME UI immediately, return from the input event, and
+                // only then build the expensive glass stack on an idle slice.
+                const result =
+                    manager._originalOpen.apply(
+                        this,
+                        args
+                    );
+
+                if (this.isOpen)
+                    manager._scheduleIdleAttach(this);
+
+                return result;
+            }
 
             if (
                 manager._enabled &&
                 !manager._surfaces.has(this) &&
                 hoverSwitch
             ) {
-                // Preserve GNOME's immediate hover-switch behavior. The native
-                // popup opens first with its ordinary paint; Velora only
-                // materializes if the pointer actually dwells on this menu.
+                // Non-panel FADE users keep the material-only debounce.
                 const result =
                     manager._originalOpen.apply(
                         this,
@@ -2546,6 +2573,7 @@ export class PopupGlassManager {
             }
 
             manager._cancelDeferredAttach(this);
+            manager._cancelPanelHoverSwitch();
 
             if (manager._enabled)
                 manager.attach(this);
@@ -2570,6 +2598,8 @@ export class PopupGlassManager {
         prototype.open = this._patchedOpen;
         prototype.destroy = this._patchedDestroy;
 
+        this._installPanelHoverSwitchDebounce();
+
         // Frame work is armed only while at least one managed popup is open.
         // Closed PopupMenu instances can stay alive for the whole Shell
         // session, so an always-on stage callback becomes permanent overhead.
@@ -2578,6 +2608,202 @@ export class PopupGlassManager {
         console.log(
             '[Velora][PopupGlass] global PopupMenu adapter active'
         );
+    }
+
+    _cancelPanelHoverSwitch() {
+        if (this._panelHoverSwitchSourceId) {
+            try {
+                GLib.source_remove(
+                    this._panelHoverSwitchSourceId
+                );
+            } catch {}
+            this._panelHoverSwitchSourceId = 0;
+        }
+        this._panelHoverSwitchTarget = null;
+    }
+
+    _schedulePanelHoverSwitch(
+        panelManager,
+        newMenu
+    ) {
+        if (
+            !this._enabled ||
+            !panelManager ||
+            !newMenu ||
+            newMenu === panelManager.activeMenu
+        ) {
+            this._cancelPanelHoverSwitch();
+            return;
+        }
+
+        if (
+            this._panelHoverSwitchSourceId &&
+            this._panelHoverSwitchTarget === newMenu
+        ) {
+            return;
+        }
+
+        this._cancelPanelHoverSwitch();
+        this._panelHoverSwitchTarget = newMenu;
+
+        let sourceId = 0;
+        sourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            PANEL_MENU_HOVER_DWELL_MS,
+            () => {
+                if (
+                    this._panelHoverSwitchSourceId ===
+                    sourceId
+                ) {
+                    this._panelHoverSwitchSourceId = 0;
+                }
+
+                const target =
+                    this._panelHoverSwitchTarget;
+                this._panelHoverSwitchTarget = null;
+
+                if (
+                    !this._enabled ||
+                    target !== newMenu ||
+                    !panelManager.activeMenu ||
+                    newMenu === panelManager.activeMenu
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                // PanelMenu.Button and AppIndicator icons are track_hover=true.
+                // If the pointer has already crossed this icon, do nothing:
+                // no native popup, no DBus menu paint, no glass allocation.
+                const sourceActor =
+                    newMenu.sourceActor ?? null;
+                if (
+                    sourceActor &&
+                    sourceActor.hover !== true
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                try {
+                    newMenu._veloraPanelHoverConfirmed =
+                        true;
+                    this._originalPanelChangeMenu?.call(
+                        panelManager,
+                        newMenu
+                    );
+                } finally {
+                    try {
+                        delete newMenu
+                            ._veloraPanelHoverConfirmed;
+                    } catch {
+                        newMenu._veloraPanelHoverConfirmed =
+                            false;
+                    }
+                }
+
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+
+        this._panelHoverSwitchSourceId =
+            sourceId;
+    }
+
+    _installPanelHoverSwitchDebounce() {
+        const panelManager =
+            Main.panel?.menuManager ?? null;
+
+        if (
+            !panelManager ||
+            this._panelMenuManager
+        ) {
+            return;
+        }
+
+        const original =
+            panelManager._changeMenu;
+        if (typeof original !== 'function')
+            return;
+
+        this._panelMenuManager =
+            panelManager;
+        this._originalPanelChangeMenu =
+            original;
+
+        const owner = this;
+        this._patchedPanelChangeMenu =
+            function (newMenu) {
+                if (!owner._enabled) {
+                    return original.call(
+                        this,
+                        newMenu
+                    );
+                }
+
+                let event = null;
+                try {
+                    event =
+                        Clutter.get_current_event?.() ??
+                        null;
+                } catch {}
+
+                let hoverSwitch = false;
+                try {
+                    hoverSwitch =
+                        event?.type?.() ===
+                            Clutter.EventType.ENTER &&
+                        (
+                            event.get_flags?.() ??
+                            0
+                        ) &
+                            Clutter.EventFlags.FLAG_GRAB_NOTIFY
+                            ? false
+                            : event?.type?.() ===
+                                Clutter.EventType.ENTER;
+                } catch {
+                    hoverSwitch = false;
+                }
+
+                if (
+                    hoverSwitch &&
+                    this.activeMenu &&
+                    newMenu !== this.activeMenu
+                ) {
+                    owner._schedulePanelHoverSwitch(
+                        this,
+                        newMenu
+                    );
+                    return;
+                }
+
+                // Click, keyboard focus navigation, accessibility and explicit
+                // opens remain instant.
+                owner._cancelPanelHoverSwitch();
+                return original.call(
+                    this,
+                    newMenu
+                );
+            };
+
+        panelManager._changeMenu =
+            this._patchedPanelChangeMenu;
+    }
+
+    _uninstallPanelHoverSwitchDebounce() {
+        this._cancelPanelHoverSwitch();
+
+        if (
+            this._panelMenuManager &&
+            this._patchedPanelChangeMenu &&
+            this._panelMenuManager._changeMenu ===
+                this._patchedPanelChangeMenu
+        ) {
+            this._panelMenuManager._changeMenu =
+                this._originalPanelChangeMenu;
+        }
+
+        this._panelMenuManager = null;
+        this._originalPanelChangeMenu = null;
+        this._patchedPanelChangeMenu = null;
     }
 
     _ensureStageSync() {
@@ -2647,6 +2873,55 @@ export class PopupGlassManager {
             GLib.source_remove(sourceId);
         } catch {}
         this._pendingAttachSources.delete(menu);
+    }
+
+    _scheduleIdleAttach(menu) {
+        if (
+            !this._enabled ||
+            !menu ||
+            this._surfaces.has(menu)
+        ) {
+            return;
+        }
+
+        this._cancelDeferredAttach(menu);
+
+        let sourceId = 0;
+        sourceId = GLib.idle_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            () => {
+                if (
+                    this._pendingAttachSources.get(menu) ===
+                    sourceId
+                ) {
+                    this._pendingAttachSources.delete(menu);
+                }
+
+                if (
+                    !this._enabled ||
+                    !menu?.isOpen ||
+                    this._surfaces.has(menu)
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                try {
+                    this.attach(menu);
+                } catch (error) {
+                    console.error(
+                        '[Velora][PopupGlass] idle panel attach failed: ' +
+                        error
+                    );
+                }
+
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+
+        this._pendingAttachSources.set(
+            menu,
+            sourceId
+        );
     }
 
     _scheduleDeferredAttach(menu) {
@@ -2765,6 +3040,7 @@ export class PopupGlassManager {
         this._enabled = false;
 
         this._stopStageSync();
+        this._uninstallPanelHoverSwitchDebounce();
 
         for (const [menu, sourceId] of this._pendingAttachSources) {
             try {
