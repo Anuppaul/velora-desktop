@@ -3122,9 +3122,14 @@ export class LiquidGlassIntegration {
                 );
         } catch {}
 
+        const useGlassBackground =
+            !this._dockIsPanelMode() &&
+            this._dockModeTransitionTarget !== false &&
+            !this._dockHandoffActive;
+
         this._syncDockGlassBackgroundClass(
             entry,
-            true
+            useGlassBackground
         );
         this._syncNativeDockVisualState(
             entry
