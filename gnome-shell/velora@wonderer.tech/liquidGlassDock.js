@@ -1784,6 +1784,16 @@ export class LiquidGlassIntegration {
                             this._dockIsPanelMode()
                         );
                         this._findNativeDashToDock();
+
+                        GLib.idle_add(
+                            GLib.PRIORITY_DEFAULT_IDLE,
+                            () => {
+                                if (this._enabled)
+                                    this._findNativeDashToDock();
+                                return GLib.SOURCE_REMOVE;
+                            }
+                        );
+
                         this._scheduleNativeDashRescan();
                     }
                 );
@@ -1899,6 +1909,85 @@ export class LiquidGlassIntegration {
         } catch {}
     }
 
+    _findDockPanelBackground(container) {
+        let found = null;
+
+        const walk = actor => {
+            if (!actor || found)
+                return;
+
+            const classes = String(
+                actor.get_style_class_name?.() ??
+                actor.style_class ??
+                ''
+            ).split(/\s+/);
+
+            if (classes.includes('dash-background')) {
+                found = actor;
+                return;
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+
+        walk(container);
+        return found;
+    }
+
+    _applyDockPanelPaint(entry, enabled) {
+        if (!entry?.container)
+            return;
+
+        if (!enabled) {
+            const actor = entry.panelBackgroundActor;
+            if (actor) {
+                try {
+                    actor.set_style?.(
+                        entry.panelBackgroundOriginalStyle ?? null
+                    );
+                } catch {}
+            }
+
+            entry.panelBackgroundActor = null;
+            entry.panelBackgroundOriginalStyle = null;
+            return;
+        }
+
+        const actor =
+            this._findDockPanelBackground(
+                entry.container
+            );
+        if (!actor)
+            return;
+
+        if (actor !== entry.panelBackgroundActor) {
+            entry.panelBackgroundActor = actor;
+            entry.panelBackgroundOriginalStyle =
+                actor.get_style?.() ??
+                actor.style ??
+                null;
+        }
+
+        // Dash-to-Dock's ThemeManager writes background-color inline, which
+        // can beat extension CSS. Own only the paint, never its geometry.
+        const premiumStyle =
+            'background-color: rgba(255,255,255,0.105); ' +
+            'background-image: none; ' +
+            'border-color: rgba(255,255,255,0.15); ' +
+            'border-radius: 0px; ' +
+            'box-shadow: none;';
+
+        try {
+            if (
+                (actor.get_style?.() ?? actor.style ?? '') !==
+                premiumStyle
+            ) {
+                actor.set_style?.(premiumStyle);
+            }
+        } catch {}
+    }
+
     _syncNativeDashEntryMode(entry) {
         if (!entry?.container)
             return false;
@@ -1909,6 +1998,10 @@ export class LiquidGlassIntegration {
         );
         this._setDockPanelModeClass(
             entry.container,
+            panelMode
+        );
+        this._applyDockPanelPaint(
+            entry,
             panelMode
         );
 
@@ -2050,6 +2143,8 @@ export class LiquidGlassIntegration {
                     manager: null,
                     destroyId: 0,
                     mappedId: 0,
+                    panelBackgroundActor: null,
+                    panelBackgroundOriginalStyle: null,
                 };
                 this._nativeDashEntries.push(entry);
 
@@ -2129,6 +2224,10 @@ export class LiquidGlassIntegration {
         }
 
         this._cleanupNativeDashManager(entry);
+        this._applyDockPanelPaint(
+            entry,
+            false
+        );
         this._setDockPanelModeClass(
             entry.container,
             false
