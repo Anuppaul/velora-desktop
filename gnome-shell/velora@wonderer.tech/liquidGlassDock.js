@@ -23,6 +23,9 @@ import {
     OverviewSearchGlassManager,
 } from './overviewSearchGlass.js';
 import {
+    AppGridBackdropManager,
+} from './appGridBackdrop.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -372,6 +375,7 @@ export class LiquidGlassIntegration {
         this._popupGlassManager = null;
         this._shellCardGlassManager = null;
         this._overviewSearchGlassManager = null;
+        this._appGridBackdropManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._cardCssFile = null;
@@ -495,6 +499,12 @@ export class LiquidGlassIntegration {
                         this._readSharedCardAppearance(),
                 });
             this._overviewSearchGlassManager.setup();
+        });
+
+        start('appGridBackdropManager', () => {
+            this._appGridBackdropManager =
+                new AppGridBackdropManager();
+            this._appGridBackdropManager.setup();
         });
 
         start('nativeNotificationStyler', () => {
@@ -1008,6 +1018,7 @@ export class LiquidGlassIntegration {
         this._popupGlassManager?.updateAppearance(state);
         this._shellCardGlassManager?.updateAppearance(state);
         this._overviewSearchGlassManager?.updateAppearance(state);
+        this._appGridBackdropManager?.updateAppearance(state);
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
         this._osdManager?.updateMaterialAppearance?.(state);
@@ -1789,6 +1800,9 @@ export class LiquidGlassIntegration {
                 overviewSearchGlassManager: Boolean(
                     this._overviewSearchGlassManager
                 ),
+                appGridBackdropManager: Boolean(
+                    this._appGridBackdropManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -1947,6 +1961,12 @@ export class LiquidGlassIntegration {
             this._overviewSearchGlassManager
         );
         this._overviewSearchGlassManager = null;
+
+        cleanup(
+            'appGridBackdropManager',
+            this._appGridBackdropManager
+        );
+        this._appGridBackdropManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);
