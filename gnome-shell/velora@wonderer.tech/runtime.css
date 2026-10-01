@@ -159,6 +159,17 @@
     box-shadow: none;
 }
 
+.velora-window-preview-wrap {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
 .velora-tooltip {
     padding: 6px 10px;
     border-radius: 999px;
