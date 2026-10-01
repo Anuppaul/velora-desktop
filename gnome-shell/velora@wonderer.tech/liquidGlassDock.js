@@ -57,6 +57,9 @@ const DOCK_PANEL_MODE_CLASS =
     'velora-dock-panel-mode';
 const DOCK_PANEL_BACKGROUND_CLASS =
     'velora-ubuntu-dock-panel-background';
+const DOCK_PANEL_BLUR_EFFECT =
+    'velora-ubuntu-dock-panel-blur';
+const DOCK_PANEL_BLUR_RADIUS = 10;
 
 const DESKTOP_INTERFACE_SCHEMA =
     'org.gnome.desktop.interface';
@@ -1958,6 +1961,73 @@ export class LiquidGlassIntegration {
         return found;
     }
 
+    _removeDockPanelBlur(actor) {
+        if (!actor)
+            return;
+
+        try {
+            actor.remove_effect_by_name?.(
+                DOCK_PANEL_BLUR_EFFECT
+            );
+        } catch {}
+    }
+
+    _ensureDockPanelBlur(actor) {
+        if (!actor)
+            return;
+
+        try {
+            if (
+                actor.get_effect?.(
+                    DOCK_PANEL_BLUR_EFFECT
+                )
+            ) {
+                return;
+            }
+        } catch {}
+
+        let effect = null;
+
+        try {
+            effect = new Shell.BlurEffect({
+                mode: Shell.BlurMode.BACKGROUND,
+                radius: DOCK_PANEL_BLUR_RADIUS,
+                brightness: 1.0,
+            });
+        } catch {
+            try {
+                effect = new Shell.BlurEffect({
+                    mode: Shell.BlurMode.BACKGROUND,
+                    brightness: 1.0,
+                });
+
+                if (effect.set_radius) {
+                    effect.set_radius(
+                        DOCK_PANEL_BLUR_RADIUS
+                    );
+                } else if ('radius' in effect) {
+                    effect.radius =
+                        DOCK_PANEL_BLUR_RADIUS;
+                } else if ('sigma' in effect) {
+                    effect.sigma =
+                        DOCK_PANEL_BLUR_RADIUS / 2;
+                }
+            } catch {
+                effect = null;
+            }
+        }
+
+        if (!effect)
+            return;
+
+        try {
+            actor.add_effect_with_name?.(
+                DOCK_PANEL_BLUR_EFFECT,
+                effect
+            );
+        } catch {}
+    }
+
     _applyDockPanelPaint(entry, enabled) {
         if (!entry?.container)
             return;
@@ -1965,6 +2035,8 @@ export class LiquidGlassIntegration {
         if (!enabled) {
             const actor = entry.panelBackgroundActor;
             if (actor) {
+                this._removeDockPanelBlur(actor);
+
                 try {
                     actor.remove_style_class_name?.(
                         DOCK_PANEL_BACKGROUND_CLASS
@@ -1989,6 +2061,10 @@ export class LiquidGlassIntegration {
 
         if (actor !== entry.panelBackgroundActor) {
             if (entry.panelBackgroundActor) {
+                this._removeDockPanelBlur(
+                    entry.panelBackgroundActor
+                );
+
                 try {
                     entry.panelBackgroundActor
                         .remove_style_class_name?.(
@@ -2010,6 +2086,7 @@ export class LiquidGlassIntegration {
         actor.add_style_class_name?.(
             DOCK_PANEL_BACKGROUND_CLASS
         );
+        this._ensureDockPanelBlur(actor);
 
         // Ubuntu Dock/Yaru may write an opaque background inline after theme
         // updates. Own paint only on the real background actor; geometry stays
@@ -2049,9 +2126,9 @@ export class LiquidGlassIntegration {
         );
 
         if (panelMode) {
-            // Panel mode deliberately has no refraction/blur shader. Preserve
-            // Dash-to-Dock geometry and let runtime.css paint the simple
-            // premium panel surface.
+            // Panel mode deliberately has no Liquid Glass/refraction shader.
+            // The real Ubuntu Dock background gets only a lightweight native
+            // Shell BACKGROUND blur plus the premium translucent paint.
             this._cleanupNativeDashManager(entry);
             return true;
         }
