@@ -15,7 +15,7 @@ const ICON_ACTIVE_CLASS = 'velora-window-icon-shared-glass';
 const PAD = 20;
 const MAX_REGIONS = 16;
 const SHARED_RADIUS = 24;
-const ICON_BADGE_INSET = 4;
+const ICON_BADGE_SIZE = 48;
 const SCAN_INTERVAL_US = 180000;
 
 function classesOf(actor) {
@@ -429,21 +429,23 @@ export class OverviewCloseGlassManager {
             const localW = width / scaleX;
             const localH = height / scaleY;
 
-            const inset =
-                entry.kind === 'icon'
-                    ? Math.min(
-                        ICON_BADGE_INSET,
-                        Math.max(
-                            0,
-                            (Math.min(localW, localH) - 2) / 2
-                        )
-                    )
-                    : 0;
+            let glassX = localX;
+            let glassY = localY;
+            let glassW = localW;
+            let glassH = localH;
 
-            const glassX = localX + inset;
-            const glassY = localY + inset;
-            const glassW = Math.max(2, localW - inset * 2);
-            const glassH = Math.max(2, localH - inset * 2);
+            if (entry.kind === 'icon') {
+                const badgeSize = Math.min(
+                    ICON_BADGE_SIZE,
+                    Math.max(2, Math.min(localW, localH))
+                );
+                glassW = badgeSize;
+                glassH = badgeSize;
+                glassX =
+                    localX + (localW - badgeSize) / 2;
+                glassY =
+                    localY + (localH - badgeSize) / 2;
+            }
 
             regions.push({
                 x: glassX - PAD,
@@ -461,6 +463,12 @@ export class OverviewCloseGlassManager {
             });
 
             if (entry.clone) {
+                entry.clone.remove_transition?.('position');
+                entry.clone.remove_transition?.('size');
+                entry.clone.remove_transition?.('scale-x');
+                entry.clone.remove_transition?.('scale-y');
+                entry.clone.set_pivot_point?.(0, 0);
+                entry.clone.set_scale?.(1, 1);
                 entry.clone.set_position(
                     localX,
                     localY
