@@ -5,7 +5,8 @@ import * as Background from 'resource:///org/gnome/shell/ui/background.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const APP_GRID_CLASS = 'apps-scroll-view';
-const OVERVIEW_WALLPAPER_CLASS = 'velora-app-grid-wallpaper';
+const SEARCH_RESULTS_NAME = 'searchResults';
+const OVERVIEW_WALLPAPER_CLASS = 'velora-overview-wallpaper';
 const BLUR_RADIUS = 36;
 const BLUR_BRIGHTNESS = 0.82;
 
@@ -23,6 +24,7 @@ export class AppGridBackdropManager {
         this._layer = null;
         this._backgroundManagers = [];
         this._appGrid = null;
+        this._searchResults = null;
         this._stageId = 0;
         this._monitorsId = 0;
         this._scaleId = 0;
@@ -38,7 +40,7 @@ export class AppGridBackdropManager {
 
         this._enabled = true;
         this._createLayer();
-        this._findAppGrid();
+        this._findOverviewSurfaces();
 
         this._stageId = global.stage.connect(
             'before-update',
@@ -64,14 +66,14 @@ export class AppGridBackdropManager {
         }
 
         console.log(
-            '[Velora][AppGridBackdrop] native cached wallpaper blur active'
+            '[Velora][OverviewBackdrop] native cached wallpaper blur active'
         );
     }
 
     _createLayer() {
         const overview = Main.layoutManager.overviewGroup;
         const layer = new St.Widget({
-            name: 'velora-app-grid-native-backdrop',
+            name: 'velora-overview-native-backdrop',
             reactive: false,
             x_expand: true,
             y_expand: true,
@@ -119,7 +121,7 @@ export class AppGridBackdropManager {
                 height: monitor.height,
                 reactive: false,
                 effect: new Shell.BlurEffect({
-                    name: 'velora-app-grid-native-blur',
+                    name: 'velora-overview-native-blur',
                 }),
             });
 
@@ -149,7 +151,7 @@ export class AppGridBackdropManager {
         for (const widget of this._layer?.get_children?.() ?? []) {
             const effect =
                 widget.get_effect?.(
-                    'velora-app-grid-native-blur'
+                    'velora-overview-native-blur'
                 );
             effect?.set?.({
                 brightness: BLUR_BRIGHTNESS,
@@ -158,28 +160,57 @@ export class AppGridBackdropManager {
         }
     }
 
-    _findAppGrid() {
+    _findOverviewSurfaces() {
         const overview =
             Main.layoutManager.overviewGroup;
         if (!overview)
-            return null;
+            return;
 
-        let found = null;
+        let appGrid = null;
+        let searchResults = null;
+
         const walk = actor => {
-            if (!actor || found)
+            if (
+                !actor ||
+                (appGrid && searchResults)
+            ) {
                 return;
+            }
 
-            if (classesOf(actor).includes(APP_GRID_CLASS)) {
-                found = actor;
-                return;
+            if (
+                !appGrid &&
+                classesOf(actor).includes(APP_GRID_CLASS)
+            ) {
+                appGrid = actor;
+            }
+
+            if (
+                !searchResults &&
+                actor.get_name?.() === SEARCH_RESULTS_NAME
+            ) {
+                searchResults = actor;
             }
 
             for (const child of actor.get_children?.() ?? [])
                 walk(child);
         };
+
         walk(overview);
-        this._appGrid = found;
-        return found;
+        this._appGrid = appGrid;
+        this._searchResults = searchResults;
+    }
+
+    _surfaceVisible(actor) {
+        if (!actor)
+            return false;
+
+        return Boolean(
+            actor.visible &&
+            actor.mapped &&
+            (actor.get_paint_opacity?.() ??
+                actor.opacity ??
+                255) > 8
+        );
     }
 
     _syncVisibility() {
@@ -189,17 +220,24 @@ export class AppGridBackdropManager {
         const overview =
             Main.layoutManager.overviewGroup;
         let appGrid = this._appGrid;
-        if (!appGrid || !appGrid.get_stage?.())
-            appGrid = this._findAppGrid();
+        let searchResults = this._searchResults;
+
+        if (
+            !appGrid?.get_stage?.() ||
+            !searchResults?.get_stage?.()
+        ) {
+            this._findOverviewSurfaces();
+            appGrid = this._appGrid;
+            searchResults = this._searchResults;
+        }
 
         const visible = Boolean(
             overview?.visible &&
             overview?.mapped &&
-            appGrid?.visible &&
-            appGrid?.mapped &&
-            (appGrid.get_paint_opacity?.() ??
-                appGrid.opacity ??
-                255) > 8
+            (
+                this._surfaceVisible(appGrid) ||
+                this._surfaceVisible(searchResults)
+            )
         );
 
         if (visible) {
@@ -267,9 +305,10 @@ export class AppGridBackdropManager {
         } catch {}
         this._layer = null;
         this._appGrid = null;
+        this._searchResults = null;
 
         console.log(
-            '[Velora][AppGridBackdrop] stopped'
+            '[Velora][OverviewBackdrop] stopped'
         );
     }
 }
