@@ -173,6 +173,17 @@
     font-weight: 650;
 }
 
+/* Shared adaptive Shell text --------------------------------------------- */
+/* Applied directly to ordinary StLabel/StEntry actors by SharedAdaptiveText.
+ * Semantic selected/default/error/accent text is deliberately excluded. */
+.velora-shared-text-light {
+    color: #f7f8fc !important;
+}
+
+.velora-shared-text-dark {
+    color: #17191f !important;
+}
+
 /* PopupGlassManager keeps the original GNOME menu.box as the content layer.
  * Only its painted card material is removed. */
 .velora-liquid-popup-content {
