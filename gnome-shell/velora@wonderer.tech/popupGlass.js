@@ -26,6 +26,7 @@ const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
 const SAMPLE_MARGIN_MAX = 200;
+const POPUP_OPEN_BURST_US = 350000;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -312,6 +313,10 @@ class PopupGlassSurface {
             popupClasses.includes('datemenu-popover');
         this._isQuickSettings =
             popupClasses.includes('quick-settings');
+
+        this._lastFullSyncUs = 0;
+        this._fullSyncBurstUntilUs = 0;
+        this._fullSyncDirty = true;
 
         this._surfaceAdapter =
             this._isDateMenu
@@ -627,7 +632,13 @@ class PopupGlassSurface {
                     // added/removed windows. Rebuilding here allocated a new
                     // background + clone tree and could expose an empty capture
                     // for the first rendered frame.
+                    const nowUs =
+                        GLib.get_monotonic_time();
                     this._lastSceneSyncUs = 0;
+                    this._lastFullSyncUs = 0;
+                    this._fullSyncBurstUntilUs =
+                        nowUs + POPUP_OPEN_BURST_US;
+                    this._fullSyncDirty = true;
                     this._manager?._ensureStageSync?.();
 
                     this._scanDateCardActors(true);
@@ -674,6 +685,7 @@ class PopupGlassSurface {
     }
 
     _invalidateGeometry() {
+        this._fullSyncDirty = true;
         this._lastShaderX = NaN;
         this._lastShaderY = NaN;
         this._lastShaderW = NaN;
@@ -745,6 +757,7 @@ class PopupGlassSurface {
 
                     this._applyQuickThemeForegroundPolarity();
                     this._quickRegionDirty = true;
+                    this._fullSyncDirty = true;
                     this._dateInnerRoot?.queue_redraw?.();
 
                     if (this._surfaceAdapter?.adaptiveText) {
@@ -840,6 +853,7 @@ class PopupGlassSurface {
 
         const markDirty = () => {
             this._quickRegionDirty = true;
+            this._fullSyncDirty = true;
             this._dateInnerRoot?.queue_redraw?.();
         };
 
@@ -1730,6 +1744,7 @@ class PopupGlassSurface {
         if (!this._effect || !state)
             return;
 
+        this._fullSyncDirty = true;
         this._radius = readRadius(this._box);
 
         const appearanceProfile =
@@ -1884,6 +1899,41 @@ class PopupGlassSurface {
         if (this._destroyed)
             return;
 
+        const nowUs =
+            GLib.get_monotonic_time();
+        const inOpenBurst =
+            nowUs <
+            this._fullSyncBurstUntilUs;
+
+        const configuredSceneFps =
+            this._manager._appearance?.sceneFps ??
+            24;
+        const sceneFpsCap =
+            this._surfaceAdapter?.sceneFpsCap ??
+            60;
+        const steadyFps = Math.max(
+            15,
+            Math.min(
+                sceneFpsCap,
+                configuredSceneFps
+            )
+        );
+        const targetFps =
+            inOpenBurst ? 60 : steadyFps;
+        const intervalUs =
+            1000000 / targetFps;
+
+        if (
+            !this._fullSyncDirty &&
+            this._lastFullSyncUs > 0 &&
+            nowUs - this._lastFullSyncUs <
+                intervalUs
+        ) {
+            return;
+        }
+
+        this._lastFullSyncUs = nowUs;
+        this._fullSyncDirty = false;
         this._sync(false);
     }
 
