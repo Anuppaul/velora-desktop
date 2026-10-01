@@ -16,7 +16,9 @@ const ORB_GLYPH_CLASS = 'velora-orb-glyph-v2';
 const APP_BUTTON_CLASS = 'velora-app-button';
 const PAD = 20;
 const MAX_REGIONS = 16;
-const SHARED_RADIUS = 22;
+// Deliberately larger than any Orb/app-button half extent. The shader
+// clamps this per region, producing a true circle for square controls.
+const SHARED_RADIUS = 128;
 const SCAN_INTERVAL_US = 140000;
 const SAMPLE_INTERVAL_US = 650000;
 const LIGHT = GLASS_TEXT_PALETTE.light;
