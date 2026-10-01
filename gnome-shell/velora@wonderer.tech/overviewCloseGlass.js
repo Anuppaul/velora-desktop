@@ -1,23 +1,36 @@
 import Clutter from 'gi://Clutter';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
+    GLASS_TEXT_PALETTE,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
 
 const CLOSE_TARGET_CLASS = 'window-close';
 const ICON_TARGET_CLASS = 'window-icon';
+const CAPTION_TARGET_CLASS = 'window-caption';
 const CLOSE_ACTIVE_CLASS = 'velora-window-close-shared-glass';
 const ICON_ACTIVE_CLASS = 'velora-window-icon-shared-glass';
+const CAPTION_TEXT_LIGHT_CLASS = 'velora-window-caption-text-light';
+const CAPTION_TEXT_DARK_CLASS = 'velora-window-caption-text-dark';
 const PAD = 20;
 const MAX_REGIONS = 16;
 const SHARED_RADIUS = 24;
 const ICON_BADGE_SIZE = 48;
 const ICON_VISUAL_SIZE = 40;
 const SCAN_INTERVAL_US = 180000;
+const CAPTION_SAMPLE_INTERVAL_US = 650000;
+const CAPTION_SAMPLE_GRID = 18;
+const CAPTION_SWITCH_ADVANTAGE = 1.18;
+const CAPTION_MIN_READABLE_CONTRAST = 4.5;
+const CAPTION_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
+const CAPTION_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 
 function classesOf(actor) {
     return String(
@@ -37,6 +50,65 @@ function finiteRect(rect) {
     );
 }
 
+function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function srgbToLinear(channel) {
+    const n = channel / 255;
+    return n <= 0.04045
+        ? n / 12.92
+        : Math.pow((n + 0.055) / 1.055, 2.4);
+}
+
+function rgbLuminance(r, g, b) {
+    return (
+        0.2126 * srgbToLinear(r) +
+        0.7152 * srgbToLinear(g) +
+        0.0722 * srgbToLinear(b)
+    );
+}
+
+function hexLuminance(hex) {
+    const value = Number.parseInt(hex.slice(1), 16);
+    return rgbLuminance(
+        (value >> 16) & 255,
+        (value >> 8) & 255,
+        value & 255
+    );
+}
+
+function trimmedMean(values, trimRatio = 0.30) {
+    if (!values.length)
+        return null;
+
+    const sorted = values.slice().sort((a, b) => a - b);
+    const trim = Math.min(
+        Math.floor(sorted.length * trimRatio),
+        Math.floor((sorted.length - 1) / 2)
+    );
+    const start = trim;
+    const end = sorted.length - trim;
+
+    let sum = 0;
+    for (let i = start; i < end; i++)
+        sum += sorted[i];
+
+    return sum / Math.max(1, end - start);
+}
+
+function contrastRatio(a, b) {
+    return (
+        (Math.max(a, b) + 0.05) /
+        (Math.min(a, b) + 0.05)
+    );
+}
+
+const CAPTION_LIGHT_LUMA =
+    hexLuminance(CAPTION_LIGHT_TEXT);
+const CAPTION_DARK_LUMA =
+    hexLuminance(CAPTION_DARK_TEXT);
+
 export class OverviewCloseGlassManager {
     constructor(params) {
         this._vendor = params.vendor;
@@ -53,6 +125,11 @@ export class OverviewCloseGlassManager {
 
         this._appearance = null;
         this._targets = new Map();
+        this._captions = new Map();
+        this._captionScreenshot = null;
+        this._captionSamplePending = false;
+        this._lastCaptionSampleUs = 0;
+        this._captionGeneration = 0;
         this._stageId = 0;
         this._lastScanUs = 0;
         this._lastRegionKey = '';
@@ -238,11 +315,18 @@ export class OverviewCloseGlassManager {
         this._lastScanUs = nowUs;
 
         const found = new Set();
+        const foundCaptions = new Set();
         const walk = actor => {
             if (!actor || actor === this._root)
                 return;
 
             const actorClasses = classesOf(actor);
+
+            if (actorClasses.includes(CAPTION_TARGET_CLASS)) {
+                foundCaptions.add(actor);
+                return;
+            }
+
             if (
                 actorClasses.includes(CLOSE_TARGET_CLASS) ||
                 actorClasses.includes(ICON_TARGET_CLASS)
@@ -328,6 +412,408 @@ export class OverviewCloseGlassManager {
                 nativeOpacity,
             });
         }
+
+        for (const [actor, state] of this._captions) {
+            if (foundCaptions.has(actor))
+                continue;
+
+            try {
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_DARK_CLASS
+                );
+            } catch {}
+            try {
+                actor.set_style?.(
+                    state.originalStyle ?? null
+                );
+            } catch {}
+            this._captions.delete(actor);
+        }
+
+        for (const actor of foundCaptions) {
+            if (this._captions.has(actor))
+                continue;
+
+            this._captions.set(actor, {
+                useDarkText: null,
+                originalStyle:
+                    actor.get_style?.() ??
+                    actor.style ??
+                    null,
+            });
+        }
+    }
+
+    _visibleCaptions() {
+        const result = [];
+
+        for (const actor of this._captions.keys()) {
+            if (
+                !actor?.visible ||
+                !actor?.mapped ||
+                (actor.get_paint_opacity?.() ??
+                    actor.opacity ??
+                    255) <= 0
+            ) {
+                continue;
+            }
+
+            const rect =
+                this._vendor.getTransformedRect(actor);
+            if (!finiteRect(rect))
+                continue;
+
+            result.push({actor, rect});
+        }
+
+        return result;
+    }
+
+    _captureCaptionFrame(rect) {
+        if (!finiteRect(rect))
+            return Promise.resolve(null);
+
+        const [x, y, width, height] = rect;
+        const left = Math.max(0, Math.floor(x));
+        const top = Math.max(0, Math.floor(y));
+        const right = Math.min(
+            global.stage.width,
+            Math.ceil(x + width)
+        );
+        const bottom = Math.min(
+            global.stage.height,
+            Math.ceil(y + height)
+        );
+
+        if (right <= left || bottom <= top)
+            return Promise.resolve(null);
+
+        if (!this._captionScreenshot)
+            this._captionScreenshot = new Shell.Screenshot();
+
+        return new Promise(resolve => {
+            let stream = null;
+
+            try {
+                stream = Gio.MemoryOutputStream.new_resizable();
+                this._captionScreenshot.screenshot_area(
+                    left,
+                    top,
+                    right - left,
+                    bottom - top,
+                    stream,
+                    (object, result) => {
+                        try {
+                            if (!object)
+                                throw new Error(
+                                    'null screenshot object'
+                                );
+
+                            const [ok] =
+                                object.screenshot_area_finish(
+                                    result
+                                );
+                            stream.close(null);
+
+                            if (!ok) {
+                                resolve(null);
+                                return;
+                            }
+
+                            const bytes = stream.steal_as_bytes();
+                            const pixbuf =
+                                GdkPixbuf.Pixbuf.new_from_stream(
+                                    Gio.MemoryInputStream
+                                        .new_from_bytes(bytes),
+                                    null
+                                );
+
+                            if (!pixbuf) {
+                                resolve(null);
+                                return;
+                            }
+
+                            resolve({
+                                x: left,
+                                y: top,
+                                width: pixbuf.get_width(),
+                                height: pixbuf.get_height(),
+                                stride: pixbuf.get_rowstride(),
+                                channels: pixbuf.get_n_channels(),
+                                data: pixbuf.get_pixels(),
+                            });
+                        } catch {
+                            try {
+                                stream?.close?.(null);
+                            } catch {}
+                            resolve(null);
+                        }
+                    }
+                );
+            } catch {
+                try {
+                    stream?.close?.(null);
+                } catch {}
+                resolve(null);
+            }
+        });
+    }
+
+    _captionLuminance(frame, rect) {
+        if (!frame || !finiteRect(rect))
+            return null;
+
+        let [x, y, width, height] = rect;
+
+        const insetX = Math.min(8, width * 0.06);
+        const insetY = Math.min(5, height * 0.14);
+        x += insetX;
+        y += insetY;
+        width -= insetX * 2;
+        height -= insetY * 2;
+
+        const left = clampNumber(
+            Math.floor(x - frame.x),
+            0,
+            frame.width - 1
+        );
+        const top = clampNumber(
+            Math.floor(y - frame.y),
+            0,
+            frame.height - 1
+        );
+        const right = clampNumber(
+            Math.ceil(x + width - frame.x),
+            left + 1,
+            frame.width
+        );
+        const bottom = clampNumber(
+            Math.ceil(y + height - frame.y),
+            top + 1,
+            frame.height
+        );
+
+        if (right <= left || bottom <= top)
+            return null;
+
+        const sampleWidth = right - left;
+        const sampleHeight = bottom - top;
+        const step = Math.max(
+            1,
+            Math.floor(
+                Math.min(sampleWidth, sampleHeight) /
+                CAPTION_SAMPLE_GRID
+            )
+        );
+
+        const values = [];
+        const {data, stride, channels} = frame;
+
+        for (let py = top; py < bottom; py += step) {
+            const row = py * stride;
+
+            for (let px = left; px < right; px += step) {
+                const offset = row + px * channels;
+                let r = data[offset] ?? 0;
+                let g = data[offset + 1] ?? 0;
+                let b = data[offset + 2] ?? 0;
+
+                if (channels >= 4) {
+                    const alpha = data[offset + 3] ?? 255;
+                    if (alpha > 0 && alpha < 255) {
+                        const inv = 255 / alpha;
+                        r = clampNumber(
+                            Math.round(r * inv),
+                            0,
+                            255
+                        );
+                        g = clampNumber(
+                            Math.round(g * inv),
+                            0,
+                            255
+                        );
+                        b = clampNumber(
+                            Math.round(b * inv),
+                            0,
+                            255
+                        );
+                    }
+                }
+
+                values.push(
+                    rgbLuminance(r, g, b)
+                );
+            }
+        }
+
+        return trimmedMean(values, 0.30);
+    }
+
+    _chooseCaptionDarkText(actor, luminance) {
+        if (!Number.isFinite(luminance))
+            return null;
+
+        const lightContrast = contrastRatio(
+            luminance,
+            CAPTION_LIGHT_LUMA
+        );
+        const darkContrast = contrastRatio(
+            luminance,
+            CAPTION_DARK_LUMA
+        );
+
+        const state = this._captions.get(actor);
+        const previous = state?.useDarkText ?? null;
+
+        if (previous === null)
+            return darkContrast > lightContrast;
+
+        const current =
+            previous ? darkContrast : lightContrast;
+        const alternative =
+            previous ? lightContrast : darkContrast;
+
+        if (
+            current < CAPTION_MIN_READABLE_CONTRAST &&
+            alternative >= CAPTION_MIN_READABLE_CONTRAST
+        ) {
+            return !previous;
+        }
+
+        if (
+            alternative >
+            current * CAPTION_SWITCH_ADVANTAGE
+        ) {
+            return !previous;
+        }
+
+        return previous;
+    }
+
+    _applyCaptionPolarity(actor, useDarkText) {
+        if (!actor || useDarkText === null)
+            return;
+
+        const state = this._captions.get(actor);
+        if (!state)
+            return;
+
+        const color = useDarkText
+            ? CAPTION_DARK_TEXT
+            : CAPTION_LIGHT_TEXT;
+
+        if (state.useDarkText !== useDarkText) {
+            try {
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_DARK_CLASS
+                );
+                actor.add_style_class_name?.(
+                    useDarkText
+                        ? CAPTION_TEXT_DARK_CLASS
+                        : CAPTION_TEXT_LIGHT_CLASS
+                );
+            } catch {}
+
+            state.useDarkText = useDarkText;
+        }
+
+        // Inline color wins over Yaru/tooltip/accent foreground rules. This is
+        // intentional: adaptive polarity must only ever be near-black/near-white.
+        try {
+            actor.set_style?.(
+                'color: ' + color + ';'
+            );
+        } catch {}
+    }
+
+    async _sampleCaptionPolarity(generation) {
+        if (
+            !this._enabled ||
+            generation !== this._captionGeneration ||
+            !Main.overview?.visible
+        ) {
+            return;
+        }
+
+        const visible = this._visibleCaptions();
+        if (!visible.length)
+            return;
+
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+
+        for (const {rect} of visible) {
+            minX = Math.min(minX, rect[0]);
+            minY = Math.min(minY, rect[1]);
+            maxX = Math.max(maxX, rect[0] + rect[2]);
+            maxY = Math.max(maxY, rect[1] + rect[3]);
+        }
+
+        const frame = await this._captureCaptionFrame([
+            minX,
+            minY,
+            maxX - minX,
+            maxY - minY,
+        ]);
+
+        if (
+            !frame ||
+            !this._enabled ||
+            generation !== this._captionGeneration
+        ) {
+            return;
+        }
+
+        for (const {actor, rect} of visible) {
+            const luminance =
+                this._captionLuminance(frame, rect);
+            const useDarkText =
+                this._chooseCaptionDarkText(
+                    actor,
+                    luminance
+                );
+            this._applyCaptionPolarity(
+                actor,
+                useDarkText
+            );
+        }
+    }
+
+    _maybeSampleCaptions() {
+        const visible = this._visibleCaptions();
+        if (!visible.length)
+            return;
+
+        const nowUs = GLib.get_monotonic_time();
+        if (
+            this._captionSamplePending ||
+            (
+                this._lastCaptionSampleUs > 0 &&
+                nowUs - this._lastCaptionSampleUs <
+                    CAPTION_SAMPLE_INTERVAL_US
+            )
+        ) {
+            return;
+        }
+
+        this._captionSamplePending = true;
+        this._lastCaptionSampleUs = nowUs;
+        const generation = ++this._captionGeneration;
+
+        this._sampleCaptionPolarity(generation)
+            .catch(() => {})
+            .finally(() => {
+                if (generation === this._captionGeneration)
+                    this._captionSamplePending = false;
+            });
     }
 
     _tick() {
@@ -351,6 +837,7 @@ export class OverviewCloseGlassManager {
         }
 
         this._scan(false);
+        this._maybeSampleCaptions();
 
         const groupRect =
             this._vendor.getTransformedRect(
@@ -593,6 +1080,28 @@ export class OverviewCloseGlassManager {
             } catch {}
         }
         this._targets.clear();
+
+        this._captionGeneration++;
+        this._captionSamplePending = false;
+
+        for (const [actor, state] of this._captions) {
+            try {
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    CAPTION_TEXT_DARK_CLASS
+                );
+            } catch {}
+            try {
+                actor.set_style?.(
+                    state.originalStyle ?? null
+                );
+            } catch {}
+        }
+        this._captions.clear();
+        this._captionScreenshot = null;
+        this._lastCaptionSampleUs = 0;
 
         try {
             this._root?.destroy?.();
