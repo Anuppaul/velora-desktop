@@ -457,6 +457,38 @@ export class LiquidGlassIntegration {
         // pipeline to Main.panel so the top panel itself receives glass.
         this._setupTopPanelGlass();
 
+        // Orb is a Velora-owned surface. The upstream Liquid Glass extension
+        // never knows about velora-desktop-layer, so it must be attached even
+        // when we reuse an already-active upstream renderer stack.
+        try {
+            this._orbGlassManager =
+                new OrbGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._orbGlassManager.setup();
+            this._managerHealth.orbGlassManager = true;
+            console.log(
+                '[Velora][LiquidGlass] orbGlassManager active'
+            );
+        } catch (error) {
+            this._orbGlassManager = null;
+            this._managerHealth.orbGlassManager = false;
+            console.error(
+                '[Velora][LiquidGlass] orbGlassManager setup failed: ' +
+                error +
+                '\n' +
+                (error?.stack ?? '')
+            );
+        }
+
+        // Keep the Velora-owned Orb and top-panel material live-bound to the
+        // same shared appearance controls in both standalone and upstream-stack
+        // modes.
+        this._setupSharedCardAppearanceSync();
+
         if (this._externalGlobalStack) {
             console.warn(
                 '[Velora][LiquidGlass] original Liquid Glass extension is ' +
@@ -540,22 +572,9 @@ export class LiquidGlassIntegration {
             this._sharedAdaptiveTextManager.setup();
         });
 
-        start('orbGlassManager', () => {
-            this._orbGlassManager =
-                new OrbGlassManager({
-                    vendor: this._vendor,
-                    settings: this._settings,
-                    readAppearance: () =>
-                        this._readSharedCardAppearance(),
-                });
-            this._orbGlassManager.setup();
-        });
-
         start('nativeNotificationStyler', () => {
             this._setupNativeNotificationStyler();
         });
-
-        this._setupSharedCardAppearanceSync();
 
         start('osdManager', () => {
             this._osdManager = new this._vendor.OsdManager(
