@@ -26,6 +26,19 @@ function createLiquidGlassSettings(extensionDir) {
     return new Gio.Settings({settings_schema: schema});
 }
 
+function addPage(window, title, iconName, description = null) {
+    const page = new Adw.PreferencesPage({
+        title,
+        icon_name: iconName,
+    });
+
+    if (description)
+        page.description = description;
+
+    window.add(page);
+    return page;
+}
+
 function addSwitch(group, settings, key, title, subtitle) {
     const row = new Adw.SwitchRow({title, subtitle});
     settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
@@ -103,35 +116,61 @@ function addDoubleSpin(
     return row;
 }
 
+function addResetRow(group, title, subtitle, callback) {
+    const row = new Adw.ActionRow({title, subtitle});
+    const button = new Gtk.Button({
+        label: 'Reset',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+    button.connect('clicked', callback);
+    row.add_suffix(button);
+    row.activatable_widget = button;
+    group.add(row);
+    return row;
+}
+
 export default class VeloraPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         const advanced = createLiquidGlassSettings(this.dir);
 
-        const page = new Adw.PreferencesPage({
-            title: 'Velora',
-            icon_name: 'preferences-desktop-appearance-symbolic',
-        });
-        window.add(page);
+        window.set_search_enabled?.(true);
+        window.set_default_size?.(760, 720);
+
+        // -----------------------------------------------------------------
+        // Appearance
+        // -----------------------------------------------------------------
+        const appearancePage = addPage(
+            window,
+            'Appearance',
+            'preferences-desktop-appearance-symbolic'
+        );
 
         const glass = new Adw.PreferencesGroup({
             title: 'System Liquid Glass',
             description:
-                'One material profile for GNOME Shell popups, notifications and supported system surfaces.',
+                'The shared material used by supported GNOME Shell surfaces.',
         });
-        page.add(glass);
+        appearancePage.add(glass);
 
         addIntSpin(
             glass, settings, 'glass-blur',
-            'Blur', 'Dual Kawase blur radius', 0, 80, 1
+            'Blur',
+            'Backdrop blur radius.',
+            0, 80, 1
         );
         addIntSpin(
             glass, settings, 'glass-opacity',
-            'Tint strength', 'White/color tint mixed into the glass', 0, 100, 1
+            'Tint strength',
+            'Amount of white or custom tint mixed into the glass.',
+            0, 100, 1
         );
         addIntSpin(
             glass, settings, 'glass-filter-opacity',
-            'White filter', 'Neutral white veil above refraction, below content', 0, 20, 1
+            'White filter',
+            'Neutral veil above refraction and below native content.',
+            0, 20, 1
         );
 
         const tint = new Adw.EntryRow({
@@ -150,118 +189,183 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         glass.add(tint);
 
+        const optics = new Adw.PreferencesGroup({
+            title: 'Optics',
+            description:
+                'Fine material tuning. These controls affect the shared refractive character.',
+        });
+        appearancePage.add(optics);
+
         addDoubleSpin(
-            glass, advanced, 'glass-displacement-scale',
-            'Refraction', 'Edge lens displacement strength', 0, 60, 0.5, 1
+            optics, advanced, 'glass-displacement-scale',
+            'Refraction',
+            'Edge lens displacement strength.',
+            0, 60, 0.5, 1
         );
         addDoubleSpin(
-            glass, advanced, 'glass-chroma-strength',
-            'Chromatic fringe', 'RGB dispersion at refractive edges (px)', 0, 8, 0.1, 1
+            optics, advanced, 'glass-chroma-strength',
+            'Chromatic fringe',
+            'RGB dispersion at refractive edges.',
+            0, 8, 0.1, 1
         );
         addDoubleSpin(
-            glass, advanced, 'glass-specular-intensity',
-            'Specular', 'Directional highlight strength', 0, 2, 0.05, 2
+            optics, advanced, 'glass-specular-intensity',
+            'Specular',
+            'Directional surface highlight strength.',
+            0, 2, 0.05, 2
         );
         addDoubleSpin(
-            glass, advanced, 'glass-rim-intensity',
-            'Rim light', 'Fresnel edge-light strength', 0, 2, 0.05, 2
+            optics, advanced, 'glass-rim-intensity',
+            'Rim light',
+            'Fresnel-style edge lighting strength.',
+            0, 2, 0.05, 2
         );
         addDoubleSpin(
-            glass, advanced, 'glass-sheen-intensity',
-            'Sheen', 'Soft surface sheen across the glass', 0, 1, 0.02, 2
+            optics, advanced, 'glass-sheen-intensity',
+            'Sheen',
+            'Soft highlight across the glass surface.',
+            0, 1, 0.02, 2
         );
 
         const dateMenu = new Adw.PreferencesGroup({
-            title: 'Date Menu calibration',
+            title: 'Date Menu',
             description:
-                'Micro-tune one reference surface first. These controls affect only the clock/calendar popup.',
+                'Independent calibration for the clock and calendar popup.',
         });
-        page.add(dateMenu);
+        appearancePage.add(dateMenu);
 
         addIntSpin(
             dateMenu, settings, 'date-menu-glass-blur',
-            'Blur', 'Date Menu blur radius only', 0, 20, 1
+            'Blur',
+            'Date Menu blur radius only.',
+            0, 20, 1
         );
         addIntSpin(
             dateMenu, settings, 'date-menu-glass-opacity',
-            'Tint', 'Date Menu tint strength percentage only', 0, 20, 1
+            'Tint',
+            'Date Menu tint strength only.',
+            0, 20, 1
         );
         addIntSpin(
             dateMenu, settings, 'date-menu-glass-filter-opacity',
-            'White filter', 'Date Menu neutral white veil percentage', 0, 20, 1
+            'White filter',
+            'Date Menu neutral white veil only.',
+            0, 20, 1
         );
 
-        const performance = new Adw.PreferencesGroup({
-            title: 'Performance',
+        // -----------------------------------------------------------------
+        // Menus
+        // -----------------------------------------------------------------
+        const menusPage = addPage(
+            window,
+            'Menus',
+            'open-menu-symbolic'
+        );
+
+        const panelMenus = new Adw.PreferencesGroup({
+            title: 'Panel Menu Behavior',
             description:
-                'Caps expensive live scene synchronization; Shell geometry and interactions still follow the native frame clock.',
+                'Control how an already-open panel menu reacts when the pointer crosses another panel icon.',
         });
-        page.add(performance);
+        menusPage.add(panelMenus);
 
-        addIntSpin(
-            performance, settings, 'glass-live-scene-fps',
-            'Live scene FPS', '30 is the recommended balance; 60 maximizes scene freshness', 15, 60, 5
+        const hoverSwitchRow = addSwitch(
+            panelMenus,
+            settings,
+            'panel-menu-hover-switch',
+            'Switch menus on hover',
+            'When off, ChatGPT, Codex, EasyEffects, Quick Settings and other panel menus open only by click or keyboard.'
         );
 
-        addSwitch(
-            performance, settings, 'panel-menu-hover-switch',
-            'Switch panel menus on hover',
-            'Off prevents ChatGPT, Codex, EasyEffects and other panel menus from opening while the pointer crosses their icons. Click and keyboard opening are always immediate.'
-        );
-        addIntSpin(
-            performance, settings, 'panel-menu-hover-delay-ms',
+        const hoverDelayRow = addIntSpin(
+            panelMenus,
+            settings,
+            'panel-menu-hover-delay-ms',
             'Hover switch delay',
-            'Milliseconds the pointer must remain on another panel icon before its menu opens.',
+            'How long the pointer must remain over another panel icon before switching.',
             0, 1000, 25
+        );
+
+        const syncHoverDelaySensitivity = () => {
+            hoverDelayRow.sensitive =
+                settings.get_boolean('panel-menu-hover-switch');
+        };
+        syncHoverDelaySensitivity();
+        settings.connect(
+            'changed::panel-menu-hover-switch',
+            syncHoverDelaySensitivity
+        );
+
+        const menuNote = new Adw.ActionRow({
+            title: 'Input-first switching',
+            subtitle:
+                'Hover switching is debounced before native popup rendering or Liquid Glass allocation begins.',
+        });
+        menuNote.activatable = false;
+        panelMenus.add(menuNote);
+
+        // -----------------------------------------------------------------
+        // Dock
+        // -----------------------------------------------------------------
+        const dockPage = addPage(
+            window,
+            'Dock',
+            'go-bottom-symbolic'
         );
 
         const dock = new Adw.PreferencesGroup({
             title: 'Floating Dock',
             description:
-                'Position tuning for Ubuntu Dock while panel mode is off. Intelligent Autohide remains native.',
+                'Position tuning for Ubuntu Dock while panel mode is off. Native Intelligent Autohide remains in control.',
         });
-        page.add(dock);
+        dockPage.add(dock);
 
         addIntSpin(
             dock, settings, 'dock-vertical-offset',
             'Vertical offset',
-            'Positive moves the floating dock up; negative moves it down. Panel mode ignores this setting.',
+            'Positive moves the floating dock up; negative moves it down.',
             -64, 64, 1
         );
 
-        const resetDockOffset = new Adw.ActionRow({
-            title: 'Reset dock offset',
-            subtitle: 'Return the floating dock to Ubuntu Dock’s native vertical position.',
-        });
-        const resetDockOffsetButton = new Gtk.Button({
-            label: 'Reset',
-            valign: Gtk.Align.CENTER,
-        });
-        resetDockOffsetButton.connect('clicked', () => {
-            settings.reset('dock-vertical-offset');
-        });
-        resetDockOffset.add_suffix(resetDockOffsetButton);
-        resetDockOffset.activatable_widget = resetDockOffsetButton;
-        dock.add(resetDockOffset);
+        addResetRow(
+            dock,
+            'Reset dock position',
+            'Return the floating dock to Ubuntu Dock’s native vertical position.',
+            () => settings.reset('dock-vertical-offset')
+        );
 
-        const orb = new Adw.PreferencesGroup({
-            title: 'Orb',
+        // -----------------------------------------------------------------
+        // Orb
+        // -----------------------------------------------------------------
+        const orbPage = addPage(
+            window,
+            'Orb',
+            'applications-system-symbolic'
+        );
+
+        const orbAppearance = new Adw.PreferencesGroup({
+            title: 'Orb Appearance',
             description:
-                'Full Velora Orb: click toggles GNOME Applications; hover opens the radial launcher with previews, tooltips and running indicators.',
+                'Desktop Orb visibility, size and icon.',
         });
-        page.add(orb);
+        orbPage.add(orbAppearance);
 
         addSwitch(
-            orb, settings, 'orb-enabled',
-            'Show Orb', 'Keep the Velora Orb on the desktop'
+            orbAppearance, settings, 'orb-enabled',
+            'Show Orb',
+            'Keep the Velora Orb on the desktop.'
         );
         addIntSpin(
-            orb, settings, 'orb-size',
-            'Size', 'Orb diameter in pixels', 20, 80, 1
+            orbAppearance, settings, 'orb-size',
+            'Size',
+            'Orb diameter in pixels.',
+            20, 80, 1
         );
         addIntSpin(
-            orb, settings, 'orb-opacity',
-            'Opacity', 'Orb opacity percentage', 0, 100, 1
+            orbAppearance, settings, 'orb-opacity',
+            'Opacity',
+            'Orb opacity percentage.',
+            0, 100, 1
         );
 
         const icon = new Adw.EntryRow({
@@ -274,64 +378,101 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'text',
             Gio.SettingsBindFlags.DEFAULT
         );
-        orb.add(icon);
+        orbAppearance.add(icon);
+
+        const orbBehavior = new Adw.PreferencesGroup({
+            title: 'Orb Behavior',
+            description:
+                'Idle hiding, fading and launcher timing.',
+        });
+        orbPage.add(orbBehavior);
 
         addSwitch(
-            orb, settings, 'auto-hide-orb',
-            'Auto-hide', 'Slide the Orb to the nearest monitor edge while idle'
+            orbBehavior, settings, 'auto-hide-orb',
+            'Auto-hide',
+            'Slide the Orb to the nearest monitor edge while idle.'
         );
         addIntSpin(
-            orb, settings, 'auto-hide-delay',
-            'Auto-hide delay', 'Milliseconds before hiding', 0, 10000, 100
+            orbBehavior, settings, 'auto-hide-delay',
+            'Auto-hide delay',
+            'Milliseconds before hiding.',
+            0, 10000, 100
         );
         addSwitch(
-            orb, settings, 'auto-fade-orb',
-            'Auto-fade', 'Fade the Orb while idle when auto-hide is off'
+            orbBehavior, settings, 'auto-fade-orb',
+            'Auto-fade',
+            'Fade the Orb while idle when auto-hide is off.'
         );
         addIntSpin(
-            orb, settings, 'auto-fade-delay',
-            'Auto-fade delay', 'Milliseconds before fading', 0, 30000, 250
+            orbBehavior, settings, 'auto-fade-delay',
+            'Auto-fade delay',
+            'Milliseconds before fading.',
+            0, 30000, 250
         );
         addIntSpin(
-            orb, settings, 'hover-delay',
-            'Launcher hover delay', 'Milliseconds before the radial launcher opens', 0, 1200, 25
+            orbBehavior, settings, 'hover-delay',
+            'Launcher hover delay',
+            'Milliseconds before the radial launcher opens.',
+            0, 1200, 25
         );
         addIntSpin(
-            orb, settings, 'close-delay',
-            'Launcher close delay', 'Milliseconds before the radial launcher closes', 0, 1800, 25
+            orbBehavior, settings, 'close-delay',
+            'Launcher close delay',
+            'Milliseconds before the radial launcher closes.',
+            0, 1800, 25
+        );
+
+        const launcher = new Adw.PreferencesGroup({
+            title: 'Radial Launcher',
+            description:
+                'Layout, animation, previews and indicators.',
+        });
+        orbPage.add(launcher);
+
+        addIntSpin(
+            launcher, settings, 'icon-size',
+            'Icon size',
+            'Application icon button diameter.',
+            20, 80, 1
         );
         addIntSpin(
-            orb, settings, 'icon-size',
-            'Launcher icon size', 'Application icon button diameter', 20, 80, 1
+            launcher, settings, 'icon-gap',
+            'Icon gap',
+            'Minimum edge gap between launcher icons.',
+            0, 64, 1
         );
         addIntSpin(
-            orb, settings, 'icon-gap',
-            'Launcher icon gap', 'Minimum edge gap between icons', 0, 64, 1
+            launcher, settings, 'ring-gap',
+            'Ring gap',
+            'Distance between radial launcher rings.',
+            0, 160, 2
         );
         addIntSpin(
-            orb, settings, 'ring-gap',
-            'Ring gap', 'Distance between radial launcher rings', 0, 160, 2
+            launcher, settings, 'animation-ms',
+            'Animation',
+            'Open and close animation duration.',
+            0, 600, 10
         );
         addIntSpin(
-            orb, settings, 'animation-ms',
-            'Launcher animation', 'Open/close animation duration (ms)', 0, 600, 10
-        );
-        addIntSpin(
-            orb, settings, 'app-preview-size',
-            'App preview size', 'Live window preview size percentage', 50, 180, 5
+            launcher, settings, 'app-preview-size',
+            'App preview size',
+            'Live window preview size percentage.',
+            50, 180, 5
         );
         addSwitch(
-            orb, settings, 'show-tooltips',
-            'Tooltips', 'Show application names on hover'
+            launcher, settings, 'show-tooltips',
+            'Tooltips',
+            'Show application names on hover.'
         );
         addSwitch(
-            orb, settings, 'show-running-indicator',
-            'Running indicators', 'Show active application dots'
+            launcher, settings, 'show-running-indicator',
+            'Running indicators',
+            'Show active application dots.'
         );
 
         const ringMode = new Adw.ComboRow({
             title: 'Ring mode',
-            subtitle: 'Automatic or fixed radial launcher ring count',
+            subtitle: 'Automatic or fixed radial launcher ring count.',
             model: Gtk.StringList.new([
                 'Auto',
                 '2 rings',
@@ -342,7 +483,10 @@ export default class VeloraPreferences extends ExtensionPreferences {
         const ringValues = ['auto', '2', '3', '4'];
         const syncRing = () => {
             const value = settings.get_string('ring-mode');
-            ringMode.selected = Math.max(0, ringValues.indexOf(value));
+            ringMode.selected = Math.max(
+                0,
+                ringValues.indexOf(value)
+            );
         };
         syncRing();
         ringMode.connect('notify::selected', () => {
@@ -352,24 +496,65 @@ export default class VeloraPreferences extends ExtensionPreferences {
             );
         });
         settings.connect('changed::ring-mode', syncRing);
-        orb.add(ringMode);
+        launcher.add(ringMode);
 
-        const reset = new Adw.ActionRow({
-            title: 'Reset Orb position',
-            subtitle: 'Return the Orb to its default position.',
+        const orbReset = new Adw.PreferencesGroup({
+            title: 'Position',
         });
-        const resetButton = new Gtk.Button({
-            label: 'Reset',
-            valign: Gtk.Align.CENTER,
-        });
-        resetButton.connect('clicked', () => {
-            settings.reset('orb-x');
-            settings.reset('orb-y');
-        });
-        reset.add_suffix(resetButton);
-        reset.activatable_widget = resetButton;
-        orb.add(reset);
+        orbPage.add(orbReset);
 
+        addResetRow(
+            orbReset,
+            'Reset Orb position',
+            'Return the Orb to its default desktop position.',
+            () => {
+                settings.reset('orb-x');
+                settings.reset('orb-y');
+            }
+        );
+
+        // -----------------------------------------------------------------
+        // Performance
+        // -----------------------------------------------------------------
+        const performancePage = addPage(
+            window,
+            'Performance',
+            'utilities-system-monitor-symbolic'
+        );
+
+        const renderer = new Adw.PreferencesGroup({
+            title: 'Renderer',
+            description:
+                'Tune expensive live scene synchronization without reducing native Shell input or geometry frame rate.',
+        });
+        performancePage.add(renderer);
+
+        addIntSpin(
+            renderer,
+            settings,
+            'glass-live-scene-fps',
+            'Live scene FPS',
+            '24–30 is recommended. Higher values refresh refracted windows more often and use more GPU/CPU time.',
+            15, 60, 5
+        );
+
+        const optimization = new Adw.PreferencesGroup({
+            title: 'Optimization',
+            description:
+                'Velora keeps native interactions full-rate while expensive capture, adaptive text and clone work are rate-limited or event-driven.',
+        });
+        performancePage.add(optimization);
+
+        const optimizationStatus = new Adw.ActionRow({
+            title: 'Input-first rendering',
+            subtitle:
+                'Popup hover switching, scene synchronization and adaptive sampling are isolated from pointer-critical work.',
+        });
+        optimizationStatus.activatable = false;
+        optimization.add(optimizationStatus);
+
+        // Vendored renderer exposes its own advanced pages after Velora's
+        // curated settings. Power users can still reach every low-level knob.
         buildLiquidGlassPreferences(window, advanced);
     }
 }
