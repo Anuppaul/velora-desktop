@@ -652,7 +652,7 @@ export class ShellCardGlassManager {
 
         const name = actor.get_name?.() ?? '';
         if (
-            name.startsWith('velora-') ||
+            name.startsWith('velora-shell-card-') ||
             name.startsWith('lg-')
         ) {
             return;
