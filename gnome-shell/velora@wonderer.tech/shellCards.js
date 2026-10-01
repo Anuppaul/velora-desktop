@@ -16,6 +16,7 @@ const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
     'workspace-switcher',
+    'velora-app-preview-card',
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
