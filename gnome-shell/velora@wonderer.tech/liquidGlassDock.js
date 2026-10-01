@@ -2114,6 +2114,7 @@ export class LiquidGlassIntegration {
         entry.nativeIntellihideTargetBox = null;
         entry.nativeIntellihideRectKey = '';
         entry.nativeLastSlideEndpoint = null;
+        entry.nativeDockTransition = null;
         entry.nativeVisibilityGate = null;
         entry.nativeVisibilityGateInstalled = false;
         entry.nativeGlassVisible = null;
@@ -2415,21 +2416,46 @@ export class LiquidGlassIntegration {
                 entry.container
             );
 
-        // SHOWING/HIDING must remain visible so the glass follows the native
-        // slide animation instead of popping. Resolve both Ubuntu Dock v104
-        // private-state API and newer GObject dockState builds.
-        const state =
-            this._readNativeDockState(entry);
-        if (state !== null) {
-            return state !==
-                NATIVE_DOCK_STATE.HIDDEN;
+        // A transition-start signal is the authoritative indication that the
+        // glass must remain visible even if the legacy _dockState or slider
+        // endpoint has not advanced yet.
+        if (
+            entry.nativeDockTransition ===
+                'showing' ||
+            entry.nativeDockTransition ===
+                'hiding'
+        ) {
+            return true;
         }
 
         const slide =
             this._readNativeDockSlide(entry);
-        return !Number.isFinite(slide) ||
-            slide >
-                NATIVE_DOCK_SLIDE_EPSILON;
+
+        // Slider endpoints are the authoritative visual truth. On v104 the
+        // final notify::slide-x may fire before the animation onComplete writes
+        // _dockState, so consulting state first would leave glass visible after
+        // the dock has already reached its hidden endpoint.
+        if (Number.isFinite(slide)) {
+            if (
+                slide <=
+                NATIVE_DOCK_SLIDE_EPSILON
+            ) {
+                return false;
+            }
+            if (
+                slide >=
+                1 - NATIVE_DOCK_SLIDE_EPSILON
+            ) {
+                return true;
+            }
+        }
+
+        // Mid-animation fallback for forks where the slider property is not
+        // readable from GJS.
+        const state =
+            this._readNativeDockState(entry);
+        return state === null ||
+            state !== NATIVE_DOCK_STATE.HIDDEN;
     }
 
     _syncNativeDockVisualState(
@@ -2562,6 +2588,8 @@ export class LiquidGlassIntegration {
                     dock.connect(
                         'showing',
                         () => {
+                            entry.nativeDockTransition =
+                                'showing';
                             this._syncNativeIntellihideTarget(
                                 entry,
                                 true
@@ -2581,6 +2609,8 @@ export class LiquidGlassIntegration {
                     dock.connect(
                         'hiding',
                         () => {
+                            entry.nativeDockTransition =
+                                'hiding';
                             this._syncNativeIntellihideTarget(
                                 entry,
                                 true
@@ -2643,6 +2673,23 @@ export class LiquidGlassIntegration {
 
                                 entry.nativeLastSlideEndpoint =
                                     endpoint;
+
+                                if (
+                                    (
+                                        endpoint === 0 &&
+                                        entry.nativeDockTransition ===
+                                            'hiding'
+                                    ) ||
+                                    (
+                                        endpoint === 1 &&
+                                        entry.nativeDockTransition ===
+                                            'showing'
+                                    )
+                                ) {
+                                    entry.nativeDockTransition =
+                                        null;
+                                }
+
                                 this._syncNativeDockVisualState(
                                     entry,
                                     endpoint === 1
@@ -2707,6 +2754,22 @@ export class LiquidGlassIntegration {
                     );
             } catch {
                 entry.nativeOverviewHiddenId = 0;
+            }
+
+            const initialSlide =
+                this._readNativeDockSlide(entry);
+            if (Number.isFinite(initialSlide)) {
+                if (
+                    initialSlide <=
+                    NATIVE_DOCK_SLIDE_EPSILON
+                ) {
+                    entry.nativeLastSlideEndpoint = 0;
+                } else if (
+                    initialSlide >=
+                    1 - NATIVE_DOCK_SLIDE_EPSILON
+                ) {
+                    entry.nativeLastSlideEndpoint = 1;
+                }
             }
 
             this._syncNativeIntellihideTarget(
@@ -3861,6 +3924,7 @@ export class LiquidGlassIntegration {
                     nativeIntellihideTargetBox: null,
                     nativeIntellihideRectKey: '',
                     nativeLastSlideEndpoint: null,
+                    nativeDockTransition: null,
                     nativeVisibilityGate: null,
                     nativeVisibilityGateInstalled: false,
                     nativeGlassVisible: null,
