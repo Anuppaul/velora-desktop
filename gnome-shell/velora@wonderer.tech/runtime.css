@@ -689,30 +689,29 @@
 }
 
 /* Overview window close -------------------------------------------------- */
-/* The close control uses the SAME Velora ShellCard LiquidEffect/material as
- * every approved premium glass card. CSS only removes GNOME's stock opaque
- * circle/shadow so the shared renderer is actually visible. */
-#overviewGroup .window-close.velora-liquid-shell-card {
+/* A single Overview-root LiquidEffect draws the actual glass circle above
+ * WindowPreview's offscreen-composited subtree. The native button remains the
+ * click/hover target; its stock opaque circle is removed here. */
+#overviewGroup .window-close.velora-window-close-shared-glass {
     background-color: transparent !important;
     background-image: none !important;
     border-color: transparent !important;
-    border-radius: 999px !important;
     box-shadow: none !important;
     color: rgba(248, 249, 253, 0.98) !important;
 }
 
-#overviewGroup .window-close.velora-liquid-shell-card StIcon {
+#overviewGroup .window-close.velora-window-close-shared-glass StIcon {
     color: inherit !important;
 }
 
-#overviewGroup .window-close.velora-liquid-shell-card:hover,
-#overviewGroup .window-close.velora-liquid-shell-card:focus {
-    background-color: rgba(255, 255, 255, 0.035) !important;
+#overviewGroup .window-close.velora-window-close-shared-glass:hover,
+#overviewGroup .window-close.velora-window-close-shared-glass:focus {
+    background-color: rgba(255, 255, 255, 0.03) !important;
     box-shadow: none !important;
 }
 
-#overviewGroup .window-close.velora-liquid-shell-card:active {
-    background-color: rgba(255, 255, 255, 0.065) !important;
+#overviewGroup .window-close.velora-window-close-shared-glass:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
     box-shadow: none !important;
 }
 
