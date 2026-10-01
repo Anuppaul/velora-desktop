@@ -1315,6 +1315,12 @@ export class LiquidGlassIntegration {
         // A full-width top bar should meet the screen edges cleanly.
         // Material optics come from the same shared premium role as the
         // other Velora glass surfaces; geometry remains owned by DashManager.
+        manager.setMaterialOverride?.(
+            () => this._applySharedDashMaterial(
+                manager,
+                'topPanel'
+            )
+        );
         manager.effect?.setCornerRadius(0);
         this._applySharedDashMaterial(manager, 'topPanel');
 
@@ -1473,6 +1479,12 @@ export class LiquidGlassIntegration {
                     this._logger
                 );
             entry.manager.setup();
+            entry.manager.setMaterialOverride?.(
+                () => this._applySharedDashMaterial(
+                    entry.manager,
+                    'dock'
+                )
+            );
             this._applySharedDashMaterial(
                 entry.manager,
                 'dock'
