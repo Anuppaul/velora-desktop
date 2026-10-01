@@ -325,7 +325,17 @@ export class DashManager {
         this._lastTW = this._lastTH = undefined;
         this._stableDeltaW = this._stableDeltaH = undefined;
         this._lastHidden = undefined;
-        this.targetActor.add_style_class_name('liquid-glass-transparent');
+
+        // Paint-only Ubuntu Dock integration must not style the icon/reveal
+        // container at all. The real sibling .dash-background is made
+        // transparent directly by Velora, so generic glass classes are
+        // unnecessary here and can interfere with native autohide transitions.
+        if (!this._preserveNativeGeometry) {
+            this.targetActor.add_style_class_name(
+                'liquid-glass-transparent'
+            );
+        }
+
         this._dockParent = this.targetActor.get_parent();
 
         // Ubuntu Dock's parent owns the icon/reveal subtree. In paint-only
