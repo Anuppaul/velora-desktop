@@ -735,25 +735,15 @@
 }
 
 /* Overview window title -------------------------------------------------- */
-/* GNOME's stock .window-caption extends %tooltip (opaque dark plate + shadow).
- * Keep its layout/reactivity, clear its paint, and render the readable title
- * in the root-level overlay above the shared 48px-high Liquid Glass pill. */
-#overviewGroup .window-caption.velora-window-caption-shared-glass {
-    background-color: transparent !important;
+/* Keep window titles conventional and readable. No Liquid Glass here:
+ * a quiet translucent tooltip is clearer beside the glass icon/close controls. */
+#overviewGroup .window-caption {
+    background-color: rgba(24, 26, 32, 0.88) !important;
     background-image: none !important;
-    border-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    border-radius: 12px;
     box-shadow: none !important;
-    color: transparent !important;
-    padding: 6px 12px;
-}
-
-#overviewGroup .velora-window-caption-overlay {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-    color: rgba(248, 249, 253, 0.96);
-    font-weight: 500;
+    color: rgba(248, 249, 253, 0.96) !important;
     padding: 6px 12px;
 }
 
