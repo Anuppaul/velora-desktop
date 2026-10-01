@@ -1422,6 +1422,8 @@ export class LiquidGlassIntegration {
             '.modal-dialog.velora-liquid-shell-card .modal-dialog-button:default {\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '  color: #ffffff !important;\n' +
+            '}\n' +            '.velora-running-dot {\n' +
+            '  background-color: ' + accentColor + ' !important;\n' +
             '}\n' +
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
