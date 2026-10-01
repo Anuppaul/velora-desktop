@@ -3100,6 +3100,14 @@ export class LiquidGlassIntegration {
             void originalApplyMargin;
         };
 
+        // Ubuntu Dock paint-only integration must use the native
+        // .dash-background allocation verbatim. Older hot-cached vendor
+        // revisions still run their generic stabilization + indicator-based
+        // balancing path, which can change width after theme/style relayout.
+        manager._stabilizeDockBounds =
+            bounds => bounds;
+        manager._findReferenceActor =
+            () => null;
         manager._applyDockMargin =
             bounds => bounds;
 
