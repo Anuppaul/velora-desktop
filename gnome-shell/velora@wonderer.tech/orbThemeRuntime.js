@@ -30,6 +30,7 @@ const APP_PREVIEW_GAP = 8;
 const APP_PREVIEW_PADDING = 10;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
+const DOCK_PREVIEW_RESCAN_MS = 1400;
 const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
 const VELORA_SCHEMA_ID = 'org.gnome.shell.extensions.velora';
 
@@ -101,6 +102,8 @@ export default class VeloraRuntime extends Extension {
         this._appPreviewAnchor = null;
         this._appPreviewPreferredSide = null;
         this._appPreviewHideTimeoutId = 0;
+        this._dockPreviewHooks = new Map();
+        this._dockPreviewRescanId = 0;
         this._menuOpen = false;
         this._dragging = false;
         this._openTimeoutId = 0;
@@ -142,6 +145,7 @@ export default class VeloraRuntime extends Extension {
             this._settings.get_boolean('orb-enabled')
         );
         this._connectSignals();
+        this._setupDockHoverPreviews();
 
         globalThis[RUNTIME_SINGLETON_KEY] = this;
         console.log(
@@ -164,6 +168,7 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._cleanupDockHoverPreviews();
         this._closeMenu(true);
         this._destroyClosingActors();
         this._liquidGlassIntegration?.disable();
@@ -199,6 +204,8 @@ export default class VeloraRuntime extends Extension {
         this._appPreviewAnchor = null;
         this._appPreviewPreferredSide = null;
         this._appPreviewHideTimeoutId = 0;
+        this._dockPreviewHooks = new Map();
+        this._dockPreviewRescanId = 0;
         this._radialActors = [];
         this._closingActors.clear();
         this._closingActors = null;
@@ -498,6 +505,7 @@ export default class VeloraRuntime extends Extension {
 
         const refreshLaunchers = () => {
             this._refreshOpenMenu();
+            this._scanDockHoverPreviews();
         };
 
         this._favoritesChangedId = this._shellSettings.connect(
@@ -518,6 +526,7 @@ export default class VeloraRuntime extends Extension {
                 this._syncLayerSize();
                 this._syncOrbFromSettings();
                 this._refreshOpenMenu();
+                this._scanDockHoverPreviews();
             }
         );
 
@@ -1334,6 +1343,277 @@ export default class VeloraRuntime extends Extension {
     _refreshOpenMenu() {
         if (this._menuOpen)
             this._reopenMenu();
+    }
+
+    _collectDockPreviewContainers() {
+        const found = [];
+
+        const walk = actor => {
+            if (!actor || actor === global.window_group)
+                return;
+
+            if (
+                actor.get_name?.() ===
+                'dashtodockDashContainer'
+            ) {
+                found.push(actor);
+                return;
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+
+        walk(Main.layoutManager.uiGroup);
+        return found;
+    }
+
+    _dockPreviewSide(anchorActor) {
+        if (!anchorActor)
+            return null;
+
+        let x = 0;
+        let y = 0;
+        let width = 0;
+        let height = 0;
+
+        try {
+            [x, y] =
+                anchorActor.get_transformed_position();
+            [width, height] =
+                anchorActor.get_transformed_size();
+        } catch {
+            return null;
+        }
+
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        const monitor = this._monitorAt(
+            centerX,
+            centerY
+        );
+
+        const distances = [
+            {
+                edge: 'left',
+                value: Math.abs(x - monitor.x),
+            },
+            {
+                edge: 'right',
+                value: Math.abs(
+                    monitor.x +
+                    monitor.width -
+                    (x + width)
+                ),
+            },
+            {
+                edge: 'top',
+                value: Math.abs(y - monitor.y),
+            },
+            {
+                edge: 'bottom',
+                value: Math.abs(
+                    monitor.y +
+                    monitor.height -
+                    (y + height)
+                ),
+            },
+        ].sort((a, b) => a.value - b.value);
+
+        switch (distances[0]?.edge) {
+        case 'left':
+            return 'right';
+        case 'right':
+            return 'left';
+        case 'top':
+            return 'bottom';
+        case 'bottom':
+            return 'top';
+        default:
+            return null;
+        }
+    }
+
+    _findDockAppActors(container) {
+        const found = [];
+
+        const walk = actor => {
+            if (!actor)
+                return;
+
+            const app = actor.app ?? null;
+            if (
+                app &&
+                typeof app.get_windows === 'function' &&
+                actor.icon &&
+                typeof actor.connect === 'function'
+            ) {
+                found.push({actor, app});
+                return;
+            }
+
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+
+        walk(container);
+        return found;
+    }
+
+    _hookDockPreviewActor(actor, app) {
+        if (
+            !actor ||
+            !app ||
+            this._dockPreviewHooks.has(actor)
+        ) {
+            return;
+        }
+
+        const entry = {
+            hoverId: 0,
+            destroyId: 0,
+        };
+
+        try {
+            entry.hoverId = actor.connect(
+                'notify::hover',
+                () => {
+                    if (
+                        this._disabled ||
+                        !actor.get_parent?.()
+                    ) {
+                        return;
+                    }
+
+                    if (actor.get_hover?.()) {
+                        this._cancelAppPreviewHide();
+                        this._hideTooltip();
+
+                        const shown =
+                            this._showAppPreview(
+                                app,
+                                actor,
+                                this._dockPreviewSide(actor)
+                            );
+
+                        if (shown) {
+                            try {
+                                actor
+                                    .get_parent?.()
+                                    ?.hideLabel?.();
+                            } catch {}
+                        }
+                    } else {
+                        this._scheduleAppPreviewHide();
+                    }
+                }
+            );
+        } catch {}
+
+        try {
+            entry.destroyId = actor.connect(
+                'destroy',
+                () => {
+                    this._dockPreviewHooks.delete(actor);
+
+                    if (
+                        this._appPreviewAnchor === actor
+                    ) {
+                        this._hideAppPreview(true);
+                    }
+                }
+            );
+        } catch {}
+
+        this._dockPreviewHooks.set(actor, entry);
+    }
+
+    _scanDockHoverPreviews() {
+        if (this._disabled)
+            return;
+
+        const live = new Set();
+
+        for (
+            const container of
+            this._collectDockPreviewContainers()
+        ) {
+            for (
+                const {actor, app} of
+                this._findDockAppActors(container)
+            ) {
+                live.add(actor);
+                this._hookDockPreviewActor(actor, app);
+            }
+        }
+
+        for (
+            const [actor, entry] of
+            [...this._dockPreviewHooks]
+        ) {
+            if (live.has(actor))
+                continue;
+
+            try {
+                if (entry.hoverId)
+                    actor.disconnect(entry.hoverId);
+            } catch {}
+
+            try {
+                if (entry.destroyId)
+                    actor.disconnect(entry.destroyId);
+            } catch {}
+
+            this._dockPreviewHooks.delete(actor);
+        }
+    }
+
+    _setupDockHoverPreviews() {
+        this._cleanupDockHoverPreviews();
+        this._scanDockHoverPreviews();
+
+        this._dockPreviewRescanId =
+            GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                DOCK_PREVIEW_RESCAN_MS,
+                () => {
+                    if (this._disabled) {
+                        this._dockPreviewRescanId = 0;
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    this._scanDockHoverPreviews();
+                    return GLib.SOURCE_CONTINUE;
+                }
+            );
+    }
+
+    _cleanupDockHoverPreviews() {
+        if (this._dockPreviewRescanId) {
+            try {
+                GLib.source_remove(
+                    this._dockPreviewRescanId
+                );
+            } catch {}
+            this._dockPreviewRescanId = 0;
+        }
+
+        for (
+            const [actor, entry] of
+            this._dockPreviewHooks ?? []
+        ) {
+            try {
+                if (entry.hoverId)
+                    actor.disconnect(entry.hoverId);
+            } catch {}
+
+            try {
+                if (entry.destroyId)
+                    actor.disconnect(entry.destroyId);
+            } catch {}
+        }
+
+        this._dockPreviewHooks?.clear?.();
     }
 
     _monitorAt(x, y) {
