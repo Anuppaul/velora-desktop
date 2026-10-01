@@ -734,6 +734,29 @@
     icon-shadow: none !important;
 }
 
+/* Overview window title -------------------------------------------------- */
+/* GNOME's stock .window-caption extends %tooltip (opaque dark plate + shadow).
+ * Keep its layout/reactivity, clear its paint, and render the readable title
+ * in the root-level overlay above the shared 48px-high Liquid Glass pill. */
+#overviewGroup .window-caption.velora-window-caption-shared-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    padding: 6px 12px;
+}
+
+#overviewGroup .velora-window-caption-overlay {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: rgba(248, 249, 253, 0.96);
+    font-weight: 500;
+    padding: 6px 12px;
+}
+
 /* Workspace switcher strip ---------------------------------------------- */
 /* The whole GNOME workspace-thumbnails actor receives one ShellCard
  * LiquidEffect. Individual workspace previews stay native window clones;
