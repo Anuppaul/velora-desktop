@@ -519,6 +519,35 @@
     color: rgba(0, 0, 0, 0.88);
 }
 
+/* Screenshot Window mode ----------------------------------------------- */
+/* GNOME paints .screenshot-ui-window-selector with an opaque system base.
+ * Remove only that backing paint so real desktop/window previews remain
+ * visible. Window selection chrome stays native in geometry/input, but its
+ * visual ring is redrawn by Velora's live Appearance accent stylesheet. */
+.screenshot-ui-window-selector {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+.screenshot-ui-window-selector-window-border {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.screenshot-ui-window-selector-window:hover
+.screenshot-ui-window-selector-window-border,
+.screenshot-ui-window-selector-window:focus
+.screenshot-ui-window-selector-window-border,
+.screenshot-ui-window-selector-window:checked
+.screenshot-ui-window-selector-window-border {
+    border-color: transparent !important;
+}
+
+.screenshot-ui-window-selector-check {
+    box-shadow: none !important;
+}
+
 /* App-folder dialog ----------------------------------------------------- */
 .app-folder-dialog.velora-liquid-shell-card .overview-tile,
 .app-folder-dialog.velora-liquid-shell-card .icon-button,
