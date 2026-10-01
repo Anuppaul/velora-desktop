@@ -165,7 +165,7 @@
     margin: 0;
     background-color: transparent !important;
     background-image: none !important;
-    border: 2px solid rgba(0, 0, 0, 0.94) !important;
+    border: 0 !important;
     border-radius: 14px !important;
     box-shadow: none !important;
 }
