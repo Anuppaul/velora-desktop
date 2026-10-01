@@ -25,20 +25,27 @@
 
 .velora-orb-face-v2 {
     border-radius: 999px;
-    background-color: #000000;
-    border: 1px solid rgba(255, 255, 255, 0.20);
+    background-color: rgba(255, 255, 255, 0.085);
+    background-image: none;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: none;
     transition-duration: 140ms;
 }
 
 .velora-orb-face-v2:hover,
-.velora-orb-face-v2:focus,
+.velora-orb-face-v2:focus {
+    background-color: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
 .velora-orb-face-v2:open {
-    border-color: rgba(255, 255, 255, 0.54);
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.28);
 }
 
 .velora-orb-face-v2:dragging {
-    border-color: rgba(255, 255, 255, 0.76);
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.32);
 }
 
 .velora-orb-glyph-v2 {
@@ -46,7 +53,7 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    color: #ffffff;
+    color: #f7f8fc;
     background-color: transparent;
     icon-shadow: none;
 }
@@ -59,17 +66,24 @@
     padding: 0;
     margin: 0;
     border-radius: 999px;
-    color: #ffffff;
-    background-color: #000000;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #f7f8fc;
+    background-color: rgba(255, 255, 255, 0.075);
+    background-image: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: none;
     transition-duration: 120ms;
 }
 
 .velora-app-button:hover,
 .velora-app-button:focus {
-    background-color: #111111;
-    border-color: rgba(255, 255, 255, 0.42);
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: none;
+}
+
+.velora-app-button:active {
+    background-color: rgba(255, 255, 255, 0.17);
+    border-color: rgba(255, 255, 255, 0.28);
     box-shadow: none;
 }
 
