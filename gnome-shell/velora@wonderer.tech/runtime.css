@@ -794,9 +794,15 @@
     box-shadow: none !important;
 }
 
-/* Selection remains a native accent affordance above the glass. */
+/* Selected workspace: keep GNOME's semantic accent, but replace the stock
+ * heavy 3px outline with a quieter premium ring over the shared strip glass. */
 #overviewGroup .workspace-thumbnail-indicator {
-    border-color: -st-accent-color;
+    background-color: rgba(255, 255, 255, 0.035);
+    background-image: none;
+    border: 2px solid -st-accent-color;
+    border-radius: 16px;
+    box-shadow: none;
+    transition-duration: 140ms;
 }
 
 /* Keyboard workspace switcher already has a full ShellCard glass surface. */
