@@ -166,7 +166,7 @@
       <description>Neutral white veil for the Date/Calendar popup only.</description>
     </key>
     <key name="glass-live-scene-fps" type="i">
-      <default>30</default>
+      <default>24</default>
       <range min="15" max="60"/>
       <summary>Live glass scene refresh rate</summary>
       <description>Caps expensive live window-clone synchronization while keeping Shell geometry and interaction on the native frame clock.</description>
