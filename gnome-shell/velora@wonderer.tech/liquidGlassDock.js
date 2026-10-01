@@ -1834,38 +1834,38 @@ export class LiquidGlassIntegration {
     ) {
         const dock = entry?.nativeDock;
         const dash = dock?.dash ?? null;
-        if (!dash)
+        const visualRoot =
+            entry?.nativeBox ??
+            dock?._box ??
+            null;
+        if (!dock || !dash || !visualRoot)
             return;
 
-        const background =
-            dash._background ??
-            entry?.panelBackgroundActor ??
-            null;
-        const iconContainer =
-            dash._dashContainer ??
-            entry?.container ??
-            null;
+        // Clean up transforms owned by the two earlier offset experiments so a
+        // hot-swap immediately returns to one single translation owner.
+        for (const actor of [
+            dash,
+            dash._background ?? null,
+            dash._dashContainer ?? null,
+        ]) {
+            if (
+                actor &&
+                Math.abs(
+                    actor.translation_y ?? 0
+                ) > 0.01
+            ) {
+                actor.translation_y = 0;
+            }
+        }
 
-        // Earlier revisions translated the DockDash root. Undo that first so
-        // a hot-swapped runtime cannot leave a residual transform behind.
-        if (Math.abs(dash.translation_y ?? 0) > 0.01)
-            dash.translation_y = 0;
-
-        // Panel mode remains exact/native and deliberately ignores this
-        // floating-dock preference.
+        // Panel mode stays completely native.
         if (this._dockIsPanelMode()) {
-            for (const actor of [
-                background,
-                iconContainer,
-            ]) {
-                if (
-                    actor &&
-                    Math.abs(
-                        actor.translation_y ?? 0
-                    ) > 0.01
-                ) {
-                    actor.translation_y = 0;
-                }
+            if (
+                Math.abs(
+                    visualRoot.translation_y ?? 0
+                ) > 0.01
+            ) {
+                visualRoot.translation_y = 0;
             }
             return;
         }
@@ -1885,27 +1885,24 @@ export class LiquidGlassIntegration {
 
         slide = clampNumber(slide, 0, 1);
 
-        // Move the two native visual siblings together. The background actor is
-        // also Velora's glass geometry source; _dashContainer owns the icons.
-        // Keeping them on the exact same paint transform prevents the glass
-        // from moving independently of the icons.
+        // DashSlideContainer owns native autohide allocation. _box is its one
+        // visual child and contains the complete DockDash, so translating _box
+        // moves background, icons, labels and hit targets as a single unit
+        // without moving children outside DockDash's offscreen texture.
+        //
+        // Interpolate to zero while hidden so pressure-barrier/autohide behavior
+        // remains exactly native at the monitor edge.
         const translationY =
             -offset * slide;
 
-        for (const actor of [
-            background,
-            iconContainer,
-        ]) {
-            if (
-                actor &&
-                Math.abs(
-                    (actor.translation_y ?? 0) -
-                    translationY
-                ) > 0.01
-            ) {
-                actor.translation_y =
-                    translationY;
-            }
+        if (
+            Math.abs(
+                (visualRoot.translation_y ?? 0) -
+                translationY
+            ) > 0.01
+        ) {
+            visualRoot.translation_y =
+                translationY;
         }
     }
 
@@ -1962,11 +1959,12 @@ export class LiquidGlassIntegration {
                     entry.nativeDock?.dash ??
                     null;
                 const actors = [
+                    entry.nativeBox ??
+                        entry.nativeDock?._box ??
+                        null,
                     dash,
                     dash?._background ?? null,
-                    dash?._dashContainer ??
-                        entry?.container ??
-                        null,
+                    dash?._dashContainer ?? null,
                 ];
 
                 for (const actor of actors) {
@@ -2754,9 +2752,9 @@ export class LiquidGlassIntegration {
         const verticalOffset =
             this._readDockVerticalOffset();
         let x = absX;
-        let y =
-            absY -
-            verticalOffset;
+        // _box transformed coordinates already include the configured offset.
+        // Only monitor-edge reconstruction below needs to apply it explicitly.
+        let y = absY;
         const position =
             dock._position ??
             dock.position ??
