@@ -11,10 +11,7 @@ import {
 } from './glassMaterialSystem.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
-const APP_GRID_CLASS = 'apps-scroll-view';
-const APP_GRID_OVERVIEW_CLASS = 'velora-app-grid-wallpaper';
 const OPTICAL_MARGIN = 104;
-const APP_GRID_OPTICAL_MARGIN = 32;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -23,23 +20,14 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
-    'apps-scroll-view',
     'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
-    'apps-scroll-view',
     'workspace-thumbnails',
     'dash-background',
-]);
-
-const LOW_RATE_OVERVIEW_CLASSES = new Set([
-    // App Grid covers a large area. Keep the expensive captured live scene at
-    // 20 FPS while native scrolling, focus, paging and drag interactions keep
-    // following GNOME's compositor frame clock.
-    'apps-scroll-view',
 ]);
 
 function classesOf(actor) {
@@ -78,12 +66,8 @@ class ShellCardSurface {
         this._sceneRoot = null;
         this._sceneManager = null;
         this._wallpaperMirror = null;
-        this._wallpaperOnly =
-            classesOf(target).includes(APP_GRID_CLASS);
-        this._opticalMargin =
-            this._wallpaperOnly
-                ? APP_GRID_OPTICAL_MARGIN
-                : OPTICAL_MARGIN;
+        this._wallpaperOnly = false;
+        this._opticalMargin = OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -113,17 +97,6 @@ class ShellCardSurface {
         material.add_child(sceneRoot);
 
         let wallpaperMirror = null;
-        if (this._wallpaperOnly) {
-            wallpaperMirror =
-                this._vendor.createBackgroundMirror?.(
-                    'velora-app-grid-wallpaper-mirror'
-                ) ?? null;
-            if (wallpaperMirror) {
-                wallpaperMirror.set_no_layout?.(true);
-                wallpaperMirror.set_position?.(0, 0);
-                sceneRoot.add_child(wallpaperMirror);
-            }
-        }
 
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-shell-card-breaker',
@@ -279,9 +252,6 @@ class ShellCardSurface {
     }
 
     _ensureSceneManager() {
-        if (this._wallpaperOnly)
-            return null;
-
         if (this._sceneManager || !this._sceneRoot)
             return this._sceneManager;
 
@@ -316,29 +286,6 @@ class ShellCardSurface {
         this._lastCaptureH = NaN;
     }
 
-    _setAppGridWallpaperMode(active) {
-        if (!this._wallpaperOnly)
-            return;
-
-        const overview =
-            Main.layoutManager.overviewGroup;
-        if (!overview)
-            return;
-
-        try {
-            if (active)
-                overview.add_style_class_name?.(
-                    APP_GRID_OVERVIEW_CLASS
-                );
-            else
-                overview.remove_style_class_name?.(
-                    APP_GRID_OVERVIEW_CLASS
-                );
-        } catch {
-            // Overview may be tearing down.
-        }
-    }
-
     _sync() {
         if (
             this._destroyed ||
@@ -365,13 +312,10 @@ class ShellCardSurface {
             h <= 1 ||
             opacity <= 0
         ) {
-            this._setAppGridWallpaperMode(false);
             this._material.hide?.();
             this._releaseSceneManager();
             return;
         }
-
-        this._setAppGridWallpaperMode(true);
 
         const localX = this._overlay ? 0 : x;
         const localY = this._overlay ? 0 : y;
@@ -425,7 +369,6 @@ class ShellCardSurface {
             !this._target?.mapped ||
             !this._target?.visible
         ) {
-            this._setAppGridWallpaperMode(false);
             this._releaseSceneManager();
             return;
         }
@@ -446,12 +389,8 @@ class ShellCardSurface {
             return;
         }
 
-        if (
-            !this._wallpaperOnly &&
-            !sceneManager
-        ) {
+        if (!sceneManager)
             return;
-        }
 
         const [w, h] = material.get_size?.() ?? [0, 0];
         if (w <= 1 || h <= 1)
@@ -485,30 +424,6 @@ class ShellCardSurface {
             -absY / sy
         );
 
-        if (this._wallpaperOnly) {
-            const mirror = this._wallpaperMirror;
-            if (mirror) {
-                this._vendor.setPositionIfChanged?.(
-                    mirror,
-                    0,
-                    0
-                );
-                this._vendor.setSizeIfChanged?.(
-                    mirror,
-                    global.stage.width,
-                    global.stage.height
-                );
-            }
-
-            // Wallpaper mirror damage drives redraw naturally; there is no
-            // WindowCloneManager, per-window culling, or scene sync loop here.
-            this._lastCaptureX = absX;
-            this._lastCaptureY = absY;
-            this._lastCaptureW = tw;
-            this._lastCaptureH = th;
-            return;
-        }
-
         const captureRect = [
             absX,
             absY,
@@ -522,17 +437,10 @@ class ShellCardSurface {
             this._lastCaptureW !== tw ||
             this._lastCaptureH !== th;
 
-        const targetClasses = classesOf(this._target);
-        const surfaceFpsCap =
-            targetClasses.some(name =>
-                LOW_RATE_OVERVIEW_CLASSES.has(name)
-            )
-                ? 20
-                : 60;
         const sceneFps = Math.max(
             15,
             Math.min(
-                surfaceFpsCap,
+                60,
                 this._manager?._appearance?.sceneFps ?? 30
             )
         );
@@ -596,7 +504,6 @@ class ShellCardSurface {
         if (this._destroyed)
             return;
         this._destroyed = true;
-        this._setAppGridWallpaperMode(false);
 
         try {
             this._effect?.setLiveGeometryHook?.(null);
