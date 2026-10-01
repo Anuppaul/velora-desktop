@@ -302,24 +302,12 @@
     background-color: rgba(255, 255, 255, 0.18) !important;
 }
 
-/* Ubuntu Dock / Dash-to-Dock icon tiles. The dock renderer owns the real
- * background material; icon hit-target geometry and running indicators remain
- * native. */
+/* Ubuntu Dock icons stay completely native. The glass renderer owns only
+ * the dock background; it must never clear or replace overview-icon imagery,
+ * because Ubuntu Dock reuses those actors across autohide/reveal cycles. */
 #dashtodockDashContainer.liquid-glass-transparent .overview-icon,
 .liquid-glass-transparent #dashtodockContainer .overview-icon {
-    background-color: transparent;
-    background-image: none;
     box-shadow: none;
-}
-
-#dashtodockDashContainer.liquid-glass-transparent .dash-item-container:hover .overview-icon,
-.liquid-glass-transparent #dashtodockContainer .dash-item-container:hover .overview-icon {
-    background-color: rgba(255, 255, 255, 0.08);
-}
-
-#dashtodockDashContainer.liquid-glass-transparent .dash-item-container:focus .overview-icon,
-.liquid-glass-transparent #dashtodockContainer .dash-item-container:focus .overview-icon {
-    background-color: rgba(255, 255, 255, 0.10);
 }
 
 /* Nested submenus sit inside the already-glassed parent popup. A translucent
