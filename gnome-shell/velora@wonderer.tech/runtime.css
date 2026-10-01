@@ -491,76 +491,29 @@
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-/* Screenshot panel ------------------------------------------------------ */
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-close-button,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-container {
-    background-color: rgba(255, 255, 255, 0.10);
-    background-image: none;
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: none;
-}
-
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:focus,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-close-button:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-}
-
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:focus {
-    background-color: rgba(255, 255, 255, 0.14);
-}
-
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:checked {
-    background-color: rgba(255, 255, 255, 0.92);
-    color: rgba(0, 0, 0, 0.88);
-}
-
-/* Screenshot Window mode ----------------------------------------------- */
-/* GNOME paints .screenshot-ui-window-selector with an opaque system base.
- * Remove only that backing paint so real desktop/window previews remain
- * visible. Window selection chrome stays native in geometry/input, but its
- * visual ring is redrawn by Velora's live Appearance accent stylesheet. */
-.screenshot-ui-window-selector {
+/* Screenshot UI --------------------------------------------------------- */
+/* GNOME ScreenshotUI lives under screenshotUIGroup, a special top-chrome
+ * subtree. Scope from its stable actor name instead of relying on generic
+ * ShellCard class propagation. The panel still receives the shared ShellCard
+ * LiquidEffect; CSS only clears stock OSD paint and styles native controls. */
+#screenshot-ui .screenshot-ui-panel {
     background-color: transparent !important;
     background-image: none !important;
-}
-
-.screenshot-ui-window-selector-window-border {
-    background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
 }
 
-.screenshot-ui-window-selector-window:hover
-.screenshot-ui-window-selector-window-border,
-.screenshot-ui-window-selector-window:focus
-.screenshot-ui-window-selector-window-border,
-.screenshot-ui-window-selector-window:checked
-.screenshot-ui-window-selector-window-border {
-    border-color: transparent !important;
-}
-
-.screenshot-ui-window-selector-check {
-    box-shadow: none !important;
-}
-
-/* Screenshot shared mode controls --------------------------------------- */
-/* Selection / Screen / Window become one quiet segmented control. The live
- * desktop Appearance accent is injected by the dynamic stylesheet below. */
-.screenshot-ui-type-button-container {
-    background-color: rgba(255, 255, 255, 0.085);
+/* Selection / Screen / Window = one shared segmented control. */
+#screenshot-ui .screenshot-ui-type-button-container {
+    background-color: rgba(255, 255, 255, 0.085) !important;
     background-image: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 22px !important;
     box-shadow: none !important;
-    padding: 4px;
+    padding: 4px !important;
 }
 
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button {
+#screenshot-ui .screenshot-ui-type-button {
     background-color: transparent !important;
     background-image: none !important;
     border: 1px solid transparent !important;
@@ -569,19 +522,84 @@
     transition-duration: 120ms;
 }
 
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:focus {
+#screenshot-ui .screenshot-ui-type-button:hover,
+#screenshot-ui .screenshot-ui-type-button:focus {
     background-color: rgba(255, 255, 255, 0.10) !important;
     border-color: rgba(255, 255, 255, 0.14) !important;
     box-shadow: none !important;
 }
 
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:checked {
+#screenshot-ui .screenshot-ui-type-button:checked {
     box-shadow: none !important;
 }
 
-/* Screen mode should show the real stage, not GNOME's stock black 50% veil. */
-.screenshot-ui-screen-selector {
+/* Bottom mini controls use the same shared language. */
+#screenshot-ui .screenshot-ui-shot-cast-container {
+    background-color: rgba(255, 255, 255, 0.085) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 999px !important;
+    box-shadow: none !important;
+}
+
+#screenshot-ui .screenshot-ui-shot-cast-button,
+#screenshot-ui .screenshot-ui-show-pointer-button {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+
+#screenshot-ui .screenshot-ui-shot-cast-button:hover,
+#screenshot-ui .screenshot-ui-shot-cast-button:focus,
+#screenshot-ui .screenshot-ui-show-pointer-button:hover,
+#screenshot-ui .screenshot-ui-show-pointer-button:focus {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    box-shadow: none !important;
+}
+
+/* Close button: remove inherited WindowClose shadow/opaque disk. */
+#screenshot-ui .screenshot-ui-close-button {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: none !important;
+}
+
+#screenshot-ui .screenshot-ui-close-button:hover,
+#screenshot-ui .screenshot-ui-close-button:focus {
+    background-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow: none !important;
+}
+
+/* Window mode: remove stock opaque system-base and heavy 6px frame. */
+#screenshot-ui .screenshot-ui-window-selector {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+#screenshot-ui .screenshot-ui-window-selector-window-border {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#screenshot-ui .screenshot-ui-window-selector-window:hover
+.screenshot-ui-window-selector-window-border,
+#screenshot-ui .screenshot-ui-window-selector-window:focus
+.screenshot-ui-window-selector-window-border,
+#screenshot-ui .screenshot-ui-window-selector-window:checked
+.screenshot-ui-window-selector-window-border {
+    border-color: transparent !important;
+}
+
+#screenshot-ui .screenshot-ui-window-selector-check {
+    box-shadow: none !important;
+}
+
+/* Screen mode: remove stock rgba(0,0,0,.5) monitor veil. */
+#screenshot-ui .screenshot-ui-screen-selector {
     background-color: transparent !important;
     background-image: none !important;
     border: 2px solid transparent !important;
@@ -589,44 +607,27 @@
     transition-duration: 140ms;
 }
 
-.screenshot-ui-screen-selector:hover,
-.screenshot-ui-screen-selector:focus {
+#screenshot-ui .screenshot-ui-screen-selector:hover,
+#screenshot-ui .screenshot-ui-screen-selector:focus {
     background-color: rgba(255, 255, 255, 0.055) !important;
     box-shadow: none !important;
 }
 
-.screenshot-ui-screen-selector:active {
+#screenshot-ui .screenshot-ui-screen-selector:active {
     background-color: rgba(255, 255, 255, 0.085) !important;
 }
 
-.screenshot-ui-screen-selector:checked {
+#screenshot-ui .screenshot-ui-screen-selector:checked {
     background-color: transparent !important;
     box-shadow: none !important;
 }
 
-/* Bottom-left shot/cast switch and pointer button use the same neutral shared
- * control treatment as the mode selector. */
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-container {
-    background-color: rgba(255, 255, 255, 0.085) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-radius: 999px;
+#screenshot-ui .screenshot-ui-capture-button {
     box-shadow: none !important;
 }
 
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button {
-    background-color: transparent !important;
-    background-image: none !important;
-    border: 1px solid transparent !important;
+#screenshot-ui .screenshot-ui-tooltip {
     box-shadow: none !important;
-}
-
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:focus,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:hover,
-.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:focus {
-    background-color: rgba(255, 255, 255, 0.10) !important;
-    border-color: rgba(255, 255, 255, 0.14) !important;
 }
 
 /* App-folder dialog ----------------------------------------------------- */
