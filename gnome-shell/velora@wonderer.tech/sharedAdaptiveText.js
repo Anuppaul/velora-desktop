@@ -121,6 +121,8 @@ const SEMANTIC_CLASS_FRAGMENTS = Object.freeze([
     'destructive',
     'suggested',
     'accent',
+    'calendar-today',
+    'semantic-tint',
 ]);
 
 export class SharedAdaptiveTextManager {
