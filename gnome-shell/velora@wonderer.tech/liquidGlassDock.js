@@ -1267,14 +1267,6 @@ export class LiquidGlassIntegration {
         const systemAccent =
             this._readSystemAccentColor();
         const accentColor = systemAccent.color;
-        const [accentR, accentG, accentB] =
-            parseHexRgb(accentColor);
-        const accentSoft =
-            'rgba(' +
-            accentR + ',' +
-            accentG + ',' +
-            accentB + ',0.10)';
-
         const css =
             '/* Velora semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
             '.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
@@ -1310,44 +1302,6 @@ export class LiquidGlassIntegration {
             '.modal-dialog.velora-liquid-shell-card .modal-dialog-button:default {\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '  color: #ffffff !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-window-selector-window:hover .screenshot-ui-window-selector-window-border,\n' +
-            '#screenshot-ui .screenshot-ui-window-selector-window:focus .screenshot-ui-window-selector-window-border {\n' +
-            '  border-color: transparent !important;\n' +
-            '  box-shadow: inset 0 0 0 2px ' + accentColor + ' !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-window-border {\n' +
-            '  border-color: transparent !important;\n' +
-            '  background-color: ' + accentSoft + ' !important;\n' +
-            '  box-shadow: inset 0 0 0 3px ' + accentColor + ' !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-check {\n' +
-            '  color: #ffffff !important;\n' +
-            '  background-color: ' + accentColor + ' !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-type-button:checked {\n' +
-            '  background-color: ' + accentColor + ' !important;\n' +
-            '  border-color: ' + accentColor + ' !important;\n' +
-            '  color: #ffffff !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-type-button:checked StLabel,\n' +
-            '#screenshot-ui .screenshot-ui-type-button:checked StIcon {\n' +
-            '  color: #ffffff !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-shot-cast-button:checked,\n' +
-            '#screenshot-ui .screenshot-ui-show-pointer-button:checked {\n' +
-            '  background-color: ' + accentSoft + ' !important;\n' +
-            '  border-color: ' + accentColor + ' !important;\n' +
-            '  color: ' + accentColor + ' !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-screen-selector:hover,\n' +
-            '#screenshot-ui .screenshot-ui-screen-selector:focus {\n' +
-            '  border-color: ' + accentColor + ' !important;\n' +
-            '}\n' +
-            '#screenshot-ui .screenshot-ui-screen-selector:checked {\n' +
-            '  background-color: ' + accentSoft + ' !important;\n' +
-            '  border-color: ' + accentColor + ' !important;\n' +
-            '  box-shadow: inset 0 0 0 1px ' + accentColor + ' !important;\n' +
             '}\n' +
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
