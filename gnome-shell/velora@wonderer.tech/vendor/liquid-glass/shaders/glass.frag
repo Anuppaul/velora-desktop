@@ -277,13 +277,14 @@ float sdRoundRect(vec2 p, vec2 b, float r) {
 // insideMask/outsideMask smoothstep further down in main() already treats
 // a large positive distance as fully transparent, so no extra handling is
 // needed here for the empty/out-of-range case.
-float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out vec2 outBoxSize, out vec3 outTint, out float outBaseStrength, out float outResponse) {
+float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out vec2 outBoxSize, out vec3 outTint, out float outBaseStrength, out float outResponse, out float outCornerRadius) {
     float bestD = 1.0e6;
     outLocalPos = vec2(1.0e6);
     outBoxSize = vec2(1.0);
     outTint = vec3(1.0);
     outBaseStrength = 0.0;
     outResponse = 0.0;
+    outCornerRadius = corner_radius;
 
     int count = int(min(region_count, float(MAX_GLASS_REGIONS)));
 
@@ -298,7 +299,15 @@ float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out ve
         vec2 actual_size = rSize - vec2(pad * 2.0);
         vec2 rBox = max(actual_size * 0.5, vec2(1.0));
 
-        float d = sdRoundRect(rLocal, rBox, corner_radius);
+        // A rounded-rect radius cannot exceed its smaller half extent.
+        // Clamping here lets callers request a very large radius to mean
+        // "circle/pill" without distorting the SDF on small controls.
+        float rCorner = min(
+            max(corner_radius, 0.0),
+            min(rBox.x, rBox.y)
+        );
+
+        float d = sdRoundRect(rLocal, rBox, rCorner);
         if (d < bestD) {
             bestD = d;
             outLocalPos = rLocal;
@@ -306,6 +315,7 @@ float findActiveRegion(vec2 pixel_coord, float pad, out vec2 outLocalPos, out ve
             outTint = vec3(region_tint_r[i], region_tint_g[i], region_tint_b[i]);
             outBaseStrength = region_base_strength[i];
             outResponse = clamp(region_response[i], 0.0, 1.0);
+            outCornerRadius = rCorner;
         }
     }
 
@@ -678,10 +688,20 @@ void main() {
     // — that path is bit-for-bit unchanged.
     float activeBaseStrength = 0.0;
     float activeResponse = 0.0;
+    float activeCornerRadius = corner_radius;
     float d;
 
     if (multi_region_mode > 0.5) {
-        d = findActiveRegion(pixel_coord, padding, local_pos, box_size, activeTint, activeBaseStrength, activeResponse);
+        d = findActiveRegion(
+            pixel_coord,
+            padding,
+            local_pos,
+            box_size,
+            activeTint,
+            activeBaseStrength,
+            activeResponse,
+            activeCornerRadius
+        );
     } else {
         // dock_center is in the same pixel space as pixel_coord (monitor-local).
         vec2 dock_center = vec2(dock_x + dock_w * 0.5, dock_y + dock_h * 0.5);
@@ -707,7 +727,11 @@ void main() {
         }
 
         // Distance from the current pixel to the rounded rectangle boundary.
-        d = sdRoundRect(local_pos, box_size, corner_radius);
+        activeCornerRadius = min(
+            max(corner_radius, 0.0),
+            min(box_size.x, box_size.y)
+        );
+        d = sdRoundRect(local_pos, box_size, activeCornerRadius);
         activeTint = vec3(tint_r, tint_g, tint_b);
     }
 
@@ -1050,7 +1074,7 @@ void main() {
     vec2 gradH = heightGradient(
         local_pos,
         box_size,
-        corner_radius,
+        activeCornerRadius,
         lensBand,
         max_z * lensScale * responseLensScale,
         resolution
