@@ -588,6 +588,8 @@ export class LiquidGlassIntegration {
                 new PopupGlassManager({
                     vendor: this._vendor,
                     settings: this._settings,
+                    veloraSettings:
+                        this._veloraSettings,
                     readAppearance: () =>
                         this._readSharedCardAppearance(),
                 });

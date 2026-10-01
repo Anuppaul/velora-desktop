@@ -203,6 +203,12 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'Live scene FPS', '30 is the recommended balance; 60 maximizes scene freshness', 15, 60, 5
         );
 
+        addSwitch(
+            performance, settings, 'panel-menu-hover-switch',
+            'Switch panel menus on hover',
+            'Off prevents ChatGPT, Codex, EasyEffects and other panel menus from opening while the pointer crosses their icons. When enabled, switching requires a 300 ms dwell. Click and keyboard opening are always immediate.'
+        );
+
         const dock = new Adw.PreferencesGroup({
             title: 'Floating Dock',
             description:

@@ -31,7 +31,7 @@ const SAMPLE_MARGIN_MAX = 200;
 // using PopupAnimation.FADE. Do not build a new GPU glass stack for a menu the
 // pointer merely crosses on the way to another indicator.
 const HOVER_SWITCH_GLASS_DWELL_MS = 120;
-const PANEL_MENU_HOVER_DWELL_MS = 120;
+const PANEL_MENU_HOVER_DWELL_MS = 300;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -2490,6 +2490,8 @@ export class PopupGlassManager {
     constructor(params) {
         this._vendor = params.vendor;
         this._settings = params.settings;
+        this._veloraSettings =
+            params.veloraSettings ?? null;
         this._readAppearance = params.readAppearance;
         this._surfaces = new Map();
         this._enabled = false;
@@ -2608,6 +2610,20 @@ export class PopupGlassManager {
         console.log(
             '[Velora][PopupGlass] global PopupMenu adapter active'
         );
+    }
+
+    _panelHoverSwitchEnabled() {
+        try {
+            return Boolean(
+                this._veloraSettings?.get_boolean?.(
+                    'panel-menu-hover-switch'
+                )
+            );
+        } catch {
+            // Optimization-first default: do not open adjacent panel menus
+            // merely because the pointer crosses their icons.
+            return false;
+        }
     }
 
     _cancelPanelHoverSwitch() {
@@ -2771,6 +2787,15 @@ export class PopupGlassManager {
                     this.activeMenu &&
                     newMenu !== this.activeMenu
                 ) {
+                    if (!owner._panelHoverSwitchEnabled()) {
+                        // Keep the currently open menu stable while the pointer
+                        // crosses AppIndicator / system icons. Click and
+                        // keyboard paths never enter this branch and therefore
+                        // remain immediate.
+                        owner._cancelPanelHoverSwitch();
+                        return;
+                    }
+
                     owner._schedulePanelHoverSwitch(
                         this,
                         newMenu

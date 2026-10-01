@@ -122,6 +122,12 @@
       <summary>Live Orb application preview size percentage</summary>
     </key>
 
+    <key name="panel-menu-hover-switch" type="b">
+      <default>false</default>
+      <summary>Switch between open panel menus on hover</summary>
+      <description>When enabled, moving the pointer onto another panel menu source switches to it after a 300 millisecond dwell. When disabled, crossing panel icons does not open their menus; click and keyboard activation remain immediate.</description>
+    </key>
+
     <key name="dock-vertical-offset" type="i">
       <default>0</default>
       <range min="-64" max="64"/>
