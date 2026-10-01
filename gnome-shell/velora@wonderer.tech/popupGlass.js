@@ -2508,6 +2508,7 @@ export class PopupGlassManager {
         this._patchedPanelChangeMenu = null;
         this._panelHoverSwitchSourceId = 0;
         this._panelHoverSwitchTarget = null;
+        this._panelHoverSettingId = 0;
     }
 
     setup() {
@@ -2736,8 +2737,12 @@ export class PopupGlassManager {
             return;
         }
 
-        const original =
+        const currentChangeMenu =
             panelManager._changeMenu;
+        const original =
+            currentChangeMenu
+                ?._veloraOriginalChangeMenu ??
+            currentChangeMenu;
         if (typeof original !== 'function')
             return;
 
@@ -2756,43 +2761,40 @@ export class PopupGlassManager {
                     );
                 }
 
-                let event = null;
+                const activeMenu =
+                    this.activeMenu ?? null;
+                const sourceActor =
+                    newMenu?.sourceActor ?? null;
+
+                let focusedMenu = null;
                 try {
-                    event =
-                        Clutter.get_current_event?.() ??
+                    const keyFocus =
+                        global.stage.get_key_focus?.() ??
                         null;
+                    focusedMenu =
+                        this._findMenuForSource?.(
+                            keyFocus
+                        ) ?? null;
                 } catch {}
 
-                let hoverSwitch = false;
-                try {
-                    const eventType =
-                        event?.type?.() ?? null;
-                    const eventFlags =
-                        event?.get_flags?.() ?? 0;
-                    const isGrabNotify =
-                        (
-                            eventFlags &
-                            Clutter.EventFlags.FLAG_GRAB_NOTIFY
-                        ) !== 0;
+                const keyboardSwitch =
+                    focusedMenu === newMenu;
+                const pointerOverSource =
+                    sourceActor?.hover === true;
+                const hoverSwitch =
+                    Boolean(
+                        activeMenu &&
+                        newMenu &&
+                        newMenu !== activeMenu &&
+                        pointerOverSource &&
+                        !keyboardSwitch
+                    );
 
-                    hoverSwitch =
-                        eventType ===
-                            Clutter.EventType.ENTER &&
-                        !isGrabNotify;
-                } catch {
-                    hoverSwitch = false;
-                }
-
-                if (
-                    hoverSwitch &&
-                    this.activeMenu &&
-                    newMenu !== this.activeMenu
-                ) {
+                if (hoverSwitch) {
                     if (!owner._panelHoverSwitchEnabled()) {
-                        // Keep the currently open menu stable while the pointer
-                        // crosses AppIndicator / system icons. Click and
-                        // keyboard paths never enter this branch and therefore
-                        // remain immediate.
+                        // Preference OFF is a hard block: while one panel menu
+                        // is open, merely crossing another panel/AppIndicator
+                        // source can never call native PopupMenu.open().
                         owner._cancelPanelHoverSwitch();
                         return;
                     }
@@ -2804,8 +2806,8 @@ export class PopupGlassManager {
                     return;
                 }
 
-                // Click, keyboard focus navigation, accessibility and explicit
-                // opens remain instant.
+                // Click, key-focus, accessibility and explicit opens remain
+                // immediate.
                 owner._cancelPanelHoverSwitch();
                 return original.call(
                     this,
@@ -2813,12 +2815,49 @@ export class PopupGlassManager {
                 );
             };
 
+        this._patchedPanelChangeMenu
+            ._veloraOriginalChangeMenu =
+                original;
+
         panelManager._changeMenu =
             this._patchedPanelChangeMenu;
+
+        if (
+            this._veloraSettings &&
+            !this._panelHoverSettingId
+        ) {
+            try {
+                this._panelHoverSettingId =
+                    this._veloraSettings.connect(
+                        'changed::panel-menu-hover-switch',
+                        () => {
+                            if (
+                                !this._panelHoverSwitchEnabled()
+                            ) {
+                                this._cancelPanelHoverSwitch();
+                            }
+                        }
+                    );
+            } catch {
+                this._panelHoverSettingId = 0;
+            }
+        }
     }
 
     _uninstallPanelHoverSwitchDebounce() {
         this._cancelPanelHoverSwitch();
+
+        if (
+            this._veloraSettings &&
+            this._panelHoverSettingId
+        ) {
+            try {
+                this._veloraSettings.disconnect(
+                    this._panelHoverSettingId
+                );
+            } catch {}
+        }
+        this._panelHoverSettingId = 0;
 
         if (
             this._panelMenuManager &&
