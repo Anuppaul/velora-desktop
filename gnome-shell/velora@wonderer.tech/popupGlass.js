@@ -2748,17 +2748,20 @@ export class PopupGlassManager {
 
                 let hoverSwitch = false;
                 try {
-                    hoverSwitch =
-                        event?.type?.() ===
-                            Clutter.EventType.ENTER &&
+                    const eventType =
+                        event?.type?.() ?? null;
+                    const eventFlags =
+                        event?.get_flags?.() ?? 0;
+                    const isGrabNotify =
                         (
-                            event.get_flags?.() ??
-                            0
-                        ) &
+                            eventFlags &
                             Clutter.EventFlags.FLAG_GRAB_NOTIFY
-                            ? false
-                            : event?.type?.() ===
-                                Clutter.EventType.ENTER;
+                        ) !== 0;
+
+                    hoverSwitch =
+                        eventType ===
+                            Clutter.EventType.ENTER &&
+                        !isGrabNotify;
                 } catch {
                     hoverSwitch = false;
                 }
