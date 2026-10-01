@@ -600,7 +600,7 @@
 
 /* One shared wallpaper-only LiquidEffect backs the full app grid.
  * No live window clones are captured for this large surface. */
-#overviewGroup .apps-scroll-view.velora-liquid-shell-card {
+#overviewGroup .apps-scroll-view {
     background-color: transparent !important;
     background-image: none !important;
     border-color: transparent !important;
@@ -632,15 +632,15 @@
     background-color: rgba(255, 255, 255, 0.15);
 }
 
-#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow {
+#overviewGroup .apps-scroll-view .page-navigation-arrow {
     background-color: rgba(255, 255, 255, 0.06) !important;
     background-image: none !important;
     border-color: rgba(255, 255, 255, 0.09) !important;
     box-shadow: none !important;
 }
 
-#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow:hover,
-#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow:focus {
+#overviewGroup .apps-scroll-view .page-navigation-arrow:hover,
+#overviewGroup .apps-scroll-view .page-navigation-arrow:focus {
     background-color: rgba(255, 255, 255, 0.11) !important;
     border-color: rgba(255, 255, 255, 0.15) !important;
 }
