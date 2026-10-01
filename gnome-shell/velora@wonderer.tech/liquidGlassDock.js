@@ -59,6 +59,8 @@ const DOCK_PANEL_MODE_CLASS =
     'velora-dock-panel-mode';
 const DOCK_PANEL_BACKGROUND_CLASS =
     'velora-ubuntu-dock-panel-background';
+const DOCK_GLASS_BACKGROUND_CLASS =
+    'velora-ubuntu-dock-glass-background';
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 10;
@@ -2319,6 +2321,10 @@ export class LiquidGlassIntegration {
                 entry.container,
                 false
             );
+            this._syncDockGlassBackgroundClass(
+                entry,
+                true
+            );
 
             if (entry.manager) {
                 this._syncNativeDockBinding(entry);
@@ -2460,6 +2466,27 @@ export class LiquidGlassIntegration {
                 DOCK_PANEL_BLUR_EFFECT,
                 effect
             );
+        } catch {}
+    }
+
+    _syncDockGlassBackgroundClass(entry, enabled) {
+        const actor =
+            this._watchDockPanelBackground(
+                entry
+            );
+        if (!actor)
+            return;
+
+        try {
+            if (enabled) {
+                actor.add_style_class_name?.(
+                    DOCK_GLASS_BACKGROUND_CLASS
+                );
+            } else {
+                actor.remove_style_class_name?.(
+                    DOCK_GLASS_BACKGROUND_CLASS
+                );
+            }
         } catch {}
     }
 
@@ -2671,6 +2698,10 @@ export class LiquidGlassIntegration {
         this._watchDockPanelBackground(entry);
 
         if (panelMode) {
+            this._syncDockGlassBackgroundClass(
+                entry,
+                false
+            );
             this._setDockPanelModeClass(
                 entry.container,
                 true
@@ -2688,6 +2719,10 @@ export class LiquidGlassIntegration {
         if (
             this._dockModeTransitionTarget === false
         ) {
+            this._syncDockGlassBackgroundClass(
+                entry,
+                false
+            );
             // Waiting for Ubuntu Dock's extended -> floating relayout to
             // settle. Preserve the known-good panel paint and keep glass off.
             this._setDockPanelModeClass(
@@ -2703,6 +2738,10 @@ export class LiquidGlassIntegration {
         }
 
         if (this._dockHandoffActive) {
+            this._syncDockGlassBackgroundClass(
+                entry,
+                false
+            );
             // Warm the floating glass behind the still-visible native fallback.
             this._setDockPanelModeClass(
                 entry.container,
@@ -2742,6 +2781,10 @@ export class LiquidGlassIntegration {
         this._applyDockPanelPaint(
             entry,
             false
+        );
+        this._syncDockGlassBackgroundClass(
+            entry,
+            true
         );
 
         if (this._externalGlobalStack)
@@ -2994,6 +3037,10 @@ export class LiquidGlassIntegration {
         );
 
         this._cleanupNativeDashManager(entry);
+        this._syncDockGlassBackgroundClass(
+            entry,
+            false
+        );
         this._applyDockPanelPaint(
             entry,
             false
