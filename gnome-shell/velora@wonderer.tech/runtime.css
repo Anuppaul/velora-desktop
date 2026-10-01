@@ -589,6 +589,17 @@
     border-color: rgba(255, 255, 255, 0.12);
 }
 
+/* Applications grid ------------------------------------------------------ */
+/* One shared ShellCard LiquidEffect backs the full app grid. Individual app
+ * tiles/icons stay native and never allocate their own shader/capture path. */
+#overviewGroup .apps-scroll-view.velora-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 32px;
+    box-shadow: none !important;
+}
+
 /* App-grid tiles: geometry/icon labels stay native. */
 #overviewGroup .apps-scroll-view .overview-tile,
 #overviewGroup .apps-scroll-view .app-folder {
@@ -611,6 +622,19 @@
 #overviewGroup .apps-scroll-view .app-folder:active,
 #overviewGroup .apps-scroll-view .app-folder:checked {
     background-color: rgba(255, 255, 255, 0.15);
+}
+
+#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.09) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow:hover,
+#overviewGroup .apps-scroll-view.velora-liquid-shell-card .page-navigation-arrow:focus {
+    background-color: rgba(255, 255, 255, 0.11) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 /* GNOME overview dash only. Ubuntu Dock is outside overviewGroup and keeps
