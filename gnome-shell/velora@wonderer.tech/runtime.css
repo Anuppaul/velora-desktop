@@ -302,6 +302,16 @@
     background-color: rgba(255, 255, 255, 0.18) !important;
 }
 
+/* Floating Ubuntu Dock: only the real sibling .dash-background becomes
+ * transparent for Liquid Glass. Never put a transparency class on the common
+ * parent, because that subtree also owns the app icons and reveal animation. */
+.velora-ubuntu-dock-glass-background {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
 /* Ubuntu Dock icons stay completely native. The glass renderer owns only
  * the dock background; it must never clear or replace overview-icon imagery,
  * because Ubuntu Dock reuses those actors across autohide/reveal cycles. */
