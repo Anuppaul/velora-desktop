@@ -717,8 +717,8 @@
 
 /* Overview window app icon ----------------------------------------------- */
 /* The same root-level shared LiquidEffect draws an exact centered 48px
- * circular badge under each 64px WindowPreview app icon. Keep the icon itself
- * crisp and remove GNOME's stock drop shadow so glass is the only treatment. */
+ * circular badge. The native 64px icon actor stays in place for layout/input
+ * while a sharp 40px visual clone is centered over the glass badge. */
 #overviewGroup .window-icon.velora-window-icon-shared-glass {
     background-color: transparent !important;
     background-image: none !important;
