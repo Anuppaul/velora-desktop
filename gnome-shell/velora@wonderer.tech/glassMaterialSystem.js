@@ -59,45 +59,6 @@ const PREMIUM_CARD_ROLE = Object.freeze({
     text: GLASS_TEXT_PALETTE,
 });
 
-const WINDOW_CLOSE_OPTICS = Object.freeze({
-    max_z: 108.0,
-    displacement_scale: 38.0,
-    edge_smoothing: 0.88,
-    profile_shape_n: 4.6,
-    ior: 1.76,
-    chroma_strength: 1.65,
-    specular_intensity: 0.72,
-    shininess: 78.0,
-    rim_width: 3.2,
-    rim_intensity: 1.08,
-    rim_directional_power: 1.72,
-    rim_power: 2.55,
-    rim_light_color_intensity: 1.34,
-    sheen_intensity: 0.15,
-    light_angle_deg: 108.0,
-    ao_intensity: 0.26,
-    ao_radius: 1.15,
-    shadow_radius: 0.0,
-    shadow_intensity: 0.0,
-});
-
-const WINDOW_CLOSE_ROLE = Object.freeze({
-    optics: WINDOW_CLOSE_OPTICS,
-    tintStrength: 0.075,
-    blurScale: 1.0,
-    blurMin: 7,
-    blurMax: 10,
-    contrastFloor: 1.06,
-    multiRegion: false,
-    surfaceLight: true,
-    blurMethod: 1,
-    // Tiny control: dedicated lens optics are intentionally stronger than
-    // the system-wide card profile so the refraction/rim remains visible.
-    settingsOwnOptics: false,
-    interaction: GLASS_INTERACTION,
-    text: GLASS_TEXT_PALETTE,
-});
-
 const CLEAN_POPUP_CHROME = Object.freeze({
     shadow: false,
     filterBorder: false,
@@ -114,7 +75,6 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     osdCard: PREMIUM_CARD_ROLE,
     topPanel: PREMIUM_CARD_ROLE,
     dock: PREMIUM_CARD_ROLE,
-    windowClose: WINDOW_CLOSE_ROLE,
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
