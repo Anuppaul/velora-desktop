@@ -1311,40 +1311,40 @@ export class LiquidGlassIntegration {
             '  background-color: ' + accentColor + ' !important;\n' +
             '  color: #ffffff !important;\n' +
             '}\n' +
-            '.screenshot-ui-window-selector-window:hover .screenshot-ui-window-selector-window-border,\n' +
-            '.screenshot-ui-window-selector-window:focus .screenshot-ui-window-selector-window-border {\n' +
+            '#screenshot-ui .screenshot-ui-window-selector-window:hover .screenshot-ui-window-selector-window-border,\n' +
+            '#screenshot-ui .screenshot-ui-window-selector-window:focus .screenshot-ui-window-selector-window-border {\n' +
             '  border-color: transparent !important;\n' +
             '  box-shadow: inset 0 0 0 2px ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-window-border {\n' +
+            '#screenshot-ui .screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-window-border {\n' +
             '  border-color: transparent !important;\n' +
             '  background-color: ' + accentSoft + ' !important;\n' +
             '  box-shadow: inset 0 0 0 3px ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-check {\n' +
+            '#screenshot-ui .screenshot-ui-window-selector-window:checked .screenshot-ui-window-selector-check {\n' +
             '  color: #ffffff !important;\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-type-button:checked {\n' +
+            '#screenshot-ui .screenshot-ui-type-button:checked {\n' +
             '  background-color: ' + accentSoft + ' !important;\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-type-button:checked StLabel,\n' +
-            '.screenshot-ui-type-button:checked StIcon {\n' +
+            '#screenshot-ui .screenshot-ui-type-button:checked StLabel,\n' +
+            '#screenshot-ui .screenshot-ui-type-button:checked StIcon {\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-shot-cast-button:checked,\n' +
-            '.screenshot-ui-show-pointer-button:checked {\n' +
+            '#screenshot-ui .screenshot-ui-shot-cast-button:checked,\n' +
+            '#screenshot-ui .screenshot-ui-show-pointer-button:checked {\n' +
             '  background-color: ' + accentSoft + ' !important;\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-screen-selector:hover,\n' +
-            '.screenshot-ui-screen-selector:focus {\n' +
+            '#screenshot-ui .screenshot-ui-screen-selector:hover,\n' +
+            '#screenshot-ui .screenshot-ui-screen-selector:focus {\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-screen-selector:checked {\n' +
+            '#screenshot-ui .screenshot-ui-screen-selector:checked {\n' +
             '  background-color: ' + accentSoft + ' !important;\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '  box-shadow: inset 0 0 0 1px ' + accentColor + ' !important;\n' +
