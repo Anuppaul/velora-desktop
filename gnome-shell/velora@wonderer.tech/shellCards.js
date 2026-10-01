@@ -71,8 +71,30 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
+        this._isWindowClose =
+            classesOf(target).includes(WINDOW_CLOSE_CLASS);
+        this._previewSource = null;
+        this._previewClone = null;
+
+        if (this._isWindowClose && this._parent) {
+            // GNOME 50 WindowPreview children are:
+            //   windowContainer, caption, app icon, close button.
+            // Capture ONLY windowContainer so the lens refracts the preview
+            // beneath it without recursively cloning the close button itself.
+            this._previewSource =
+                (this._parent.get_children?.() ?? []).find(child => {
+                    if (child === target)
+                        return false;
+                    const classes = classesOf(child);
+                    return (
+                        !classes.includes('window-caption') &&
+                        !classes.includes('window-icon')
+                    );
+                }) ?? null;
+        }
+
         this._opticalMargin =
-            classesOf(target).includes(WINDOW_CLOSE_CLASS)
+            this._isWindowClose
                 ? WINDOW_CLOSE_OPTICAL_MARGIN
                 : OPTICAL_MARGIN;
         this._effect = null;
@@ -102,6 +124,19 @@ class ShellCardSurface {
         });
         sceneRoot.set_no_layout?.(true);
         material.add_child(sceneRoot);
+
+        let previewClone = null;
+        if (this._isWindowClose && this._previewSource) {
+            previewClone = new Clutter.Clone({
+                source: this._previewSource,
+                reactive: false,
+            });
+            previewClone.set_name?.(
+                'velora-window-close-preview-clone'
+            );
+            previewClone.set_no_layout?.(true);
+            sceneRoot.add_child(previewClone);
+        }
 
         let wallpaperMirror = null;
 
@@ -179,6 +214,7 @@ class ShellCardSurface {
         this._sceneRoot = sceneRoot;
         this._sceneManager = null;
         this._wallpaperMirror = wallpaperMirror;
+        this._previewClone = previewClone;
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
@@ -221,8 +257,16 @@ class ShellCardSurface {
             : VELORA_GLASS_ROLES.shellCard;
         const adapter =
             VELORA_GLASS_ADAPTERS.shellCard;
+        const [targetW, targetH] =
+            this._target.get_size?.() ?? [64, 64];
         const radius = isWindowClose
-            ? 999
+            ? Math.max(
+                12,
+                Math.min(
+                    targetW > 1 ? targetW : 64,
+                    targetH > 1 ? targetH : 64
+                ) / 2
+            )
             : Math.max(0, radiusOf(this._target));
 
         let brightness = null;
@@ -309,6 +353,9 @@ class ShellCardSurface {
     }
 
     _ensureSceneManager() {
+        if (this._isWindowClose)
+            return null;
+
         if (this._sceneManager || !this._sceneRoot)
             return this._sceneManager;
 
@@ -446,8 +493,12 @@ class ShellCardSurface {
             return;
         }
 
-        if (!sceneManager)
+        if (
+            !this._isWindowClose &&
+            !sceneManager
+        ) {
             return;
+        }
 
         const [w, h] = material.get_size?.() ?? [0, 0];
         if (w <= 1 || h <= 1)
@@ -480,6 +531,51 @@ class ShellCardSurface {
             -absX / sx,
             -absY / sy
         );
+
+        if (this._isWindowClose) {
+            const source = this._previewSource;
+            const clone = this._previewClone;
+            if (!source || !clone)
+                return;
+
+            const rect =
+                this._vendor.getTransformedRect?.(source);
+            if (
+                !Array.isArray(rect) ||
+                rect.length < 4 ||
+                !rect.every(Number.isFinite) ||
+                rect[2] <= 1 ||
+                rect[3] <= 1
+            ) {
+                return;
+            }
+
+            // sceneRoot is counter-transformed into stage coordinates above,
+            // so stage-space source bounds map 1:1 into the capture.
+            this._vendor.setPositionIfChanged(
+                clone,
+                rect[0],
+                rect[1]
+            );
+            this._vendor.setSizeIfChanged(
+                clone,
+                rect[2],
+                rect[3]
+            );
+
+            if (
+                clone.scale_x !== 1 ||
+                clone.scale_y !== 1
+            ) {
+                clone.set_scale(1, 1);
+            }
+
+            this._lastCaptureX = rect[0];
+            this._lastCaptureY = rect[1];
+            this._lastCaptureW = rect[2];
+            this._lastCaptureH = rect[3];
+            return;
+        }
 
         const captureRect = [
             absX,
@@ -555,6 +651,15 @@ class ShellCardSurface {
             glassW,
             glassH
         );
+
+        if (this._isWindowClose) {
+            effect.setCornerRadius?.(
+                Math.max(
+                    1,
+                    Math.min(glassW, glassH) / 2
+                )
+            );
+        }
     }
 
     destroy(removeClass = true) {
@@ -642,6 +747,8 @@ class ShellCardSurface {
         this._sceneRoot = null;
         this._sceneManager = null;
         this._wallpaperMirror = null;
+        this._previewClone = null;
+        this._previewSource = null;
         this._effect = null;
         this._target = null;
         this._parent = null;
