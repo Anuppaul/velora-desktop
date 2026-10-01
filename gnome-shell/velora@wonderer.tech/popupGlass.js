@@ -341,10 +341,21 @@ class PopupGlassSurface {
         this._lastInnerResolutionW = 0;
         this._lastInnerResolutionH = 0;
         this._lastInnerRegions = [];
+        this._lastFullGeometryX = NaN;
+        this._lastFullGeometryY = NaN;
+        this._lastFullGeometryW = NaN;
+        this._lastFullGeometryH = NaN;
+        this._lastShadowMaxRadius = NaN;
+        this._sceneCaptureRect = null;
         this._lastMonitorX = NaN;
         this._lastMonitorY = NaN;
         this._lastScreenW = 0;
         this._lastScreenH = 0;
+        this._lastFullGeometryX = NaN;
+        this._lastFullGeometryY = NaN;
+        this._lastFullGeometryW = NaN;
+        this._lastFullGeometryH = NaN;
+        this._sceneCaptureRect = null;
     }
 
     _suppressNativeBoxPointerBorder() {
@@ -1997,10 +2008,6 @@ class PopupGlassSurface {
         const intervalUs =
             1000000 / fullSyncFps;
 
-        // Paint-time hooks still update shader geometry every compositor frame.
-        // This gate only limits expensive JS actor walks / clone synchronization.
-        // Hover/style notifications may mark the popup dirty many times while
-        // the pointer crosses controls; they must not bypass the FPS cap.
         if (
             this._lastFullSyncUs > 0 &&
             nowUs - this._lastFullSyncUs <
@@ -2009,7 +2016,26 @@ class PopupGlassSurface {
             return;
         }
 
+        const geometryDrift =
+            this._lastFullGeometryX !== this._lastShaderX ||
+            this._lastFullGeometryY !== this._lastShaderY ||
+            this._lastFullGeometryW !== this._lastShaderW ||
+            this._lastFullGeometryH !== this._lastShaderH;
+
         this._lastFullSyncUs = nowUs;
+
+        // Static popup: only refresh the live window/background clones.
+        // Paint hooks already keep shader geometry and Date interactions smooth.
+        if (
+            !this._fullSyncDirty &&
+            !geometryDrift &&
+            this._sceneCaptureRect
+        ) {
+            this._sceneManager?.sync?.();
+            this._lastSceneSyncUs = nowUs;
+            return;
+        }
+
         this._fullSyncDirty = false;
         this._sync(false);
     }
@@ -2364,9 +2390,18 @@ class PopupGlassSurface {
             );
         }
 
-        this._effect?.setShadowMaxRadius?.(
-            Math.max(0, margin - 16)
-        );
+        const shadowMaxRadius =
+            Math.max(0, margin - 16);
+        if (
+            this._lastShadowMaxRadius !==
+            shadowMaxRadius
+        ) {
+            this._lastShadowMaxRadius =
+                shadowMaxRadius;
+            this._effect?.setShadowMaxRadius?.(
+                shadowMaxRadius
+            );
+        }
 
         const captureRect = [
             glassAbsX - margin,
@@ -2404,6 +2439,12 @@ class PopupGlassSurface {
             this._sceneManager?.sync?.();
             this._lastSceneSyncUs = nowUs;
         }
+
+        this._sceneCaptureRect = captureRect;
+        this._lastFullGeometryX = glassX;
+        this._lastFullGeometryY = glassY;
+        this._lastFullGeometryW = glassW;
+        this._lastFullGeometryH = glassH;
 
         if (this._root.opacity !== opacity)
             this._root.opacity = opacity;
@@ -2556,6 +2597,12 @@ class PopupGlassSurface {
         this._lastEffectResolutionH = 0;
         this._lastInnerResolutionW = 0;
         this._lastInnerResolutionH = 0;
+        this._lastFullGeometryX = NaN;
+        this._lastFullGeometryY = NaN;
+        this._lastFullGeometryW = NaN;
+        this._lastFullGeometryH = NaN;
+        this._lastShadowMaxRadius = NaN;
+        this._sceneCaptureRect = null;
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = false;
