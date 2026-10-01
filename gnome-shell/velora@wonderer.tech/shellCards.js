@@ -11,7 +11,9 @@ import {
 } from './glassMaterialSystem.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
+const WINDOW_CLOSE_CLASS = 'window-close';
 const OPTICAL_MARGIN = 104;
+const WINDOW_CLOSE_OPTICAL_MARGIN = 20;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -20,12 +22,14 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
+    'window-close',
     'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
+    'window-close',
     'workspace-thumbnails',
     'dash-background',
 ]);
@@ -67,7 +71,10 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
-        this._opticalMargin = OPTICAL_MARGIN;
+        this._opticalMargin =
+            classesOf(target).includes(WINDOW_CLOSE_CLASS)
+                ? WINDOW_CLOSE_OPTICAL_MARGIN
+                : OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -110,9 +117,14 @@ class ShellCardSurface {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: this._wallpaperOnly
-                ? 'velora-app-grid-wallpaper'
-                : 'velora-shell-card',
+            owner:
+                classesOf(this._target).includes(WINDOW_CLOSE_CLASS)
+                    ? 'velora-window-close'
+                    : (
+                        this._wallpaperOnly
+                            ? 'velora-app-grid-wallpaper'
+                            : 'velora-shell-card'
+                    ),
         });
         effect.setPadding?.(20);
         effect.setShadowMaxRadius?.(
@@ -206,7 +218,11 @@ class ShellCardSurface {
             VELORA_GLASS_ROLES.shellCard;
         const adapter =
             VELORA_GLASS_ADAPTERS.shellCard;
-        const radius = Math.max(0, radiusOf(this._target));
+        const isWindowClose =
+            classesOf(this._target).includes(WINDOW_CLOSE_CLASS);
+        const radius = isWindowClose
+            ? 999
+            : Math.max(0, radiusOf(this._target));
 
         let brightness = null;
         let contrast = null;
