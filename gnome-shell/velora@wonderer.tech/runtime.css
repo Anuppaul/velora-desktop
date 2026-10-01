@@ -261,13 +261,20 @@
 #dashtodockDashContainer.velora-dock-panel-mode,
 #dashtodockDashContainer.velora-dock-panel-mode.liquid-glass-transparent,
 #dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,
-#dashtodockDashContainer.velora-dock-panel-mode .dashtodock-box,
-#dashtodockDashContainer.velora-dock-panel-mode .dash-background {
-    /* Premium non-glass panel: transparent neutral-white body.
-     * No blur/refraction — the wallpaper remains visible through the panel. */
-    background-color: rgba(255, 255, 255, 0.115) !important;
+#dashtodockDashContainer.velora-dock-panel-mode .dashtodock-box {
+    /* Wrappers stay fully clear. Stacking translucent backgrounds here would
+     * compound alpha and make the panel look opaque. */
+    background-color: transparent !important;
     background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.16) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#dashtodockDashContainer.velora-dock-panel-mode .dash-background {
+    /* Exactly one premium non-glass body layer. */
+    background-color: rgba(255, 255, 255, 0.105) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
 }
