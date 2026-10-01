@@ -716,9 +716,9 @@
 }
 
 /* Overview window app icon ----------------------------------------------- */
-/* The same root-level shared LiquidEffect draws a compact badge under each
- * WindowPreview app icon. Keep the icon itself crisp and remove GNOME's stock
- * drop shadow so the shared glass is the only background treatment. */
+/* The same root-level shared LiquidEffect draws an exact centered 48px
+ * circular badge under each 64px WindowPreview app icon. Keep the icon itself
+ * crisp and remove GNOME's stock drop shadow so glass is the only treatment. */
 #overviewGroup .window-icon.velora-window-icon-shared-glass {
     background-color: transparent !important;
     background-image: none !important;
