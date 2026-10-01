@@ -127,10 +127,11 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 16px;
-    background-color: rgba(8, 9, 12, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.38);
+    border-radius: 20px;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 
 .velora-window-preview-tile {
@@ -138,8 +139,9 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.035);
+    border-radius: 14px;
+    background-color: rgba(255, 255, 255, 0.045);
+    background-image: none;
     border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow: none;
     transition-duration: 110ms;
@@ -147,8 +149,8 @@
 
 .velora-window-preview-tile:hover,
 .velora-window-preview-tile:focus {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.24);
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.20);
     box-shadow: none;
 }
 
