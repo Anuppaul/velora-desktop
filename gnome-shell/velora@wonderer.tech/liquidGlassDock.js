@@ -1971,6 +1971,7 @@ export class LiquidGlassIntegration {
 
         const generation =
             this._dockFixedSettleGeneration;
+        let settleTicks = 0;
 
         this._dockFixedSettleStageId =
             global.stage.connect(
@@ -1991,6 +1992,8 @@ export class LiquidGlassIntegration {
                         this._cancelDockFixedSettle();
                         return;
                     }
+
+                    settleTicks++;
 
                     let allSettled = true;
                     let hasManagedDock = false;
@@ -2079,8 +2082,14 @@ export class LiquidGlassIntegration {
                         }
                     }
 
-                    if (!hasManagedDock || !allSettled)
-                        return;
+                    if (!hasManagedDock || !allSettled) {
+                        // Safety valve only. Normal handoff completes within a
+                        // few frames after slide-x reaches 1. Do not retain an
+                        // after-paint callback forever if Ubuntu Dock is being
+                        // rebuilt or unavailable during the setting change.
+                        if (settleTicks < 180)
+                            return;
+                    }
 
                     try {
                         global.stage.disconnect(
@@ -2779,8 +2788,12 @@ export class LiquidGlassIntegration {
         if (this._dockIsPanelMode())
             return false;
 
-        if (entry.nativeFixedModeSettling)
+        if (
+            entry.nativeFixedModeSettling ||
+            this._dockFixedSettleStageId
+        ) {
             return false;
+        }
 
         if (
             this._dockModeTransitionTarget === false
@@ -4322,7 +4335,10 @@ export class LiquidGlassIntegration {
                     nativeIntellihideRectKey: '',
                     nativeLastSlideEndpoint: null,
                     nativeDockTransition: null,
-                    nativeFixedModeSettling: false,
+                    nativeFixedModeSettling:
+                        Boolean(
+                            this._dockFixedSettleStageId
+                        ),
                     nativeFixedSettleKey: '',
                     nativeFixedSettleFrames: 0,
                     nativeVisibilityGate: null,
