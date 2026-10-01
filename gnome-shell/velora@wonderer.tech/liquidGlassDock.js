@@ -53,6 +53,8 @@ const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 const DASH_TO_DOCK_SCHEMA =
     'org.gnome.shell.extensions.dash-to-dock';
+const UBUNTU_DOCK_UUID =
+    'ubuntu-dock@ubuntu.com';
 const DOCK_PANEL_MODE_CLASS =
     'velora-dock-panel-mode';
 const DOCK_PANEL_BACKGROUND_CLASS =
@@ -60,6 +62,9 @@ const DOCK_PANEL_BACKGROUND_CLASS =
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 10;
+const DOCK_MODE_SETTLE_FRAMES = 2;
+const DOCK_HANDOFF_POLL_MS = 24;
+const DOCK_HANDOFF_MAX_MS = 5000;
 
 const DESKTOP_INTERFACE_SCHEMA =
     'org.gnome.desktop.interface';
@@ -422,6 +427,13 @@ export class LiquidGlassIntegration {
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
         this._dockGlassBeforePanelMode = null;
+        this._ubuntuDockModule = null;
+        this._ubuntuDockManager = null;
+        this._dockModeGeneration = 0;
+        this._dockModeTransitionStageId = 0;
+        this._dockModeHandoffId = 0;
+        this._dockModeTransitionTarget = null;
+        this._dockHandoffActive = false;
 
         this._dashTimeoutId = 0;
         this._dashReconnectTimeoutId = 0;
@@ -504,7 +516,12 @@ export class LiquidGlassIntegration {
         // Dash-to-Dock's extend-height setting is its panel-mode source of
         // truth. Track it independently from the glass renderer so panel mode
         // can intentionally use a premium non-glass surface.
+        await this._setupUbuntuDockBridge();
         this._setupDashToDockModeWatch();
+
+        if (this._dockIsPanelMode())
+            this._syncDockGlassPreferenceForPanelMode(true);
+
         this._findNativeDashToDock();
 
         if (this._externalGlobalStack) {
@@ -1785,21 +1802,9 @@ export class LiquidGlassIntegration {
                         if (!this._enabled)
                             return;
 
-                        this._syncDockGlassPreferenceForPanelMode(
+                        this._beginDockModeTransition(
                             this._dockIsPanelMode()
                         );
-                        this._findNativeDashToDock();
-
-                        GLib.idle_add(
-                            GLib.PRIORITY_DEFAULT_IDLE,
-                            () => {
-                                if (this._enabled)
-                                    this._findNativeDashToDock();
-                                return GLib.SOURCE_REMOVE;
-                            }
-                        );
-
-                        this._scheduleNativeDashRescan();
                     }
                 );
         } catch (error) {
@@ -1845,7 +1850,11 @@ export class LiquidGlassIntegration {
     }
 
     _syncDockGlassPreferenceForPanelMode(panelMode) {
-        if (!this._settings)
+        // Our vendored DockManager is detached directly, so changing the
+        // global Liquid Glass preference would only create an unnecessary
+        // remove/recreate cycle. This preference bridge is needed solely when
+        // an already-active upstream Liquid Glass stack owns the dock.
+        if (!this._settings || !this._externalGlobalStack)
             return;
 
         if (panelMode) {
@@ -1895,6 +1904,426 @@ export class LiquidGlassIntegration {
                 );
             }
         } catch {}
+    }
+
+    async _setupUbuntuDockBridge() {
+        this._ubuntuDockModule = null;
+        this._ubuntuDockManager = null;
+
+        try {
+            const extension =
+                Main.extensionManager.lookup(
+                    UBUNTU_DOCK_UUID
+                );
+
+            if (
+                !extension ||
+                extension.state !== ExtensionState.ACTIVE
+            ) {
+                return;
+            }
+
+            const stateManager =
+                extension.stateObj?.dockManager ?? null;
+            if (stateManager) {
+                this._ubuntuDockManager = stateManager;
+                return;
+            }
+
+            const root =
+                extension.path ??
+                extension.dir?.get_path?.() ??
+                null;
+            if (!root)
+                return;
+
+            const moduleFile =
+                Gio.File.new_for_path(
+                    GLib.build_filenamev([
+                        root,
+                        'extension.js',
+                    ])
+                );
+
+            if (!moduleFile.query_exists(null))
+                return;
+
+            const module =
+                await import(moduleFile.get_uri());
+
+            this._ubuntuDockModule = module;
+            this._ubuntuDockManager =
+                module?.dockManager ?? null;
+        } catch (error) {
+            this._ubuntuDockModule = null;
+            this._ubuntuDockManager = null;
+            console.warn(
+                '[Velora][Dock] Ubuntu Dock bridge unavailable: ' +
+                error
+            );
+        }
+    }
+
+    _refreshUbuntuDockManager() {
+        try {
+            const extension =
+                Main.extensionManager.lookup(
+                    UBUNTU_DOCK_UUID
+                );
+
+            this._ubuntuDockManager =
+                this._ubuntuDockModule?.dockManager ??
+                extension?.stateObj?.dockManager ??
+                this._ubuntuDockManager ??
+                null;
+        } catch {}
+    }
+
+    _nativeDockForContainer(container) {
+        if (!container)
+            return null;
+
+        this._refreshUbuntuDockManager();
+
+        const docks =
+            this._ubuntuDockManager?._allDocks ??
+            this._ubuntuDockManager?.allDocks ??
+            [];
+
+        for (const dock of docks) {
+            if (
+                dock?.dash?._dashContainer ===
+                    container ||
+                dock?.dash?._container ===
+                    container
+            ) {
+                return dock;
+            }
+        }
+
+        return null;
+    }
+
+    _syncNativeDockBinding(entry) {
+        if (!entry?.container)
+            return null;
+
+        const dock =
+            this._nativeDockForContainer(
+                entry.container
+            );
+
+        if (dock === entry.nativeDock)
+            return dock;
+
+        if (
+            entry.nativeDock &&
+            entry.nativeDockStateId
+        ) {
+            try {
+                entry.nativeDock.disconnect(
+                    entry.nativeDockStateId
+                );
+            } catch {}
+        }
+
+        entry.nativeDock = dock;
+        entry.nativeDockStateId = 0;
+
+        if (dock) {
+            try {
+                entry.nativeDockStateId =
+                    dock.connect(
+                        'notify::dock-state',
+                        () => {
+                            const manager =
+                                entry.manager;
+                            if (!manager)
+                                return;
+
+                            manager.setVisibilityGate?.(
+                                () =>
+                                    entry.nativeDock?.dockState !== 0
+                            );
+
+                            if (
+                                entry.nativeDock?.dockState === 0
+                            ) {
+                                manager.bgActor?.hide?.();
+                            } else {
+                                manager.bgActor?.show?.();
+                            }
+                        }
+                    );
+            } catch {
+                entry.nativeDockStateId = 0;
+            }
+        }
+
+        return dock;
+    }
+
+    _cancelDockModeTransition() {
+        this._dockModeGeneration++;
+
+        if (this._dockModeTransitionStageId) {
+            try {
+                global.stage.disconnect(
+                    this._dockModeTransitionStageId
+                );
+            } catch {}
+            this._dockModeTransitionStageId = 0;
+        }
+
+        if (this._dockModeHandoffId) {
+            try {
+                GLib.source_remove(
+                    this._dockModeHandoffId
+                );
+            } catch {}
+            this._dockModeHandoffId = 0;
+        }
+
+        this._dockModeTransitionTarget = null;
+        this._dockHandoffActive = false;
+    }
+
+    _beginDockModeTransition(panelMode) {
+        if (!this._enabled)
+            return;
+
+        this._cancelDockModeTransition();
+        const generation =
+            this._dockModeGeneration;
+        this._dockModeTransitionTarget =
+            panelMode;
+
+        if (panelMode) {
+            this._syncDockGlassPreferenceForPanelMode(
+                true
+            );
+
+            this._findNativeDashToDock();
+            this._dockModeTransitionTarget = null;
+            this._scheduleNativeDashRescan();
+            return;
+        }
+
+        // Panel -> floating dock: keep the existing translucent panel paint
+        // as a visual handoff while Ubuntu Dock applies _resetPosition().
+        // Glass stays detached during these settle frames, so it can never
+        // capture the old full-panel allocation.
+        this._findNativeDashToDock();
+
+        let settledFrames = 0;
+        this._dockModeTransitionStageId =
+            global.stage.connect(
+                'after-paint',
+                () => {
+                    if (
+                        !this._enabled ||
+                        generation !==
+                            this._dockModeGeneration
+                    ) {
+                        return;
+                    }
+
+                    if (this._dockIsPanelMode()) {
+                        this._beginDockModeTransition(
+                            true
+                        );
+                        return;
+                    }
+
+                    settledFrames++;
+                    if (
+                        settledFrames <
+                        DOCK_MODE_SETTLE_FRAMES
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        this._dockModeTransitionStageId
+                    ) {
+                        try {
+                            global.stage.disconnect(
+                                this._dockModeTransitionStageId
+                            );
+                        } catch {}
+                        this._dockModeTransitionStageId = 0;
+                    }
+
+                    this._startDockModeHandoff(
+                        generation
+                    );
+                }
+            );
+    }
+
+    _startDockModeHandoff(generation) {
+        if (
+            !this._enabled ||
+            generation !== this._dockModeGeneration
+        ) {
+            return;
+        }
+
+        this._dockModeTransitionTarget = null;
+        this._dockHandoffActive = true;
+
+        // External Liquid Glass, if present, is restored only AFTER Ubuntu
+        // Dock has left extended geometry. This removes the old full-width
+        // black frame during panel -> dock transitions.
+        this._syncDockGlassPreferenceForPanelMode(
+            false
+        );
+
+        this._findNativeDashToDock();
+
+        const startedUs =
+            GLib.get_monotonic_time();
+
+        this._dockModeHandoffId =
+            GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                DOCK_HANDOFF_POLL_MS,
+                () => {
+                    if (
+                        !this._enabled ||
+                        generation !==
+                            this._dockModeGeneration
+                    ) {
+                        this._dockModeHandoffId = 0;
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    if (this._dockIsPanelMode()) {
+                        this._dockModeHandoffId = 0;
+                        this._beginDockModeTransition(
+                            true
+                        );
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    this._findNativeDashToDock();
+
+                    let ready =
+                        this._nativeDashEntries.length > 0;
+
+                    for (
+                        const entry of
+                        this._nativeDashEntries
+                    ) {
+                        if (
+                            !this._nativeDashIsReady(
+                                entry.container
+                            )
+                        ) {
+                            continue;
+                        }
+
+                        this._syncNativeDockBinding(
+                            entry
+                        );
+
+                        if (this._externalGlobalStack)
+                            continue;
+
+                        if (!entry.manager) {
+                            ready = false;
+                            continue;
+                        }
+
+                        const effect =
+                            entry.manager.effect;
+
+                        if (!effect?._shadersLoaded) {
+                            ready = false;
+                            continue;
+                        }
+
+                        const hidden =
+                            entry.nativeDock?.dockState === 0;
+
+                        if (
+                            !hidden &&
+                            !(
+                                (
+                                    effect
+                                        ?._diagCompositedPaintCount ??
+                                    0
+                                ) > 0
+                            )
+                        ) {
+                            ready = false;
+                        }
+                    }
+
+                    const elapsedMs =
+                        (
+                            GLib.get_monotonic_time() -
+                            startedUs
+                        ) / 1000;
+
+                    if (
+                        this._externalGlobalStack &&
+                        elapsedMs < 320
+                    ) {
+                        ready = false;
+                    }
+
+                    if (ready) {
+                        this._dockModeHandoffId = 0;
+                        this._completeDockModeHandoff();
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    if (
+                        elapsedMs >=
+                        DOCK_HANDOFF_MAX_MS
+                    ) {
+                        // Safety-first fallback: keep the translucent native
+                        // background instead of exposing a black/uninitialized
+                        // shader frame. A later rescan can still finish the
+                        // handoff once glass becomes healthy.
+                        this._dockModeHandoffId = 0;
+                        console.warn(
+                            '[Velora][Dock] glass handoff timed out; keeping native fallback'
+                        );
+                        this._scheduleNativeDashRescan();
+                        return GLib.SOURCE_REMOVE;
+                    }
+
+                    return GLib.SOURCE_CONTINUE;
+                }
+            );
+    }
+
+    _completeDockModeHandoff() {
+        this._dockHandoffActive = false;
+        this._dockModeTransitionTarget = null;
+
+        for (const entry of this._nativeDashEntries) {
+            this._applyDockPanelPaint(
+                entry,
+                false
+            );
+            this._setDockPanelModeClass(
+                entry.container,
+                false
+            );
+
+            if (entry.manager) {
+                this._syncNativeDockBinding(entry);
+                entry.manager.setVisibilityGate?.(
+                    () =>
+                        entry.nativeDock?.dockState !== 0
+                );
+            }
+        }
+
+        this._scheduleNativeDashRescan();
     }
 
     _setDockPanelModeClass(container, enabled) {
@@ -2112,34 +2541,96 @@ export class LiquidGlassIntegration {
         if (!entry?.container)
             return false;
 
-        const panelMode = this._dockIsPanelMode();
-        this._syncDockGlassPreferenceForPanelMode(
-            panelMode
-        );
-        this._setDockPanelModeClass(
-            entry.container,
-            panelMode
-        );
-        this._applyDockPanelPaint(
-            entry,
-            panelMode
-        );
+        const panelMode =
+            this._dockIsPanelMode();
+
+        this._syncNativeDockBinding(entry);
 
         if (panelMode) {
+            this._setDockPanelModeClass(
+                entry.container,
+                true
+            );
+            this._applyDockPanelPaint(
+                entry,
+                true
+            );
+
             // Panel mode deliberately has no Liquid Glass/refraction shader.
-            // The real Ubuntu Dock background gets only a lightweight native
-            // Shell BACKGROUND blur plus the premium translucent paint.
             this._cleanupNativeDashManager(entry);
             return true;
         }
 
-        // When the original Liquid Glass extension owns the global manager
-        // stack, do not attach a second DashManager to the same actor.
+        if (
+            this._dockModeTransitionTarget === false
+        ) {
+            // Waiting for Ubuntu Dock's extended -> floating relayout to
+            // settle. Preserve the known-good panel paint and keep glass off.
+            this._setDockPanelModeClass(
+                entry.container,
+                true
+            );
+            this._applyDockPanelPaint(
+                entry,
+                true
+            );
+            this._cleanupNativeDashManager(entry);
+            return true;
+        }
+
+        if (this._dockHandoffActive) {
+            // Warm the floating glass behind the still-visible native fallback.
+            this._setDockPanelModeClass(
+                entry.container,
+                true
+            );
+            this._applyDockPanelPaint(
+                entry,
+                true
+            );
+
+            if (this._externalGlobalStack)
+                return true;
+
+            if (
+                !this._nativeDashIsReady(
+                    entry.container
+                )
+            ) {
+                this._cleanupNativeDashManager(
+                    entry
+                );
+                return false;
+            }
+
+            return Boolean(
+                this._attachNativeDashManager(
+                    entry
+                ) ||
+                entry.manager
+            );
+        }
+
+        this._setDockPanelModeClass(
+            entry.container,
+            false
+        );
+        this._applyDockPanelPaint(
+            entry,
+            false
+        );
+
         if (this._externalGlobalStack)
             return true;
 
-        if (!this._nativeDashIsReady(entry.container)) {
-            this._cleanupNativeDashManager(entry);
+        if (
+            !this._nativeDashIsReady(
+                entry.container
+            )
+        ) {
+            this._cleanupNativeDashManager(
+                entry
+            );
             return false;
         }
 
@@ -2233,6 +2724,13 @@ export class LiquidGlassIntegration {
                 entry.manager,
                 'dock'
             );
+
+            this._syncNativeDockBinding(entry);
+            entry.manager.setVisibilityGate?.(
+                () =>
+                    entry.nativeDock?.dockState !== 0
+            );
+
             return true;
         } catch (error) {
             console.error(
@@ -2263,6 +2761,8 @@ export class LiquidGlassIntegration {
                     manager: null,
                     destroyId: 0,
                     mappedId: 0,
+                    nativeDock: null,
+                    nativeDockStateId: 0,
                     panelBackgroundActor: null,
                     panelBackgroundOriginalStyle: null,
                 };
@@ -2342,6 +2842,19 @@ export class LiquidGlassIntegration {
             }
             entry.mappedId = 0;
         }
+
+        if (
+            entry.nativeDock &&
+            entry.nativeDockStateId
+        ) {
+            try {
+                entry.nativeDock.disconnect(
+                    entry.nativeDockStateId
+                );
+            } catch {}
+            entry.nativeDockStateId = 0;
+        }
+        entry.nativeDock = null;
 
         this._cleanupNativeDashManager(entry);
         this._applyDockPanelPaint(
@@ -2686,6 +3199,7 @@ export class LiquidGlassIntegration {
         };
 
         this._cleanupTopPanelGlass();
+        this._cancelDockModeTransition();
 
         for (const entry of [
             ...this._nativeDashEntries,
@@ -2759,6 +3273,8 @@ export class LiquidGlassIntegration {
         this._logger = null;
         this._settings = null;
         this._vendor = null;
+        this._ubuntuDockModule = null;
+        this._ubuntuDockManager = null;
         this._externalGlobalStack = false;
         this._managerHealth = {};
     }
