@@ -6,6 +6,7 @@ import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {
@@ -26,6 +27,10 @@ const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
 const SAMPLE_MARGIN_MAX = 200;
+// GNOME's PopupMenuManager switches panel menus immediately on pointer ENTER
+// using PopupAnimation.FADE. Do not build a new GPU glass stack for a menu the
+// pointer merely crosses on the way to another indicator.
+const HOVER_SWITCH_GLASS_DWELL_MS = 120;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -635,7 +640,15 @@ class PopupGlassSurface {
                     this._fullSyncDirty = true;
                     this._manager?._ensureStageSync?.();
 
-                    this._scanDateCardActors(true);
+                    const needsCardRescan =
+                        this._dateCardActors.length === 0 ||
+                        (
+                            this._isQuickSettings &&
+                            this._quickNeedsRescan
+                        );
+                    this._scanDateCardActors(
+                        needsCardRescan
+                    );
                     if (this._isQuickSettings)
                         this._applyQuickThemeForegroundPolarity();
 
@@ -2485,6 +2498,7 @@ export class PopupGlassManager {
         this._patchedDestroy = null;
         this._appearance = null;
         this._stageSyncId = 0;
+        this._pendingAttachSources = new Map();
     }
 
     setup() {
@@ -2506,12 +2520,44 @@ export class PopupGlassManager {
         const manager = this;
 
         this._patchedOpen = function (...args) {
+            const animation = args[0];
+            const hoverSwitch =
+                animation ===
+                BoxPointer.PopupAnimation.FADE;
+
+            if (
+                manager._enabled &&
+                !manager._surfaces.has(this) &&
+                hoverSwitch
+            ) {
+                // Preserve GNOME's immediate hover-switch behavior. The native
+                // popup opens first with its ordinary paint; Velora only
+                // materializes if the pointer actually dwells on this menu.
+                const result =
+                    manager._originalOpen.apply(
+                        this,
+                        args
+                    );
+
+                if (this.isOpen)
+                    manager._scheduleDeferredAttach(this);
+
+                return result;
+            }
+
+            manager._cancelDeferredAttach(this);
+
             if (manager._enabled)
                 manager.attach(this);
-            return manager._originalOpen.apply(this, args);
+
+            return manager._originalOpen.apply(
+                this,
+                args
+            );
         };
 
         this._patchedDestroy = function (...args) {
+            manager._cancelDeferredAttach(this);
             manager.detach(this);
             return manager._originalDestroy.apply(this, args);
         };
@@ -2590,6 +2636,72 @@ export class PopupGlassManager {
         this._stopStageSync();
     }
 
+    _cancelDeferredAttach(menu) {
+        const sourceId =
+            this._pendingAttachSources.get(menu) ??
+            0;
+        if (!sourceId)
+            return;
+
+        try {
+            GLib.source_remove(sourceId);
+        } catch {}
+        this._pendingAttachSources.delete(menu);
+    }
+
+    _scheduleDeferredAttach(menu) {
+        if (
+            !this._enabled ||
+            !menu ||
+            this._surfaces.has(menu)
+        ) {
+            return;
+        }
+
+        this._cancelDeferredAttach(menu);
+
+        let sourceId = 0;
+        sourceId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            HOVER_SWITCH_GLASS_DWELL_MS,
+            () => {
+                if (
+                    this._pendingAttachSources.get(menu) ===
+                    sourceId
+                ) {
+                    this._pendingAttachSources.delete(menu);
+                }
+
+                // The pointer may already have crossed into another panel
+                // button. In that case GNOME closed this menu and we allocate
+                // absolutely nothing for it.
+                if (
+                    !this._enabled ||
+                    !menu?.isOpen ||
+                    this._surfaces.has(menu)
+                ) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                try {
+                    this.attach(menu);
+                } catch (error) {
+                    console.error(
+                        '[Velora][PopupGlass] deferred hover attach failed: ' +
+                        error
+                    );
+                }
+
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+
+        this._pendingAttachSources.set(
+            menu,
+            sourceId
+        );
+    }
+
     describeMenu(menu) {
         if (!menu)
             return 'unknown-menu';
@@ -2613,6 +2725,8 @@ export class PopupGlassManager {
         if (!this._enabled || !menu)
             return null;
 
+        this._cancelDeferredAttach(menu);
+
         const existing = this._surfaces.get(menu);
         if (existing)
             return existing;
@@ -2627,6 +2741,8 @@ export class PopupGlassManager {
     }
 
     detach(menu) {
+        this._cancelDeferredAttach(menu);
+
         const surface = this._surfaces.get(menu);
         if (!surface)
             return;
@@ -2649,6 +2765,13 @@ export class PopupGlassManager {
         this._enabled = false;
 
         this._stopStageSync();
+
+        for (const [menu, sourceId] of this._pendingAttachSources) {
+            try {
+                GLib.source_remove(sourceId);
+            } catch {}
+            this._pendingAttachSources.delete(menu);
+        }
 
         const prototype = PopupMenu.PopupMenu.prototype;
         if (prototype.open === this._patchedOpen)
