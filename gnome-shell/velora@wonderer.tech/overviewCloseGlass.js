@@ -8,10 +8,14 @@ import {
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
 
-const TARGET_CLASS = 'window-close';
-const ACTIVE_CLASS = 'velora-window-close-shared-glass';
+const CLOSE_TARGET_CLASS = 'window-close';
+const ICON_TARGET_CLASS = 'window-icon';
+const CLOSE_ACTIVE_CLASS = 'velora-window-close-shared-glass';
+const ICON_ACTIVE_CLASS = 'velora-window-icon-shared-glass';
 const PAD = 20;
 const MAX_REGIONS = 16;
+const SHARED_RADIUS = 24;
+const ICON_BADGE_INSET = 4;
 const SCAN_INTERVAL_US = 180000;
 
 function classesOf(actor) {
@@ -76,7 +80,7 @@ export class OverviewCloseGlassManager {
         );
 
         console.log(
-            '[Velora][OverviewCloseGlass] shared window-close glass active'
+            '[Velora][OverviewCloseGlass] shared window chrome glass active'
         );
     }
 
@@ -237,7 +241,11 @@ export class OverviewCloseGlassManager {
             if (!actor || actor === this._root)
                 return;
 
-            if (classesOf(actor).includes(TARGET_CLASS)) {
+            const actorClasses = classesOf(actor);
+            if (
+                actorClasses.includes(CLOSE_TARGET_CLASS) ||
+                actorClasses.includes(ICON_TARGET_CLASS)
+            ) {
                 found.add(actor);
                 return;
             }
@@ -253,7 +261,9 @@ export class OverviewCloseGlassManager {
 
             try {
                 actor.remove_style_class_name?.(
-                    ACTIVE_CLASS
+                    entry.kind === 'icon'
+                        ? ICON_ACTIVE_CLASS
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
             try {
@@ -266,6 +276,11 @@ export class OverviewCloseGlassManager {
             if (this._targets.has(actor))
                 continue;
 
+            const kind =
+                classesOf(actor).includes(ICON_TARGET_CLASS)
+                    ? 'icon'
+                    : 'close';
+
             let clone = null;
             try {
                 clone = new Clutter.Clone({
@@ -273,7 +288,9 @@ export class OverviewCloseGlassManager {
                     reactive: false,
                 });
                 clone.set_name?.(
-                    'velora-window-close-icon-clone'
+                    kind === 'icon'
+                        ? 'velora-window-app-icon-clone'
+                        : 'velora-window-close-icon-clone'
                 );
                 clone.set_no_layout?.(true);
                 this._iconLayer.add_child(clone);
@@ -283,11 +300,13 @@ export class OverviewCloseGlassManager {
 
             try {
                 actor.add_style_class_name?.(
-                    ACTIVE_CLASS
+                    kind === 'icon'
+                        ? ICON_ACTIVE_CLASS
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
 
-            this._targets.set(actor, {clone});
+            this._targets.set(actor, {clone, kind});
         }
     }
 
@@ -382,7 +401,6 @@ export class OverviewCloseGlassManager {
         }
 
         const regions = [];
-        let radius = 24;
 
         for (const [actor, entry] of this._targets) {
             const visible = Boolean(
@@ -411,20 +429,34 @@ export class OverviewCloseGlassManager {
             const localW = width / scaleX;
             const localH = height / scaleY;
 
-            radius = Math.max(
-                1,
-                Math.min(localW, localH) / 2
-            );
+            const inset =
+                entry.kind === 'icon'
+                    ? Math.min(
+                        ICON_BADGE_INSET,
+                        Math.max(
+                            0,
+                            (Math.min(localW, localH) - 2) / 2
+                        )
+                    )
+                    : 0;
+
+            const glassX = localX + inset;
+            const glassY = localY + inset;
+            const glassW = Math.max(2, localW - inset * 2);
+            const glassH = Math.max(2, localH - inset * 2);
 
             regions.push({
-                x: localX - PAD,
-                y: localY - PAD,
-                w: localW + PAD * 2,
-                h: localH + PAD * 2,
+                x: glassX - PAD,
+                y: glassY - PAD,
+                w: glassW + PAD * 2,
+                h: glassH + PAD * 2,
                 tintR: 1.0,
                 tintG: 1.0,
                 tintB: 1.0,
-                baseStrength: 0.0,
+                baseStrength:
+                    entry.kind === 'icon'
+                        ? 0.026
+                        : 0.0,
                 response: 0.0,
             });
 
@@ -466,7 +498,7 @@ export class OverviewCloseGlassManager {
 
         if (key !== this._lastRegionKey) {
             this._lastRegionKey = key;
-            this._effect.setCornerRadius?.(radius);
+            this._effect.setCornerRadius?.(SHARED_RADIUS);
             this._effect.setResolution?.(
                 rootW,
                 rootH
@@ -495,7 +527,9 @@ export class OverviewCloseGlassManager {
         for (const [actor, entry] of this._targets) {
             try {
                 actor.remove_style_class_name?.(
-                    ACTIVE_CLASS
+                    entry.kind === 'icon'
+                        ? ICON_ACTIVE_CLASS
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
             try {
