@@ -2506,6 +2506,11 @@ export class PopupGlassManager {
         this._panelMenuManager = null;
         this._originalPanelChangeMenu = null;
         this._patchedPanelChangeMenu = null;
+        this._originalPanelAddMenu = null;
+        this._patchedPanelAddMenu = null;
+        this._originalPanelRemoveMenu = null;
+        this._patchedPanelRemoveMenu = null;
+        this._panelMenuHoverSignals = new Map();
         this._panelHoverSwitchSourceId = 0;
         this._panelHoverSwitchTarget = null;
         this._panelHoverSettingId = 0;
@@ -2639,6 +2644,97 @@ export class PopupGlassManager {
         this._panelHoverSwitchTarget = null;
     }
 
+    _unwatchPanelMenuSource(menu) {
+        const watched =
+            this._panelMenuHoverSignals.get(menu) ??
+            null;
+        if (!watched)
+            return;
+
+        this._panelMenuHoverSignals.delete(menu);
+
+        try {
+            watched.actor?.disconnect?.(
+                watched.id
+            );
+        } catch {}
+
+        if (
+            this._panelHoverSwitchTarget === menu
+        ) {
+            this._cancelPanelHoverSwitch();
+        }
+    }
+
+    _watchPanelMenuSource(menu) {
+        if (
+            !menu ||
+            this._panelMenuHoverSignals.has(menu)
+        ) {
+            return;
+        }
+
+        const actor =
+            menu.sourceActor ?? null;
+        if (!actor)
+            return;
+
+        try {
+            const id = actor.connect(
+                'notify::hover',
+                () => {
+                    if (
+                        !this._enabled ||
+                        !this._panelMenuManager
+                    ) {
+                        return;
+                    }
+
+                    if (actor.hover !== true) {
+                        if (
+                            this._panelHoverSwitchTarget ===
+                            menu
+                        ) {
+                            this._cancelPanelHoverSwitch();
+                        }
+                        return;
+                    }
+
+                    const activeMenu =
+                        this._panelMenuManager
+                            .activeMenu ??
+                        null;
+
+                    if (
+                        !activeMenu ||
+                        activeMenu === menu
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        !this._panelHoverSwitchEnabled()
+                    ) {
+                        this._cancelPanelHoverSwitch();
+                        return;
+                    }
+
+                    this._schedulePanelHoverSwitch(
+                        this._panelMenuManager,
+                        menu
+                    );
+                }
+            );
+
+            this._panelMenuHoverSignals.set(
+                menu,
+                {actor, id}
+            );
+        } catch {
+            // Some non-panel menu sources may not expose hover.
+        }
+    }
+
     _schedulePanelHoverSwitch(
         panelManager,
         newMenu
@@ -2739,23 +2835,50 @@ export class PopupGlassManager {
 
         const currentChangeMenu =
             panelManager._changeMenu;
-        const original =
+        const originalChangeMenu =
             currentChangeMenu
                 ?._veloraOriginalChangeMenu ??
             currentChangeMenu;
-        if (typeof original !== 'function')
+        if (
+            typeof originalChangeMenu !==
+            'function'
+        ) {
             return;
+        }
+
+        const currentAddMenu =
+            panelManager.addMenu;
+        const originalAddMenu =
+            currentAddMenu
+                ?._veloraOriginalAddMenu ??
+            currentAddMenu;
+
+        const currentRemoveMenu =
+            panelManager.removeMenu;
+        const originalRemoveMenu =
+            currentRemoveMenu
+                ?._veloraOriginalRemoveMenu ??
+            currentRemoveMenu;
 
         this._panelMenuManager =
             panelManager;
         this._originalPanelChangeMenu =
-            original;
+            originalChangeMenu;
+        this._originalPanelAddMenu =
+            typeof originalAddMenu === 'function'
+                ? originalAddMenu
+                : null;
+        this._originalPanelRemoveMenu =
+            typeof originalRemoveMenu === 'function'
+                ? originalRemoveMenu
+                : null;
 
         const owner = this;
+
         this._patchedPanelChangeMenu =
             function (newMenu) {
                 if (!owner._enabled) {
-                    return original.call(
+                    return originalChangeMenu.call(
                         this,
                         newMenu
                     );
@@ -2763,9 +2886,21 @@ export class PopupGlassManager {
 
                 const activeMenu =
                     this.activeMenu ?? null;
-                const sourceActor =
-                    newMenu?.sourceActor ?? null;
 
+                if (
+                    !activeMenu ||
+                    !newMenu ||
+                    newMenu === activeMenu
+                ) {
+                    owner._cancelPanelHoverSwitch();
+                    return originalChangeMenu.call(
+                        this,
+                        newMenu
+                    );
+                }
+
+                // Keyboard navigation is the only manager-driven transition
+                // that bypasses the hover policy.
                 let focusedMenu = null;
                 try {
                     const keyFocus =
@@ -2777,50 +2912,78 @@ export class PopupGlassManager {
                         ) ?? null;
                 } catch {}
 
-                const keyboardSwitch =
-                    focusedMenu === newMenu;
-                const pointerOverSource =
-                    sourceActor?.hover === true;
-                const hoverSwitch =
-                    Boolean(
-                        activeMenu &&
-                        newMenu &&
-                        newMenu !== activeMenu &&
-                        pointerOverSource &&
-                        !keyboardSwitch
-                    );
-
-                if (hoverSwitch) {
-                    if (!owner._panelHoverSwitchEnabled()) {
-                        // Preference OFF is a hard block: while one panel menu
-                        // is open, merely crossing another panel/AppIndicator
-                        // source can never call native PopupMenu.open().
-                        owner._cancelPanelHoverSwitch();
-                        return;
-                    }
-
-                    owner._schedulePanelHoverSwitch(
+                if (focusedMenu === newMenu) {
+                    owner._cancelPanelHoverSwitch();
+                    return originalChangeMenu.call(
                         this,
                         newMenu
                     );
-                    return;
                 }
 
-                // Click, key-focus, accessibility and explicit opens remain
-                // immediate.
+                // Hard gate: GNOME's remaining menu-to-menu manager transition
+                // is the pointer-hover path. OFF means it never reaches
+                // PopupMenu.open(). ON is driven only by our 300 ms watcher,
+                // which calls originalChangeMenu directly after confirmation.
                 owner._cancelPanelHoverSwitch();
-                return original.call(
-                    this,
-                    newMenu
-                );
+                return;
             };
 
         this._patchedPanelChangeMenu
             ._veloraOriginalChangeMenu =
-                original;
+                originalChangeMenu;
 
         panelManager._changeMenu =
             this._patchedPanelChangeMenu;
+
+        if (this._originalPanelAddMenu) {
+            this._patchedPanelAddMenu =
+                function (menu, position) {
+                    const result =
+                        originalAddMenu.call(
+                            this,
+                            menu,
+                            position
+                        );
+                    owner._watchPanelMenuSource(
+                        menu
+                    );
+                    return result;
+                };
+
+            this._patchedPanelAddMenu
+                ._veloraOriginalAddMenu =
+                    originalAddMenu;
+
+            panelManager.addMenu =
+                this._patchedPanelAddMenu;
+        }
+
+        if (this._originalPanelRemoveMenu) {
+            this._patchedPanelRemoveMenu =
+                function (menu) {
+                    owner._unwatchPanelMenuSource(
+                        menu
+                    );
+                    return originalRemoveMenu.call(
+                        this,
+                        menu
+                    );
+                };
+
+            this._patchedPanelRemoveMenu
+                ._veloraOriginalRemoveMenu =
+                    originalRemoveMenu;
+
+            panelManager.removeMenu =
+                this._patchedPanelRemoveMenu;
+        }
+
+        for (
+            const menu of
+            panelManager._menus ?? []
+        ) {
+            this._watchPanelMenuSource(menu);
+        }
 
         if (
             this._veloraSettings &&
@@ -2831,11 +2994,7 @@ export class PopupGlassManager {
                     this._veloraSettings.connect(
                         'changed::panel-menu-hover-switch',
                         () => {
-                            if (
-                                !this._panelHoverSwitchEnabled()
-                            ) {
-                                this._cancelPanelHoverSwitch();
-                            }
+                            this._cancelPanelHoverSwitch();
                         }
                     );
             } catch {
@@ -2859,19 +3018,50 @@ export class PopupGlassManager {
         }
         this._panelHoverSettingId = 0;
 
-        if (
-            this._panelMenuManager &&
-            this._patchedPanelChangeMenu &&
-            this._panelMenuManager._changeMenu ===
-                this._patchedPanelChangeMenu
+        for (
+            const menu of
+            [...this._panelMenuHoverSignals.keys()]
         ) {
-            this._panelMenuManager._changeMenu =
-                this._originalPanelChangeMenu;
+            this._unwatchPanelMenuSource(menu);
+        }
+        this._panelMenuHoverSignals.clear();
+
+        if (this._panelMenuManager) {
+            if (
+                this._patchedPanelChangeMenu &&
+                this._panelMenuManager._changeMenu ===
+                    this._patchedPanelChangeMenu
+            ) {
+                this._panelMenuManager._changeMenu =
+                    this._originalPanelChangeMenu;
+            }
+
+            if (
+                this._patchedPanelAddMenu &&
+                this._panelMenuManager.addMenu ===
+                    this._patchedPanelAddMenu
+            ) {
+                this._panelMenuManager.addMenu =
+                    this._originalPanelAddMenu;
+            }
+
+            if (
+                this._patchedPanelRemoveMenu &&
+                this._panelMenuManager.removeMenu ===
+                    this._patchedPanelRemoveMenu
+            ) {
+                this._panelMenuManager.removeMenu =
+                    this._originalPanelRemoveMenu;
+            }
         }
 
         this._panelMenuManager = null;
         this._originalPanelChangeMenu = null;
         this._patchedPanelChangeMenu = null;
+        this._originalPanelAddMenu = null;
+        this._patchedPanelAddMenu = null;
+        this._originalPanelRemoveMenu = null;
+        this._patchedPanelRemoveMenu = null;
     }
 
     _ensureStageSync() {
