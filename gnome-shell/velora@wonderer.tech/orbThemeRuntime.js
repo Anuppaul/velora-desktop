@@ -1497,11 +1497,41 @@ export default class VeloraRuntime extends Extension {
                             );
 
                         if (shown) {
+                            // Dash-to-Dock owns its hover label on the parent
+                            // DashItemContainer. It has showLabel(), but no
+                            // hideLabel() helper, so suppress the real label
+                            // actor directly after cancelling its fade-in.
+                            const item =
+                                actor.get_parent?.() ?? null;
+                            const label =
+                                item?.label ?? null;
+
                             try {
-                                actor
-                                    .get_parent?.()
-                                    ?.hideLabel?.();
+                                label?.remove_all_transitions?.();
+                                if (label)
+                                    label.opacity = 0;
+                                label?.hide?.();
                             } catch {}
+
+                            // Dash label show is itself scheduled/faded; repeat
+                            // once in idle so it cannot win the same-frame race.
+                            GLib.idle_add(
+                                GLib.PRIORITY_DEFAULT_IDLE,
+                                () => {
+                                    if (
+                                        this._appPreviewAnchor === actor &&
+                                        actor.get_hover?.()
+                                    ) {
+                                        try {
+                                            label?.remove_all_transitions?.();
+                                            if (label)
+                                                label.opacity = 0;
+                                            label?.hide?.();
+                                        } catch {}
+                                    }
+                                    return GLib.SOURCE_REMOVE;
+                                }
+                            );
                         }
                     } else {
                         this._scheduleAppPreviewHide();
@@ -1790,8 +1820,8 @@ export default class VeloraRuntime extends Extension {
         preview.layout_manager = previewLayout;
 
         const frame = window.get_frame_rect();
-        const maxWidth = Math.max(1, tileWidth - 12);
-        const maxHeight = Math.max(1, tileHeight - 12);
+        const maxWidth = Math.max(1, tileWidth - 4);
+        const maxHeight = Math.max(1, tileHeight - 4);
         const frameWidth = Math.max(1, frame.width);
         const frameHeight = Math.max(1, frame.height);
         const scale = Math.min(
