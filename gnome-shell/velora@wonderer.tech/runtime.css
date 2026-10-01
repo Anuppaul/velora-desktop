@@ -127,7 +127,6 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 20px;
     background-color: transparent !important;
     background-image: none !important;
     border: 0 !important;
@@ -142,7 +141,6 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    border-radius: 14px;
     background-color: transparent !important;
     background-image: none !important;
     border: 0 !important;
@@ -154,9 +152,10 @@
     min-height: 0;
     padding: 0;
     margin: 0;
-    background-color: transparent;
-    border: 0;
-    box-shadow: none;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 
 .velora-window-preview-wrap {
@@ -166,7 +165,8 @@
     margin: 0;
     background-color: transparent !important;
     background-image: none !important;
-    border: 0 !important;
+    border: 2px solid rgba(0, 0, 0, 0.94) !important;
+    border-radius: 14px !important;
     box-shadow: none !important;
 }
 
