@@ -689,9 +689,9 @@
 }
 
 /* Overview window close -------------------------------------------------- */
-/* GNOME's WindowPreview owns geometry and click behavior. ShellCard provides
- * the real compact Liquid Glass surface; CSS only removes the stock opaque
- * circle/shadow and adds a very light interaction sheen. */
+/* The close control uses the SAME Velora ShellCard LiquidEffect/material as
+ * every approved premium glass card. CSS only removes GNOME's stock opaque
+ * circle/shadow so the shared renderer is actually visible. */
 #overviewGroup .window-close.velora-liquid-shell-card {
     background-color: transparent !important;
     background-image: none !important;
@@ -708,13 +708,11 @@
 #overviewGroup .window-close.velora-liquid-shell-card:hover,
 #overviewGroup .window-close.velora-liquid-shell-card:focus {
     background-color: rgba(255, 255, 255, 0.035) !important;
-    border-color: transparent !important;
     box-shadow: none !important;
 }
 
 #overviewGroup .window-close.velora-liquid-shell-card:active {
-    background-color: rgba(255, 255, 255, 0.075) !important;
-    border-color: transparent !important;
+    background-color: rgba(255, 255, 255, 0.065) !important;
     box-shadow: none !important;
 }
 
