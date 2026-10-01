@@ -306,6 +306,9 @@ export class SharedAdaptiveTextManager {
 
     _textActors(root) {
         const found = [];
+        const rootClasses = classesOf(root);
+        const includeIcons =
+            rootClasses.includes('screenshot-ui-panel');
 
         const walk = actor => {
             if (!actor)
@@ -315,7 +318,11 @@ export class SharedAdaptiveTextManager {
                 actor !== root &&
                 (
                     actor instanceof St.Label ||
-                    actor instanceof St.Entry
+                    actor instanceof St.Entry ||
+                    (
+                        includeIcons &&
+                        actor instanceof St.Icon
+                    )
                 )
             ) {
                 if (
