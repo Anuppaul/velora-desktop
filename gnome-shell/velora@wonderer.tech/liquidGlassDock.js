@@ -2397,6 +2397,138 @@ export class LiquidGlassIntegration {
         }
     }
 
+    _findNativeDockRoot(entry) {
+        let actor =
+            entry?.container ?? null;
+
+        while (
+            actor &&
+            actor.get_parent?.() &&
+            actor.get_parent() !==
+                Main.layoutManager.uiGroup
+        ) {
+            actor =
+                actor.get_parent();
+        }
+
+        return (
+            actor?.get_parent?.() ===
+                Main.layoutManager.uiGroup
+        )
+            ? actor
+            : null;
+    }
+
+    _ensureNativeDockPaintState(entry) {
+        const dock = entry?.nativeDock;
+        const manager = entry?.manager;
+        if (!dock || !manager)
+            return;
+
+        // The glass is an independent, full-monitor unpickable actor. It must
+        // remain BELOW Ubuntu Dock's native root. If another Shell/theme pass
+        // restacks the dock, leaving glass above it makes the app targets still
+        // hoverable while their icons are visually covered by the glass.
+        const dockRoot =
+            this._findNativeDockRoot(entry);
+        const bgActor =
+            manager.bgActor ?? null;
+        const uiGroup =
+            Main.layoutManager.uiGroup;
+
+        if (
+            dockRoot &&
+            bgActor &&
+            dockRoot.get_parent?.() === uiGroup &&
+            bgActor.get_parent?.() === uiGroup
+        ) {
+            try {
+                const children =
+                    uiGroup.get_children?.() ?? [];
+                const bgIndex =
+                    children.indexOf(bgActor);
+                const dockIndex =
+                    children.indexOf(dockRoot);
+
+                if (
+                    bgIndex >= 0 &&
+                    dockIndex >= 0 &&
+                    bgIndex > dockIndex
+                ) {
+                    uiGroup.set_child_below_sibling?.(
+                        bgActor,
+                        dockRoot
+                    );
+                }
+            } catch {}
+        }
+
+        const slide =
+            this._readNativeDockSlide(entry);
+        if (
+            Number.isFinite(slide) &&
+            slide <
+                1 - NATIVE_DOCK_SLIDE_EPSILON
+        ) {
+            return;
+        }
+
+        // Fully shown dock: repair only impossible zero-opacity paint states.
+        // Do not touch partial opacity (drag/launch animation) or geometry.
+        const dash = dock.dash ?? null;
+        if (!dash)
+            return;
+
+        try {
+            if (
+                dash.visible !== false &&
+                Number(dash.opacity) === 0
+            ) {
+                dash.opacity = 255;
+            }
+        } catch {}
+
+        const items =
+            dash._box?.get_children?.() ?? [];
+
+        for (const item of items) {
+            const appIcon =
+                item?.child ?? null;
+
+            // Only real app items; separators/placeholders are intentionally
+            // allowed to have independent visibility/opacity.
+            if (!appIcon?.icon)
+                continue;
+
+            try {
+                if (
+                    item.visible !== false &&
+                    Number(item.opacity) === 0
+                ) {
+                    item.opacity = 255;
+                }
+            } catch {}
+
+            try {
+                if (
+                    appIcon.visible !== false &&
+                    Number(appIcon.opacity) === 0
+                ) {
+                    appIcon.opacity = 255;
+                }
+            } catch {}
+
+            try {
+                if (
+                    appIcon.icon?.visible !== false &&
+                    Number(appIcon.icon?.opacity) === 0
+                ) {
+                    appIcon.icon.opacity = 255;
+                }
+            } catch {}
+        }
+    }
+
     _nativeDockGlassVisible(entry) {
         if (!entry?.container)
             return false;
@@ -2571,11 +2703,15 @@ export class LiquidGlassIntegration {
                 entry.nativeDockStateId =
                     dock.connect(
                         'notify::dock-state',
-                        () =>
+                        () => {
+                            this._ensureNativeDockPaintState(
+                                entry
+                            );
                             this._syncNativeDockVisualState(
                                 entry,
                                 true
-                            )
+                            );
+                        }
                     );
             } catch {
                 entry.nativeDockStateId = 0;
@@ -2590,6 +2726,9 @@ export class LiquidGlassIntegration {
                         () => {
                             entry.nativeDockTransition =
                                 'showing';
+                            this._ensureNativeDockPaintState(
+                                entry
+                            );
                             this._syncNativeIntellihideTarget(
                                 entry,
                                 true
@@ -2690,6 +2829,12 @@ export class LiquidGlassIntegration {
                                         null;
                                 }
 
+                                if (endpoint === 1) {
+                                    this._ensureNativeDockPaintState(
+                                        entry
+                                    );
+                                }
+
                                 this._syncNativeDockVisualState(
                                     entry,
                                     endpoint === 1
@@ -2775,6 +2920,9 @@ export class LiquidGlassIntegration {
             this._syncNativeIntellihideTarget(
                 entry,
                 true
+            );
+            this._ensureNativeDockPaintState(
+                entry
             );
         }
 
@@ -3815,6 +3963,9 @@ export class LiquidGlassIntegration {
             manager._readDockBounds?.();
         } catch {}
 
+        this._ensureNativeDockPaintState(
+            entry
+        );
         this._syncNativeDockVisualState(
             entry
         );
