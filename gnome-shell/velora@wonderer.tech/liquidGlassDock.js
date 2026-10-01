@@ -1326,13 +1326,13 @@ export class LiquidGlassIntegration {
             '  background-color: ' + accentColor + ' !important;\n' +
             '}\n' +
             '#screenshot-ui .screenshot-ui-type-button:checked {\n' +
-            '  background-color: ' + accentSoft + ' !important;\n' +
+            '  background-color: ' + accentColor + ' !important;\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
-            '  color: ' + accentColor + ' !important;\n' +
+            '  color: #ffffff !important;\n' +
             '}\n' +
             '#screenshot-ui .screenshot-ui-type-button:checked StLabel,\n' +
             '#screenshot-ui .screenshot-ui-type-button:checked StIcon {\n' +
-            '  color: ' + accentColor + ' !important;\n' +
+            '  color: #ffffff !important;\n' +
             '}\n' +
             '#screenshot-ui .screenshot-ui-shot-cast-button:checked,\n' +
             '#screenshot-ui .screenshot-ui-show-pointer-button:checked {\n' +
