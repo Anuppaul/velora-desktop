@@ -2799,18 +2799,10 @@ export class PopupGlassManager {
                     return GLib.SOURCE_REMOVE;
                 }
 
-                // PanelMenu.Button and AppIndicator icons are track_hover=true.
-                // If the pointer has already crossed this icon, do nothing:
-                // no native popup, no DBus menu paint, no glass allocation.
-                const sourceActor =
-                    newMenu.sourceActor ?? null;
-                if (
-                    sourceActor &&
-                    sourceActor.hover !== true
-                ) {
-                    return GLib.SOURCE_REMOVE;
-                }
-
+                // Do not depend on sourceActor.hover here. Under GNOME's
+                // modal panel grab it is not reliable for AppIndicator sources.
+                // If another panel source was entered meanwhile, its _changeMenu
+                // call replaced this target/timer before we get here.
                 try {
                     newMenu._veloraPanelHoverConfirmed =
                         true;
@@ -2934,11 +2926,18 @@ export class PopupGlassManager {
                     );
                 }
 
-                // Hard gate: GNOME's remaining menu-to-menu manager transition
-                // is the pointer-hover path. OFF means it never reaches
-                // PopupMenu.open(). ON is driven only by our 300 ms watcher,
-                // which calls originalChangeMenu directly after confirmation.
-                owner._cancelPanelHoverSwitch();
+                // GNOME's remaining menu-to-menu manager transition is the
+                // pointer-hover path. The setting owns this branch directly:
+                // OFF = hard block; ON = debounce this exact target.
+                if (!owner._panelHoverSwitchEnabled()) {
+                    owner._cancelPanelHoverSwitch();
+                    return;
+                }
+
+                owner._schedulePanelHoverSwitch(
+                    this,
+                    newMenu
+                );
                 return;
             };
 
