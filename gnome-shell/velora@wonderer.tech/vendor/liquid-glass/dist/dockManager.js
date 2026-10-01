@@ -78,6 +78,8 @@ export class DashManager {
     _liveRef = null;
     _uiSampler = null;
     _windowCloneManager = null;
+    _sceneFpsLimit = 24;
+    _lastSceneSyncUs = 0;
     _logger;
     _materialOverride = null;
     _visibilityGate = null;
@@ -137,6 +139,15 @@ export class DashManager {
             this.bgActor.show();
         }
     }
+    setSceneFpsLimit(fps) {
+        const value = Number(fps);
+        this._sceneFpsLimit =
+            Number.isFinite(value)
+                ? Math.max(10, Math.min(60, value))
+                : 24;
+        this._lastSceneSyncUs = 0;
+    }
+
     setPreserveNativeGeometry(enabled) {
         this._preserveNativeGeometry = Boolean(enabled);
 
@@ -557,8 +568,13 @@ export class DashManager {
             }
 
             if (!visible) {
-                this.bgActor.opacity = 0;
-                this.bgActor.hide();
+                if (this.bgActor.opacity !== 0)
+                    this.bgActor.opacity = 0;
+                if (this.bgActor.visible)
+                    this.bgActor.hide();
+                // Force one fresh scene sample when the dock becomes visible
+                // again instead of resuming from an old capture.
+                this._lastSceneSyncUs = 0;
                 return;
             }
         }
@@ -589,8 +605,10 @@ export class DashManager {
             this._lastBgY = undefined;
             return;
         }
-        this.bgActor.show();
-        this.bgActor.opacity = this.targetActor.opacity;
+        if (!this.bgActor.visible)
+            this.bgActor.show();
+        if (this.bgActor.opacity !== this.targetActor.opacity)
+            this.bgActor.opacity = this.targetActor.opacity;
         this._syncDockVisibility(bounds, monitor);
         this._syncDockCapture(bounds, monitor);
     }
@@ -605,7 +623,8 @@ export class DashManager {
         let children = this.targetActor.get_children();
         for (let i = 0; i < children.length; i++) {
             if (children[i].has_style_class_name('dash-background')) {
-                children[i].opacity = 0;
+                if (children[i].opacity !== 0)
+                    children[i].opacity = 0;
                 sourceActor = children[i];
             }
         }
@@ -699,14 +718,17 @@ export class DashManager {
                     `monitor=(${monitor?.x},${monitor?.y},${monitor?.width}x${monitor?.height}) ` +
                     `margin=${this._marginValue}`);
             }
-            this.bgActor.opacity = 0;
+            if (this.bgActor.opacity !== 0)
+                this.bgActor.opacity = 0;
         }
         else {
             if (this._lastHidden === true) {
                 this._lastHidden = false;
                 this._logger.log('[Liquid Glass][dock] glass visible again');
+                this._lastSceneSyncUs = 0;
             }
-            this.bgActor.opacity = this.targetActor.opacity;
+            if (this.bgActor.opacity !== this.targetActor.opacity)
+                this.bgActor.opacity = this.targetActor.opacity;
         }
     }
     _syncDockCapture(bounds, monitor) {
@@ -809,11 +831,34 @@ export class DashManager {
             uiSampler: this._uiSampler,
             windowCloneManager: this._windowCloneManager,
         });
-        // UILayerSampler is synced with the monitor origin and full-screen
-        // dimensions instead of the dock-relative bgX/bgY/bgW/bgH.
-        this._uiSampler?.refresh();
-        this._uiSampler?.sync(monitor.x, monitor.y, screenW, screenH);
-        this._windowCloneManager?.sync();
+        // Geometry follows the compositor at full frame rate, but rebuilding
+        // and synchronising the cloned scene does not need to. Autohide used
+        // to scan uiGroup + every window on every slide frame, competing with
+        // Dash-to-Dock's own animation and making the dock visibly stutter.
+        const nowUs = GLib.get_monotonic_time();
+        const sceneIntervalUs =
+            1000000 / Math.max(
+                10,
+                Math.min(60, this._sceneFpsLimit ?? 24)
+            );
+        const sceneDue =
+            this._lastSceneSyncUs === 0 ||
+            nowUs - this._lastSceneSyncUs >=
+                sceneIntervalUs;
+
+        if (sceneDue) {
+            // UILayerSampler is synced with the monitor origin and full-screen
+            // dimensions instead of the dock-relative bgX/bgY/bgW/bgH.
+            this._uiSampler?.refresh();
+            this._uiSampler?.sync(
+                monitor.x,
+                monitor.y,
+                screenW,
+                screenH
+            );
+            this._windowCloneManager?.sync();
+            this._lastSceneSyncUs = nowUs;
+        }
     }
     get _frameSlot() {
         return { get: () => this._frameSyncId, set: (id) => { this._frameSyncId = id; } };
@@ -898,6 +943,7 @@ export class DashManager {
         this._torndown = true;
         this._visibilityGate = null;
         this._preserveNativeGeometry = false;
+        this._lastSceneSyncUs = 0;
         // Nothing for a late paint-time hook to act on. (The effect drops the
         // hook itself in its own cleanup(); this covers the window before that.)
         this._liveRef = null;

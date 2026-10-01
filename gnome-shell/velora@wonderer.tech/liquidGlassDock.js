@@ -2064,6 +2064,9 @@ export class LiquidGlassIntegration {
         entry.nativeSliderId = 0;
         entry.nativeIntellihide = null;
         entry.nativeSlider = null;
+        entry.nativeVisibilityGate = null;
+        entry.nativeVisibilityGateInstalled = false;
+        entry.nativeGlassVisible = null;
     }
 
     _nativeDockGlassVisible(entry) {
@@ -2090,7 +2093,10 @@ export class LiquidGlassIntegration {
         return dock.dockState !== 0;
     }
 
-    _syncNativeDockVisualState(entry) {
+    _syncNativeDockVisualState(
+        entry,
+        requestFrame = false
+    ) {
         const manager = entry?.manager;
         if (!manager)
             return;
@@ -2100,39 +2106,54 @@ export class LiquidGlassIntegration {
                 entry
             );
 
-        // New vendor revisions support this directly; old hot-cached revisions
-        // are also covered by the runtime-level _syncGeometry wrapper below.
-        manager.setVisibilityGate?.(
-            () =>
-                this._nativeDockGlassVisible(
-                    entry
-                )
-        );
+        // The visibility callback is stable for the lifetime of this manager.
+        // Reinstalling it on every slide-x notify allocated a new closure and
+        // called show()/hide() on every native autohide animation frame.
+        if (!entry.nativeVisibilityGateInstalled) {
+            entry.nativeVisibilityGate =
+                () =>
+                    this._nativeDockGlassVisible(
+                        entry
+                    );
+            manager.setVisibilityGate?.(
+                entry.nativeVisibilityGate
+            );
+            entry.nativeVisibilityGateInstalled = true;
+        }
 
         if (!manager.bgActor)
             return;
 
         if (!visible) {
-            manager.bgActor.opacity = 0;
-            manager.bgActor.hide?.();
+            if (manager.bgActor.opacity !== 0)
+                manager.bgActor.opacity = 0;
+            if (manager.bgActor.visible)
+                manager.bgActor.hide?.();
+            entry.nativeGlassVisible = false;
             return;
         }
 
-        manager.bgActor.show?.();
+        if (!manager.bgActor.visible)
+            manager.bgActor.show?.();
 
         const opacity =
             entry.container
                 ?.get_paint_opacity?.() ??
             entry.container?.opacity ??
             255;
-        manager.bgActor.opacity = opacity;
+        if (manager.bgActor.opacity !== opacity)
+            manager.bgActor.opacity = opacity;
 
-        // Intelligent Autohide changes slide-x on an ancestor, not mapped
-        // state. Force a compositor frame so the manager's normal geometry
-        // loop + paint-time hook can read the newly allocated position.
-        manager.bgActor.queue_redraw?.();
-        manager.effect?.queue_repaint?.();
-        global.stage.queue_redraw?.();
+        const becameVisible =
+            entry.nativeGlassVisible !== true;
+        entry.nativeGlassVisible = true;
+
+        // Native Dash-to-Dock already damages the stage while slide-x animates.
+        // Do not stack bgActor + shader + full-stage redraw requests on every
+        // slider frame. A single redraw is enough when semantic visibility
+        // changes; paint-time geometry follows the native animation thereafter.
+        if (requestFrame || becameVisible)
+            manager.bgActor.queue_redraw?.();
     }
 
     _syncNativeDockBinding(entry) {
@@ -2164,7 +2185,8 @@ export class LiquidGlassIntegration {
                         'notify::dock-state',
                         () =>
                             this._syncNativeDockVisualState(
-                                entry
+                                entry,
+                                true
                             )
                     );
             } catch {
@@ -2186,7 +2208,8 @@ export class LiquidGlassIntegration {
                                 // or hide. We only request a fresh paint after
                                 // its native decision/animation starts.
                                 this._syncNativeDockVisualState(
-                                    entry
+                                    entry,
+                                    true
                                 );
                             }
                         );
@@ -2204,10 +2227,15 @@ export class LiquidGlassIntegration {
                     entry.nativeSliderId =
                         slider.connect(
                             'notify::slide-x',
-                            () =>
+                            () => {
+                                // Native slider movement already schedules
+                                // compositor damage. Keep Velora's glass state
+                                // in sync without forcing another stage repaint.
                                 this._syncNativeDockVisualState(
-                                    entry
-                                )
+                                    entry,
+                                    false
+                                );
+                            }
                         );
                 } catch {
                     entry.nativeSliderId = 0;
@@ -3001,6 +3029,10 @@ export class LiquidGlassIntegration {
         if (!entry?.manager)
             return;
 
+        entry.nativeVisibilityGate = null;
+        entry.nativeVisibilityGateInstalled = false;
+        entry.nativeGlassVisible = null;
+
         try {
             entry.manager.cleanup();
         } catch (error) {
@@ -3176,6 +3208,16 @@ export class LiquidGlassIntegration {
             entry.manager.setPreserveNativeGeometry?.(
                 true
             );
+            entry.manager.setSceneFpsLimit?.(
+                Math.max(
+                    15,
+                    Math.min(
+                        24,
+                        this._readSharedCardAppearance()
+                            ?.sceneFps ?? 24
+                    )
+                )
+            );
 
             entry.manager.setup();
             entry.manager.setMaterialOverride?.(
@@ -3230,6 +3272,9 @@ export class LiquidGlassIntegration {
                     nativeIntellihideId: 0,
                     nativeSlider: null,
                     nativeSliderId: 0,
+                    nativeVisibilityGate: null,
+                    nativeVisibilityGateInstalled: false,
+                    nativeGlassVisible: null,
                     panelBackgroundActor: null,
                     panelBackgroundOriginalStyle: null,
                     panelBackgroundStyleId: 0,
