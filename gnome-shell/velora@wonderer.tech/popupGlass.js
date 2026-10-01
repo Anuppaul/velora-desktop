@@ -2662,7 +2662,7 @@ export class PopupGlassManager {
 
         let sourceId = 0;
         sourceId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
+            GLib.PRIORITY_DEFAULT_IDLE,
             HOVER_SWITCH_GLASS_DWELL_MS,
             () => {
                 if (
