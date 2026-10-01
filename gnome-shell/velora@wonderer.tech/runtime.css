@@ -552,21 +552,14 @@
     border-color: rgba(255, 255, 255, 0.28);
 }
 
-/* Search provider sections use one shared multi-region LiquidEffect.
- * GNOME can create, resize and destroy several providers while typing, so
- * individual per-provider effects are deliberately forbidden. This fallback
- * veil is visible only until the shared search manager adopts the actor. */
+/* Search providers sit directly on the same native blurred wallpaper used
+ * by App Grid. Keep cards deliberately light: no custom per-provider shader,
+ * no extra blur pass, just a premium translucent plate over the cached blur. */
 #overviewGroup .search-section-content {
-    background-color: rgba(255, 255, 255, 0.055);
-    background-image: none;
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-}
-
-#overviewGroup .search-section-content.velora-overview-search-glass-region {
-    background-color: transparent !important;
+    background-color: rgba(255, 255, 255, 0.065) !important;
     background-image: none !important;
-    border-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    border-radius: 24px;
     box-shadow: none !important;
 }
 
@@ -585,15 +578,22 @@
 #overviewGroup .grid-search-result:focus,
 #overviewGroup .search-provider-icon:hover,
 #overviewGroup .search-provider-icon:focus {
-    background-color: rgba(255, 255, 255, 0.11);
+    background-color: rgba(255, 255, 255, 0.085);
     border-color: rgba(255, 255, 255, 0.12);
+}
+
+#overviewGroup .search-statusbox,
+#overviewGroup .search-statustext {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 
 /* Applications grid ------------------------------------------------------ */
 /* App Grid uses wallpaper-only glass. The Overview's opaque system-base
  * background is disabled only while this page is visible, so the real desktop
  * wallpaper becomes the material source instead of a black plate. */
-#overviewGroup.velora-app-grid-wallpaper {
+#overviewGroup.velora-overview-wallpaper {
     background-color: transparent !important;
     background-image: none !important;
 }
