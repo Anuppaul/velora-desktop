@@ -11,9 +11,7 @@ import {
 } from './glassMaterialSystem.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
-const WINDOW_CLOSE_CLASS = 'window-close';
 const OPTICAL_MARGIN = 104;
-const WINDOW_CLOSE_OPTICAL_MARGIN = 28;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -22,14 +20,12 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
-    'window-close',
     'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
-    'window-close',
     'workspace-thumbnails',
     'dash-background',
 ]);
@@ -71,10 +67,7 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
-        this._opticalMargin =
-            classesOf(target).includes(WINDOW_CLOSE_CLASS)
-                ? WINDOW_CLOSE_OPTICAL_MARGIN
-                : OPTICAL_MARGIN;
+        this._opticalMargin = OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -213,19 +206,7 @@ class ShellCardSurface {
             VELORA_GLASS_ROLES.shellCard;
         const adapter =
             VELORA_GLASS_ADAPTERS.shellCard;
-        const isWindowClose =
-            classesOf(this._target).includes(WINDOW_CLOSE_CLASS);
-        const [targetW, targetH] =
-            this._target.get_size?.() ?? [0, 0];
-        const radius = isWindowClose
-            ? Math.max(
-                1,
-                Math.min(
-                    targetW > 1 ? targetW : 48,
-                    targetH > 1 ? targetH : 48
-                ) / 2
-            )
-            : Math.max(0, radiusOf(this._target));
+        const radius = Math.max(0, radiusOf(this._target));
 
         let brightness = null;
         let contrast = null;
@@ -517,14 +498,6 @@ class ShellCardSurface {
             glassW,
             glassH
         );
-
-        if (
-            classesOf(this._target).includes(WINDOW_CLOSE_CLASS)
-        ) {
-            effect.setCornerRadius?.(
-                Math.max(1, Math.min(glassW, glassH) / 2)
-            );
-        }
     }
 
     destroy(removeClass = true) {
