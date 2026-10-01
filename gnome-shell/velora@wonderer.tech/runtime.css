@@ -270,11 +270,12 @@
     box-shadow: none !important;
 }
 
-#dashtodockDashContainer.velora-dock-panel-mode .dash-background {
-    /* Exactly one premium non-glass body layer. */
-    background-color: rgba(255, 255, 255, 0.105) !important;
+/* Ubuntu Dock keeps this actor beside #dashtodockDashContainer rather
+ * than inside it, so target the real background actor directly. */
+.velora-ubuntu-dock-panel-background {
+    background-color: rgba(255, 255, 255, 0.085) !important;
     background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.13) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
 }
