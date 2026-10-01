@@ -97,8 +97,8 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         edgePadding: 20,
         shaderPadding: 20,
         adaptiveText: true,
-        adaptiveSampleDelayMs: 220,
-        adaptiveResampleMs: 2600,
+        adaptiveSampleDelayMs: 520,
+        adaptiveResampleMs: 3200,
     }),
     quickMenu: Object.freeze({
         edgePadding: 20,
@@ -118,7 +118,7 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         // One popup capture serves every visible pod. Sampling starts after
         // the open animation settles and stays deliberately low-frequency.
         adaptiveText: true,
-        adaptiveSampleDelayMs: 180,
+        adaptiveSampleDelayMs: 520,
         // Quick Menu is normally short-lived. One sample on open (and one on
         // expanded-menu change) avoids periodic GPU->CPU screenshot stalls.
         adaptiveResampleMs: 0,

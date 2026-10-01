@@ -18,7 +18,6 @@ const POPUP_CLASS = 'velora-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
 
 const SCAN_INTERVAL_US = 1000000;
-const ADAPTIVE_TICK_INTERVAL_MS = 250;
 const SURFACE_SAMPLE_INTERVAL_US = 1800000;
 const PANEL_SAMPLE_INTERVAL_US = 3200000;
 const SAMPLE_GRID = 24;
@@ -136,7 +135,7 @@ export class SharedAdaptiveTextManager {
         this._targets = new Map();
         this._styledActors = new Map();
 
-        this._tickSourceId = 0;
+        this._stageId = 0;
         this._lastScanUs = 0;
 
         this._surfaceSamplePending = false;
@@ -154,22 +153,15 @@ export class SharedAdaptiveTextManager {
 
         this._enabled = true;
         this._scan(true);
-        this._tick();
 
-        this._tickSourceId =
-            GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                ADAPTIVE_TICK_INTERVAL_MS,
-                () => {
-                    if (!this._enabled) {
-                        this._tickSourceId = 0;
-                        return GLib.SOURCE_REMOVE;
-                    }
-
-                    this._tick();
-                    return GLib.SOURCE_CONTINUE;
-                }
-            );
+        // Keep sampling aligned with the compositor's frame boundary. The
+        // cadence checks inside _tick() make this callback effectively a cheap
+        // timestamp test on ordinary frames, while screenshots never start
+        // from an arbitrary GLib timeout in the middle of pointer/input work.
+        this._stageId = global.stage.connect(
+            'before-update',
+            () => this._tick()
+        );
 
         console.log(
             '[Velora][AdaptiveText] shared Shell text polarity active'
@@ -873,13 +865,13 @@ export class SharedAdaptiveTextManager {
 
         this._enabled = false;
 
-        if (this._tickSourceId) {
+        if (this._stageId) {
             try {
-                GLib.source_remove(
-                    this._tickSourceId
+                global.stage.disconnect(
+                    this._stageId
                 );
             } catch {}
-            this._tickSourceId = 0;
+            this._stageId = 0;
         }
 
         this._surfaceGeneration++;

@@ -26,7 +26,6 @@ const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
 const SAMPLE_MARGIN_MAX = 200;
-const POPUP_OPEN_BURST_US = 350000;
 
 const DATE_INNER_CARD_CLASSES = new Set([
     'datemenu-today-button',
@@ -315,7 +314,6 @@ class PopupGlassSurface {
             popupClasses.includes('quick-settings');
 
         this._lastFullSyncUs = 0;
-        this._fullSyncBurstUntilUs = 0;
         this._fullSyncDirty = true;
 
         this._surfaceAdapter =
@@ -632,12 +630,8 @@ class PopupGlassSurface {
                     // added/removed windows. Rebuilding here allocated a new
                     // background + clone tree and could expose an empty capture
                     // for the first rendered frame.
-                    const nowUs =
-                        GLib.get_monotonic_time();
                     this._lastSceneSyncUs = 0;
                     this._lastFullSyncUs = 0;
-                    this._fullSyncBurstUntilUs =
-                        nowUs + POPUP_OPEN_BURST_US;
                     this._fullSyncDirty = true;
                     this._manager?._ensureStageSync?.();
 
@@ -1901,30 +1895,27 @@ class PopupGlassSurface {
 
         const nowUs =
             GLib.get_monotonic_time();
-        const inOpenBurst =
-            nowUs <
-            this._fullSyncBurstUntilUs;
-
         const configuredSceneFps =
             this._manager._appearance?.sceneFps ??
             24;
         const sceneFpsCap =
             this._surfaceAdapter?.sceneFpsCap ??
             60;
-        const steadyFps = Math.max(
+        const fullSyncFps = Math.max(
             15,
             Math.min(
                 sceneFpsCap,
                 configuredSceneFps
             )
         );
-        const targetFps =
-            inOpenBurst ? 60 : steadyFps;
         const intervalUs =
-            1000000 / targetFps;
+            1000000 / fullSyncFps;
 
+        // Paint-time hooks still update shader geometry every compositor frame.
+        // This gate only limits expensive JS actor walks / clone synchronization.
+        // Hover/style notifications may mark the popup dirty many times while
+        // the pointer crosses controls; they must not bypass the FPS cap.
         if (
-            !this._fullSyncDirty &&
             this._lastFullSyncUs > 0 &&
             nowUs - this._lastFullSyncUs <
                 intervalUs
