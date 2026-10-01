@@ -1,6 +1,5 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
-import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -11,16 +10,13 @@ import {
 
 const CLOSE_TARGET_CLASS = 'window-close';
 const ICON_TARGET_CLASS = 'window-icon';
-const CAPTION_TARGET_CLASS = 'window-caption';
 const CLOSE_ACTIVE_CLASS = 'velora-window-close-shared-glass';
 const ICON_ACTIVE_CLASS = 'velora-window-icon-shared-glass';
-const CAPTION_ACTIVE_CLASS = 'velora-window-caption-shared-glass';
 const PAD = 20;
 const MAX_REGIONS = 16;
 const SHARED_RADIUS = 24;
 const ICON_BADGE_SIZE = 48;
 const ICON_VISUAL_SIZE = 40;
-const CAPTION_GLASS_HEIGHT = 48;
 const SCAN_INTERVAL_US = 180000;
 
 function classesOf(actor) {
@@ -249,8 +245,7 @@ export class OverviewCloseGlassManager {
             const actorClasses = classesOf(actor);
             if (
                 actorClasses.includes(CLOSE_TARGET_CLASS) ||
-                actorClasses.includes(ICON_TARGET_CLASS) ||
-                actorClasses.includes(CAPTION_TARGET_CLASS)
+                actorClasses.includes(ICON_TARGET_CLASS)
             ) {
                 found.add(actor);
                 return;
@@ -269,11 +264,7 @@ export class OverviewCloseGlassManager {
                 actor.remove_style_class_name?.(
                     entry.kind === 'icon'
                         ? ICON_ACTIVE_CLASS
-                        : (
-                            entry.kind === 'caption'
-                                ? CAPTION_ACTIVE_CLASS
-                                : CLOSE_ACTIVE_CLASS
-                        )
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
             if (entry.kind === 'icon') {
@@ -285,9 +276,6 @@ export class OverviewCloseGlassManager {
             try {
                 entry.clone?.destroy?.();
             } catch {}
-            try {
-                entry.label?.destroy?.();
-            } catch {}
             this._targets.delete(actor);
         }
 
@@ -295,59 +283,33 @@ export class OverviewCloseGlassManager {
             if (this._targets.has(actor))
                 continue;
 
-            const actorClasses = classesOf(actor);
             const kind =
-                actorClasses.includes(ICON_TARGET_CLASS)
+                classesOf(actor).includes(ICON_TARGET_CLASS)
                     ? 'icon'
-                    : (
-                        actorClasses.includes(CAPTION_TARGET_CLASS)
-                            ? 'caption'
-                            : 'close'
-                    );
+                    : 'close';
 
             let clone = null;
-            let label = null;
-
-            if (kind === 'caption') {
-                try {
-                    label = new St.Label({
-                        name: 'velora-window-caption-overlay',
-                        style_class: 'velora-window-caption-overlay',
-                        text: actor.text ?? '',
-                        reactive: false,
-                    });
-                    label.set_no_layout?.(true);
-                    this._iconLayer.add_child(label);
-                } catch {
-                    label = null;
-                }
-            } else {
-                try {
-                    clone = new Clutter.Clone({
-                        source: actor,
-                        reactive: false,
-                    });
-                    clone.set_name?.(
-                        kind === 'icon'
-                            ? 'velora-window-app-icon-clone'
-                            : 'velora-window-close-icon-clone'
-                    );
-                    clone.set_no_layout?.(true);
-                    this._iconLayer.add_child(clone);
-                } catch {
-                    clone = null;
-                }
+            try {
+                clone = new Clutter.Clone({
+                    source: actor,
+                    reactive: false,
+                });
+                clone.set_name?.(
+                    kind === 'icon'
+                        ? 'velora-window-app-icon-clone'
+                        : 'velora-window-close-icon-clone'
+                );
+                clone.set_no_layout?.(true);
+                this._iconLayer.add_child(clone);
+            } catch {
+                clone = null;
             }
 
             try {
                 actor.add_style_class_name?.(
                     kind === 'icon'
                         ? ICON_ACTIVE_CLASS
-                        : (
-                            kind === 'caption'
-                                ? CAPTION_ACTIVE_CLASS
-                                : CLOSE_ACTIVE_CLASS
-                        )
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
 
@@ -362,7 +324,6 @@ export class OverviewCloseGlassManager {
 
             this._targets.set(actor, {
                 clone,
-                label,
                 kind,
                 nativeOpacity,
             });
@@ -475,7 +436,6 @@ export class OverviewCloseGlassManager {
 
             if (!visible) {
                 entry.clone?.hide?.();
-                entry.label?.hide?.();
                 continue;
             }
 
@@ -483,7 +443,6 @@ export class OverviewCloseGlassManager {
                 this._vendor.getTransformedRect(actor);
             if (!finiteRect(rect)) {
                 entry.clone?.hide?.();
-                entry.label?.hide?.();
                 continue;
             }
 
@@ -509,15 +468,6 @@ export class OverviewCloseGlassManager {
                     localX + (localW - badgeSize) / 2;
                 glassY =
                     localY + (localH - badgeSize) / 2;
-            } else if (entry.kind === 'caption') {
-                glassW = localW;
-                glassH = Math.max(
-                    CAPTION_GLASS_HEIGHT,
-                    localH
-                );
-                glassX = localX;
-                glassY =
-                    localY + (localH - glassH) / 2;
             }
 
             regions.push({
@@ -531,11 +481,7 @@ export class OverviewCloseGlassManager {
                 baseStrength:
                     entry.kind === 'icon'
                         ? 0.026
-                        : (
-                            entry.kind === 'caption'
-                                ? 0.032
-                                : 0.0
-                        ),
+                        : 0.0,
                 response: 0.0,
             });
 
@@ -578,26 +524,6 @@ export class OverviewCloseGlassManager {
                 }
 
                 entry.clone.show?.();
-            }
-
-            if (entry.kind === 'caption' && entry.label) {
-                const text = actor.text ?? '';
-                if (entry.label.text !== text)
-                    entry.label.text = text;
-
-                entry.label.set_position(
-                    localX,
-                    localY
-                );
-                entry.label.set_size(
-                    localW,
-                    localH
-                );
-                entry.label.opacity =
-                    actor.get_paint_opacity?.() ??
-                    actor.opacity ??
-                    255;
-                entry.label.show?.();
             }
 
             if (regions.length >= MAX_REGIONS)
@@ -653,11 +579,7 @@ export class OverviewCloseGlassManager {
                 actor.remove_style_class_name?.(
                     entry.kind === 'icon'
                         ? ICON_ACTIVE_CLASS
-                        : (
-                            entry.kind === 'caption'
-                                ? CAPTION_ACTIVE_CLASS
-                                : CLOSE_ACTIVE_CLASS
-                        )
+                        : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
             if (entry.kind === 'icon') {
@@ -668,9 +590,6 @@ export class OverviewCloseGlassManager {
             }
             try {
                 entry.clone?.destroy?.();
-            } catch {}
-            try {
-                entry.label?.destroy?.();
             } catch {}
         }
         this._targets.clear();
