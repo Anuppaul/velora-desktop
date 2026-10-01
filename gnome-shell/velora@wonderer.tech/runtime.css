@@ -988,6 +988,16 @@
     color: rgba(23, 25, 31, 0.90) !important;
 }
 
+/* Semantic calendar state: today follows the GNOME Appearance accent,
+ * not the adaptive black/white palette and not the Liquid Glass tint color.
+ * Keep the day bead itself neutral; only the meaning-bearing text is accented. */
+.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day.calendar-today,
+.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day.calendar-today {
+    color: -st-accent-color !important;
+    font-weight: 700;
+}
+
 .velora-liquid-popup-content.datemenu-popover .calendar-day:hover,
 .velora-liquid-popup-content.datemenu-popover .calendar-day:focus {
     background-color: rgba(255, 255, 255, 0.12) !important;
