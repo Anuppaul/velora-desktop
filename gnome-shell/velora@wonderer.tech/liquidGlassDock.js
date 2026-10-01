@@ -1837,11 +1837,36 @@ export class LiquidGlassIntegration {
         if (!dash)
             return;
 
+        const background =
+            dash._background ??
+            entry?.panelBackgroundActor ??
+            null;
+        const iconContainer =
+            dash._dashContainer ??
+            entry?.container ??
+            null;
+
+        // Earlier revisions translated the DockDash root. Undo that first so
+        // a hot-swapped runtime cannot leave a residual transform behind.
+        if (Math.abs(dash.translation_y ?? 0) > 0.01)
+            dash.translation_y = 0;
+
         // Panel mode remains exact/native and deliberately ignores this
         // floating-dock preference.
         if (this._dockIsPanelMode()) {
-            if (dash.translation_y !== 0)
-                dash.translation_y = 0;
+            for (const actor of [
+                background,
+                iconContainer,
+            ]) {
+                if (
+                    actor &&
+                    Math.abs(
+                        actor.translation_y ?? 0
+                    ) > 0.01
+                ) {
+                    actor.translation_y = 0;
+                }
+            }
             return;
         }
 
@@ -1860,22 +1885,27 @@ export class LiquidGlassIntegration {
 
         slide = clampNumber(slide, 0, 1);
 
-        // Positive preference values mean "move upward". Interpolate the
-        // offset with Dash-to-Dock's own slide progress so TOP/BOTTOM docks
-        // return to their native edge while hidden instead of leaving a visible
-        // strip. The write is paint-transform only; native allocation, pressure
-        // barrier, dock size and icon layout stay untouched.
+        // Move the two native visual siblings together. The background actor is
+        // also Velora's glass geometry source; _dashContainer owns the icons.
+        // Keeping them on the exact same paint transform prevents the glass
+        // from moving independently of the icons.
         const translationY =
             -offset * slide;
 
-        if (
-            Math.abs(
-                (dash.translation_y ?? 0) -
-                translationY
-            ) > 0.01
-        ) {
-            dash.translation_y =
-                translationY;
+        for (const actor of [
+            background,
+            iconContainer,
+        ]) {
+            if (
+                actor &&
+                Math.abs(
+                    (actor.translation_y ?? 0) -
+                    translationY
+                ) > 0.01
+            ) {
+                actor.translation_y =
+                    translationY;
+            }
         }
     }
 
@@ -1925,17 +1955,29 @@ export class LiquidGlassIntegration {
 
         this._dockVerticalOffsetSettingId = 0;
 
-        // Restore native paint transform on teardown.
+        // Restore every paint transform owned by this setting on teardown.
         for (const entry of this._nativeDashEntries) {
             try {
                 const dash =
                     entry.nativeDock?.dash ??
                     null;
-                if (
-                    dash &&
-                    dash.translation_y !== 0
-                ) {
-                    dash.translation_y = 0;
+                const actors = [
+                    dash,
+                    dash?._background ?? null,
+                    dash?._dashContainer ??
+                        entry?.container ??
+                        null,
+                ];
+
+                for (const actor of actors) {
+                    if (
+                        actor &&
+                        Math.abs(
+                            actor.translation_y ?? 0
+                        ) > 0.01
+                    ) {
+                        actor.translation_y = 0;
+                    }
                 }
             } catch {}
         }
