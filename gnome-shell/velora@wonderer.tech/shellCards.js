@@ -20,11 +20,13 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
+    'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
+    'workspace-thumbnails',
     'dash-background',
 ]);
 
