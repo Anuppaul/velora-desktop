@@ -591,11 +591,34 @@ export class DashManager {
         }
         let monitor = Main.layoutManager.monitors[monitorIndex] || Main.layoutManager.primaryMonitor;
         const edges = dockEdges(bounds, monitor);
-        bounds = this._stabilizeDockBounds(bounds, edges);
-        const refActor = this._findReferenceActor(this.targetActor);
-        if (refActor)
-            bounds = balanceDockBounds(bounds, this._actorBounds(refActor), edges);
-        bounds = this._applyDockMargin(bounds, monitor, edges);
+
+        if (!this._preserveNativeGeometry) {
+            bounds =
+                this._stabilizeDockBounds(
+                    bounds,
+                    edges
+                );
+            const refActor =
+                this._findReferenceActor(
+                    this.targetActor
+                );
+            if (refActor) {
+                bounds =
+                    balanceDockBounds(
+                        bounds,
+                        this._actorBounds(
+                            refActor
+                        ),
+                        edges
+                    );
+            }
+            bounds =
+                this._applyDockMargin(
+                    bounds,
+                    monitor,
+                    edges
+                );
+        }
         const { baseW, baseH } = bounds;
         if (baseW <= 9 || baseH <= 9) {
             this.bgActor.hide();

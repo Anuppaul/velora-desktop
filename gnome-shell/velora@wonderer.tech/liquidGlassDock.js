@@ -648,19 +648,21 @@ export class LiquidGlassIntegration {
             }
         );
 
-        this._dashTimeoutId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            2000,
-            () => {
-                try {
-                    this._findNativeDashToDock();
-                    this._scheduleNativeDashRescan();
-                } finally {
-                    this._dashTimeoutId = 0;
+        if (this._nativeDashEntries.length === 0) {
+            this._dashTimeoutId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT,
+                2000,
+                () => {
+                    try {
+                        if (!this._findNativeDashToDock())
+                            this._scheduleNativeDashRescan();
+                    } finally {
+                        this._dashTimeoutId = 0;
+                    }
+                    return GLib.SOURCE_REMOVE;
                 }
-                return GLib.SOURCE_REMOVE;
-            }
-        );
+            );
+        }
 
         console.log(
             '[Velora][LiquidGlass] immediate manager health: ' +
@@ -2496,9 +2498,9 @@ export class LiquidGlassIntegration {
 
             if (entry.manager) {
                 this._syncNativeDockBinding(entry);
-                entry.manager.setVisibilityGate?.(
-                    () =>
-                        entry.nativeDock?.dockState !== 0
+                this._syncNativeDockVisualState(
+                    entry,
+                    true
                 );
             }
         }
@@ -2511,11 +2513,18 @@ export class LiquidGlassIntegration {
             return;
 
         try {
-            if (enabled) {
+            const active =
+                Boolean(
+                    container.has_style_class_name?.(
+                        DOCK_PANEL_MODE_CLASS
+                    )
+                );
+
+            if (enabled && !active) {
                 container.add_style_class_name?.(
                     DOCK_PANEL_MODE_CLASS
                 );
-            } else {
+            } else if (!enabled && active) {
                 container.remove_style_class_name?.(
                     DOCK_PANEL_MODE_CLASS
                 );
@@ -2646,11 +2655,18 @@ export class LiquidGlassIntegration {
             return;
 
         try {
-            if (enabled) {
+            const active =
+                Boolean(
+                    actor.has_style_class_name?.(
+                        DOCK_GLASS_BACKGROUND_CLASS
+                    )
+                );
+
+            if (enabled && !active) {
                 actor.add_style_class_name?.(
                     DOCK_GLASS_BACKGROUND_CLASS
                 );
-            } else {
+            } else if (!enabled && active) {
                 actor.remove_style_class_name?.(
                     DOCK_GLASS_BACKGROUND_CLASS
                 );
@@ -2807,6 +2823,9 @@ export class LiquidGlassIntegration {
             );
 
         if (!enabled) {
+            if (!entry.panelPaintActive)
+                return;
+
             entry.panelPaintActive = false;
 
             if (actor) {
@@ -3457,30 +3476,33 @@ export class LiquidGlassIntegration {
     }
 
     _scheduleNativeDashRescan() {
-        if (this._dashReconnectTimeoutId) {
-            try {
-                GLib.source_remove(
-                    this._dashReconnectTimeoutId
-                );
-            } catch {
-                // Previous source may already be gone.
-            }
-        }
+        // One retry chain at a time. Restarting the timer on every caller can
+        // turn unrelated Shell events into a permanent polling loop.
+        if (this._dashReconnectTimeoutId)
+            return;
 
-        let idleTicks = 0;
+        let attempts = 0;
         let sourceId = 0;
+
         sourceId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
             DASH_RESCAN_INTERVAL_MS,
             () => {
                 let keepGoing = false;
+
                 try {
-                    idleTicks =
-                        this._findNativeDashToDock()
-                            ? 0
-                            : idleTicks + 1;
+                    attempts++;
+                    const tracked =
+                        this._findNativeDashToDock();
+
+                    // Once a dock container is tracked, its destroy/mapped
+                    // signals own lifecycle changes. Polling after success is
+                    // both unnecessary and harmful because mode sync touches
+                    // native theme state.
                     keepGoing =
-                        idleTicks < DASH_RESCAN_IDLE_TICKS;
+                        !tracked &&
+                        attempts <
+                            DASH_RESCAN_IDLE_TICKS;
                 } finally {
                     if (
                         !keepGoing &&
