@@ -66,7 +66,7 @@ export class AppGridBackdropManager {
         }
 
         console.log(
-            '[Velora][OverviewBackdrop] native cached wallpaper blur active'
+            '[Velora][OverviewBackdrop] full Overview native wallpaper blur active'
         );
     }
 
@@ -219,34 +219,14 @@ export class AppGridBackdropManager {
 
         const overview =
             Main.layoutManager.overviewGroup;
-        let appGrid = this._appGrid;
-        let searchResults = this._searchResults;
-
-        if (
-            !appGrid?.get_stage?.() ||
-            !searchResults?.get_stage?.()
-        ) {
-            this._findOverviewSurfaces();
-            appGrid = this._appGrid;
-            searchResults = this._searchResults;
-        }
-
-        const searchActive = Boolean(
-            Main.overview?.searchController?.searchActive
-        );
-
-        // searchActive turns true immediately when GNOME enters find-as-you-
-        // type search, before SearchResultsView necessarily has visible result
-        // children. Keep the results actor as a transition fallback so closing
-        // animations never flash the opaque overview base for one frame.
+        // One cached native wallpaper blur is the background for the ENTIRE
+        // GNOME Overview lifecycle: window picker, search and applications.
+        // Keeping this independent of individual child-page visibility also
+        // removes the gray/black base and prevents page-transition flashes.
         const visible = Boolean(
             overview?.visible &&
             overview?.mapped &&
-            (
-                this._surfaceVisible(appGrid) ||
-                searchActive ||
-                this._surfaceVisible(searchResults)
-            )
+            Main.overview?.visible
         );
 
         if (visible) {
