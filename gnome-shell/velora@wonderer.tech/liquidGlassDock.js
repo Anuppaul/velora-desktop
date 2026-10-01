@@ -1325,9 +1325,29 @@ export class LiquidGlassIntegration {
             '  color: #ffffff !important;\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.screenshot-ui-type-button:checked,\n' +
-            '.screenshot-ui-shot-cast-button:checked {\n' +
+            '.screenshot-ui-type-button:checked {\n' +
+            '  background-color: ' + accentSoft + ' !important;\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
+            '  color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.screenshot-ui-type-button:checked StLabel,\n' +
+            '.screenshot-ui-type-button:checked StIcon {\n' +
+            '  color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.screenshot-ui-shot-cast-button:checked,\n' +
+            '.screenshot-ui-show-pointer-button:checked {\n' +
+            '  background-color: ' + accentSoft + ' !important;\n' +
+            '  border-color: ' + accentColor + ' !important;\n' +
+            '  color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.screenshot-ui-screen-selector:hover,\n' +
+            '.screenshot-ui-screen-selector:focus {\n' +
+            '  border-color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.screenshot-ui-screen-selector:checked {\n' +
+            '  background-color: ' + accentSoft + ' !important;\n' +
+            '  border-color: ' + accentColor + ' !important;\n' +
+            '  box-shadow: inset 0 0 0 1px ' + accentColor + ' !important;\n' +
             '}\n' +
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
