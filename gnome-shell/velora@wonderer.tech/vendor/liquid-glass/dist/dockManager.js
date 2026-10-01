@@ -81,6 +81,7 @@ export class DashManager {
     _logger;
     _materialOverride = null;
     _visibilityGate = null;
+    _preserveNativeGeometry = false;
     // コンストラクタに settings を追加
     constructor(extensionPath, targetActor, settings, logger) {
         this.extensionPath = extensionPath;
@@ -136,6 +137,28 @@ export class DashManager {
             this.bgActor.show();
         }
     }
+    setPreserveNativeGeometry(enabled) {
+        this._preserveNativeGeometry = Boolean(enabled);
+
+        if (!this._preserveNativeGeometry)
+            return;
+
+        this._marginValue = 0;
+        this._glassExpand = 0;
+        this._currentMarginStyle = '';
+
+        if (
+            this.targetActor &&
+            this._originalStyle !== undefined
+        ) {
+            try {
+                this.targetActor.set_style(
+                    this._originalStyle
+                );
+            }
+            catch {}
+        }
+    }
     _applyMaterialOverride() {
         if (!this._materialOverride)
             return false;
@@ -165,16 +188,31 @@ export class DashManager {
             }
         });
         connectSetting('dock-glass-expand', () => {
-            if (this.effect && this._isEffectActive) {
-                this._glassExpand = this._settings.get_int('dock-glass-expand');
+            if (
+                this.effect &&
+                this._isEffectActive &&
+                !this._preserveNativeGeometry
+            ) {
+                this._glassExpand =
+                    this._settings.get_int(
+                        'dock-glass-expand'
+                    );
                 this.bgActor?.queue_redraw();
             }
         });
         // マージン変更時
         connectSetting('dock-margin-bottom', () => {
+            if (this._preserveNativeGeometry) {
+                this._marginValue = 0;
+                return;
+            }
+
             if (this._isEffectActive)
                 this._applyMargin();
-            this._marginValue = this._settings.get_int('dock-margin-bottom') || 0;
+            this._marginValue =
+                this._settings.get_int(
+                    'dock-margin-bottom'
+                ) || 0;
         });
         // シェーダーパラメータの動的変更
         connectSetting('dock-tint-color', () => {
@@ -234,7 +272,10 @@ export class DashManager {
     }
     // マージンの再計算と適用（動的反映のために独立した関数化）
     _applyMargin() {
-        if (!this.targetActor)
+        if (
+            !this.targetActor ||
+            this._preserveNativeGeometry
+        )
             return;
         let marginBottom = this._settings.get_int('dock-margin-bottom');
         let [w, h] = this.targetActor.get_size();
@@ -311,10 +352,24 @@ export class DashManager {
         this._cloneContainer = new UnpickableActor();
         this._cloneContainer.set_name("clone-container");
         this.liquidBox.add_child(this._cloneContainer);
-        // 動的マージンを適用
-        this._applyMargin();
-        this._marginValue = this._settings.get_int('dock-margin-bottom');
-        this._glassExpand = this._settings.get_int("dock-glass-expand");
+        // Keep native Ubuntu Dock geometry completely untouched when the
+        // caller requests a paint-only glass surface.
+        if (this._preserveNativeGeometry) {
+            this._marginValue = 0;
+            this._glassExpand = 0;
+            this._currentMarginStyle = '';
+        }
+        else {
+            this._applyMargin();
+            this._marginValue =
+                this._settings.get_int(
+                    'dock-margin-bottom'
+                );
+            this._glassExpand =
+                this._settings.get_int(
+                    'dock-glass-expand'
+                );
+        }
         this._outputLogs = this._settings.get_boolean('output-logs');
         let dockRoot = this.targetActor;
         while (dockRoot && dockRoot.get_parent() !== Main.layoutManager.uiGroup) {
@@ -822,6 +877,7 @@ export class DashManager {
     cleanup() {
         this._torndown = true;
         this._visibilityGate = null;
+        this._preserveNativeGeometry = false;
         // Nothing for a late paint-time hook to act on. (The effect drops the
         // hook itself in its own cleanup(); this covers the window before that.)
         this._liveRef = null;
