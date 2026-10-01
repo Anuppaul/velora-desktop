@@ -79,6 +79,7 @@ export class DashManager {
     _uiSampler = null;
     _windowCloneManager = null;
     _logger;
+    _materialOverride = null;
     // コンストラクタに settings を追加
     constructor(extensionPath, targetActor, settings, logger) {
         this.extensionPath = extensionPath;
@@ -100,6 +101,24 @@ export class DashManager {
         // 初回起動時にスイッチがONならエフェクトを適用
         if (this._settings.get_boolean('enable-dock-glass')) {
             this._applyEffect();
+        }
+    }
+    setMaterialOverride(callback) {
+        this._materialOverride =
+            typeof callback === 'function' ? callback : null;
+        if (this.effect && this._isEffectActive)
+            this._applyMaterialOverride();
+    }
+    _applyMaterialOverride() {
+        if (!this._materialOverride)
+            return false;
+        try {
+            this._materialOverride(this);
+            return true;
+        }
+        catch (error) {
+            this._logger?.error?.('[Liquid Glass] external dock material override failed: ' + error);
+            return false;
         }
     }
     // 設定が変更された時にリアルタイムで反映するためのバインディング
@@ -133,22 +152,31 @@ export class DashManager {
         // シェーダーパラメータの動的変更
         connectSetting('dock-tint-color', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 let colorArray = hexToColorArray(this._settings.get_string('dock-tint-color'));
                 this.effect.setTintColor(...colorArray);
             }
         });
         connectSetting('dock-tint-strength', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 this.effect.setTintStrength(this._settings.get_double('dock-tint-strength'));
             }
         });
         connectSetting('dock-blur-radius', () => {
-            const radius = this._settings.get_int('dock-blur-radius');
-            if (this.effect && this._isEffectActive)
+            if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
+                const radius = this._settings.get_int('dock-blur-radius');
                 this.effect.setBlurRadius(radius);
+            }
         });
         connectSetting('dock-corner-radius', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 this.effect.setCornerRadius(this._settings.get_double('dock-corner-radius'));
             }
         });
@@ -157,16 +185,22 @@ export class DashManager {
         });
         connectSetting('dock-brightness', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 this.effect.setBrightness(this._settings.get_double('dock-brightness'));
             }
         });
         connectSetting('dock-contrast', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 this.effect.setContrast(this._settings.get_double('dock-contrast'));
             }
         });
         connectSetting('dock-saturation', () => {
             if (this.effect && this._isEffectActive) {
+                if (this._applyMaterialOverride())
+                    return;
                 this.effect.setSaturation(this._settings.get_double('dock-saturation'));
             }
         });
@@ -287,6 +321,7 @@ export class DashManager {
         this.effect.setBlurRadius(blurRadius);
         this.effect.setIsDock(true);
         this.liquidBox.add_effect(this.effect);
+        this._applyMaterialOverride();
         // [FIX] Dock-follows-glass lag — same cause and same remedy as the
         // notification banner's. See LiquidEffect.setLiveGeometryHook().
         this.effect.setLiveGeometryHook(() => this._syncGlassGeometryLive());
