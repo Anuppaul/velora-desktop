@@ -214,12 +214,13 @@ class ShellCardSurface {
         if (!this._effect || !state)
             return;
 
-        const role =
-            VELORA_GLASS_ROLES.shellCard;
-        const adapter =
-            VELORA_GLASS_ADAPTERS.shellCard;
         const isWindowClose =
             classesOf(this._target).includes(WINDOW_CLOSE_CLASS);
+        const role = isWindowClose
+            ? VELORA_GLASS_ROLES.windowClose
+            : VELORA_GLASS_ROLES.shellCard;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.shellCard;
         const radius = isWindowClose
             ? 999
             : Math.max(0, radiusOf(this._target));
@@ -249,18 +250,58 @@ class ShellCardSurface {
                     (state.b ?? 255) / 255,
                 ],
                 tintStrength:
-                    adapter.inheritGlobalTint
-                        ? (state.opacity ?? role.tintStrength)
-                        : role.tintStrength,
+                    isWindowClose
+                        ? (
+                            (state.opacity ?? 0) <= 0
+                                ? 0
+                                : Math.min(
+                                    0.11,
+                                    Math.max(
+                                        role.tintStrength,
+                                        (state.opacity ?? 0) * 3.2
+                                    )
+                                )
+                        )
+                        : (
+                            adapter.inheritGlobalTint
+                                ? (state.opacity ?? role.tintStrength)
+                                : role.tintStrength
+                        ),
                 baseBlur:
                     adapter.inheritGlobalBlur
                         ? (state.blur ?? 7)
                         : 7,
+                blurRadius:
+                    isWindowClose
+                        ? (
+                            (state.blur ?? 0) <= 0
+                                ? 0
+                                : Math.min(
+                                    role.blurMax,
+                                    Math.max(
+                                        role.blurMin,
+                                        (state.blur ?? 7) + 2
+                                    )
+                                )
+                        )
+                        : null,
                 cornerRadius: radius,
-                brightness,
-                contrast,
-                saturation,
-                multiRegion: adapter.multiRegion,
+                brightness:
+                    isWindowClose
+                        ? Math.max(1.04, brightness ?? 1.0)
+                        : brightness,
+                contrast:
+                    isWindowClose
+                        ? Math.max(1.08, contrast ?? 1.0)
+                        : contrast,
+                saturation:
+                    isWindowClose
+                        ? Math.max(1.06, saturation ?? 1.0)
+                        : saturation,
+                multiRegion:
+                    isWindowClose
+                        ? false
+                        : adapter.multiRegion,
             }
         );
 
