@@ -254,10 +254,11 @@
     box-shadow: none;
 }
 
-/* Dash-to-Dock panel mode ------------------------------------------------
- * Panel mode intentionally does NOT use Liquid Glass. Keep Dash-to-Dock's
+/* Ubuntu Dock panel mode -------------------------------------------------
+ * Panel mode intentionally does NOT use Liquid Glass. Keep Ubuntu Dock's
  * geometry/placement native and paint one quiet premium surface instead:
- * near-solid neutral body, no blur/refraction, no rim, no outer shadow. */
+ * translucent neutral-white body + subtle native BACKGROUND blur,
+ * no refraction, no glass rim and no outer shadow. */
 #dashtodockDashContainer.velora-dock-panel-mode,
 #dashtodockDashContainer.velora-dock-panel-mode.liquid-glass-transparent,
 #dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,
