@@ -83,6 +83,7 @@ export class OverviewSearchGlassManager {
         this._appearance = null;
         this._targets = [];
         this._stageId = 0;
+        this._overviewSignals = [];
         this._enabled = false;
 
         this._lastScanUs = 0;
@@ -107,14 +108,70 @@ export class OverviewSearchGlassManager {
         this._createMaterial();
         this._scanTargets(true);
 
-        this._stageId = global.stage.connect(
-            'before-update',
-            () => this._tick()
-        );
+        this._setupOverviewFrameLoop();
 
         console.log(
             '[Velora][OverviewSearchGlass] shared multi-region material active'
         );
+    }
+
+    _ensureStageSync() {
+        if (!this._enabled || this._stageId)
+            return;
+
+        this._stageId = global.stage.connect(
+            'before-update',
+            () => this._tick()
+        );
+    }
+
+    _stopStageSync() {
+        if (!this._stageId)
+            return;
+
+        try {
+            global.stage.disconnect(this._stageId);
+        } catch {}
+        this._stageId = 0;
+    }
+
+    _setupOverviewFrameLoop() {
+        const ensure = () => this._ensureStageSync();
+        const stop = () => {
+            this._root?.hide?.();
+            this._stopStageSync();
+        };
+
+        try {
+            this._overviewSignals.push({
+                object: Main.overview,
+                id: Main.overview.connect('showing', ensure),
+            });
+            this._overviewSignals.push({
+                object: Main.overview,
+                id: Main.overview.connect('hidden', stop),
+            });
+        } catch {
+            // Overview lifecycle signals vary slightly across Shell builds.
+        }
+
+        try {
+            this._overviewSignals.push({
+                object: this._overview,
+                id: this._overview.connect(
+                    'notify::visible',
+                    () => {
+                        if (this._overview?.visible)
+                            this._ensureStageSync();
+                        else
+                            stop();
+                    }
+                ),
+            });
+        } catch {}
+
+        if (Main.overview?.visible || this._overview?.visible)
+            this._ensureStageSync();
     }
 
     _createMaterial() {
@@ -556,12 +613,14 @@ export class OverviewSearchGlassManager {
             return;
         this._enabled = false;
 
-        if (this._stageId) {
+        this._stopStageSync();
+
+        for (const {object, id} of this._overviewSignals) {
             try {
-                global.stage.disconnect(this._stageId);
+                object?.disconnect?.(id);
             } catch {}
-            this._stageId = 0;
         }
+        this._overviewSignals = [];
 
         for (const actor of this._targets) {
             try {
