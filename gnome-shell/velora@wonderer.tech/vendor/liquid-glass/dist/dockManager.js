@@ -327,8 +327,18 @@ export class DashManager {
         this._lastHidden = undefined;
         this.targetActor.add_style_class_name('liquid-glass-transparent');
         this._dockParent = this.targetActor.get_parent();
-        if (this._dockParent) {
-            this._dockParent.add_style_class_name('liquid-glass-transparent');
+
+        // Ubuntu Dock's parent owns the icon/reveal subtree. In paint-only
+        // mode never mark that ancestor liquid-glass-transparent: doing so
+        // lets generic descendant theme rules leak into icon actors during
+        // autohide/reveal. Only the dock background target itself is glass.
+        if (
+            this._dockParent &&
+            !this._preserveNativeGeometry
+        ) {
+            this._dockParent.add_style_class_name(
+                'liquid-glass-transparent'
+            );
         }
         this.bgActor = new UnpickableActor();
         this.bgActor.set_name('liquid-glass-bg-actor');
