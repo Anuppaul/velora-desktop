@@ -49,6 +49,21 @@ const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 
+const DESKTOP_INTERFACE_SCHEMA =
+    'org.gnome.desktop.interface';
+
+const SYSTEM_ACCENT_COLORS = Object.freeze({
+    blue: '#3584e4',
+    teal: '#2190a4',
+    green: '#3a944a',
+    yellow: '#c88800',
+    orange: '#ed5b00',
+    red: '#e62d42',
+    pink: '#d56199',
+    purple: '#9141ac',
+    slate: '#6f8396',
+});
+
 function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
 }
@@ -382,6 +397,8 @@ export class LiquidGlassIntegration {
         this._sharedAdaptiveTextManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
+        this._desktopInterfaceSettings = null;
+        this._desktopAccentChangedId = 0;
         this._cardCssFile = null;
         this._cardCssCounter = 0;
         this._notificationGlassManager = null;
@@ -1057,11 +1074,34 @@ export class LiquidGlassIntegration {
             Math.round((state.filterOpacity ?? 0) * 100) +
             ' sceneFps=' +
             (state.sceneFps ?? 30) +
+            ' systemAccent=' +
+            this._readSystemAccentColor().name + '/' +
+            this._readSystemAccentColor().color +
             ' dateMenu=' +
             Math.round((state.dateMenu?.opacity ?? 0) * 100) + '/' +
             (state.dateMenu?.blur ?? 0) + '/' +
             Math.round((state.dateMenu?.filterOpacity ?? 0) * 100)
         );
+    }
+
+    _readSystemAccentColor() {
+        let name = 'blue';
+
+        try {
+            name =
+                this._desktopInterfaceSettings
+                    ?.get_string?.('accent-color') ??
+                name;
+        } catch {
+            // GNOME default blue is the safe fallback.
+        }
+
+        return {
+            name,
+            color:
+                SYSTEM_ACCENT_COLORS[name] ??
+                SYSTEM_ACCENT_COLORS.blue,
+        };
     }
 
     _queueSharedCardAppearanceApply() {
@@ -1082,6 +1122,31 @@ export class LiquidGlassIntegration {
     }
 
     _setupSharedCardAppearanceSync() {
+        if (!this._desktopInterfaceSettings) {
+            try {
+                this._desktopInterfaceSettings =
+                    new Gio.Settings({
+                        schema_id:
+                            DESKTOP_INTERFACE_SCHEMA,
+                    });
+
+                this._desktopAccentChangedId =
+                    this._desktopInterfaceSettings.connect(
+                        'changed::accent-color',
+                        () => {
+                            this._queueSharedCardAppearanceApply();
+                        }
+                    );
+            } catch (error) {
+                this._desktopInterfaceSettings = null;
+                this._desktopAccentChangedId = 0;
+                console.warn(
+                    '[Velora][Appearance] desktop accent sync unavailable: ' +
+                    error
+                );
+            }
+        }
+
         if (!this._veloraSettings) {
             this._applySharedCardAppearance();
             return;
@@ -1125,6 +1190,19 @@ export class LiquidGlassIntegration {
             }
         }
         this._cardAppearanceSettingId = 0;
+
+        if (
+            this._desktopInterfaceSettings &&
+            this._desktopAccentChangedId
+        ) {
+            try {
+                this._desktopInterfaceSettings.disconnect(
+                    this._desktopAccentChangedId
+                );
+            } catch {}
+        }
+        this._desktopAccentChangedId = 0;
+        this._desktopInterfaceSettings = null;
 
         if (this._cardAppearanceApplyId) {
             try {
@@ -1186,7 +1264,46 @@ export class LiquidGlassIntegration {
             filterOpacity * 0.6
         );
 
+        const systemAccent =
+            this._readSystemAccentColor();
+        const accentColor = systemAccent.color;
+
         const css =
+            '/* Velora semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
+            '.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day.calendar-today,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day.calendar-today {\n' +
+            '  color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.velora-liquid-popup-content.quick-settings .velora-quick-active StLabel,\n' +
+            '.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-title,\n' +
+            '.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-subtitle,\n' +
+            '.velora-liquid-quick-menu-root .velora-quick-active StLabel,\n' +
+            '.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-title,\n' +
+            '.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-subtitle {\n' +
+            '  color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '#overviewGroup .workspace-thumbnail-indicator {\n' +
+            '  border-color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .calendar:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .events-button:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .world-clocks-button:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .weather-button:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .message:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .calendar-month-label:focus,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:focus {\n' +
+            '  border-color: ' + accentColor + ' !important;\n' +
+            '}\n' +
+            '.velora-liquid-popup-content.quick-settings .quick-slider .slider {\n' +
+            '  -barlevel-active-background-color: ' + accentColor + ';\n' +
+            '}\n' +
+            '.modal-dialog.velora-liquid-shell-card .modal-dialog-button:default {\n' +
+            '  background-color: ' + accentColor + ' !important;\n' +
+            '  color: #ffffff !important;\n' +
+            '}\n' +
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
             '.velora-native-notification-glass:focus {\n' +
