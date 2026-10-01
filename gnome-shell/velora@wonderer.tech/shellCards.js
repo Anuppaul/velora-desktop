@@ -355,10 +355,23 @@ class ShellCardSurface {
         const materialH =
             h + this._opticalMargin * 2;
 
-        this._material.set_pivot_point(
-            (this._opticalMargin + pivotX * w) / materialW,
-            (this._opticalMargin + pivotY * h) / materialH
-        );
+        const desiredPivotX =
+            (this._opticalMargin + pivotX * w) / materialW;
+        const desiredPivotY =
+            (this._opticalMargin + pivotY * h) / materialH;
+        const [materialPivotX, materialPivotY] =
+            this._material.get_pivot_point?.() ??
+            [NaN, NaN];
+
+        if (
+            Math.abs(materialPivotX - desiredPivotX) > 0.0001 ||
+            Math.abs(materialPivotY - desiredPivotY) > 0.0001
+        ) {
+            this._material.set_pivot_point(
+                desiredPivotX,
+                desiredPivotY
+            );
+        }
         if (
             this._material.scale_x !== scaleX ||
             this._material.scale_y !== scaleY

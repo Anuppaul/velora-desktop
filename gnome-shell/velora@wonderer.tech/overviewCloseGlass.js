@@ -845,10 +845,6 @@ export class OverviewCloseGlassManager {
     }
 
     _maybeSampleCaptions() {
-        const visible = this._visibleCaptions();
-        if (!visible.length)
-            return;
-
         const nowUs = GLib.get_monotonic_time();
         if (
             this._captionSamplePending ||
@@ -858,6 +854,13 @@ export class OverviewCloseGlassManager {
                     CAPTION_SAMPLE_INTERVAL_US
             )
         ) {
+            return;
+        }
+
+        // Geometry traversal is only needed when an actual sample is due.
+        const visible = this._visibleCaptions();
+        if (!visible.length) {
+            this._lastCaptionSampleUs = nowUs;
             return;
         }
 
@@ -1034,40 +1037,64 @@ export class OverviewCloseGlassManager {
                 entry.clone.remove_transition?.('size');
                 entry.clone.remove_transition?.('scale-x');
                 entry.clone.remove_transition?.('scale-y');
-                entry.clone.set_pivot_point?.(0, 0);
-                entry.clone.set_scale?.(1, 1);
+
+                const [clonePivotX, clonePivotY] =
+                    entry.clone.get_pivot_point?.() ??
+                    [NaN, NaN];
+                if (
+                    clonePivotX !== 0 ||
+                    clonePivotY !== 0
+                ) {
+                    entry.clone.set_pivot_point?.(0, 0);
+                }
+
+                if (
+                    entry.clone.scale_x !== 1 ||
+                    entry.clone.scale_y !== 1
+                ) {
+                    entry.clone.set_scale?.(1, 1);
+                }
 
                 if (entry.kind === 'icon') {
                     const visualSize = Math.min(
                         ICON_VISUAL_SIZE,
                         Math.max(2, Math.min(localW, localH))
                     );
-                    entry.clone.set_position(
+                    this._vendor.setPositionIfChanged(
+                        entry.clone,
                         localX + (localW - visualSize) / 2,
                         localY + (localH - visualSize) / 2
                     );
-                    entry.clone.set_size(
+                    this._vendor.setSizeIfChanged(
+                        entry.clone,
                         visualSize,
                         visualSize
                     );
-                    entry.clone.opacity =
+                    const cloneOpacity =
                         entry.nativeOpacity ?? 255;
+                    if (entry.clone.opacity !== cloneOpacity)
+                        entry.clone.opacity = cloneOpacity;
                 } else {
-                    entry.clone.set_position(
+                    this._vendor.setPositionIfChanged(
+                        entry.clone,
                         localX,
                         localY
                     );
-                    entry.clone.set_size(
+                    this._vendor.setSizeIfChanged(
+                        entry.clone,
                         localW,
                         localH
                     );
-                    entry.clone.opacity =
+                    const cloneOpacity =
                         actor.get_paint_opacity?.() ??
                         actor.opacity ??
                         255;
+                    if (entry.clone.opacity !== cloneOpacity)
+                        entry.clone.opacity = cloneOpacity;
                 }
 
-                entry.clone.show?.();
+                if (!entry.clone.visible)
+                    entry.clone.show?.();
             }
 
             if (regions.length >= MAX_REGIONS)
