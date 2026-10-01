@@ -16,7 +16,6 @@ const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
     'workspace-switcher',
-    'velora-app-preview-card',
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
@@ -652,7 +651,7 @@ export class ShellCardGlassManager {
 
         const name = actor.get_name?.() ?? '';
         if (
-            name.startsWith('velora-shell-card-') ||
+            name.startsWith('velora-') ||
             name.startsWith('lg-')
         ) {
             return;
