@@ -345,6 +345,8 @@ class PopupGlassSurface {
         this._lastFullGeometryY = NaN;
         this._lastFullGeometryW = NaN;
         this._lastFullGeometryH = NaN;
+        this._lastPaintOpacity = NaN;
+        this._lastFullOpacity = NaN;
         this._lastShadowMaxRadius = NaN;
         this._sceneCaptureRect = null;
         this._lastMonitorX = NaN;
@@ -355,6 +357,8 @@ class PopupGlassSurface {
         this._lastFullGeometryY = NaN;
         this._lastFullGeometryW = NaN;
         this._lastFullGeometryH = NaN;
+        this._lastPaintOpacity = NaN;
+        this._lastFullOpacity = NaN;
         this._sceneCaptureRect = null;
     }
 
@@ -2020,7 +2024,8 @@ class PopupGlassSurface {
             this._lastFullGeometryX !== this._lastShaderX ||
             this._lastFullGeometryY !== this._lastShaderY ||
             this._lastFullGeometryW !== this._lastShaderW ||
-            this._lastFullGeometryH !== this._lastShaderH;
+            this._lastFullGeometryH !== this._lastShaderH ||
+            this._lastFullOpacity !== this._lastPaintOpacity;
 
         this._lastFullSyncUs = nowUs;
 
@@ -2135,6 +2140,8 @@ class PopupGlassSurface {
             opacity,
             monitor,
         } = measured;
+
+        this._lastPaintOpacity = opacity;
 
         const monitorX = monitor.x ?? 0;
         const monitorY = monitor.y ?? 0;
@@ -2445,6 +2452,7 @@ class PopupGlassSurface {
         this._lastFullGeometryY = glassY;
         this._lastFullGeometryW = glassW;
         this._lastFullGeometryH = glassH;
+        this._lastFullOpacity = opacity;
 
         if (this._root.opacity !== opacity)
             this._root.opacity = opacity;
