@@ -7,6 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
     GLASS_TEXT_PALETTE,
+    VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
@@ -19,8 +20,8 @@ const MAX_REGIONS = 16;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
-const SCAN_INTERVAL_US = 140000;
-const SAMPLE_INTERVAL_US = 650000;
+const TEXT_LIGHT_CLASS = 'velora-shared-text-light';
+const TEXT_DARK_CLASS = 'velora-shared-text-dark';
 const LIGHT = GLASS_TEXT_PALETTE.light;
 const DARK = GLASS_TEXT_PALETTE.dark;
 
@@ -74,14 +75,18 @@ export class OrbGlassManager {
         this._orbGlyph = null;
         this._buttons = new Set();
         this._stageId = 0;
-        this._lastScanUs = 0;
+        this._layerSignals = [];
+        this._scanIdleId = 0;
         this._lastRegionKey = '';
+        this._lastSceneSyncUs = 0;
 
         this._screenshot = null;
         this._samplePending = false;
         this._lastSampleUs = 0;
         this._glyphDark = null;
-        this._glyphOriginalStyle = null;
+        this._glyphSampleDirty = true;
+        this._glyphGeometryChangedUs = 0;
+        this._lastOrbRectKey = '';
     }
 
     setup() {
@@ -100,7 +105,8 @@ export class OrbGlassManager {
         this._enabled = true;
         this._appearance = this._readAppearance();
         this._createLayer();
-        this._scan(true);
+        this._connectLayerSignals();
+        this._scan();
 
         this._stageId = global.stage.connect(
             'before-update',
@@ -187,7 +193,8 @@ export class OrbGlassManager {
             return;
 
         this._appearance = state;
-        const role = VELORA_GLASS_ROLES.innerCard;
+        const role = VELORA_GLASS_ROLES.orbCard;
+        const adapter = VELORA_GLASS_ADAPTERS.orb;
 
         let brightness = null;
         let contrast = null;
@@ -213,11 +220,14 @@ export class OrbGlassManager {
                 brightness,
                 contrast,
                 saturation,
-                multiRegion: true,
+                multiRegion: adapter.multiRegion,
             }
         );
 
         this._lastRegionKey = '';
+        this._glyphSampleDirty = true;
+        this._glyphGeometryChangedUs =
+            GLib.get_monotonic_time();
         this._root?.queue_redraw?.();
     }
 
@@ -227,12 +237,41 @@ export class OrbGlassManager {
         this._applyAppearance(state);
     }
 
-    _scan(force = false) {
-        const nowUs = GLib.get_monotonic_time();
-        if (!force && nowUs - this._lastScanUs < SCAN_INTERVAL_US)
+    _connectLayerSignals() {
+        if (!this._desktopLayer)
             return;
-        this._lastScanUs = nowUs;
 
+        const queueScan = () => this._queueScan();
+
+        for (const signal of ['child-added', 'child-removed']) {
+            try {
+                this._layerSignals.push({
+                    obj: this._desktopLayer,
+                    id: this._desktopLayer.connect(
+                        signal,
+                        queueScan
+                    ),
+                });
+            } catch {}
+        }
+    }
+
+    _queueScan() {
+        if (!this._enabled || this._scanIdleId)
+            return;
+
+        this._scanIdleId = GLib.idle_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            () => {
+                this._scanIdleId = 0;
+                if (this._enabled)
+                    this._scan();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _scan() {
         let orbFace = null;
         let orbGlyph = null;
         const buttons = new Set();
@@ -255,33 +294,41 @@ export class OrbGlassManager {
 
         walk(this._desktopLayer);
 
-        this._orbFace = orbFace;
+        if (orbFace !== this._orbFace) {
+            this._orbFace = orbFace;
+            this._lastOrbRectKey = '';
+            this._glyphSampleDirty = true;
+            this._glyphGeometryChangedUs =
+                GLib.get_monotonic_time();
+        }
 
         if (orbGlyph !== this._orbGlyph) {
-            if (this._orbGlyph && this._glyphOriginalStyle !== null) {
+            if (this._orbGlyph) {
                 try {
-                    this._orbGlyph.set_style?.(
-                        this._glyphOriginalStyle
+                    this._orbGlyph.remove_style_class_name?.(
+                        TEXT_LIGHT_CLASS
+                    );
+                    this._orbGlyph.remove_style_class_name?.(
+                        TEXT_DARK_CLASS
                     );
                 } catch {}
             }
 
             this._orbGlyph = orbGlyph;
             this._glyphDark = null;
-            this._glyphOriginalStyle =
-                orbGlyph?.get_style?.() ??
-                orbGlyph?.style ??
-                null;
+            this._glyphSampleDirty = true;
+            this._glyphGeometryChangedUs =
+                GLib.get_monotonic_time();
         }
 
         this._buttons = buttons;
+        this._lastRegionKey = '';
     }
 
     _tick() {
         if (!this._enabled)
             return;
 
-        this._scan(false);
         this._syncRegions();
         this._maybeSampleGlyph();
     }
@@ -292,6 +339,8 @@ export class OrbGlassManager {
 
         const width = global.stage.width;
         const height = global.stage.height;
+        const adapter = VELORA_GLASS_ADAPTERS.orb;
+        const nowUs = GLib.get_monotonic_time();
 
         this._vendor.setSizeIfChanged(
             this._root,
@@ -336,6 +385,21 @@ export class OrbGlassManager {
 
             const [x, y, w, h] = rect;
 
+            if (actor === this._orbFace) {
+                const orbRectKey = [
+                    Math.round(x),
+                    Math.round(y),
+                    Math.round(w),
+                    Math.round(h),
+                ].join(':');
+
+                if (orbRectKey !== this._lastOrbRectKey) {
+                    this._lastOrbRectKey = orbRectKey;
+                    this._glyphSampleDirty = true;
+                    this._glyphGeometryChangedUs = nowUs;
+                }
+            }
+
             regions.push({
                 x: x - PAD,
                 y: y - PAD,
@@ -345,7 +409,10 @@ export class OrbGlassManager {
                 tintG: 1.0,
                 tintB: 1.0,
                 baseStrength: 0.0,
-                response: actor.get_hover?.() ? 0.38 : 0.0,
+                response:
+                    actor.get_hover?.()
+                        ? (adapter.hoverResponse ?? 0.38)
+                        : 0.0,
             });
 
             minX = Math.min(minX, x - PAD);
@@ -363,44 +430,69 @@ export class OrbGlassManager {
             return;
         }
 
-        const key = JSON.stringify(
-            regions.map(r => [
+        const key = JSON.stringify([
+            width,
+            height,
+            ...regions.map(r => [
                 Math.round(r.x),
                 Math.round(r.y),
                 Math.round(r.w),
                 Math.round(r.h),
                 r.response,
-            ])
-        );
+            ]),
+        ]);
 
-        if (key !== this._lastRegionKey) {
+        const geometryChanged =
+            key !== this._lastRegionKey;
+
+        if (geometryChanged) {
             this._lastRegionKey = key;
             this._effect.setResolution?.(width, height);
             this._effect.setCornerRadius?.(SHARED_RADIUS);
             this._effect.setGlassRegions?.(regions);
         }
 
-        try {
-            this._sceneManager?.setCullRect?.([
-                minX,
-                minY,
-                maxX - minX,
-                maxY - minY,
-            ]);
-            this._sceneManager?.applyBgCloneClip?.([
-                minX,
-                minY,
-                maxX - minX,
-                maxY - minY,
-            ]);
-            this._sceneManager?.sync?.();
-        } catch {}
+        const configuredSceneFps =
+            this._appearance?.sceneFps ?? 30;
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                adapter.sceneFpsCap ?? 24,
+                configuredSceneFps
+            )
+        );
+        const intervalUs = 1000000 / sceneFps;
+        const sceneDue =
+            geometryChanged ||
+            this._lastSceneSyncUs === 0 ||
+            nowUs - this._lastSceneSyncUs >= intervalUs;
 
-        this._root.show?.();
+        if (sceneDue) {
+            try {
+                const cullRect = [
+                    minX,
+                    minY,
+                    maxX - minX,
+                    maxY - minY,
+                ];
+                this._sceneManager?.setCullRect?.(cullRect);
+                this._sceneManager?.applyBgCloneClip?.(
+                    cullRect
+                );
+                this._sceneManager?.sync?.();
+                this._lastSceneSyncUs = nowUs;
+            } catch {}
+        }
+
+        if (!this._root.visible)
+            this._root.show?.();
     }
 
     _maybeSampleGlyph() {
+        const adapter = VELORA_GLASS_ADAPTERS.orb;
+
         if (
+            !adapter.adaptiveText ||
             !this._orbFace ||
             !this._orbGlyph ||
             this._samplePending
@@ -409,9 +501,21 @@ export class OrbGlassManager {
         }
 
         const nowUs = GLib.get_monotonic_time();
+        const debounceUs =
+            (adapter.adaptiveDebounceMs ?? 180) * 1000;
+        const resampleUs =
+            (adapter.adaptiveResampleMs ?? 4000) * 1000;
+        const fallbackDue =
+            this._lastSampleUs === 0 ||
+            nowUs - this._lastSampleUs >= resampleUs;
+
+        if (!this._glyphSampleDirty && !fallbackDue)
+            return;
+
         if (
-            this._lastSampleUs > 0 &&
-            nowUs - this._lastSampleUs < SAMPLE_INTERVAL_US
+            this._glyphSampleDirty &&
+            this._glyphGeometryChangedUs > 0 &&
+            nowUs - this._glyphGeometryChangedUs < debounceUs
         ) {
             return;
         }
@@ -422,6 +526,7 @@ export class OrbGlassManager {
 
         this._lastSampleUs = nowUs;
         this._samplePending = true;
+        this._glyphSampleDirty = false;
 
         const [x, y, w, h] = rect;
         const left = Math.max(0, Math.floor(x + w * 0.15));
@@ -500,14 +605,17 @@ export class OrbGlassManager {
                             return;
 
                         this._glyphDark = useDark;
-                        const color = useDark ? DARK : LIGHT;
-                        const original = this._glyphOriginalStyle ?? '';
-                        const prefix = original
-                            ? original.replace(/;\s*$/, '') + '; '
-                            : '';
 
-                        this._orbGlyph.set_style?.(
-                            prefix + 'color: ' + color + ';'
+                        this._orbGlyph.remove_style_class_name?.(
+                            TEXT_LIGHT_CLASS
+                        );
+                        this._orbGlyph.remove_style_class_name?.(
+                            TEXT_DARK_CLASS
+                        );
+                        this._orbGlyph.add_style_class_name?.(
+                            useDark
+                                ? TEXT_DARK_CLASS
+                                : TEXT_LIGHT_CLASS
                         );
                     } catch {}
                     finally {
@@ -536,10 +644,27 @@ export class OrbGlassManager {
             this._stageId = 0;
         }
 
-        if (this._orbGlyph && this._glyphOriginalStyle !== null) {
+        if (this._scanIdleId) {
             try {
-                this._orbGlyph.set_style?.(
-                    this._glyphOriginalStyle
+                GLib.source_remove(this._scanIdleId);
+            } catch {}
+            this._scanIdleId = 0;
+        }
+
+        for (const signal of this._layerSignals) {
+            try {
+                signal.obj.disconnect(signal.id);
+            } catch {}
+        }
+        this._layerSignals = [];
+
+        if (this._orbGlyph) {
+            try {
+                this._orbGlyph.remove_style_class_name?.(
+                    TEXT_LIGHT_CLASS
+                );
+                this._orbGlyph.remove_style_class_name?.(
+                    TEXT_DARK_CLASS
                 );
             } catch {}
         }
@@ -564,6 +689,10 @@ export class OrbGlassManager {
         this._screenshot = null;
         this._samplePending = false;
         this._lastRegionKey = '';
+        this._lastSceneSyncUs = 0;
+        this._lastOrbRectKey = '';
+        this._glyphSampleDirty = true;
+        this._glyphGeometryChangedUs = 0;
 
         console.log('[Velora][OrbGlass] stopped');
     }
