@@ -604,9 +604,9 @@
 }
 
 /* Applications grid ------------------------------------------------------ */
-/* App Grid uses wallpaper-only glass. The Overview's opaque system-base
- * background is disabled only while this page is visible, so the real desktop
- * wallpaper becomes the material source instead of a black plate. */
+/* The whole GNOME Overview (window picker, Search and App Grid) uses the
+ * shared native blurred wallpaper. Remove GNOME's opaque gray/system-base
+ * canvas while the backdrop manager is active. */
 #overviewGroup.velora-overview-wallpaper {
     background-color: transparent !important;
     background-image: none !important;
