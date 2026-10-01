@@ -2680,6 +2680,7 @@ export class PopupGlassManager {
 
                 if (
                     !this._enabled ||
+                    !this._panelHoverSwitchEnabled() ||
                     target !== newMenu ||
                     !panelManager.activeMenu ||
                     newMenu === panelManager.activeMenu
