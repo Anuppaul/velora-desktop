@@ -735,16 +735,24 @@
 }
 
 /* Overview window title -------------------------------------------------- */
-/* Keep window titles conventional and readable. No Liquid Glass here:
- * a quiet translucent tooltip is clearer beside the glass icon/close controls. */
+/* GNOME's stock %tooltip is ~90% black. Use a lightweight premium silver
+ * plate instead: no shader, no blur pass, no shadow, and no black backing. */
 #overviewGroup .window-caption {
-    background-color: rgba(24, 26, 32, 0.88) !important;
+    background-color: rgba(255, 255, 255, 0.12) !important;
     background-image: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.10) !important;
-    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.20) !important;
+    border-radius: 14px !important;
     box-shadow: none !important;
-    color: rgba(248, 249, 253, 0.96) !important;
-    padding: 6px 12px;
+    color: rgba(250, 251, 255, 0.98) !important;
+    font-weight: 500;
+    padding: 7px 13px;
+}
+
+#overviewGroup .window-caption:hover,
+#overviewGroup .window-caption:focus {
+    background-color: rgba(255, 255, 255, 0.17) !important;
+    border-color: rgba(255, 255, 255, 0.27) !important;
+    box-shadow: none !important;
 }
 
 /* Workspace switcher strip ---------------------------------------------- */
