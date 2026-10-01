@@ -254,6 +254,39 @@
     box-shadow: none;
 }
 
+/* Dash-to-Dock panel mode ------------------------------------------------
+ * Panel mode intentionally does NOT use Liquid Glass. Keep Dash-to-Dock's
+ * geometry/placement native and paint one quiet premium surface instead:
+ * near-solid neutral body, no blur/refraction, no rim, no outer shadow. */
+#dashtodockDashContainer.velora-dock-panel-mode,
+#dashtodockDashContainer.velora-dock-panel-mode.liquid-glass-transparent,
+#dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,
+#dashtodockDashContainer.velora-dock-panel-mode .dashtodock-box,
+#dashtodockDashContainer.velora-dock-panel-mode .dash-background {
+    background-color: rgba(18, 20, 25, 0.965) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.085) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+#dashtodockDashContainer.velora-dock-panel-mode .overview-icon {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:hover .overview-icon,
+#dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:focus .overview-icon {
+    background-color: rgba(255, 255, 255, 0.095) !important;
+}
+
+#dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:active .overview-icon,
+#dashtodockDashContainer.velora-dock-panel-mode .dash-item-container:checked .overview-icon {
+    background-color: rgba(255, 255, 255, 0.145) !important;
+}
+
 /* Ubuntu Dock / Dash-to-Dock icon tiles. The dock renderer owns the real
  * background material; icon hit-target geometry and running indicators remain
  * native. */
