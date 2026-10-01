@@ -548,6 +548,87 @@
     box-shadow: none !important;
 }
 
+/* Screenshot shared mode controls --------------------------------------- */
+/* Selection / Screen / Window become one quiet segmented control. The live
+ * desktop Appearance accent is injected by the dynamic stylesheet below. */
+.screenshot-ui-type-button-container {
+    background-color: rgba(255, 255, 255, 0.085);
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 22px;
+    box-shadow: none !important;
+    padding: 4px;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px solid transparent !important;
+    border-radius: 17px !important;
+    box-shadow: none !important;
+    transition-duration: 120ms;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:focus {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    box-shadow: none !important;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-type-button:checked {
+    box-shadow: none !important;
+}
+
+/* Screen mode should show the real stage, not GNOME's stock black 50% veil. */
+.screenshot-ui-screen-selector {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 2px solid transparent !important;
+    box-shadow: none !important;
+    transition-duration: 140ms;
+}
+
+.screenshot-ui-screen-selector:hover,
+.screenshot-ui-screen-selector:focus {
+    background-color: rgba(255, 255, 255, 0.055) !important;
+    box-shadow: none !important;
+}
+
+.screenshot-ui-screen-selector:active {
+    background-color: rgba(255, 255, 255, 0.085) !important;
+}
+
+.screenshot-ui-screen-selector:checked {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Bottom-left shot/cast switch and pointer button use the same neutral shared
+ * control treatment as the mode selector. */
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-container {
+    background-color: rgba(255, 255, 255, 0.085) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 999px;
+    box-shadow: none !important;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-shot-cast-button:focus,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:hover,
+.screenshot-ui-panel.velora-liquid-shell-card .screenshot-ui-show-pointer-button:focus {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
 /* App-folder dialog ----------------------------------------------------- */
 .app-folder-dialog.velora-liquid-shell-card .overview-tile,
 .app-folder-dialog.velora-liquid-shell-card .icon-button,
