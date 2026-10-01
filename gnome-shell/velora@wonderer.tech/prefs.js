@@ -3,7 +3,6 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-import {buildPreferences as buildLiquidGlassPreferences} from './vendor/liquid-glass/preferences/pages.js';
 
 const LIQUID_GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
@@ -269,7 +268,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         });
         menusPage.add(panelMenus);
 
-        const hoverSwitchRow = addSwitch(
+        addSwitch(
             panelMenus,
             settings,
             'panel-menu-hover-switch',
@@ -295,14 +294,6 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'changed::panel-menu-hover-switch',
             syncHoverDelaySensitivity
         );
-
-        const menuNote = new Adw.ActionRow({
-            title: 'Input-first switching',
-            subtitle:
-                'Hover switching is debounced before native popup rendering or Liquid Glass allocation begins.',
-        });
-        menuNote.activatable = false;
-        panelMenus.add(menuNote);
 
         // -----------------------------------------------------------------
         // Dock
@@ -538,23 +529,8 @@ export default class VeloraPreferences extends ExtensionPreferences {
             15, 60, 5
         );
 
-        const optimization = new Adw.PreferencesGroup({
-            title: 'Optimization',
-            description:
-                'Velora keeps native interactions full-rate while expensive capture, adaptive text and clone work are rate-limited or event-driven.',
-        });
-        performancePage.add(optimization);
-
-        const optimizationStatus = new Adw.ActionRow({
-            title: 'Input-first rendering',
-            subtitle:
-                'Popup hover switching, scene synchronization and adaptive sampling are isolated from pointer-critical work.',
-        });
-        optimizationStatus.activatable = false;
-        optimization.add(optimizationStatus);
-
-        // Vendored renderer exposes its own advanced pages after Velora's
-        // curated settings. Power users can still reach every low-level knob.
-        buildLiquidGlassPreferences(window, advanced);
+        // Velora intentionally exposes only the curated controls above.
+        // The vendored renderer's duplicate developer-oriented pages stay
+        // hidden so Preferences remains compact and product-focused.
     }
 }
