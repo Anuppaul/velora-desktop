@@ -75,6 +75,7 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     osdCard: PREMIUM_CARD_ROLE,
     topPanel: PREMIUM_CARD_ROLE,
     dock: PREMIUM_CARD_ROLE,
+    orbCard: PREMIUM_CARD_ROLE,
 });
 
 export const VELORA_GLASS_ADAPTERS = Object.freeze({
@@ -161,6 +162,14 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         inheritGlobalTint: true,
         inheritGlobalBlur: true,
         preserveNativeGeometry: true,
+    }),
+    orb: Object.freeze({
+        multiRegion: true,
+        sceneFpsCap: 24,
+        adaptiveText: true,
+        adaptiveDebounceMs: 180,
+        adaptiveResampleMs: 4000,
+        hoverResponse: 0.38,
     }),
     osd: Object.freeze({
         multiRegion: false,
