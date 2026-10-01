@@ -590,8 +590,16 @@
 }
 
 /* Applications grid ------------------------------------------------------ */
-/* One shared ShellCard LiquidEffect backs the full app grid. Individual app
- * tiles/icons stay native and never allocate their own shader/capture path. */
+/* App Grid uses wallpaper-only glass. The Overview's opaque system-base
+ * background is disabled only while this page is visible, so the real desktop
+ * wallpaper becomes the material source instead of a black plate. */
+#overviewGroup.velora-app-grid-wallpaper {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+/* One shared wallpaper-only LiquidEffect backs the full app grid.
+ * No live window clones are captured for this large surface. */
 #overviewGroup .apps-scroll-view.velora-liquid-shell-card {
     background-color: transparent !important;
     background-image: none !important;
@@ -613,7 +621,7 @@
 #overviewGroup .apps-scroll-view .overview-tile:focus,
 #overviewGroup .apps-scroll-view .app-folder:hover,
 #overviewGroup .apps-scroll-view .app-folder:focus {
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(255, 255, 255, 0.075);
     border-color: rgba(255, 255, 255, 0.12);
 }
 
