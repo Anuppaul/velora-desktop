@@ -16,6 +16,7 @@ const PAD = 20;
 const MAX_REGIONS = 16;
 const SHARED_RADIUS = 24;
 const ICON_BADGE_SIZE = 48;
+const ICON_VISUAL_SIZE = 40;
 const SCAN_INTERVAL_US = 180000;
 
 function classesOf(actor) {
@@ -266,6 +267,12 @@ export class OverviewCloseGlassManager {
                         : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
+            if (entry.kind === 'icon') {
+                try {
+                    actor.opacity =
+                        entry.nativeOpacity ?? 255;
+                } catch {}
+            }
             try {
                 entry.clone?.destroy?.();
             } catch {}
@@ -306,7 +313,20 @@ export class OverviewCloseGlassManager {
                 );
             } catch {}
 
-            this._targets.set(actor, {clone, kind});
+            const nativeOpacity =
+                actor.opacity ?? 255;
+
+            if (kind === 'icon') {
+                try {
+                    actor.opacity = 0;
+                } catch {}
+            }
+
+            this._targets.set(actor, {
+                clone,
+                kind,
+                nativeOpacity,
+            });
         }
     }
 
@@ -406,9 +426,12 @@ export class OverviewCloseGlassManager {
             const visible = Boolean(
                 actor?.visible &&
                 actor?.mapped &&
-                (actor.get_paint_opacity?.() ??
-                    actor.opacity ??
-                    255) > 0
+                (
+                    entry.kind === 'icon' ||
+                    (actor.get_paint_opacity?.() ??
+                        actor.opacity ??
+                        255) > 0
+                )
             );
 
             if (!visible) {
@@ -469,18 +492,37 @@ export class OverviewCloseGlassManager {
                 entry.clone.remove_transition?.('scale-y');
                 entry.clone.set_pivot_point?.(0, 0);
                 entry.clone.set_scale?.(1, 1);
-                entry.clone.set_position(
-                    localX,
-                    localY
-                );
-                entry.clone.set_size(
-                    localW,
-                    localH
-                );
-                entry.clone.opacity =
-                    actor.get_paint_opacity?.() ??
-                    actor.opacity ??
-                    255;
+
+                if (entry.kind === 'icon') {
+                    const visualSize = Math.min(
+                        ICON_VISUAL_SIZE,
+                        Math.max(2, Math.min(localW, localH))
+                    );
+                    entry.clone.set_position(
+                        localX + (localW - visualSize) / 2,
+                        localY + (localH - visualSize) / 2
+                    );
+                    entry.clone.set_size(
+                        visualSize,
+                        visualSize
+                    );
+                    entry.clone.opacity =
+                        entry.nativeOpacity ?? 255;
+                } else {
+                    entry.clone.set_position(
+                        localX,
+                        localY
+                    );
+                    entry.clone.set_size(
+                        localW,
+                        localH
+                    );
+                    entry.clone.opacity =
+                        actor.get_paint_opacity?.() ??
+                        actor.opacity ??
+                        255;
+                }
+
                 entry.clone.show?.();
             }
 
@@ -540,6 +582,12 @@ export class OverviewCloseGlassManager {
                         : CLOSE_ACTIVE_CLASS
                 );
             } catch {}
+            if (entry.kind === 'icon') {
+                try {
+                    actor.opacity =
+                        entry.nativeOpacity ?? 255;
+                } catch {}
+            }
             try {
                 entry.clone?.destroy?.();
             } catch {}
