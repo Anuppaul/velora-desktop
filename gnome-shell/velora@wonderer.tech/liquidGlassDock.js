@@ -55,6 +55,8 @@ const DASH_TO_DOCK_SCHEMA =
     'org.gnome.shell.extensions.dash-to-dock';
 const DOCK_PANEL_MODE_CLASS =
     'velora-dock-panel-mode';
+const DOCK_PANEL_BACKGROUND_CLASS =
+    'velora-ubuntu-dock-panel-background';
 
 const DESKTOP_INTERFACE_SCHEMA =
     'org.gnome.desktop.interface';
@@ -1931,7 +1933,28 @@ export class LiquidGlassIntegration {
                 walk(child);
         };
 
-        walk(container);
+        // Ubuntu Dock inherits Dash-to-Dock's actor structure: the real
+        // .dash-background is a sibling of #dashtodockDashContainer, not a
+        // child of it. Walk upward through the local dock subtree and search
+        // each common ancestor, rather than scanning the whole Shell.
+        let cursor = container;
+        let depth = 0;
+
+        while (cursor && depth++ < 6 && !found) {
+            walk(cursor);
+
+            const name = cursor.get_name?.() ?? '';
+            if (
+                found ||
+                name === 'dash' ||
+                name === 'dashtodockContainer'
+            ) {
+                break;
+            }
+
+            cursor = cursor.get_parent?.() ?? null;
+        }
+
         return found;
     }
 
@@ -1943,6 +1966,9 @@ export class LiquidGlassIntegration {
             const actor = entry.panelBackgroundActor;
             if (actor) {
                 try {
+                    actor.remove_style_class_name?.(
+                        DOCK_PANEL_BACKGROUND_CLASS
+                    );
                     actor.set_style?.(
                         entry.panelBackgroundOriginalStyle ?? null
                     );
@@ -1962,6 +1988,18 @@ export class LiquidGlassIntegration {
             return;
 
         if (actor !== entry.panelBackgroundActor) {
+            if (entry.panelBackgroundActor) {
+                try {
+                    entry.panelBackgroundActor
+                        .remove_style_class_name?.(
+                            DOCK_PANEL_BACKGROUND_CLASS
+                        );
+                    entry.panelBackgroundActor.set_style?.(
+                        entry.panelBackgroundOriginalStyle ?? null
+                    );
+                } catch {}
+            }
+
             entry.panelBackgroundActor = actor;
             entry.panelBackgroundOriginalStyle =
                 actor.get_style?.() ??
@@ -1969,12 +2007,17 @@ export class LiquidGlassIntegration {
                 null;
         }
 
-        // Dash-to-Dock's ThemeManager writes background-color inline, which
-        // can beat extension CSS. Own only the paint, never its geometry.
+        actor.add_style_class_name?.(
+            DOCK_PANEL_BACKGROUND_CLASS
+        );
+
+        // Ubuntu Dock/Yaru may write an opaque background inline after theme
+        // updates. Own paint only on the real background actor; geometry stays
+        // entirely native.
         const premiumStyle =
-            'background-color: rgba(255,255,255,0.105); ' +
+            'background-color: rgba(255,255,255,0.085); ' +
             'background-image: none; ' +
-            'border-color: rgba(255,255,255,0.15); ' +
+            'border-color: rgba(255,255,255,0.13); ' +
             'border-radius: 0px; ' +
             'box-shadow: none;';
 
