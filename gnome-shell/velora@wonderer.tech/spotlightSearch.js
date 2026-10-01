@@ -66,9 +66,10 @@ export class SpotlightSearchController {
         this._installedChangedId = 0;
 
         this._wmKeySettings = null;
+        this._wmKeyChangedId = 0;
         this._inputSourceManager = null;
         this._spotlightKeybindingInstalled = false;
-        this._removedInputSourceBinding = false;
+        this._inputSourceHandlerOverridden = false;
     }
 
     setup() {
@@ -120,6 +121,13 @@ export class SpotlightSearchController {
                 }
             );
 
+        this._wmKeyChangedId =
+            this._wmKeySettings.connect(
+                'changed::' +
+                    INPUT_SOURCE_KEYBINDING,
+                () => this._syncShortcut()
+            );
+
         this._syncShortcut();
     }
 
@@ -144,25 +152,63 @@ export class SpotlightSearchController {
                     .some(isSuperSpace);
         } catch {}
 
-        if (inputSourceUsesSuperSpace) {
-            try {
-                Main.wm.removeKeybinding(
-                    INPUT_SOURCE_KEYBINDING
-                );
-                this._removedInputSourceBinding = true;
-            } catch {
-                this._removedInputSourceBinding = false;
-            }
+        if (
+            inputSourceUsesSuperSpace &&
+            this._inputSourceManager &&
+            typeof this._inputSourceManager
+                ._switchInputSource === 'function'
+        ) {
+            const inputSourceManager =
+                this._inputSourceManager;
+
+            Main.wm.setCustomKeybindingHandler(
+                INPUT_SOURCE_KEYBINDING,
+                Shell.ActionMode.ALL,
+                (display, window, event, binding) => {
+                    let isSpotlightShortcut = false;
+
+                    try {
+                        const symbol =
+                            event?.get_key_symbol?.();
+                        const state =
+                            event?.get_state?.() ?? 0;
+                        const superMask =
+                            Clutter.ModifierType.MOD4_MASK ??
+                            Clutter.ModifierType.SUPER_MASK ??
+                            0;
+
+                        isSpotlightShortcut =
+                            symbol === Clutter.KEY_space &&
+                            (
+                                superMask === 0 ||
+                                (state & superMask) !== 0
+                            );
+                    } catch {}
+
+                    if (isSpotlightShortcut) {
+                        this.toggle();
+                        return;
+                    }
+
+                    // Preserve XF86Keyboard and any other accelerator assigned
+                    // to GNOME's input-source action.
+                    inputSourceManager
+                        ._switchInputSource(
+                            display,
+                            window,
+                            event,
+                            binding
+                        );
+                }
+            );
+
+            this._inputSourceHandlerOverridden =
+                true;
+            return;
         }
 
-        try {
-            // Clean up a stale hot-swap binding before registering the current
-            // runtime's handler.
-            Main.wm.removeKeybinding(
-                KEYBINDING_NAME
-            );
-        } catch {}
-
+        // If the user's input-source action does not own Super+Space, register
+        // Velora's dedicated binding without touching their keyboard settings.
         let action = Meta.KeyBindingAction.NONE;
         try {
             action = Main.wm.addKeybinding(
@@ -181,7 +227,6 @@ export class SpotlightSearchController {
             action !== Meta.KeyBindingAction.NONE;
 
         if (!this._spotlightKeybindingInstalled) {
-            this._restoreInputSourceBinding();
             console.error(
                 '[Velora][Spotlight] unable to register Super+Space'
             );
@@ -198,42 +243,36 @@ export class SpotlightSearchController {
         }
         this._spotlightKeybindingInstalled = false;
 
-        this._restoreInputSourceBinding();
-    }
+        if (this._inputSourceHandlerOverridden) {
+            try {
+                const inputSourceManager =
+                    this._inputSourceManager ??
+                    Keyboard.getInputSourceManager?.() ??
+                    null;
 
-    _restoreInputSourceBinding() {
-        if (!this._removedInputSourceBinding)
-            return;
-
-        try {
-            const inputSourceManager =
-                this._inputSourceManager ??
-                Keyboard.getInputSourceManager?.() ??
-                null;
-
-            if (
-                inputSourceManager &&
-                typeof inputSourceManager
-                    ._switchInputSource === 'function'
-            ) {
-                Main.wm.addKeybinding(
-                    INPUT_SOURCE_KEYBINDING,
-                    this._wmKeySettings,
-                    Meta.KeyBindingFlags.NONE,
-                    Shell.ActionMode.ALL,
-                    inputSourceManager
-                        ._switchInputSource
-                        .bind(inputSourceManager)
+                if (
+                    inputSourceManager &&
+                    typeof inputSourceManager
+                        ._switchInputSource === 'function'
+                ) {
+                    Main.wm.setCustomKeybindingHandler(
+                        INPUT_SOURCE_KEYBINDING,
+                        Shell.ActionMode.ALL,
+                        inputSourceManager
+                            ._switchInputSource
+                            .bind(inputSourceManager)
+                    );
+                }
+            } catch (error) {
+                console.error(
+                    '[Velora][Spotlight] failed to restore input-source handler: ' +
+                    error
                 );
             }
-        } catch (error) {
-            console.error(
-                '[Velora][Spotlight] failed to restore input-source shortcut: ' +
-                error
-            );
         }
 
-        this._removedInputSourceBinding = false;
+        this._inputSourceHandlerOverridden =
+            false;
     }
 
     toggle() {
@@ -413,7 +452,7 @@ export class SpotlightSearchController {
             name: 'velora-spotlight-card',
             style_class: 'velora-spotlight-card',
             reactive: true,
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
         });
         this._card.set_pivot_point?.(0.5, 0.5);
 
@@ -433,7 +472,7 @@ export class SpotlightSearchController {
 
         this._resultsBox = new St.BoxLayout({
             style_class: 'velora-spotlight-results',
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             visible: false,
         });
 
@@ -622,7 +661,7 @@ export class SpotlightSearchController {
         const row = new St.BoxLayout({
             style_class:
                 'velora-spotlight-result-row',
-            vertical: false,
+            orientation: Clutter.Orientation.HORIZONTAL,
             x_expand: true,
         });
 
@@ -642,7 +681,7 @@ export class SpotlightSearchController {
         const labels = new St.BoxLayout({
             style_class:
                 'velora-spotlight-result-labels',
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
         });
 
@@ -897,6 +936,18 @@ export class SpotlightSearchController {
             } catch {}
         }
         this._installedChangedId = 0;
+
+        if (
+            this._wmKeySettings &&
+            this._wmKeyChangedId
+        ) {
+            try {
+                this._wmKeySettings.disconnect(
+                    this._wmKeyChangedId
+                );
+            } catch {}
+        }
+        this._wmKeyChangedId = 0;
 
         try {
             this._layer?.destroy?.();
