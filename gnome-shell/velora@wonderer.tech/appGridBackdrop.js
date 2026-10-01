@@ -231,11 +231,20 @@ export class AppGridBackdropManager {
             searchResults = this._searchResults;
         }
 
+        const searchActive = Boolean(
+            Main.overview?.searchController?.searchActive
+        );
+
+        // searchActive turns true immediately when GNOME enters find-as-you-
+        // type search, before SearchResultsView necessarily has visible result
+        // children. Keep the results actor as a transition fallback so closing
+        // animations never flash the opaque overview base for one frame.
         const visible = Boolean(
             overview?.visible &&
             overview?.mapped &&
             (
                 this._surfaceVisible(appGrid) ||
+                searchActive ||
                 this._surfaceVisible(searchResults)
             )
         );
@@ -257,7 +266,7 @@ export class AppGridBackdropManager {
 
     updateAppearance() {
         // Deliberately no custom optics here. Native cached blur is the
-        // performance contract for the large App Grid surface.
+        // performance contract for large Overview/App Grid/Search surfaces.
         this._updateBlur();
     }
 
