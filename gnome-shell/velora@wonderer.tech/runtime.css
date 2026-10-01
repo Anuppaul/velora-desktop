@@ -582,11 +582,25 @@
     border-color: rgba(255, 255, 255, 0.12);
 }
 
+#overviewGroup #searchController,
+#overviewGroup #searchResults,
+#overviewGroup #searchResultsContent,
+#overviewGroup .search-display,
 #overviewGroup .search-statusbox,
 #overviewGroup .search-statustext {
     background-color: transparent !important;
     background-image: none !important;
+    border-color: transparent !important;
     box-shadow: none !important;
+}
+
+/* Keep provider plates premium but visually light over the shared wallpaper. */
+#overviewGroup .search-section-content {
+    color: inherit;
+}
+
+#overviewGroup .search-section-content:hover {
+    border-color: rgba(255, 255, 255, 0.14) !important;
 }
 
 /* Applications grid ------------------------------------------------------ */
