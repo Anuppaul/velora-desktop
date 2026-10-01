@@ -6,7 +6,6 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    GLASS_TEXT_PALETTE,
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -22,8 +21,6 @@ const MAX_REGIONS = 16;
 const SHARED_RADIUS = 128;
 const TEXT_LIGHT_CLASS = 'velora-shared-text-light';
 const TEXT_DARK_CLASS = 'velora-shared-text-dark';
-const LIGHT = GLASS_TEXT_PALETTE.light;
-const DARK = GLASS_TEXT_PALETTE.dark;
 
 function classesOf(actor) {
     return String(
@@ -426,6 +423,8 @@ export class OrbGlassManager {
 
         if (!regions.length) {
             this._effect.setGlassRegions?.([]);
+            this._lastRegionKey = '';
+            this._lastSceneSyncUs = 0;
             this._root.hide?.();
             return;
         }
