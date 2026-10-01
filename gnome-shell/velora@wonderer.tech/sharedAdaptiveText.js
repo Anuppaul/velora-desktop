@@ -17,9 +17,9 @@ const SHELL_CARD_CLASS = 'velora-liquid-shell-card';
 const POPUP_CLASS = 'velora-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
 
-const SCAN_INTERVAL_US = 500000;
-const SURFACE_SAMPLE_INTERVAL_US = 750000;
-const PANEL_SAMPLE_INTERVAL_US = 1800000;
+const SCAN_INTERVAL_US = 1000000;
+const SURFACE_SAMPLE_INTERVAL_US = 1800000;
+const PANEL_SAMPLE_INTERVAL_US = 3200000;
 const SAMPLE_GRID = 24;
 const SWITCH_ADVANTAGE = 1.18;
 const MIN_READABLE_CONTRAST = 4.5;
@@ -239,18 +239,35 @@ export class SharedAdaptiveTextManager {
             this._targets.delete(actor);
         }
 
+        let addedSurface = false;
+        let addedPanel = false;
+
         for (const actor of found) {
             if (this._targets.has(actor))
                 continue;
 
+            const kind =
+                actor === Main.panel
+                    ? 'panel'
+                    : 'surface';
+
             this._targets.set(actor, {
                 useDarkText: null,
-                kind:
-                    actor === Main.panel
-                        ? 'panel'
-                        : 'surface',
+                kind,
             });
+
+            if (kind === 'panel')
+                addedPanel = true;
+            else
+                addedSurface = true;
         }
+
+        // A newly discovered surface should not wait for the slower steady
+        // state cadence. Force the next tick to sample it immediately.
+        if (addedSurface)
+            this._lastSurfaceSampleUs = 0;
+        if (addedPanel)
+            this._lastPanelSampleUs = 0;
     }
 
     _rootVisible(actor) {
