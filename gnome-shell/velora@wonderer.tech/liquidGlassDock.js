@@ -416,6 +416,7 @@ export class LiquidGlassIntegration {
         this._topPanelSettingIds = [];
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
+        this._dockGlassBeforePanelMode = null;
 
         this._dashTimeoutId = 0;
         this._dashReconnectTimeoutId = 0;
@@ -1779,6 +1780,9 @@ export class LiquidGlassIntegration {
                         if (!this._enabled)
                             return;
 
+                        this._syncDockGlassPreferenceForPanelMode(
+                            this._dockIsPanelMode()
+                        );
                         this._findNativeDashToDock();
                         this._scheduleNativeDashRescan();
                     }
@@ -1794,6 +1798,10 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupDashToDockModeWatch() {
+        // Restore the exact dock-glass preference that existed before panel
+        // mode temporarily suppressed the renderer.
+        this._syncDockGlassPreferenceForPanelMode(false);
+
         if (
             this._dashToDockSettings &&
             this._dashToDockPanelModeId
@@ -1821,6 +1829,59 @@ export class LiquidGlassIntegration {
         }
     }
 
+    _syncDockGlassPreferenceForPanelMode(panelMode) {
+        if (!this._settings)
+            return;
+
+        if (panelMode) {
+            if (this._dockGlassBeforePanelMode === null) {
+                try {
+                    this._dockGlassBeforePanelMode =
+                        this._settings.get_boolean(
+                            'enable-dock-glass'
+                        );
+                } catch {
+                    this._dockGlassBeforePanelMode = false;
+                }
+            }
+
+            try {
+                if (
+                    this._settings.get_boolean(
+                        'enable-dock-glass'
+                    )
+                ) {
+                    this._settings.set_boolean(
+                        'enable-dock-glass',
+                        false
+                    );
+                }
+            } catch {}
+
+            return;
+        }
+
+        if (this._dockGlassBeforePanelMode === null)
+            return;
+
+        const restore =
+            this._dockGlassBeforePanelMode;
+        this._dockGlassBeforePanelMode = null;
+
+        try {
+            if (
+                this._settings.get_boolean(
+                    'enable-dock-glass'
+                ) !== restore
+            ) {
+                this._settings.set_boolean(
+                    'enable-dock-glass',
+                    restore
+                );
+            }
+        } catch {}
+    }
+
     _setDockPanelModeClass(container, enabled) {
         if (!container)
             return;
@@ -1843,6 +1904,9 @@ export class LiquidGlassIntegration {
             return false;
 
         const panelMode = this._dockIsPanelMode();
+        this._syncDockGlassPreferenceForPanelMode(
+            panelMode
+        );
         this._setDockPanelModeClass(
             entry.container,
             panelMode
