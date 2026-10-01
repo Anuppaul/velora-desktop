@@ -1186,7 +1186,21 @@ export class LiquidGlassIntegration {
             filterOpacity * 0.6
         );
 
+        const semanticTint =
+            /^#[0-9a-fA-F]{6}$/.test(state.tint ?? '')
+                ? state.tint
+                : '#ffffff';
+
         const css =
+            '/* Semantic tint text: preserve intentional Appearance tint while ordinary text stays adaptive. */\n' +
+            '.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day.calendar-today,\n' +
+            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day.calendar-today {\n' +
+            '  color: ' + semanticTint + ' !important;\n' +
+            '}\n' +
+            '.velora-semantic-tint-text {\n' +
+            '  color: ' + semanticTint + ' !important;\n' +
+            '}\n' +
             '.velora-native-notification-glass,\n' +
             '.velora-native-notification-glass:hover,\n' +
             '.velora-native-notification-glass:focus {\n' +
