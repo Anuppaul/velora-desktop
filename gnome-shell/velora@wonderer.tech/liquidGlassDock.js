@@ -3034,6 +3034,10 @@ export class LiquidGlassIntegration {
         entry.nativeGlassVisible = null;
 
         try {
+            entry.manager._veloraRestoreSceneThrottle?.();
+        } catch {}
+
+        try {
             entry.manager.cleanup();
         } catch (error) {
             console.error(
@@ -3042,6 +3046,100 @@ export class LiquidGlassIntegration {
             );
         }
         entry.manager = null;
+    }
+
+    _patchCachedNativeDockSceneThrottle(manager) {
+        if (
+            !manager ||
+            typeof manager.setSceneFpsLimit === 'function' ||
+            manager._veloraSceneThrottlePatched
+        ) {
+            return;
+        }
+
+        const uiSampler = manager._uiSampler;
+        const windowClones = manager._windowCloneManager;
+        if (!uiSampler || !windowClones)
+            return;
+
+        const originalRefresh =
+            typeof uiSampler.refresh === 'function'
+                ? uiSampler.refresh.bind(uiSampler)
+                : null;
+        const originalUiSync =
+            typeof uiSampler.sync === 'function'
+                ? uiSampler.sync.bind(uiSampler)
+                : null;
+        const originalWindowSync =
+            typeof windowClones.sync === 'function'
+                ? windowClones.sync.bind(windowClones)
+                : null;
+
+        if (
+            !originalRefresh ||
+            !originalUiSync ||
+            !originalWindowSync
+        ) {
+            return;
+        }
+
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                24,
+                this._readSharedCardAppearance()
+                    ?.sceneFps ?? 24
+            )
+        );
+        const intervalUs = 1000000 / sceneFps;
+        const state = {
+            lastUs: 0,
+            due: false,
+            nowUs: 0,
+        };
+
+        uiSampler.refresh = (...args) => {
+            const nowUs = GLib.get_monotonic_time();
+            state.nowUs = nowUs;
+            state.due =
+                state.lastUs === 0 ||
+                nowUs - state.lastUs >= intervalUs;
+
+            if (state.due)
+                return originalRefresh(...args);
+            return undefined;
+        };
+
+        uiSampler.sync = (...args) => {
+            if (state.due)
+                return originalUiSync(...args);
+            return undefined;
+        };
+
+        windowClones.sync = (...args) => {
+            if (!state.due)
+                return undefined;
+
+            try {
+                return originalWindowSync(...args);
+            } finally {
+                state.lastUs =
+                    state.nowUs ||
+                    GLib.get_monotonic_time();
+                state.due = false;
+            }
+        };
+
+        manager._veloraSceneThrottlePatched = true;
+        manager._veloraRestoreSceneThrottle = () => {
+            try {
+                uiSampler.refresh = originalRefresh;
+                uiSampler.sync = originalUiSync;
+                windowClones.sync = originalWindowSync;
+            } catch {}
+            manager._veloraSceneThrottlePatched = false;
+            manager._veloraRestoreSceneThrottle = null;
+        };
     }
 
     _prepareUbuntuDockManagerInstance(entry, manager) {
@@ -3220,6 +3318,15 @@ export class LiquidGlassIntegration {
             );
 
             entry.manager.setup();
+
+            // GNOME keeps ESM modules cached across extension hot-swaps. If
+            // this process still has an older vendored DashManager without the
+            // native scene-FPS limiter, patch only its expensive clone-sampler
+            // calls at runtime. Geometry still runs at the compositor rate.
+            this._patchCachedNativeDockSceneThrottle(
+                entry.manager
+            );
+
             entry.manager.setMaterialOverride?.(
                 () => this._applySharedDashMaterial(
                     entry.manager,
