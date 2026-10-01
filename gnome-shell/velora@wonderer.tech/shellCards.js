@@ -609,13 +609,30 @@ export class ShellCardGlassManager {
             return;
         this._enabled = true;
         this._appearance = this._readAppearance();
+
         this._watchTree(Main.uiGroup);
+
+        // Screenshot UI is special top chrome. Own it explicitly so GNOME
+        // ScreenshotUI creation/reparenting cannot bypass the shared card path.
+        if (Main.layoutManager?.screenshotUIGroup)
+            this._watchTree(
+                Main.layoutManager.screenshotUIGroup
+            );
 
         this._stageSyncId = global.stage.connect(
             'before-update',
             () => {
                 if (!this._enabled)
                     return;
+
+                const screenshotRoot =
+                    Main.layoutManager?.screenshotUIGroup;
+                if (
+                    screenshotRoot &&
+                    !this._watched.has(screenshotRoot)
+                ) {
+                    this._watchTree(screenshotRoot);
+                }
 
                 for (const [actor, surface] of [...this._surfaces]) {
                     try {
