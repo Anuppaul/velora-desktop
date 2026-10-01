@@ -27,7 +27,7 @@ const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
-const APP_PREVIEW_PADDING = 0;
+const APP_PREVIEW_PADDING = 10;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
@@ -1753,31 +1753,8 @@ export default class VeloraRuntime extends Extension {
             count === 1 ? 176 :
             count === 2 ? 140 :
             120;
-
-        let tileWidth =
-            Math.round(baseTileWidth * previewScale);
-        let tileHeight =
-            Math.round(baseTileHeight * previewScale);
-
-        if (count === 1) {
-            const frame = windows[0].get_frame_rect();
-            const frameWidth = Math.max(1, frame.width);
-            const frameHeight = Math.max(1, frame.height);
-            const fitScale = Math.min(
-                tileWidth / frameWidth,
-                tileHeight / frameHeight,
-                1
-            );
-
-            tileWidth = Math.max(
-                1,
-                Math.round(frameWidth * fitScale)
-            );
-            tileHeight = Math.max(
-                1,
-                Math.round(frameHeight * fitScale)
-            );
-        }
+        const tileWidth = Math.round(baseTileWidth * previewScale);
+        const tileHeight = Math.round(baseTileHeight * previewScale);
 
         const cardWidth =
             APP_PREVIEW_PADDING * 2 +
@@ -1868,10 +1845,6 @@ export default class VeloraRuntime extends Extension {
     }
 
     _createWindowPreviewTile(window, tileWidth, tileHeight) {
-        const inset = 1;
-        const wrapWidth = Math.max(1, tileWidth - inset * 2);
-        const wrapHeight = Math.max(1, tileHeight - inset * 2);
-
         const content = new St.Widget({
             style_class: 'velora-window-preview-content',
             reactive: false,
@@ -1880,30 +1853,19 @@ export default class VeloraRuntime extends Extension {
         });
         content.set_size(tileWidth, tileHeight);
 
-        // Dedicated containment wrapper: Shell.WindowPreviewLayout clones can
-        // paint window shadows/chrome beyond the nominal frame rect. Keep that
-        // paint inside a fixed inset so the live preview can never escape the
-        // one shared Liquid Glass card.
-        const wrap = new St.Widget({
-            style_class: 'velora-window-preview-wrap',
-            reactive: false,
-            clip_to_allocation: true,
-            layout_manager: new Clutter.FixedLayout(),
-        });
-        wrap.set_size(wrapWidth, wrapHeight);
-        wrap.set_position(inset, inset);
-        content.add_child(wrap);
-
         const previewLayout = new Shell.WindowPreviewLayout();
         const preview = new Clutter.Actor({
             reactive: false,
             clip_to_allocation: true,
         });
+        // Shell.WindowPreviewLayout tracks its container. GNOME Shell itself
+        // assigns it after actor construction to avoid GJS container setup
+        // issues during initialization.
         preview.layout_manager = previewLayout;
 
         const frame = window.get_frame_rect();
-        const maxWidth = wrapWidth;
-        const maxHeight = wrapHeight;
+        const maxWidth = Math.max(1, tileWidth - 12);
+        const maxHeight = Math.max(1, tileHeight - 12);
         const frameWidth = Math.max(1, frame.width);
         const frameHeight = Math.max(1, frame.height);
         const scale = Math.min(
@@ -1916,12 +1878,12 @@ export default class VeloraRuntime extends Extension {
 
         preview.set_size(previewWidth, previewHeight);
         preview.set_position(
-            Math.round((wrapWidth - previewWidth) / 2),
-            Math.round((wrapHeight - previewHeight) / 2)
+            Math.round((tileWidth - previewWidth) / 2),
+            Math.round((tileHeight - previewHeight) / 2)
         );
 
         previewLayout.add_window(window);
-        wrap.add_child(preview);
+        content.add_child(preview);
 
         const tile = new St.Button({
             style_class: 'velora-window-preview-tile',
@@ -1929,7 +1891,6 @@ export default class VeloraRuntime extends Extension {
             can_focus: true,
             reactive: true,
             track_hover: true,
-            clip_to_allocation: true,
             child: content,
         });
         tile.set_size(tileWidth, tileHeight);
