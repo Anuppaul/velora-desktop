@@ -51,6 +51,10 @@ const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
 const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
+const DASH_TO_DOCK_SCHEMA =
+    'org.gnome.shell.extensions.dash-to-dock';
+const DOCK_PANEL_MODE_CLASS =
+    'velora-dock-panel-mode';
 
 const DESKTOP_INTERFACE_SCHEMA =
     'org.gnome.desktop.interface';
@@ -410,6 +414,8 @@ export class LiquidGlassIntegration {
         this._nativeDashEntries = [];
         this._topPanelManager = null;
         this._topPanelSettingIds = [];
+        this._dashToDockSettings = null;
+        this._dashToDockPanelModeId = 0;
 
         this._dashTimeoutId = 0;
         this._dashReconnectTimeoutId = 0;
@@ -488,6 +494,12 @@ export class LiquidGlassIntegration {
         // same shared appearance controls in both standalone and upstream-stack
         // modes.
         this._setupSharedCardAppearanceSync();
+
+        // Dash-to-Dock's extend-height setting is its panel-mode source of
+        // truth. Track it independently from the glass renderer so panel mode
+        // can intentionally use a premium non-glass surface.
+        this._setupDashToDockModeWatch();
+        this._findNativeDashToDock();
 
         if (this._externalGlobalStack) {
             console.warn(
@@ -1739,6 +1751,127 @@ export class LiquidGlassIntegration {
         this._notificationGlassManager = null;
     }
 
+    _setupDashToDockModeWatch() {
+        if (this._dashToDockSettings)
+            return;
+
+        try {
+            const source =
+                Gio.SettingsSchemaSource.get_default();
+            const schema =
+                source?.lookup?.(
+                    DASH_TO_DOCK_SCHEMA,
+                    true
+                ) ?? null;
+
+            if (!schema)
+                return;
+
+            this._dashToDockSettings =
+                new Gio.Settings({
+                    settings_schema: schema,
+                });
+
+            this._dashToDockPanelModeId =
+                this._dashToDockSettings.connect(
+                    'changed::extend-height',
+                    () => {
+                        if (!this._enabled)
+                            return;
+
+                        this._findNativeDashToDock();
+                        this._scheduleNativeDashRescan();
+                    }
+                );
+        } catch (error) {
+            this._dashToDockSettings = null;
+            this._dashToDockPanelModeId = 0;
+            console.warn(
+                '[Velora][Dock] Dash-to-Dock panel-mode watch unavailable: ' +
+                error
+            );
+        }
+    }
+
+    _cleanupDashToDockModeWatch() {
+        if (
+            this._dashToDockSettings &&
+            this._dashToDockPanelModeId
+        ) {
+            try {
+                this._dashToDockSettings.disconnect(
+                    this._dashToDockPanelModeId
+                );
+            } catch {}
+        }
+
+        this._dashToDockPanelModeId = 0;
+        this._dashToDockSettings = null;
+    }
+
+    _dockIsPanelMode() {
+        try {
+            return Boolean(
+                this._dashToDockSettings?.get_boolean?.(
+                    'extend-height'
+                )
+            );
+        } catch {
+            return false;
+        }
+    }
+
+    _setDockPanelModeClass(container, enabled) {
+        if (!container)
+            return;
+
+        try {
+            if (enabled) {
+                container.add_style_class_name?.(
+                    DOCK_PANEL_MODE_CLASS
+                );
+            } else {
+                container.remove_style_class_name?.(
+                    DOCK_PANEL_MODE_CLASS
+                );
+            }
+        } catch {}
+    }
+
+    _syncNativeDashEntryMode(entry) {
+        if (!entry?.container)
+            return false;
+
+        const panelMode = this._dockIsPanelMode();
+        this._setDockPanelModeClass(
+            entry.container,
+            panelMode
+        );
+
+        if (panelMode) {
+            // Panel mode deliberately has no refraction/blur shader. Preserve
+            // Dash-to-Dock geometry and let runtime.css paint the simple
+            // premium panel surface.
+            this._cleanupNativeDashManager(entry);
+            return true;
+        }
+
+        // When the original Liquid Glass extension owns the global manager
+        // stack, do not attach a second DashManager to the same actor.
+        if (this._externalGlobalStack)
+            return true;
+
+        if (!this._nativeDashIsReady(entry.container)) {
+            this._cleanupNativeDashManager(entry);
+            return false;
+        }
+
+        return Boolean(
+            this._attachNativeDashManager(entry) ||
+            entry.manager
+        );
+    }
+
     _collectNativeDashContainers() {
         const found = [];
         const skip = global.window_group;
@@ -1797,6 +1930,8 @@ export class LiquidGlassIntegration {
         if (
             !entry ||
             entry.manager ||
+            this._externalGlobalStack ||
+            this._dockIsPanelMode() ||
             !this._nativeDashIsReady(entry.container)
         ) {
             return false;
@@ -1878,7 +2013,7 @@ export class LiquidGlassIntegration {
                                 return;
 
                             if (this._nativeDashIsReady(container)) {
-                                this._attachNativeDashManager(entry);
+                                this._syncNativeDashEntryMode(entry);
                             } else {
                                 // Stop the vendored frame/theme sampler as soon
                                 // as Ubuntu Dock leaves the stage. Continuing to
@@ -1895,7 +2030,7 @@ export class LiquidGlassIntegration {
             }
 
             if (this._nativeDashIsReady(container)) {
-                if (this._attachNativeDashManager(entry) || entry.manager)
+                if (this._syncNativeDashEntryMode(entry))
                     active++;
             } else {
                 this._cleanupNativeDashManager(entry);
@@ -1930,6 +2065,10 @@ export class LiquidGlassIntegration {
         }
 
         this._cleanupNativeDashManager(entry);
+        this._setDockPanelModeClass(
+            entry.container,
+            false
+        );
     }
 
     _scheduleNativeDashRescan() {
@@ -2271,6 +2410,7 @@ export class LiquidGlassIntegration {
             this._releaseNativeDash(entry);
         }
         this._nativeDashEntries = [];
+        this._cleanupDashToDockModeWatch();
 
         this._cleanupSharedCardAppearanceSync();
 
