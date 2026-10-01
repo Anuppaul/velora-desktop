@@ -2012,17 +2012,9 @@ export class LiquidGlassIntegration {
         return null;
     }
 
-    _syncNativeDockBinding(entry) {
-        if (!entry?.container)
-            return null;
-
-        const dock =
-            this._nativeDockForContainer(
-                entry.container
-            );
-
-        if (dock === entry.nativeDock)
-            return dock;
+    _disconnectNativeDockSignals(entry) {
+        if (!entry)
+            return;
 
         if (
             entry.nativeDock &&
@@ -2035,38 +2027,187 @@ export class LiquidGlassIntegration {
             } catch {}
         }
 
-        entry.nativeDock = dock;
+        if (
+            entry.nativeIntellihide &&
+            entry.nativeIntellihideId
+        ) {
+            try {
+                entry.nativeIntellihide.disconnect(
+                    entry.nativeIntellihideId
+                );
+            } catch {}
+        }
+
+        if (
+            entry.nativeSlider &&
+            entry.nativeSliderId
+        ) {
+            try {
+                entry.nativeSlider.disconnect(
+                    entry.nativeSliderId
+                );
+            } catch {}
+        }
+
         entry.nativeDockStateId = 0;
+        entry.nativeIntellihideId = 0;
+        entry.nativeSliderId = 0;
+        entry.nativeIntellihide = null;
+        entry.nativeSlider = null;
+    }
+
+    _nativeDockGlassVisible(entry) {
+        if (!entry?.container)
+            return false;
+
+        if (this._dockIsPanelMode())
+            return false;
+
+        if (
+            this._dockModeTransitionTarget === false
+        ) {
+            return false;
+        }
+
+        const dock = entry.nativeDock;
+        if (!dock)
+            return this._nativeDashIsReady(
+                entry.container
+            );
+
+        // Ubuntu Dock State.HIDDEN = 0. SHOWING/HIDING must remain visible so
+        // the glass follows the native slide animation instead of popping.
+        return dock.dockState !== 0;
+    }
+
+    _syncNativeDockVisualState(entry) {
+        const manager = entry?.manager;
+        if (!manager)
+            return;
+
+        const visible =
+            this._nativeDockGlassVisible(
+                entry
+            );
+
+        // New vendor revisions support this directly; old hot-cached revisions
+        // are also covered by the runtime-level _syncGeometry wrapper below.
+        manager.setVisibilityGate?.(
+            () =>
+                this._nativeDockGlassVisible(
+                    entry
+                )
+        );
+
+        if (!manager.bgActor)
+            return;
+
+        if (!visible) {
+            manager.bgActor.opacity = 0;
+            manager.bgActor.hide?.();
+            return;
+        }
+
+        manager.bgActor.show?.();
+
+        const opacity =
+            entry.container
+                ?.get_paint_opacity?.() ??
+            entry.container?.opacity ??
+            255;
+        manager.bgActor.opacity = opacity;
+
+        // Intelligent Autohide changes slide-x on an ancestor, not mapped
+        // state. Force a compositor frame so the manager's normal geometry
+        // loop + paint-time hook can read the newly allocated position.
+        manager.bgActor.queue_redraw?.();
+        manager.effect?.queue_repaint?.();
+        global.stage.queue_redraw?.();
+    }
+
+    _syncNativeDockBinding(entry) {
+        if (!entry?.container)
+            return null;
+
+        const dock =
+            this._nativeDockForContainer(
+                entry.container
+            );
+
+        if (dock === entry.nativeDock) {
+            this._syncNativeDockVisualState(
+                entry
+            );
+            return dock;
+        }
+
+        this._disconnectNativeDockSignals(
+            entry
+        );
+
+        entry.nativeDock = dock;
 
         if (dock) {
             try {
                 entry.nativeDockStateId =
                     dock.connect(
                         'notify::dock-state',
-                        () => {
-                            const manager =
-                                entry.manager;
-                            if (!manager)
-                                return;
-
-                            manager.setVisibilityGate?.(
-                                () =>
-                                    entry.nativeDock?.dockState !== 0
-                            );
-
-                            if (
-                                entry.nativeDock?.dockState === 0
-                            ) {
-                                manager.bgActor?.hide?.();
-                            } else {
-                                manager.bgActor?.show?.();
-                            }
-                        }
+                        () =>
+                            this._syncNativeDockVisualState(
+                                entry
+                            )
                     );
             } catch {
                 entry.nativeDockStateId = 0;
             }
+
+            const intellihide =
+                dock._intellihide ?? null;
+            entry.nativeIntellihide =
+                intellihide;
+
+            if (intellihide) {
+                try {
+                    entry.nativeIntellihideId =
+                        intellihide.connect(
+                            'status-changed',
+                            () => {
+                                // Ubuntu Dock itself decides whether to show
+                                // or hide. We only request a fresh paint after
+                                // its native decision/animation starts.
+                                this._syncNativeDockVisualState(
+                                    entry
+                                );
+                            }
+                        );
+                } catch {
+                    entry.nativeIntellihideId = 0;
+                }
+            }
+
+            const slider =
+                dock._slider ?? null;
+            entry.nativeSlider = slider;
+
+            if (slider) {
+                try {
+                    entry.nativeSliderId =
+                        slider.connect(
+                            'notify::slide-x',
+                            () =>
+                                this._syncNativeDockVisualState(
+                                    entry
+                                )
+                        );
+                } catch {
+                    entry.nativeSliderId = 0;
+                }
+            }
         }
+
+        this._syncNativeDockVisualState(
+            entry
+        );
 
         return dock;
     }
@@ -2861,6 +3002,135 @@ export class LiquidGlassIntegration {
         entry.manager = null;
     }
 
+    _prepareUbuntuDockManagerInstance(entry, manager) {
+        if (!entry || !manager)
+            return;
+
+        if (manager._veloraUbuntuDockRuntimePatched)
+            return;
+
+        manager._veloraUbuntuDockRuntimePatched = true;
+
+        // Hot-swapped Velora revisions reuse the already-loaded vendor module
+        // graph. Patch the INSTANCE so these fixes work immediately without a
+        // GNOME Shell restart, regardless of which vendor revision is cached.
+        manager._marginValue = 0;
+        manager._glassExpand = 0;
+        manager._currentMarginStyle = '';
+
+        const originalApplyMargin =
+            typeof manager._applyMargin === 'function'
+                ? manager._applyMargin.bind(manager)
+                : null;
+
+        manager._applyMargin = () => {
+            manager._marginValue = 0;
+            manager._glassExpand = 0;
+            manager._currentMarginStyle = '';
+
+            if (
+                manager.targetActor &&
+                manager._originalStyle !== undefined
+            ) {
+                try {
+                    manager.targetActor.set_style(
+                        manager._originalStyle
+                    );
+                } catch {}
+            }
+
+            // Intentionally do not call the vendor implementation: Ubuntu
+            // Dock owns every geometry/margin decision.
+            void originalApplyMargin;
+        };
+
+        manager._applyDockMargin =
+            bounds => bounds;
+
+        const originalSyncGeometry =
+            typeof manager._syncGeometry ===
+                'function'
+                ? manager._syncGeometry.bind(
+                    manager
+                )
+                : null;
+
+        manager._syncGeometry = () => {
+            manager._marginValue = 0;
+            manager._glassExpand = 0;
+
+            if (
+                !this._nativeDockGlassVisible(
+                    entry
+                )
+            ) {
+                if (manager.bgActor) {
+                    manager.bgActor.opacity = 0;
+                    manager.bgActor.hide?.();
+                }
+                return;
+            }
+
+            originalSyncGeometry?.();
+        };
+
+        const originalLiveGeometry =
+            typeof manager
+                ._syncGlassGeometryLive ===
+                'function'
+                ? manager
+                    ._syncGlassGeometryLive
+                    .bind(manager)
+                : null;
+
+        manager._syncGlassGeometryLive = () => {
+            if (
+                !this._nativeDockGlassVisible(
+                    entry
+                )
+            ) {
+                return;
+            }
+
+            originalLiveGeometry?.();
+        };
+    }
+
+    _finalizeUbuntuDockManagerInstance(entry) {
+        const manager = entry?.manager;
+        if (!manager)
+            return;
+
+        manager._marginValue = 0;
+        manager._glassExpand = 0;
+        manager._currentMarginStyle = '';
+
+        // Older cached vendor managers add the generic transparency class to
+        // the icon/reveal subtree during setup(). Remove it synchronously;
+        // Velora transparently styles only the real .dash-background actor.
+        try {
+            manager.targetActor
+                ?.remove_style_class_name?.(
+                    'liquid-glass-transparent'
+                );
+        } catch {}
+
+        try {
+            manager._dockParent
+                ?.remove_style_class_name?.(
+                    'liquid-glass-transparent'
+                );
+        } catch {}
+
+        this._syncDockGlassBackgroundClass(
+            entry,
+            true
+        );
+        this._syncNativeDockVisualState(
+            entry
+        );
+    }
+
     _attachNativeDashManager(entry) {
         if (
             !entry ||
@@ -2881,11 +3151,17 @@ export class LiquidGlassIntegration {
                     this._logger
                 );
 
-            // Ubuntu Dock owns position, size, centering, extend-height and
-            // hide/reveal geometry. Velora may paint it, never move it.
+            this._prepareUbuntuDockManagerInstance(
+                entry,
+                entry.manager
+            );
+
+            // Supported by newer vendor revisions; harmless when the process
+            // is still using an older cached module.
             entry.manager.setPreserveNativeGeometry?.(
                 true
             );
+
             entry.manager.setup();
             entry.manager.setMaterialOverride?.(
                 () => this._applySharedDashMaterial(
@@ -2899,9 +3175,8 @@ export class LiquidGlassIntegration {
             );
 
             this._syncNativeDockBinding(entry);
-            entry.manager.setVisibilityGate?.(
-                () =>
-                    entry.nativeDock?.dockState !== 0
+            this._finalizeUbuntuDockManagerInstance(
+                entry
             );
 
             return true;
@@ -2936,6 +3211,10 @@ export class LiquidGlassIntegration {
                     mappedId: 0,
                     nativeDock: null,
                     nativeDockStateId: 0,
+                    nativeIntellihide: null,
+                    nativeIntellihideId: 0,
+                    nativeSlider: null,
+                    nativeSliderId: 0,
                     panelBackgroundActor: null,
                     panelBackgroundOriginalStyle: null,
                     panelBackgroundStyleId: 0,
@@ -3019,17 +3298,9 @@ export class LiquidGlassIntegration {
             entry.mappedId = 0;
         }
 
-        if (
-            entry.nativeDock &&
-            entry.nativeDockStateId
-        ) {
-            try {
-                entry.nativeDock.disconnect(
-                    entry.nativeDockStateId
-                );
-            } catch {}
-            entry.nativeDockStateId = 0;
-        }
+        this._disconnectNativeDockSignals(
+            entry
+        );
         entry.nativeDock = null;
 
         this._disconnectDockPanelBackgroundWatcher(
