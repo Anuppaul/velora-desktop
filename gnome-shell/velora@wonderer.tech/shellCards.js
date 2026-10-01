@@ -20,14 +20,23 @@ const TARGET_CLASSES = new Set([
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
+    'apps-scroll-view',
     'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
     'search-entry',
+    'apps-scroll-view',
     'workspace-thumbnails',
     'dash-background',
+]);
+
+const LOW_RATE_OVERVIEW_CLASSES = new Set([
+    // App Grid covers a large area. Keep the expensive captured live scene at
+    // 20 FPS while native scrolling, focus, paging and drag interactions keep
+    // following GNOME's compositor frame clock.
+    'apps-scroll-view',
 ]);
 
 function classesOf(actor) {
@@ -423,10 +432,17 @@ class ShellCardSurface {
             this._lastCaptureW !== tw ||
             this._lastCaptureH !== th;
 
+        const targetClasses = classesOf(this._target);
+        const surfaceFpsCap =
+            targetClasses.some(name =>
+                LOW_RATE_OVERVIEW_CLASSES.has(name)
+            )
+                ? 20
+                : 60;
         const sceneFps = Math.max(
             15,
             Math.min(
-                60,
+                surfaceFpsCap,
                 this._manager?._appearance?.sceneFps ?? 30
             )
         );
