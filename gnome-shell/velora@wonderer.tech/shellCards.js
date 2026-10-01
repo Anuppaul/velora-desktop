@@ -11,7 +11,10 @@ import {
 } from './glassMaterialSystem.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
+const APP_GRID_CLASS = 'apps-scroll-view';
+const APP_GRID_OVERVIEW_CLASS = 'velora-app-grid-wallpaper';
 const OPTICAL_MARGIN = 104;
+const APP_GRID_OPTICAL_MARGIN = 32;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -74,6 +77,13 @@ class ShellCardSurface {
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
+        this._wallpaperMirror = null;
+        this._wallpaperOnly =
+            classesOf(target).includes(APP_GRID_CLASS);
+        this._opticalMargin =
+            this._wallpaperOnly
+                ? APP_GRID_OPTICAL_MARGIN
+                : OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -102,6 +112,19 @@ class ShellCardSurface {
         sceneRoot.set_no_layout?.(true);
         material.add_child(sceneRoot);
 
+        let wallpaperMirror = null;
+        if (this._wallpaperOnly) {
+            wallpaperMirror =
+                this._vendor.createBackgroundMirror?.(
+                    'velora-app-grid-wallpaper-mirror'
+                ) ?? null;
+            if (wallpaperMirror) {
+                wallpaperMirror.set_no_layout?.(true);
+                wallpaperMirror.set_position?.(0, 0);
+                sceneRoot.add_child(wallpaperMirror);
+            }
+        }
+
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-shell-card-breaker',
             reactive: false,
@@ -114,10 +137,14 @@ class ShellCardSurface {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-shell-card',
+            owner: this._wallpaperOnly
+                ? 'velora-app-grid-wallpaper'
+                : 'velora-shell-card',
         });
         effect.setPadding?.(20);
-        effect.setShadowMaxRadius?.(OPTICAL_MARGIN - 8);
+        effect.setShadowMaxRadius?.(
+            this._opticalMargin - 8
+        );
         effect.setIsDock?.(false);
         material.add_effect(effect);
 
@@ -166,6 +193,7 @@ class ShellCardSurface {
         this._material = material;
         this._sceneRoot = sceneRoot;
         this._sceneManager = null;
+        this._wallpaperMirror = wallpaperMirror;
         this._effect = effect;
         this._target.add_style_class_name?.(CARD_CLASS);
 
@@ -251,6 +279,9 @@ class ShellCardSurface {
     }
 
     _ensureSceneManager() {
+        if (this._wallpaperOnly)
+            return null;
+
         if (this._sceneManager || !this._sceneRoot)
             return this._sceneManager;
 
@@ -285,6 +316,29 @@ class ShellCardSurface {
         this._lastCaptureH = NaN;
     }
 
+    _setAppGridWallpaperMode(active) {
+        if (!this._wallpaperOnly)
+            return;
+
+        const overview =
+            Main.layoutManager.overviewGroup;
+        if (!overview)
+            return;
+
+        try {
+            if (active)
+                overview.add_style_class_name?.(
+                    APP_GRID_OVERVIEW_CLASS
+                );
+            else
+                overview.remove_style_class_name?.(
+                    APP_GRID_OVERVIEW_CLASS
+                );
+        } catch {
+            // Overview may be tearing down.
+        }
+    }
+
     _sync() {
         if (
             this._destroyed ||
@@ -311,34 +365,39 @@ class ShellCardSurface {
             h <= 1 ||
             opacity <= 0
         ) {
+            this._setAppGridWallpaperMode(false);
             this._material.hide?.();
             this._releaseSceneManager();
             return;
         }
+
+        this._setAppGridWallpaperMode(true);
 
         const localX = this._overlay ? 0 : x;
         const localY = this._overlay ? 0 : y;
 
         this._vendor.setPositionIfChanged(
             this._material,
-            localX - OPTICAL_MARGIN,
-            localY - OPTICAL_MARGIN
+            localX - this._opticalMargin,
+            localY - this._opticalMargin
         );
         this._vendor.setSizeIfChanged(
             this._material,
-            w + OPTICAL_MARGIN * 2,
-            h + OPTICAL_MARGIN * 2
+            w + this._opticalMargin * 2,
+            h + this._opticalMargin * 2
         );
         const scaleX = this._target.scale_x ?? 1;
         const scaleY = this._target.scale_y ?? 1;
         const [pivotX, pivotY] =
             this._target.get_pivot_point?.() ?? [0.5, 0.5];
-        const materialW = w + OPTICAL_MARGIN * 2;
-        const materialH = h + OPTICAL_MARGIN * 2;
+        const materialW =
+            w + this._opticalMargin * 2;
+        const materialH =
+            h + this._opticalMargin * 2;
 
         this._material.set_pivot_point(
-            (OPTICAL_MARGIN + pivotX * w) / materialW,
-            (OPTICAL_MARGIN + pivotY * h) / materialH
+            (this._opticalMargin + pivotX * w) / materialW,
+            (this._opticalMargin + pivotY * h) / materialH
         );
         if (
             this._material.scale_x !== scaleX ||
@@ -366,6 +425,7 @@ class ShellCardSurface {
             !this._target?.mapped ||
             !this._target?.visible
         ) {
+            this._setAppGridWallpaperMode(false);
             this._releaseSceneManager();
             return;
         }
@@ -381,8 +441,14 @@ class ShellCardSurface {
             this._destroyed ||
             !material ||
             !sceneRoot ||
-            !sceneManager ||
             !material.mapped
+        ) {
+            return;
+        }
+
+        if (
+            !this._wallpaperOnly &&
+            !sceneManager
         ) {
             return;
         }
@@ -418,6 +484,30 @@ class ShellCardSurface {
             -absX / sx,
             -absY / sy
         );
+
+        if (this._wallpaperOnly) {
+            const mirror = this._wallpaperMirror;
+            if (mirror) {
+                this._vendor.setPositionIfChanged?.(
+                    mirror,
+                    0,
+                    0
+                );
+                this._vendor.setSizeIfChanged?.(
+                    mirror,
+                    global.stage.width,
+                    global.stage.height
+                );
+            }
+
+            // Wallpaper mirror damage drives redraw naturally; there is no
+            // WindowCloneManager, per-window culling, or scene sync loop here.
+            this._lastCaptureX = absX;
+            this._lastCaptureY = absY;
+            this._lastCaptureW = tw;
+            this._lastCaptureH = th;
+            return;
+        }
 
         const captureRect = [
             absX,
@@ -485,12 +575,18 @@ class ShellCardSurface {
 
         // Paint hook is uniforms-only; live scene actor writes happen before
         // update in ShellCardGlassManager.
-        const glassW = Math.max(1, w - OPTICAL_MARGIN * 2);
-        const glassH = Math.max(1, h - OPTICAL_MARGIN * 2);
+        const glassW = Math.max(
+            1,
+            w - this._opticalMargin * 2
+        );
+        const glassH = Math.max(
+            1,
+            h - this._opticalMargin * 2
+        );
         effect.setResolution?.(w, h);
         effect.setGlassGeometry?.(
-            OPTICAL_MARGIN,
-            OPTICAL_MARGIN,
+            this._opticalMargin,
+            this._opticalMargin,
             glassW,
             glassH
         );
@@ -500,6 +596,7 @@ class ShellCardSurface {
         if (this._destroyed)
             return;
         this._destroyed = true;
+        this._setAppGridWallpaperMode(false);
 
         try {
             this._effect?.setLiveGeometryHook?.(null);
@@ -580,6 +677,7 @@ class ShellCardSurface {
         this._material = null;
         this._sceneRoot = null;
         this._sceneManager = null;
+        this._wallpaperMirror = null;
         this._effect = null;
         this._target = null;
         this._parent = null;
