@@ -16,7 +16,6 @@ const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
     'workspace-switcher',
-    'screenshot-ui-panel',
     'app-folder-dialog',
     'resize-popup',
     'search-entry',
@@ -612,27 +611,11 @@ export class ShellCardGlassManager {
 
         this._watchTree(Main.uiGroup);
 
-        // Screenshot UI is special top chrome. Own it explicitly so GNOME
-        // ScreenshotUI creation/reparenting cannot bypass the shared card path.
-        if (Main.layoutManager?.screenshotUIGroup)
-            this._watchTree(
-                Main.layoutManager.screenshotUIGroup
-            );
-
         this._stageSyncId = global.stage.connect(
             'before-update',
             () => {
                 if (!this._enabled)
                     return;
-
-                const screenshotRoot =
-                    Main.layoutManager?.screenshotUIGroup;
-                if (
-                    screenshotRoot &&
-                    !this._watched.has(screenshotRoot)
-                ) {
-                    this._watchTree(screenshotRoot);
-                }
 
                 for (const [actor, surface] of [...this._surfaces]) {
                     try {
