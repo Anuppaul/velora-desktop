@@ -357,24 +357,45 @@ export class SharedAdaptiveTextManager {
             state.root = root;
         }
 
-        if (state.useDarkText === useDarkText)
-            return;
+        const color =
+            useDarkText
+                ? DARK_TEXT
+                : LIGHT_TEXT;
 
+        if (state.useDarkText !== useDarkText) {
+            try {
+                actor.remove_style_class_name?.(
+                    TEXT_LIGHT_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    TEXT_DARK_CLASS
+                );
+                actor.add_style_class_name?.(
+                    useDarkText
+                        ? TEXT_DARK_CLASS
+                        : TEXT_LIGHT_CLASS
+                );
+            } catch {}
+
+            state.useDarkText = useDarkText;
+        }
+
+        // Match the approved Overview caption behavior exactly: apply the
+        // black/white decision directly to the text actor. This outranks
+        // Yaru/GNOME descendant foreground rules that can otherwise keep
+        // theme/accent colours such as green even after our polarity class
+        // is correct.
         try {
-            actor.remove_style_class_name?.(
-                TEXT_LIGHT_CLASS
-            );
-            actor.remove_style_class_name?.(
-                TEXT_DARK_CLASS
-            );
-            actor.add_style_class_name?.(
-                useDarkText
-                    ? TEXT_DARK_CLASS
-                    : TEXT_LIGHT_CLASS
+            const original =
+                state.originalStyle ?? '';
+            const prefix = original
+                ? original.replace(/;\s*$/, '') + '; '
+                : '';
+
+            actor.set_style?.(
+                prefix + 'color: ' + color + ';'
             );
         } catch {}
-
-        state.useDarkText = useDarkText;
     }
 
     _applyRootPolarity(root, useDarkText) {
