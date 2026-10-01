@@ -642,14 +642,27 @@
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-/* Workspace thumbnails keep actual preview content and accent selection.
- * Only the thumbnail's backing plate is softened. */
-#overviewGroup .workspace-thumbnails .workspace-thumbnail {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
+/* Workspace switcher strip ---------------------------------------------- */
+/* The whole GNOME workspace-thumbnails actor receives one ShellCard
+ * LiquidEffect. Individual workspace previews stay native window clones;
+ * their old opaque backing plates are removed so the shared parent material
+ * is visible through every thumbnail without adding per-thumbnail shaders. */
+#overviewGroup .workspace-thumbnails.velora-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 24px;
+    box-shadow: none !important;
 }
 
+#overviewGroup .workspace-thumbnails.velora-liquid-shell-card .workspace-thumbnail {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none !important;
+}
+
+/* Selection remains a native accent affordance above the glass. */
 #overviewGroup .workspace-thumbnail-indicator {
     border-color: -st-accent-color;
 }
