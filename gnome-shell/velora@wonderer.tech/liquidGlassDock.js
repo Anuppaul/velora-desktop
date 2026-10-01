@@ -1035,6 +1035,39 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] extra-thick shared glass profile v7 seeded'
             );
         }
+
+        if (version < 8) {
+            // v8 performance profile: geometry/input remain on the native
+            // compositor frame clock, while expensive cloned-scene refreshes
+            // default to 24 FPS. Respect an explicit user FPS override.
+            try {
+                if (
+                    this._veloraSettings.get_user_value(
+                        'glass-live-scene-fps'
+                    ) === null
+                ) {
+                    this._veloraSettings.set_int(
+                        'glass-live-scene-fps',
+                        24
+                    );
+                }
+
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    8
+                );
+                version = 8;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] performance v8 migration incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] performance profile v8 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
