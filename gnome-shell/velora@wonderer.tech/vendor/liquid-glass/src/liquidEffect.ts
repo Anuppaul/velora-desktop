@@ -308,6 +308,7 @@ export const LiquidEffect = GObject.registerClass({
   declare private _material: MaterialSettings;
   declare private _aoIntensityOverride: number | null;
   declare private _shadowOverride: {radius: number; intensity: number} | null;
+  declare private _displacementScaleOverride: number | null;
 
   declare private _crop: CropPass;
 
@@ -376,6 +377,7 @@ export const LiquidEffect = GObject.registerClass({
     this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
     this._aoIntensityOverride = null;
     this._shadowOverride = null;
+    this._displacementScaleOverride = null;
 
     this._material.initialize();
     this._loadAllShadersAsync();
@@ -453,6 +455,9 @@ export const LiquidEffect = GObject.registerClass({
       this._uniforms.set('shadow_radius', this._shadowOverride.radius);
       this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
     }
+
+    if (this._displacementScaleOverride !== null)
+      this._uniforms.set('displacement_scale', this._displacementScaleOverride);
 
     // ── Live geometry ───────────────────────────────────────────────────────
     // [FIX] The one place in the frame where an animated actor's position is
@@ -1294,6 +1299,18 @@ export const LiquidEffect = GObject.registerClass({
 
     this._uniforms.set('shadow_radius', this._shadowOverride.radius);
     this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
+    this._queueRepaintIfDirty();
+  }
+
+  setDisplacementScaleOverride(value: number | null = null): void {
+    this._displacementScaleOverride =
+      value === null
+        ? null
+        : Math.max(0.0, Number(value) || 0.0);
+
+    if (this._displacementScaleOverride !== null)
+      this._uniforms.set('displacement_scale', this._displacementScaleOverride);
+
     this._queueRepaintIfDirty();
   }
 

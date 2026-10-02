@@ -207,6 +207,7 @@ export const LiquidEffect = GObject.registerClass({
         this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
         this._aoIntensityOverride = null;
         this._shadowOverride = null;
+        this._displacementScaleOverride = null;
         this._material.initialize();
         this._loadAllShadersAsync();
     }
@@ -282,6 +283,13 @@ export const LiquidEffect = GObject.registerClass({
             this._uniforms.set(
                 'shadow_intensity',
                 this._shadowOverride.intensity
+            );
+        }
+
+        if (this._displacementScaleOverride !== null) {
+            this._uniforms.set(
+                'displacement_scale',
+                this._displacementScaleOverride
             );
         }
 
@@ -1098,6 +1106,21 @@ export const LiquidEffect = GObject.registerClass({
             'shadow_intensity',
             this._shadowOverride.intensity
         );
+        this._queueRepaintIfDirty();
+    }
+    setDisplacementScaleOverride(value = null) {
+        this._displacementScaleOverride =
+            value === null
+                ? null
+                : Math.max(0.0, Number(value) || 0.0);
+
+        if (this._displacementScaleOverride !== null) {
+            this._uniforms.set(
+                'displacement_scale',
+                this._displacementScaleOverride
+            );
+        }
+
         this._queueRepaintIfDirty();
     }
     setPadding(pad) {

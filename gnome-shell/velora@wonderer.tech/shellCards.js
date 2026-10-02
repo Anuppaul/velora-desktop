@@ -285,6 +285,11 @@ class ShellCardSurface {
             this._isSearchEntry ? 0.0 : null,
             this._isSearchEntry ? 0.0 : null
         );
+        this._effect.setDisplacementScaleOverride?.(
+            this._isSearchEntry
+                ? 0.0
+                : null
+        );
 
         this._material?.queue_redraw?.();
     }
