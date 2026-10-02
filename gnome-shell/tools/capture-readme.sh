@@ -16,6 +16,7 @@ CAPTURE_DIR="${RUNTIME_DIR}/velora-readme-capture"
 SETTLE_SECONDS="${VELORA_CAPTURE_SETTLE_SECONDS:-0.75}"
 SEARCH_QUERY="${VELORA_CAPTURE_SEARCH_QUERY:-terminal}"
 SKIP_INSTALL=0
+STAGING_DIR=""
 
 usage() {
     cat <<'USAGE'
@@ -56,7 +57,7 @@ fail() {
 
 for command_name in \
     bash gnome-shell gnome-extensions gdbus gsettings grep mkdir rm cp mv \
-    sleep stat id cat date; do
+    sleep id cat date mktemp python3; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found"
 done
@@ -75,6 +76,17 @@ gnome-extensions info "${UUID}" >/dev/null 2>&1 ||
     fail "Velora is not installed in the current GNOME session"
 
 mkdir -p "${OUT_DIR}" "${CAPTURE_DIR}"
+STAGING_DIR="$(mktemp -d "${OUT_DIR}/.capture-stage.XXXXXX")"
+
+early_cleanup() {
+    rm -f "${TOKEN_FILE}" 2>/dev/null || true
+    rm -f "${CAPTURE_DIR}"/*.part 2>/dev/null || true
+    if [[ -n "${STAGING_DIR}" ]]; then
+        rm -rf "${STAGING_DIR}" 2>/dev/null || true
+    fi
+}
+trap early_cleanup EXIT INT TERM
+
 umask 077
 if [[ -r /proc/sys/kernel/random/uuid ]]; then
     TOKEN="$(cat /proc/sys/kernel/random/uuid)"
@@ -102,6 +114,7 @@ done
 
 declare -A DTD_SAVED=()
 declare -a DTD_KEYS=()
+declare -a CAPTURED_FILES=()
 
 schema_exists() {
     gsettings list-schemas | grep -Fxq "$1"
@@ -150,8 +163,11 @@ reset_capture_state() {
 cleanup() {
     reset_capture_state
     restore_dtd_settings
-    rm -f "${TOKEN_FILE}"
-    rm -f "${CAPTURE_DIR}"/*.part 2>/dev/null || true
+    rm -f "${TOKEN_FILE}" 2>/dev/null || true
+    rm -f "${CAPTURE_DIR}"/*.png "${CAPTURE_DIR}"/*.part 2>/dev/null || true
+    if [[ -n "${STAGING_DIR}" ]]; then
+        rm -rf "${STAGING_DIR}" 2>/dev/null || true
+    fi
 }
 trap cleanup EXIT INT TERM
 
@@ -164,13 +180,36 @@ prepare_state() {
         "${TOKEN}" "${state}" "${detail}" >/dev/null
 }
 
+validate_png() {
+    local file="$1"
+
+    python3 - "${file}" <<'PY'
+import struct
+import sys
+
+path = sys.argv[1]
+with open(path, "rb") as handle:
+    header = handle.read(24)
+
+if len(header) < 24 or header[:8] != b"\x89PNG\r\n\x1a\n":
+    raise SystemExit(f"invalid PNG: {path}")
+if header[12:16] != b"IHDR":
+    raise SystemExit(f"missing PNG IHDR: {path}")
+
+width, height = struct.unpack(">II", header[16:24])
+if width < 1 or height < 1:
+    raise SystemExit(f"invalid PNG dimensions: {width}x{height}")
+
+print(f"{width}x{height}")
+PY
+}
+
 capture_current() {
     local filename="$1"
     local runtime_file="${CAPTURE_DIR}/${filename}"
-    local target_file="${OUT_DIR}/${filename}"
-    local temporary_target="${target_file}.tmp"
+    local staged_file="${STAGING_DIR}/${filename}"
 
-    rm -f "${runtime_file}" "${runtime_file}.part" "${temporary_target}"
+    rm -f "${runtime_file}" "${runtime_file}.part" "${staged_file}"
 
     "${DBUS_CALL[@]}" \
         --method "${INTERFACE_NAME}.Capture" \
@@ -187,9 +226,13 @@ capture_current() {
     [[ "${ready}" -eq 1 ]] ||
         fail "Timed out waiting for ${filename}"
 
-    cp "${runtime_file}" "${temporary_target}"
-    mv -f "${temporary_target}" "${target_file}"
-    printf '  ✓ %s\n' "${filename}"
+    local dimensions
+    dimensions="$(validate_png "${runtime_file}")" ||
+        fail "Velora produced an invalid screenshot: ${filename}"
+
+    cp "${runtime_file}" "${staged_file}"
+    CAPTURED_FILES+=("${filename}")
+    printf '  ✓ %-36s %s\n' "${filename}" "${dimensions}"
 }
 
 capture_state() {
@@ -201,6 +244,22 @@ capture_state() {
     prepare_state "${state}" "${detail}"
     sleep "${settle}"
     capture_current "${filename}"
+}
+
+publish_captures() {
+    local filename
+
+    [[ "${#CAPTURED_FILES[@]}" -gt 0 ]] ||
+        fail "No README screenshots were captured"
+
+    for filename in "${CAPTURED_FILES[@]}"; do
+        [[ -s "${STAGING_DIR}/${filename}" ]] ||
+            fail "Staged screenshot is missing: ${filename}"
+    done
+
+    for filename in "${CAPTURED_FILES[@]}"; do
+        mv -f "${STAGING_DIR}/${filename}" "${OUT_DIR}/${filename}"
+    done
 }
 
 save_dtd_settings
@@ -230,6 +289,16 @@ capture_state quick-settings velora-quick-settings.png "" 0.95
 capture_state app-grid velora-app-grid.png "" 1.15
 
 reset_capture_state
+restore_dtd_settings
+DTD_KEYS=()
+
+publish_captures
+
+rm -f "${TOKEN_FILE}"
+rm -f "${CAPTURE_DIR}"/*.png "${CAPTURE_DIR}"/*.part 2>/dev/null || true
+rm -rf "${STAGING_DIR}"
+STAGING_DIR=""
+trap - EXIT INT TERM
 
 echo
 echo "README screenshot set refreshed:"

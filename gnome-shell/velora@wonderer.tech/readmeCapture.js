@@ -132,7 +132,11 @@ export class ReadmeCaptureBridge {
                 stream,
                 (source, result) => {
                     try {
-                        const success = source.screenshot_area_finish(result);
+                        const finishResult =
+                            source.screenshot_area_finish(result);
+                        const success = Array.isArray(finishResult)
+                            ? Boolean(finishResult[0])
+                            : Boolean(finishResult);
                         stream.close(null);
 
                         if (!success) {
@@ -310,10 +314,8 @@ export class ReadmeCaptureBridge {
     }
 
     destroy() {
-        try {
-            this._resetSurfaces();
-        } catch {}
-
+        // Runtime.disable() already owns UI teardown. Do not mutate or reopen
+        // Shell surfaces while a hot-swap/disable is in progress.
         this._runtime = null;
         this._dbusObject?.unexport?.();
         this._dbusObject = null;
