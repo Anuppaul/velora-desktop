@@ -108,7 +108,7 @@ Install Velora:
 bash gnome-shell/install.sh
 ```
 
-The installer uses Velora's stable-bootstrap/runtime hot-swap path. On a fresh bootstrap or schema installation, follow any unsafe-mode prompt shown by the installer.
+The installer uses Velora's stable-bootstrap/runtime hot-swap path. Runtime-only updates hot-swap without logout. On a clean local install, if the current GNOME Shell session has not discovered Velora yet, the installer enables it persistently and asks for one normal log out/log in. No Looking Glass or unsafe-mode step is required.
 
 ## Update
 

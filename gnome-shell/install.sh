@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-10-02.200"
+INSTALLER_VERSION="2026-10-02.220"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -62,7 +62,7 @@ refresh_prefs_process() {
 }
 
 for command_name in \
-    gnome-shell gnome-extensions glib-compile-schemas gsettings gdbus python3 \
+    gnome-shell gnome-extensions glib-compile-schemas gsettings python3 \
     mktemp sed grep sha256sum mkdir cp rm sleep cat head tr env dirname find sort; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found."
@@ -387,270 +387,108 @@ stage_runtime_revision() {
         fail "Vendored Liquid Glass license is missing from staged runtime."
 }
 
-shell_eval() {
-    local code="$1"
+persist_extension_enabled() {
+    python3 - "${UUID}" <<'PY'
+import ast
+import subprocess
+import sys
 
-    gdbus call --session \
-        --dest org.gnome.Shell \
-        --object-path /org/gnome/Shell \
-        --method org.gnome.Shell.Eval \
-        "${code}" 2>/dev/null
+uuid = sys.argv[1]
+
+def read_strv(key):
+    raw = subprocess.check_output(
+        ["gsettings", "get", "org.gnome.shell", key],
+        text=True,
+    ).strip()
+
+    if raw.startswith("@as "):
+        raw = raw[4:].strip()
+
+    value = ast.literal_eval(raw)
+    if not isinstance(value, list):
+        raise SystemExit(
+            f"Unexpected org.gnome.shell {key} value: {raw}"
+        )
+    return [str(item) for item in value]
+
+def write_strv(key, values):
+    rendered = "[" + ", ".join(repr(item) for item in values) + "]"
+    subprocess.check_call(
+        ["gsettings", "set", "org.gnome.shell", key, rendered]
+    )
+
+enabled = [
+    item
+    for item in read_strv("enabled-extensions")
+    if item != uuid
+]
+disabled = [
+    item
+    for item in read_strv("disabled-extensions")
+    if item != uuid
+]
+
+enabled.append(uuid)
+
+write_strv("disabled-extensions", disabled)
+write_strv("enabled-extensions", enabled)
+PY
 }
 
-shell_unsafe_mode_enabled() {
-    local output
-
-    output="$(shell_eval 'global.context.unsafe_mode' || true)"
-
-    [[ "${output}" == *"(true, 'true')"* ||
-       "${output}" == *'(true, "true")'* ]]
-}
-
-wait_for_velora_active() {
-    local i
-
-    for ((i = 0; i < 80; i++)); do
-        if gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}"; then
-            return 0
-        fi
-        sleep 0.1
-    done
-
-    return 1
-}
-
-try_live_register() {
-    local runtime_rev
-    local live_root
-    local live_dir
-    local uuid_json
-    local dir_json
-    local code
-    local output
-    local loaded_generation
-    local loaded_bootstrap_revision
-    local loaded_runtime_revision
-    local runtime_error
-
-    shell_unsafe_mode_enabled || return 31
-
-    runtime_rev="$(runtime_revision)"
-    stage_runtime_revision "${runtime_rev}"
-
-    write_string_setting runtime-error ""
-    write_string_setting runtime-loaded-revision ""
-    write_string_setting runtime-revision "${runtime_rev}"
-
-    live_root="${HOME}/.cache/velora-live/${SOURCE_BOOTSTRAP_REVISION}-${runtime_rev}"
-    live_dir="${live_root}/${UUID}"
-
-    rm -rf "${live_root}"
-    mkdir -p "${live_dir}"
-
-    local file
-    local parent
-    for file in "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}"; do
-        parent="$(dirname "${live_dir}/${file}")"
-        mkdir -p "${parent}"
-        cp -f "${TARGET_DIR}/${file}" "${live_dir}/${file}"
-    done
-
-    for runtime_source in "${RUNTIME_DIRS[@]}"; do
-        destination="${live_dir}/${runtime_source}"
-        rm -rf "${destination}"
-        mkdir -p "$(dirname "${destination}")"
-        cp -a "${TARGET_DIR}/${runtime_source}" "${destination}"
-    done
-
-    glib-compile-schemas --strict         "${live_dir}/vendor/liquid-glass/schemas"
-
-    cp -f "${BOOTSTRAP_MARKER}" "${live_dir}/.velora-bootstrap-generation"
-    cp -f "${BOOTSTRAP_REVISION_MARKER}" "${live_dir}/.velora-bootstrap-revision"
-
-    glib-compile-schemas --strict "${live_dir}/schemas"
-
-    uuid_json="$(
-        python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "${UUID}"
-    )"
-    dir_json="$(
-        python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "${live_dir}"
-    )"
-
-    code="$(cat <<EOF
-(async () => {
-    const Main = await import('resource:///org/gnome/shell/ui/main.js');
-    const {default: Gio} = await import('gi://Gio');
-    const {
-        ExtensionState,
-        ExtensionType,
-    } = await import('resource:///org/gnome/shell/misc/extensionUtils.js');
-
-    const uuid = ${uuid_json};
-    const dir = Gio.File.new_for_path(${dir_json});
-    const manager = Main.extensionManager;
-
-    try {
-        if (global.settings.get_boolean('disable-user-extensions'))
-            throw new Error('GNOME user extensions are globally disabled');
-
-        const existing = manager.lookup(uuid);
-        if (existing)
-            await manager.unloadExtension(existing);
-
-        const extension = manager.createExtensionObject(
-            uuid,
-            dir,
-            ExtensionType.PER_USER
-        );
-
-        await manager.loadExtension(extension);
-
-        if (
-            extension.state === ExtensionState.ERROR ||
-            extension.state === ExtensionState.OUT_OF_DATE
-        ) {
-            throw new Error(
-                'Velora could not be loaded: ' +
-                (extension.error || extension.state)
-            );
-        }
-
-        const shellSettings = new Gio.Settings({
-            schema_id: 'org.gnome.shell',
-        });
-        let enabled = shellSettings
-            .get_strv('enabled-extensions')
-            .filter(item => item !== uuid);
-        const disabled = shellSettings
-            .get_strv('disabled-extensions')
-            .filter(item => item !== uuid);
-
-        enabled.push(uuid);
-
-        manager._enabledExtensions =
-            manager._enabledExtensions.filter(item => item !== uuid);
-        manager._enabledExtensions.push(uuid);
-        extension.enabled = true;
-
-        shellSettings.delay();
-        shellSettings.set_strv('disabled-extensions', disabled);
-        shellSettings.set_strv('enabled-extensions', enabled);
-        shellSettings.apply();
-
-        await manager._callExtensionEnable(uuid);
-
-        const current = manager.lookup(uuid);
-        if (!current || current.state !== ExtensionState.ACTIVE) {
-            throw new Error(
-                'Velora did not reach ACTIVE state: ' +
-                (current?.state ?? 'missing') + ' ' +
-                (current?.error ?? '')
-            );
-        }
-
-        return {
-            state: current.state,
-            path: current.path,
-            error: current.error ?? '',
-        };
-    } finally {
-        global.context.unsafe_mode = false;
-    }
-})()
-EOF
-)"
-
-    output="$(shell_eval "${code}" || true)"
-
-    if [[ "${output}" != "(true,"* ]]; then
-        echo "GNOME Shell live-load Eval failed:" >&2
-        echo "  ${output}" >&2
-        return 32
-    fi
-
-    local ready=0
-    local i
-
-    for ((i = 0; i < 120; i++)); do
-        loaded_generation="$(read_string_setting bootstrap-loaded-generation)"
-        loaded_bootstrap_revision="$(read_string_setting bootstrap-loaded-revision)"
-        loaded_runtime_revision="$(read_string_setting runtime-loaded-revision)"
-        runtime_error="$(read_string_setting runtime-error)"
-
-        if [[ -n "${runtime_error}" ]]; then
-            break
-        fi
-
-        if gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}" &&
-           [[ "${loaded_generation}" == "${SOURCE_BOOTSTRAP_GENERATION}" ]] &&
-           [[ "${loaded_bootstrap_revision}" == "${SOURCE_BOOTSTRAP_REVISION}" ]] &&
-           [[ -n "${loaded_runtime_revision}" ]]; then
-            ready=1
-            break
-        fi
-
-        sleep 0.1
-    done
-
-    if [[ -n "${runtime_error}" ]]; then
-        echo "Velora became active with runtime error: ${runtime_error}" >&2
-        return 35
-    fi
-
-    if [[ "${ready}" -ne 1 ]]; then
-        echo "Velora live registration did not finish its bootstrap/runtime handshake." >&2
-        echo "Source generation: ${SOURCE_BOOTSTRAP_GENERATION}" >&2
-        echo "Loaded generation: ${loaded_generation}" >&2
-        echo "Source bootstrap:  ${SOURCE_BOOTSTRAP_REVISION}" >&2
-        echo "Loaded bootstrap:  ${loaded_bootstrap_revision}" >&2
-        echo "Loaded runtime:    ${loaded_runtime_revision}" >&2
-        echo "Eval result:       ${output}" >&2
-        return 34
-    fi
-
-    echo "Velora was registered and activated in the current Shell session."
-    echo "Bootstrap revision: ${SOURCE_BOOTSTRAP_REVISION}"
-    echo "Runtime revision:   ${loaded_runtime_revision}"
-    echo "No logout is required."
-    return 0
-}
-
-print_live_load_instructions() {
+print_session_restart_required() {
     echo
-    echo "Velora is installed, but the running Shell needs one developer live-registration."
-    echo "To activate it WITHOUT logout:"
-    echo "  1. Press Alt+F2"
-    echo "  2. Type: lg"
-    echo "  3. Open the Flags tab"
-    echo "  4. Enable: unsafe-mode"
-    echo "  5. Close Looking Glass"
-    echo "  6. Run: bash gnome-shell/install.sh"
+    echo "Velora is installed and enabled for your user."
+    echo "GNOME Shell has not loaded this newly installed local extension in the current session."
     echo
-    echo "The installer turns unsafe-mode OFF automatically after the live-load call."
+    echo "Log out and log back in once to activate Velora."
+    echo "No Looking Glass, unsafe-mode, or developer live-registration is required."
 }
 
-attempt_live_register_or_explain() {
+finish_safe_activation() {
     local status
 
+    persist_extension_enabled
+
+    # Try only GNOME's normal public enable path in the current session.
+    # If the running Shell has not discovered this newly installed local
+    # extension yet, the persisted enabled state takes effect next login.
+    if gnome-extensions info "${UUID}" >/dev/null 2>&1; then
+        gnome-extensions enable "${UUID}" >/dev/null 2>&1 || true
+    fi
+
     set +e
-    try_live_register
+    ensure_bootstrap_active
     status=$?
     set -e
 
-    if [[ "${status}" -eq 0 ]]; then
-        return 0
-    fi
+    case "${status}" in
+        0)
+            echo "Velora is active in the current GNOME Shell session."
+            echo "No logout is required."
+            return 0
+            ;;
+        23)
+            echo "Velora was discovered but its runtime reported an error." >&2
+            echo "Check:" >&2
+            echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
+            return 23
+            ;;
+        20|21|22|24)
+            if [[ "$(gsettings get org.gnome.shell disable-user-extensions 2>/dev/null || echo false)" == "true" ]]; then
+                echo
+                echo "Velora is installed, but GNOME user extensions are globally disabled."
+                echo "Re-enable user extensions, then log out and log back in once."
+                return 0
+            fi
 
-    if [[ "${status}" -eq 31 ]]; then
-        print_live_load_instructions
-        return 31
-    fi
-
-    echo "Current-session live registration failed with status ${status}." >&2
-    echo "Check:" >&2
-    echo "  gnome-extensions info ${UUID}" >&2
-    echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
-    return "${status}"
+            print_session_restart_required
+            return 0
+            ;;
+        *)
+            echo "Unexpected activation status ${status}." >&2
+            return "${status}"
+            ;;
+    esac
 }
 
 hot_deploy_runtime() {
@@ -737,23 +575,17 @@ if bootstrap_scaffold_compatible; then
             hot_deploy_runtime
             exit $?
             ;;
-        20|22|24)
-            echo "Velora bootstrap needs current-session registration/refresh."
-            attempt_live_register_or_explain
-            exit $?
+        20|21|22|24)
+            echo "Velora bootstrap needs a normal Shell-session refresh."
+            persist_extension_enabled
+            print_session_restart_required
+            exit 0
             ;;
         23)
             echo "Velora bootstrap is active, but the current runtime failed."
             echo "Attempting automatic recovery with a fresh hashed runtime..."
             hot_deploy_runtime
             exit $?
-            ;;
-        21)
-            echo "GNOME knows Velora, but activation failed." >&2
-            echo "Check:" >&2
-            echo "  gnome-extensions info ${UUID}" >&2
-            echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
-            exit "${BOOTSTRAP_STATUS}"
             ;;
         *)
             fail "Unexpected bootstrap status ${BOOTSTRAP_STATUS}"
@@ -900,5 +732,5 @@ echo "  ${TARGET_DIR}"
 echo
 echo "Fresh local install is complete on disk."
 
-attempt_live_register_or_explain
+finish_safe_activation
 exit $?
