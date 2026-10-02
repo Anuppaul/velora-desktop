@@ -13,9 +13,9 @@ const KEYBINDING_NAME = 'spotlight-keybinding';
 const INPUT_SOURCE_KEYBINDING = 'switch-input-source';
 const INPUT_SOURCE_SCHEMA = 'org.gnome.desktop.wm.keybindings';
 const MAX_RESULTS = 6;
-const CARD_MAX_WIDTH = 720;
-const CARD_MARGIN = 32;
-const SEARCH_BAR_HEIGHT = 56;
+const CARD_MAX_WIDTH = 860;
+const CARD_MARGIN = 40;
+const SEARCH_BAR_HEIGHT = 68;
 const DEFAULT_VERTICAL_POSITION = 18;
 
 function isSuperSpace(accelerator) {
@@ -46,6 +46,10 @@ export class SpotlightSearchController {
         this._attachSpotlightGlass =
             params.attachSpotlightGlass ??
             null;
+        this._refreshAdaptiveText =
+            params.refreshAdaptiveText ??
+            null;
+        this._adaptiveRefreshSourceId = 0;
 
         this._enabled = false;
         this._visible = false;
@@ -383,6 +387,42 @@ export class SpotlightSearchController {
         this._open();
     }
 
+    _scheduleAdaptiveTextRefresh() {
+        if (this._adaptiveRefreshSourceId)
+            return;
+
+        this._adaptiveRefreshSourceId =
+            GLib.idle_add(
+                GLib.PRIORITY_HIGH_IDLE,
+                () => {
+                    this._adaptiveRefreshSourceId = 0;
+
+                    if (
+                        this._enabled &&
+                        this._visible
+                    ) {
+                        try {
+                            this._refreshAdaptiveText?.();
+                        } catch {}
+                    }
+
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+    }
+
+    _cancelAdaptiveTextRefresh() {
+        if (!this._adaptiveRefreshSourceId)
+            return;
+
+        try {
+            GLib.source_remove(
+                this._adaptiveRefreshSourceId
+            );
+        } catch {}
+        this._adaptiveRefreshSourceId = 0;
+    }
+
     _open() {
         if (
             !this._enabled ||
@@ -428,6 +468,8 @@ export class SpotlightSearchController {
         this._entry.clutter_text
             ?.set_cursor_visible?.(true);
 
+        this._scheduleAdaptiveTextRefresh();
+
         this._layer.ease({
             opacity: 255,
             duration: 90,
@@ -444,6 +486,7 @@ export class SpotlightSearchController {
     close(immediate = false) {
         this._pendingOpen = false;
         this._cancelSearchUpdate();
+        this._cancelAdaptiveTextRefresh();
 
         if (this._overviewHiddenId) {
             try {
@@ -1152,6 +1195,19 @@ export class SpotlightSearchController {
         if (this._card.width !== width)
             this._card.set_width(width);
 
+        if (this._entry) {
+            if (this._entry.width !== width)
+                this._entry.set_width(width);
+            if (
+                this._entry.height !==
+                SEARCH_BAR_HEIGHT
+            ) {
+                this._entry.set_height(
+                    SEARCH_BAR_HEIGHT
+                );
+            }
+        }
+
         if (
             this._card.x !== x ||
             this._card.y !== y
@@ -1167,6 +1223,7 @@ export class SpotlightSearchController {
         this._enabled = false;
         this._cancelPrewarm();
         this._cancelSearchUpdate();
+        this._cancelAdaptiveTextRefresh();
         this.close(true);
         this._uninstallShortcut();
 
@@ -1236,5 +1293,6 @@ export class SpotlightSearchController {
         this._wmKeySettings = null;
         this._inputSourceManager = null;
         this._attachSpotlightGlass = null;
+        this._refreshAdaptiveText = null;
     }
 }

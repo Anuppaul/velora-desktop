@@ -1427,7 +1427,17 @@
 }
 
 .velora-spotlight-card .search-entry {
+    min-height: 68px;
     margin-top: 0;
+    padding-left: 20px;
+    padding-right: 20px;
+    font-size: 17px;
+}
+
+.velora-spotlight-card .search-entry .search-entry-icon {
+    icon-size: 21px;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
 .velora-spotlight-card .search-section-content {

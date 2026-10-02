@@ -473,6 +473,11 @@ export class LiquidGlassIntegration {
         this._managerHealth = {};
     }
 
+    refreshAdaptiveText() {
+        this._sharedAdaptiveTextManager
+            ?.refresh?.();
+    }
+
     attachSpotlightGlass(target, hostLayer) {
         const attached =
             this._spotlightGlassManager
