@@ -1371,56 +1371,26 @@
 
 /* Velora Spotlight ------------------------------------------------------- */
 
+/*
+ * The search entry and result rows intentionally use GNOME Shell's own
+ * search-entry / search-section-content / list-search-result classes with no
+ * visual overrides. Velora owns only placement and container spacing.
+ */
 .velora-spotlight-layer {
-    background-color: rgba(0, 0, 0, 0.035);
+    background-color: transparent;
 }
 
 .velora-spotlight-card {
-    spacing: 10px;
+    spacing: 8px;
     padding: 0;
-    color: inherit;
     background-color: transparent;
     background-image: none;
     border: 0;
     box-shadow: none;
 }
 
-.search-entry.velora-spotlight-entry {
-    min-height: 56px;
-    margin: 0;
-    padding-left: 10px;
-    padding-right: 10px;
-    border-radius: 999px;
-    font-size: 18px;
-    font-weight: 520;
-}
-
-.velora-spotlight-search-icon,
-.velora-spotlight-clear-icon {
-    icon-size: 20px;
-}
-
 .search-section-content.velora-spotlight-results {
-    spacing: 2px;
-    margin: 0;
-    padding: 8px;
-    border-radius: 22px;
-    box-shadow: 0 18px 48px 0 rgba(0, 0, 0, 0.24);
-}
-
-.list-search-result.velora-spotlight-result {
-    min-height: 52px;
-    margin: 0;
-    padding: 9px 12px;
-    border-radius: 15px;
-}
-
-.list-search-result.velora-spotlight-result:selected {
-    background-color: rgba(255, 255, 255, 0.11);
-}
-
-.velora-spotlight-result-row {
-    spacing: 12px;
+    margin-top: 2px;
 }
 
 .velora-spotlight-result-icon-bin {
@@ -1430,23 +1400,4 @@
 
 .velora-spotlight-result-labels {
     spacing: 1px;
-}
-
-.velora-spotlight-result-title {
-    font-size: 14px;
-    font-weight: 650;
-}
-
-.velora-spotlight-result-subtitle {
-    font-size: 11px;
-}
-
-.velora-spotlight-result-action {
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.search-statustext.velora-spotlight-empty {
-    padding: 14px 12px;
-    font-size: 13px;
 }

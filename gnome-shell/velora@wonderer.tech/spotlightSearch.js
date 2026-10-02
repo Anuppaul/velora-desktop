@@ -50,6 +50,7 @@ export class SpotlightSearchController {
         this._layer = null;
         this._card = null;
         this._entry = null;
+        this._entryBin = null;
         this._resultsBox = null;
         this._emptyLabel = null;
 
@@ -62,6 +63,7 @@ export class SpotlightSearchController {
         this._usage = Shell.AppUsage.get_default();
         this._descriptionCache = new Map();
         this._lastGeometryKey = '';
+        this._prewarmSourceId = 0;
 
         this._modalGrab = null;
         this._overviewHiddenId = 0;
@@ -146,6 +148,48 @@ export class SpotlightSearchController {
             );
 
         this._syncShortcut();
+        this._schedulePrewarm();
+    }
+
+    _schedulePrewarm() {
+        if (
+            !this._enabled ||
+            this._layer ||
+            this._prewarmSourceId
+        ) {
+            return;
+        }
+
+        this._prewarmSourceId =
+            GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT_IDLE,
+                700,
+                () => {
+                    this._prewarmSourceId = 0;
+
+                    if (
+                        this._enabled &&
+                        !this._layer
+                    ) {
+                        this._ensureUi();
+                        this._syncGeometry();
+                    }
+
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+    }
+
+    _cancelPrewarm() {
+        if (!this._prewarmSourceId)
+            return;
+
+        try {
+            GLib.source_remove(
+                this._prewarmSourceId
+            );
+        } catch {}
+        this._prewarmSourceId = 0;
     }
 
     _syncShortcut() {
@@ -475,25 +519,29 @@ export class SpotlightSearchController {
         this._card.set_pivot_point?.(0.5, 0.5);
 
         this._entry = new St.Entry({
-            style_class:
-                'search-entry velora-spotlight-entry',
+            style_class: 'search-entry',
             hint_text: 'Type to search',
-            can_focus: true,
             track_hover: true,
-            x_expand: true,
+            can_focus: true,
         });
+        this._entry.set_offscreen_redirect(
+            Clutter.OffscreenRedirect.ALWAYS
+        );
         this._entry.set_primary_icon(
             new St.Icon({
+                style_class: 'search-entry-icon',
                 icon_name: 'edit-find-symbolic',
-                style_class:
-                    'search-entry-icon velora-spotlight-search-icon',
             })
         );
 
         this._clearIcon = new St.Icon({
+            style_class: 'search-entry-icon',
             icon_name: 'edit-clear-symbolic',
-            style_class:
-                'search-entry-icon velora-spotlight-clear-icon',
+        });
+
+        this._entryBin = new St.Bin({
+            child: this._entry,
+            x_align: Clutter.ActorAlign.CENTER,
         });
 
         this._resultsBox = new St.BoxLayout({
@@ -522,7 +570,7 @@ export class SpotlightSearchController {
             this._emptyLabel
         );
 
-        this._card.add_child(this._entry);
+        this._card.add_child(this._entryBin);
         this._card.add_child(this._resultsBox);
         this._layer.add_child(this._card);
 
@@ -572,8 +620,7 @@ export class SpotlightSearchController {
 
     _createResultSlot(index) {
         const button = new St.Button({
-            style_class:
-                'list-search-result velora-spotlight-result',
+            style_class: 'list-search-result',
             can_focus: false,
             reactive: true,
             track_hover: true,
@@ -581,8 +628,7 @@ export class SpotlightSearchController {
         });
 
         const row = new St.BoxLayout({
-            style_class:
-                'list-search-result-content velora-spotlight-result-row',
+            style_class: 'list-search-result-content',
             orientation: Clutter.Orientation.HORIZONTAL,
             x_expand: true,
         });
@@ -603,8 +649,7 @@ export class SpotlightSearchController {
         });
 
         const title = new St.Label({
-            style_class:
-                'velora-spotlight-result-title',
+            style_class: 'list-search-result-title',
             text: '',
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
@@ -614,8 +659,7 @@ export class SpotlightSearchController {
         labels.add_child(title);
 
         const subtitle = new St.Label({
-            style_class:
-                'list-search-result-description velora-spotlight-result-subtitle',
+            style_class: 'list-search-result-description',
             text: '',
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
@@ -627,14 +671,6 @@ export class SpotlightSearchController {
 
         row.add_child(labels);
 
-        const action = new St.Label({
-            style_class:
-                'velora-spotlight-result-action',
-            text: 'Open',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        row.add_child(action);
-
         button.set_child(row);
 
         const slot = {
@@ -643,7 +679,6 @@ export class SpotlightSearchController {
             iconBin,
             title,
             subtitle,
-            action,
             app: null,
             appId: null,
         };
@@ -915,11 +950,11 @@ export class SpotlightSearchController {
                     normalized
                 ) {
                     button.add_style_pseudo_class(
-                        'selected'
+                        'focus'
                     );
                 } else {
                     button.remove_style_pseudo_class(
-                        'selected'
+                        'focus'
                     );
                 }
             }
@@ -1115,6 +1150,7 @@ export class SpotlightSearchController {
             return;
 
         this._enabled = false;
+        this._cancelPrewarm();
         this._cancelSearchUpdate();
         this.close(true);
         this._uninstallShortcut();
