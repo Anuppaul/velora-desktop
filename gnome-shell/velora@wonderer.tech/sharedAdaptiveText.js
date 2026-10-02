@@ -867,6 +867,64 @@ export class SharedAdaptiveTextManager {
         this._maybeSample('panel');
     }
 
+    refreshActors(actors = []) {
+        if (!this._enabled)
+            return;
+
+        const entries = [];
+
+        for (const actor of actors) {
+            if (
+                !actor ||
+                !this._rootVisible(actor)
+            ) {
+                continue;
+            }
+
+            if (!this._targets.has(actor)) {
+                this._targets.set(actor, {
+                    useDarkText: null,
+                    kind: 'surface',
+                });
+            }
+
+            const rect =
+                this._vendor
+                    .getTransformedRect(actor);
+            if (!finiteRect(rect))
+                continue;
+
+            entries.push({
+                actor,
+                rect,
+            });
+        }
+
+        if (!entries.length)
+            return;
+
+        const generation =
+            ++this._surfaceGeneration;
+        this._surfaceSamplePending = true;
+        this._lastSurfaceSampleUs =
+            GLib.get_monotonic_time();
+
+        this._sampleEntries(
+            entries,
+            generation,
+            'surface'
+        )
+            .catch(() => {})
+            .finally(() => {
+                if (
+                    generation ===
+                    this._surfaceGeneration
+                ) {
+                    this._surfaceSamplePending = false;
+                }
+            });
+    }
+
     refresh() {
         this._surfaceGeneration++;
         this._panelGeneration++;

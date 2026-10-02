@@ -473,7 +473,16 @@ export class LiquidGlassIntegration {
         this._managerHealth = {};
     }
 
-    refreshAdaptiveText() {
+    refreshAdaptiveText(actors = null) {
+        if (
+            Array.isArray(actors) &&
+            actors.length
+        ) {
+            this._sharedAdaptiveTextManager
+                ?.refreshActors?.(actors);
+            return;
+        }
+
         this._sharedAdaptiveTextManager
             ?.refresh?.();
     }

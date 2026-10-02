@@ -166,9 +166,11 @@ export default class VeloraRuntime extends Extension {
                                 hostLayer
                             ) ??
                         false,
-                refreshAdaptiveText: () =>
+                refreshAdaptiveText: actors =>
                     this._liquidGlassIntegration
-                        ?.refreshAdaptiveText?.(),
+                        ?.refreshAdaptiveText?.(
+                            actors
+                        ),
                 beforeOpen: () => {
                     this._cancelOpenTimer();
                     this._cancelCloseTimer();

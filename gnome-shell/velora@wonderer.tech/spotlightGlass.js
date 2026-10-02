@@ -54,9 +54,15 @@ export class SpotlightGlassManager {
         this._signals = [];
         this._stageId = 0;
 
-        this._lastRegionKey = '';
+        this._lastRegionData = [];
+        this._lastResolutionW = 0;
+        this._lastResolutionH = 0;
         this._lastSceneSyncUs = 0;
-        this._lastCullKey = '';
+        this._lastCullX = NaN;
+        this._lastCullY = NaN;
+        this._lastCullW = NaN;
+        this._lastCullH = NaN;
+        this._geometryDirty = true;
     }
 
     setup() {
@@ -101,14 +107,23 @@ export class SpotlightGlassManager {
 
         const sync = () =>
             this._syncLoopState();
+        const markDirty = () => {
+            this._geometryDirty = true;
+            this._ensureStageLoop();
+        };
 
-        for (const [obj, signal] of [
-            [target, 'notify::visible'],
-            [target, 'notify::mapped'],
-            [this._resultsTarget, 'notify::visible'],
-            [this._resultsTarget, 'notify::mapped'],
-            [hostLayer, 'notify::visible'],
-            [hostLayer, 'notify::mapped'],
+        for (const [obj, signal, callback] of [
+            [target, 'notify::visible', sync],
+            [target, 'notify::mapped', sync],
+            [target, 'notify::allocation', markDirty],
+            [target, 'notify::hover', markDirty],
+            [this._resultsTarget, 'notify::visible', sync],
+            [this._resultsTarget, 'notify::mapped', sync],
+            [this._resultsTarget, 'notify::allocation', markDirty],
+            [hostLayer, 'notify::visible', sync],
+            [hostLayer, 'notify::mapped', sync],
+            [hostLayer, 'notify::opacity', markDirty],
+            [global.stage, 'notify::key-focus', markDirty],
         ]) {
             if (!obj)
                 continue;
@@ -118,7 +133,7 @@ export class SpotlightGlassManager {
                     obj,
                     id: obj.connect(
                         signal,
-                        sync
+                        callback
                     ),
                 });
             } catch {}
@@ -145,8 +160,8 @@ export class SpotlightGlassManager {
                         'destroy',
                         () => {
                             this._resultsTarget = null;
-                            this._lastRegionKey = '';
-                            this._lastCullKey = '';
+                            this._lastRegionData = [];
+                            this._geometryDirty = true;
                         }
                     ),
                 });
@@ -154,8 +169,8 @@ export class SpotlightGlassManager {
         } catch {}
 
         this._applyAppearance();
-        this._lastRegionKey = '';
-        this._lastCullKey = '';
+        this._lastRegionData = [];
+        this._geometryDirty = true;
         this._syncLoopState();
 
         return true;
@@ -332,19 +347,44 @@ export class SpotlightGlassManager {
         this._stageId = 0;
     }
 
+    _sceneIntervalUs() {
+        const adapter =
+            VELORA_GLASS_ADAPTERS
+                .spotlight;
+        const sceneFps = Math.max(
+            15,
+            Math.min(
+                adapter.sceneFpsCap ??
+                    24,
+                this._appearance
+                    ?.sceneFps ??
+                    30
+            )
+        );
+
+        return 1000000 / sceneFps;
+    }
+
     _syncLoopState() {
         if (!this._isActive()) {
             this._stopStageLoop();
             this._root?.hide?.();
             this._lastSceneSyncUs = 0;
-            this._lastCullKey = '';
+            this._lastCullX = NaN;
+        this._lastCullY = NaN;
+        this._lastCullW = NaN;
+        this._lastCullH = NaN;
             return;
         }
 
         this._placeBelowHost();
         this._syncActors();
-        this._syncEffectRegion();
-        this._syncScene(true);
+
+        const regions = this._regions();
+        this._syncEffectRegion(regions);
+        this._syncSceneCull(regions);
+        this._geometryDirty = false;
+        this._syncSceneOnly(true);
 
         if (!this._root?.visible)
             this._root?.show?.();
@@ -481,7 +521,7 @@ export class SpotlightGlassManager {
         return regions;
     }
 
-    _syncEffectRegion() {
+    _syncEffectRegion(regions = null) {
         if (
             !this._effect ||
             !this._isActive()
@@ -489,8 +529,9 @@ export class SpotlightGlassManager {
             return;
         }
 
-        const regions = this._regions();
-        if (!regions.length)
+        const resolvedRegions =
+            regions ?? this._regions();
+        if (!resolvedRegions.length)
             return;
 
         const width =
@@ -498,30 +539,63 @@ export class SpotlightGlassManager {
         const height =
             global.stage.height;
 
-        const key = [
-            width,
-            height,
-            ...regions.flatMap(region => [
-                Math.round(region.x * 10) /
-                    10,
-                Math.round(region.y * 10) /
-                    10,
-                Math.round(region.w * 10) /
-                    10,
-                Math.round(region.h * 10) /
-                    10,
-                region.response,
-            ]),
-        ].join(':');
+        let changed =
+            this._lastResolutionW !== width ||
+            this._lastResolutionH !== height ||
+            this._lastRegionData.length !==
+                resolvedRegions.length * 5;
 
-        if (
-            key ===
-            this._lastRegionKey
-        ) {
-            return;
+        if (!changed) {
+            let index = 0;
+            for (const region of resolvedRegions) {
+                const values = [
+                    Math.round(region.x * 10) / 10,
+                    Math.round(region.y * 10) / 10,
+                    Math.round(region.w * 10) / 10,
+                    Math.round(region.h * 10) / 10,
+                    region.response,
+                ];
+
+                for (const value of values) {
+                    if (
+                        this._lastRegionData[index++] !==
+                        value
+                    ) {
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if (changed)
+                    break;
+            }
         }
 
-        this._lastRegionKey = key;
+        if (!changed)
+            return;
+
+        const nextData =
+            new Array(
+                resolvedRegions.length * 5
+            );
+        let index = 0;
+        for (const region of resolvedRegions) {
+            nextData[index++] =
+                Math.round(region.x * 10) / 10;
+            nextData[index++] =
+                Math.round(region.y * 10) / 10;
+            nextData[index++] =
+                Math.round(region.w * 10) / 10;
+            nextData[index++] =
+                Math.round(region.h * 10) / 10;
+            nextData[index++] =
+                region.response;
+        }
+
+        this._lastResolutionW = width;
+        this._lastResolutionH = height;
+        this._lastRegionData = nextData;
+
         this._effect.setResolution?.(
             width,
             height
@@ -530,47 +604,14 @@ export class SpotlightGlassManager {
             SHARED_RADIUS
         );
         this._effect.setGlassRegions?.(
-            regions
+            resolvedRegions
         );
     }
 
-    _syncScene(force = false) {
+    _syncSceneCull(regions) {
         if (
             !this._sceneManager ||
-            !this._isActive()
-        ) {
-            return;
-        }
-
-        const regions = this._regions();
-        if (!regions.length)
-            return;
-
-        const adapter =
-            VELORA_GLASS_ADAPTERS
-                .spotlight;
-        const nowUs =
-            GLib.get_monotonic_time();
-
-        const sceneFps = Math.max(
-            15,
-            Math.min(
-                adapter.sceneFpsCap ??
-                    24,
-                this._appearance
-                    ?.sceneFps ??
-                    30
-            )
-        );
-
-        const intervalUs =
-            1000000 / sceneFps;
-        if (
-            !force &&
-            this._lastSceneSyncUs > 0 &&
-            nowUs -
-                this._lastSceneSyncUs <
-                intervalUs
+            !regions?.length
         ) {
             return;
         }
@@ -581,14 +622,8 @@ export class SpotlightGlassManager {
         let maxY = -Infinity;
 
         for (const region of regions) {
-            minX = Math.min(
-                minX,
-                region.x
-            );
-            minY = Math.min(
-                minY,
-                region.y
-            );
+            minX = Math.min(minX, region.x);
+            minY = Math.min(minY, region.y);
             maxX = Math.max(
                 maxX,
                 region.x + region.w
@@ -601,58 +636,80 @@ export class SpotlightGlassManager {
 
         const left = Math.max(
             0,
-            minX -
-                SCENE_CAPTURE_MARGIN
+            minX - SCENE_CAPTURE_MARGIN
         );
         const top = Math.max(
             0,
-            minY -
-                SCENE_CAPTURE_MARGIN
+            minY - SCENE_CAPTURE_MARGIN
         );
         const right = Math.min(
             global.stage.width,
-            maxX +
-                SCENE_CAPTURE_MARGIN
+            maxX + SCENE_CAPTURE_MARGIN
         );
         const bottom = Math.min(
             global.stage.height,
-            maxY +
-                SCENE_CAPTURE_MARGIN
+            maxY + SCENE_CAPTURE_MARGIN
         );
 
-        const cullRect = [
-            left,
-            top,
-            Math.max(1, right - left),
-            Math.max(1, bottom - top),
-        ];
-        const cullKey =
-            cullRect
-                .map(value =>
-                    Math.round(value)
-                )
-                .join(':');
+        const width =
+            Math.max(1, right - left);
+        const height =
+            Math.max(1, bottom - top);
+
+        const x = Math.round(left);
+        const y = Math.round(top);
+        const w = Math.round(width);
+        const h = Math.round(height);
 
         if (
-            force ||
-            cullKey !==
-                this._lastCullKey
+            this._lastCullX === x &&
+            this._lastCullY === y &&
+            this._lastCullW === w &&
+            this._lastCullH === h
         ) {
-            this._lastCullKey =
-                cullKey;
-            this._sceneManager
-                .setCullRect?.(
-                    cullRect
-                );
-            this._sceneManager
-                .applyBgCloneClip?.(
-                    cullRect
-                );
+            return;
+        }
+
+        this._lastCullX = x;
+        this._lastCullY = y;
+        this._lastCullW = w;
+        this._lastCullH = h;
+
+        const cullRect = [x, y, w, h];
+        this._sceneManager.setCullRect?.(
+            cullRect
+        );
+        this._sceneManager
+            .applyBgCloneClip?.(
+                cullRect
+            );
+    }
+
+    _syncSceneOnly(force = false, nowUs = null) {
+        if (
+            !this._sceneManager ||
+            !this._isActive()
+        ) {
+            return;
+        }
+
+        const now =
+            nowUs ??
+            GLib.get_monotonic_time();
+        const intervalUs =
+            this._sceneIntervalUs();
+
+        if (
+            !force &&
+            this._lastSceneSyncUs > 0 &&
+            now - this._lastSceneSyncUs <
+                intervalUs
+        ) {
+            return;
         }
 
         this._sceneManager.sync?.();
-        this._lastSceneSyncUs =
-            nowUs;
+        this._lastSceneSyncUs = now;
     }
 
     _tick() {
@@ -661,9 +718,39 @@ export class SpotlightGlassManager {
             return;
         }
 
-        this._syncActors();
-        this._syncEffectRegion();
-        this._syncScene(false);
+        const nowUs =
+            GLib.get_monotonic_time();
+        const sceneDue =
+            this._lastSceneSyncUs === 0 ||
+            nowUs - this._lastSceneSyncUs >=
+                this._sceneIntervalUs();
+
+        // Ordinary compositor frames do no transformed-geometry work.
+        if (
+            !this._geometryDirty &&
+            !sceneDue
+        ) {
+            return;
+        }
+
+        if (this._geometryDirty) {
+            this._syncActors();
+            const regions =
+                this._regions();
+            this._syncEffectRegion(
+                regions
+            );
+            this._syncSceneCull(
+                regions
+            );
+            this._geometryDirty = false;
+        }
+
+        if (sceneDue)
+            this._syncSceneOnly(
+                false,
+                nowUs
+            );
     }
 
     _applyAppearance(
@@ -729,7 +816,8 @@ export class SpotlightGlassManager {
             }
         );
 
-        this._lastRegionKey = '';
+        this._lastRegionData = [];
+        this._geometryDirty = true;
         this._effect.queue_repaint?.();
     }
 
@@ -741,8 +829,12 @@ export class SpotlightGlassManager {
     }
 
     refresh() {
-        this._lastRegionKey = '';
-        this._lastCullKey = '';
+        this._lastRegionData = [];
+        this._geometryDirty = true;
+        this._lastCullX = NaN;
+        this._lastCullY = NaN;
+        this._lastCullW = NaN;
+        this._lastCullH = NaN;
         this._syncLoopState();
     }
 
@@ -771,9 +863,13 @@ export class SpotlightGlassManager {
         this._hostLayer = null;
         this._stopStageLoop();
         this._root?.hide?.();
-        this._lastRegionKey = '';
+        this._lastRegionData = [];
+        this._geometryDirty = true;
         this._lastSceneSyncUs = 0;
-        this._lastCullKey = '';
+        this._lastCullX = NaN;
+        this._lastCullY = NaN;
+        this._lastCullW = NaN;
+        this._lastCullH = NaN;
     }
 
     cleanup() {
