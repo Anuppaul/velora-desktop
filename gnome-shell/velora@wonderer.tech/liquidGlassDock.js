@@ -141,6 +141,36 @@ export function canonicalVendorRoot() {
     ]);
 }
 
+function isVeloraVendorRoot(root) {
+    const value =
+        String(root ?? '')
+            .replace(/\/+$/, '');
+
+    return (
+        value.endsWith(
+            '/vendor/liquid-glass'
+        ) &&
+        value.includes(
+            '/velora@wonderer.tech/'
+        )
+    );
+}
+
+function assertVeloraVendorRoot(root) {
+    if (
+        root &&
+        !isVeloraVendorRoot(root)
+    ) {
+        throw new Error(
+            'A renderer module graph from outside Velora is already loaded ' +
+            'in this GNOME Shell session. Restart the Shell/session once; ' +
+            'Velora will not reuse that module graph.'
+        );
+    }
+
+    return root;
+}
+
 function previousRevisionVendorRoot(settings) {
     const revision =
         settings?.get_string?.('runtime-loaded-revision')?.trim?.() ?? '';
@@ -317,6 +347,9 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     };
 
     if (globalThis[VENDOR_CACHE_KEY]) {
+        assertVeloraVendorRoot(
+            globalThis[VENDOR_CACHE_KEY].root
+        );
         return ensureQuickSettingsManager(
             globalThis[VENDOR_CACHE_KEY]
         );
@@ -333,6 +366,9 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     // from a new URI can collide with process-global GObject registrations.
     const legacyCache = globalThis[LEGACY_VENDOR_CACHE_KEY] ?? null;
     if (legacyCache?.root) {
+        assertVeloraVendorRoot(
+            legacyCache.root
+        );
         if (!legacyCache.WindowCloneManager) {
             const windowClones = await import(
                 moduleUri(
@@ -354,8 +390,10 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
         globalThis[LEGACY_VENDOR_ROOT_KEY] ??
         null;
 
-    if (root)
+    if (root) {
+        assertVeloraVendorRoot(root);
         globalThis[VENDOR_ROOT_KEY] = root;
+    }
 
     if (!root) {
         const liquidType = GObject.type_from_name('LiquidGlassEffect');
