@@ -1,8 +1,10 @@
 {
   "uuid": "velora@wonderer.tech",
   "name": "Velora Desktop",
-  "description": "Adaptive floating radial launcher for GNOME 50, inspired by the Velora mobile launcher without copying mobile-only UI.",
-  "shell-version": ["50"],
+  "description": "Liquid Glass material layer for GNOME Shell 50 with Velora Orb, Spotlight search, native Dock integration, and themed Shell surfaces.",
+  "shell-version": [
+    "50"
+  ],
   "settings-schema": "org.gnome.shell.extensions.velora",
-  "url": "https://github.com/Anuppaul/velora-launcher"
+  "url": "https://github.com/Anuppaul/velora-desktop"
 }

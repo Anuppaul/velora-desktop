@@ -98,8 +98,8 @@ Velora directly targets **GNOME Shell/compositor-owned UI**. GTK/libadwaita appl
 Clone the repository:
 
 ```bash
-git clone https://github.com/Anuppaul/velora-launcher.git
-cd velora-launcher
+git clone https://github.com/Anuppaul/velora-desktop.git
+cd velora-desktop
 ```
 
 Install Velora:
@@ -194,7 +194,7 @@ Velora is designed to keep the visual effect practical on a live desktop:
 ## Repository structure
 
 ```text
-velora-launcher/
+velora-desktop/
 ├── docs/
 │   └── ARCHITECTURE.md
 ├── gnome-shell/
