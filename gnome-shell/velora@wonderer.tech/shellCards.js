@@ -12,6 +12,7 @@ import {
 
 const CARD_CLASS = 'velora-liquid-shell-card';
 const OPTICAL_MARGIN = 104;
+const SEARCH_ENTRY_OPTICAL_MARGIN = 20;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -66,7 +67,10 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
-        this._opticalMargin = OPTICAL_MARGIN;
+        this._opticalMargin =
+            classesOf(target).includes('search-entry')
+                ? SEARCH_ENTRY_OPTICAL_MARGIN
+                : OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
