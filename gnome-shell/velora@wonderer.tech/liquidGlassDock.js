@@ -1523,6 +1523,26 @@ export class LiquidGlassIntegration {
             filterOpacity * 0.6
         );
 
+        // Search stays on the lightweight seam-free path, but shares the
+        // System Liquid Glass colour/density controls. The neutral white
+        // filter and tint strength combine just like the accepted card look.
+        const searchOpacity = Math.max(
+            0,
+            Math.min(
+                0.24,
+                (state.opacity ?? 0) +
+                filterOpacity
+            )
+        );
+        const searchHoverOpacity = Math.min(
+            0.27,
+            searchOpacity + 0.015
+        );
+        const searchFocusOpacity = Math.min(
+            0.30,
+            searchOpacity + 0.030
+        );
+
         const systemAccent =
             this._readSystemAccentColor();
         const accentColor = systemAccent.color;
@@ -1578,6 +1598,30 @@ export class LiquidGlassIntegration {
             ') !important;\n' +
             '  background-image: none !important;\n' +
             '  box-shadow: none !important;\n' +
+            '}\n' +
+            '.search-entry.velora-search-surface {\n' +
+            '  background-color: rgba(' +
+            (state.r ?? 255) + ',' +
+            (state.g ?? 255) + ',' +
+            (state.b ?? 255) + ',' +
+            searchOpacity.toFixed(3) +
+            ') !important;\n' +
+            '}\n' +
+            '.search-entry.velora-search-surface:hover {\n' +
+            '  background-color: rgba(' +
+            (state.r ?? 255) + ',' +
+            (state.g ?? 255) + ',' +
+            (state.b ?? 255) + ',' +
+            searchHoverOpacity.toFixed(3) +
+            ') !important;\n' +
+            '}\n' +
+            '.search-entry.velora-search-surface:focus {\n' +
+            '  background-color: rgba(' +
+            (state.r ?? 255) + ',' +
+            (state.g ?? 255) + ',' +
+            (state.b ?? 255) + ',' +
+            searchFocusOpacity.toFixed(3) +
+            ') !important;\n' +
             '}\n' +
             '#panel.velora-liquid-top-panel {\n' +
             '  background-color: rgba(255,255,255,' +

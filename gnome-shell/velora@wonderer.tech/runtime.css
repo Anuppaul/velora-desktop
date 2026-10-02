@@ -585,6 +585,20 @@
     border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
+/* SharedAdaptiveText owns foreground polarity for both App Grid and
+ * Super+Space search. Keep the hint and symbolic icons on the same side. */
+.search-entry.velora-search-surface.velora-shared-text-light,
+.search-entry.velora-search-surface.velora-shared-text-light StLabel.hint-text,
+.search-entry.velora-search-surface.velora-shared-text-light .search-entry-icon {
+    color: #f7f8fc !important;
+}
+
+.search-entry.velora-search-surface.velora-shared-text-dark,
+.search-entry.velora-search-surface.velora-shared-text-dark StLabel.hint-text,
+.search-entry.velora-search-surface.velora-shared-text-dark .search-entry-icon {
+    color: #17191f !important;
+}
+
 /* Search providers sit directly on the same native blurred wallpaper used
  * by App Grid. Keep cards deliberately light: no custom per-provider shader,
  * no extra blur pass, just a premium translucent plate over the cached blur. */

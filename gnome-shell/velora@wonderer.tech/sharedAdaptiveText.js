@@ -16,6 +16,7 @@ const TEXT_DARK_CLASS = 'velora-shared-text-dark';
 const SHELL_CARD_CLASS = 'velora-liquid-shell-card';
 const POPUP_CLASS = 'velora-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
+const SEARCH_SURFACE_CLASS = 'velora-search-surface';
 
 const SCAN_INTERVAL_US = 1000000;
 const FRAME_TICK_GATE_US = 250000;
@@ -195,6 +196,7 @@ export class SharedAdaptiveTextManager {
         return (
             classes.includes(SHELL_CARD_CLASS) ||
             classes.includes(SEARCH_PROVIDER_CLASS) ||
+            classes.includes(SEARCH_SURFACE_CLASS) ||
             this._isManagedPopup(actor)
         );
     }
@@ -222,8 +224,16 @@ export class SharedAdaptiveTextManager {
                 return;
 
             const name = actor.get_name?.() ?? '';
+            const spotlightTree =
+                name.startsWith(
+                    'velora-spotlight'
+                );
+
             if (
-                name.startsWith('velora-') ||
+                (
+                    name.startsWith('velora-') &&
+                    !spotlightTree
+                ) ||
                 name.startsWith('lg-')
             ) {
                 return;
