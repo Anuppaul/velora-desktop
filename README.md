@@ -35,6 +35,24 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 - **Built for low overhead** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, event-driven updates, and no permanent JS polling loop for popup surfaces.
 - **Open source** — released under the MIT License.
 
+## What Velora adds — and what stays native
+
+Velora deliberately mixes **new Velora features** with **native GNOME/Ubuntu surfaces that are only enhanced**. The distinction matters: where GNOME already has a good interaction model, Velora keeps it and changes the material instead of replacing the component.
+
+| Surface / feature | Ownership | What Velora changes |
+| --- | --- | --- |
+| **Velora Orb** | **New Velora feature** | Adds the draggable, multi-monitor radial launcher with app previews, tooltips, running indicators and idle hide/fade behaviour. |
+| **Velora Spotlight** | **New Velora feature** | Adds the centered `Super+Space` application search with adaptive glass and result presentation. |
+| **Ubuntu Dock / Dash-to-Dock** | **Native — enhanced by Velora** | Keeps the real Ubuntu Dock, its icons, hit targets, autohide/intellihide and interaction model; Velora changes the supported surface material and related visual treatment. |
+| **GNOME App Grid / Overview** | **Native — enhanced by Velora** | Keeps GNOME's existing applications view and behaviour while applying supported Velora backdrop/material treatment. |
+| **Date / Calendar menu** | **Native — enhanced by Velora** | Keeps GNOME's original calendar, notifications, controls, geometry and animations; Velora supplies the glass material underneath. |
+| **Quick Settings** | **Native — enhanced by Velora** | Keeps GNOME's real Wi-Fi, Bluetooth, audio, power and other controls; Velora changes the supported Shell surface material. |
+| **Panel / status popups** | **Native — enhanced by Velora** | Reuses GNOME `PopupMenu` surfaces and native `BoxPointer` geometry instead of recreating popup UI. |
+| **Notifications / Shell cards** | **Native — enhanced by Velora** | Keeps native content, actions and animation while applying the shared Velora material where supported. |
+| **Window/application content** | **Native / untouched by Shell theming** | Velora does not replace GTK/libadwaita application interiors; those remain owned by the applications and toolkit. |
+
+This is also why Velora avoids the usual "two UIs at once" problem: there is no second Dock pretending to be Ubuntu Dock and no duplicate Quick Settings or calendar sitting behind the real one.
+
 ## Velora in action
 
 ### Native Dock + Velora Orb
@@ -101,31 +119,71 @@ This makes Velora a **Shell material extension**, not a replacement desktop envi
 
 Velora directly targets **GNOME Shell/compositor-owned UI**. GTK/libadwaita application interiors are a separate theming domain and are not transparently restyled by a Shell extension.
 
-## Install
+## First install
 
-Clone the repository:
+> [!IMPORTANT]
+> **A clean first install on GNOME Shell 50 normally needs one Log Out → Log In after the installer finishes.**  
+> This is only to let the running GNOME Shell session discover and load the newly installed local extension. **You do not need Looking Glass or unsafe-mode.**  
+> If the installer explicitly says Velora is already active in the current session, you can skip the logout.
+
+### 1. Clone Velora
 
 ```bash
 git clone https://github.com/Anuppaul/velora-desktop.git
 cd velora-desktop
 ```
 
-Install Velora:
+### 2. Install it
 
 ```bash
 bash gnome-shell/install.sh
 ```
 
-The installer uses Velora's stable-bootstrap/runtime hot-swap path. Runtime-only updates hot-swap without logout. On a clean local install, if the current GNOME Shell session has not discovered Velora yet, the installer enables it persistently and asks for one normal log out/log in. No Looking Glass or unsafe-mode step is required.
+On a clean install, the expected final message is similar to:
+
+```text
+Velora is installed and enabled for your user.
+GNOME Shell has not loaded this newly installed local extension in the current session.
+
+Log out and log back in once to activate Velora.
+```
+
+### 3. Log out, then log back in
+
+Use Ubuntu/GNOME's normal **Log Out** action, then sign back into the same user account.
+
+You **do not** need to run the installer again after logging back in.
+
+### 4. Verify that Velora is active
+
+```bash
+gnome-extensions list --active | grep velora@wonderer.tech
+```
+
+Expected output:
+
+```text
+velora@wonderer.tech
+```
+
+### 5. Open Velora preferences
+
+```bash
+gnome-extensions prefs velora@wonderer.tech
+```
+
+After this first activation, ordinary runtime updates use Velora's hot-swap path and normally **do not require another logout**.
 
 ## Update
 
-From the repository root:
+Once Velora has completed its first activation, normal updates are simple:
 
 ```bash
 git pull --ff-only origin main
 bash gnome-shell/install.sh
 ```
+
+Runtime-only changes use the stable bootstrap/hot-swap path, so **normal updates do not require Log Out → Log In**. A session restart is only expected when GNOME itself needs to discover a new bootstrap/schema state rather than an ordinary runtime revision.
 
 ## Preferences
 
