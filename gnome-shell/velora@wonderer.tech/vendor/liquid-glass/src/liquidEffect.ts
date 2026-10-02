@@ -306,6 +306,7 @@ export const LiquidEffect = GObject.registerClass({
   declare private _inLiveGeometry: boolean;
 
   declare private _material: MaterialSettings;
+  declare private _aoIntensityOverride: number | null;
 
   declare private _crop: CropPass;
 
@@ -372,6 +373,7 @@ export const LiquidEffect = GObject.registerClass({
     this._uniforms = new UniformState();
     this._geometry = new GlassGeometry(this._uniforms.values);
     this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
+    this._aoIntensityOverride = null;
 
     this._material.initialize();
     this._loadAllShadersAsync();
@@ -441,6 +443,10 @@ export const LiquidEffect = GObject.registerClass({
    */
   vfunc_paint_target(_paintNode: Clutter.PaintNode, paintContext: Clutter.PaintContext): void {
     this._notePaint();
+
+    if (this._aoIntensityOverride !== null)
+      this._uniforms.set('ao_intensity', this._aoIntensityOverride);
+
     // ── Live geometry ───────────────────────────────────────────────────────
     // [FIX] The one place in the frame where an animated actor's position is
     // final. See setLiveGeometryHook() for the whole story; in short, the
@@ -1253,6 +1259,18 @@ export const LiquidEffect = GObject.registerClass({
    */
   setSurfaceLightEnabled(enabled: boolean): void {
     this._uniforms.set('surface_light_enabled', enabled ? 1.0 : 0.0);
+    this._queueRepaintIfDirty();
+  }
+
+  setAoIntensityOverride(value: number | null = null): void {
+    this._aoIntensityOverride =
+      value === null
+        ? null
+        : Math.max(0.0, Number(value) || 0.0);
+
+    if (this._aoIntensityOverride !== null)
+      this._uniforms.set('ao_intensity', this._aoIntensityOverride);
+
     this._queueRepaintIfDirty();
   }
 

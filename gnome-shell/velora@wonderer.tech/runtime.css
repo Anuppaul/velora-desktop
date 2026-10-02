@@ -560,21 +560,15 @@
 /* Search entry and overview dash receive their own ShellCard LiquidEffect;
  * everything below is only native paint reduction, not another blur pass. */
 #overviewGroup .search-entry.velora-liquid-shell-card,
-.velora-spotlight-card .search-entry.velora-liquid-shell-card {
-    background-color: transparent;
-    background-image: none;
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: none;
-}
-
+.velora-spotlight-card .search-entry.velora-liquid-shell-card,
 #overviewGroup .search-entry.velora-liquid-shell-card:hover,
-.velora-spotlight-card .search-entry.velora-liquid-shell-card:hover {
-    border-color: rgba(255, 255, 255, 0.20);
-}
-
+.velora-spotlight-card .search-entry.velora-liquid-shell-card:hover,
 #overviewGroup .search-entry.velora-liquid-shell-card:focus,
 .velora-spotlight-card .search-entry.velora-liquid-shell-card:focus {
-    border-color: rgba(255, 255, 255, 0.28);
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
 }
 
 /* Search providers sit directly on the same native blurred wallpaper used

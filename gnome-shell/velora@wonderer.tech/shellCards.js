@@ -276,6 +276,11 @@ class ShellCardSurface {
         this._effect.setSurfaceLightEnabled?.(
             !this._isSearchEntry
         );
+        this._effect.setAoIntensityOverride?.(
+            this._isSearchEntry
+                ? 0.0
+                : null
+        );
 
         this._material?.queue_redraw?.();
     }
