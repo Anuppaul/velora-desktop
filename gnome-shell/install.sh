@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-10-02.200"
+INSTALLER_VERSION="2026-10-02.210"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -39,6 +39,7 @@ RUNTIME_FILES=(
     "searchSurface.js"
     "spotlightGlass.js"
     "spotlightSearch.js"
+    "readmeCapture.js"
     "sharedAdaptiveText.js"
     "orbGlass.js"
 )
@@ -816,6 +817,7 @@ if command -v unzip >/dev/null 2>&1; then
         "stylesheet.css"
         "runtime.js"
         "orbThemeRuntime.js"
+        "readmeCapture.js"
         "runtime.css"
         "apps.js"
         "geometry.js"
@@ -882,7 +884,7 @@ refresh_prefs_process
 
 for installed_file in \
     metadata.json extension.js prefs.js stylesheet.css \
-    runtime.js orbThemeRuntime.js runtime.css apps.js geometry.js \
+    runtime.js orbThemeRuntime.js readmeCapture.js runtime.css apps.js geometry.js \
     liquidGlassDock.js notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."

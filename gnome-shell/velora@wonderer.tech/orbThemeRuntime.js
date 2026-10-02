@@ -12,6 +12,7 @@ import {collectDockApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
 import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
+import {ReadmeCaptureBridge} from './readmeCapture.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -122,6 +123,7 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = null;
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
+        this._readmeCapture = null;
 
         this._removeStaleLayers();
         this._createLayer();
@@ -183,6 +185,7 @@ export default class VeloraRuntime extends Extension {
         );
         this._connectSignals();
         this._setupDockHoverPreviews();
+        this._readmeCapture = new ReadmeCaptureBridge(this);
 
         globalThis[RUNTIME_SINGLETON_KEY] = this;
         console.log(
@@ -205,6 +208,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._readmeCapture?.destroy?.();
+        this._readmeCapture = null;
         this._spotlightSearch?.destroy?.();
         this._spotlightSearch = null;
         this._searchSurfaceManager?.cleanup?.();
