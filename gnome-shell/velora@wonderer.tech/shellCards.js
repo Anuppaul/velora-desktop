@@ -18,13 +18,11 @@ const TARGET_CLASSES = new Set([
     'workspace-switcher',
     'app-folder-dialog',
     'resize-popup',
-    'search-entry',
     'workspace-thumbnails',
     'dash-background',
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
-    'search-entry',
     'workspace-thumbnails',
     'dash-background',
 ]);
@@ -769,9 +767,10 @@ export class ShellCardGlassManager {
         if (!targetClass)
             return;
 
-        // search-entry and dash-background are reused/related classes in other
-        // Shell surfaces. Only glassify these when they belong to GNOME's
-        // overviewGroup, so Ubuntu Dock and unrelated St actors are untouched.
+        // Overview-only classes can also appear in related Shell surfaces.
+        // Only glassify them inside GNOME's overviewGroup, so Ubuntu Dock and
+        // unrelated St actors are untouched. Search entries deliberately use
+        // the dedicated lightweight Search Surface path instead.
         if (OVERVIEW_ONLY_CLASSES.has(targetClass)) {
             const overview = Main.layoutManager.overviewGroup;
             if (!overview?.contains?.(actor))
@@ -783,36 +782,6 @@ export class ShellCardGlassManager {
             this._surfaces.set(actor, surface);
             this._syncStageLoopState();
         }
-    }
-
-    attachExternal(actor) {
-        if (
-            !this._enabled ||
-            !actor
-        ) {
-            return null;
-        }
-
-        const existing =
-            this._surfaces.get(actor);
-        if (existing)
-            return existing;
-
-        const surface =
-            new ShellCardSurface(
-                this,
-                actor
-            );
-
-        if (!surface.attach())
-            return null;
-
-        this._surfaces.set(
-            actor,
-            surface
-        );
-        this._syncStageLoopState();
-        return surface;
     }
 
     _surfaceDestroyed(actor, surface) {

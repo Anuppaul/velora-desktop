@@ -557,18 +557,32 @@
 
 
 /* Overview / Search / App Grid ------------------------------------------ */
-/* Search entry and overview dash receive their own ShellCard LiquidEffect;
- * everything below is only native paint reduction, not another blur pass. */
-#overviewGroup .search-entry.velora-liquid-shell-card,
-.velora-spotlight-card .search-entry.velora-liquid-shell-card,
-#overviewGroup .search-entry.velora-liquid-shell-card:hover,
-.velora-spotlight-card .search-entry.velora-liquid-shell-card:hover,
-#overviewGroup .search-entry.velora-liquid-shell-card:focus,
-.velora-spotlight-card .search-entry.velora-liquid-shell-card:focus {
-    background-color: transparent !important;
+/*
+ * Search entries deliberately stay OUT of ShellCardGlassManager. GNOME/Yaru
+ * already provide the correct native pill geometry; this single lightweight
+ * surface recipe is shared by App Grid and Super+Space. No offscreen FBO,
+ * capture margin, shader edge or focus-ring seam is involved.
+ */
+.search-entry.velora-search-surface,
+.search-entry.velora-search-surface:hover,
+.search-entry.velora-search-surface:focus {
     background-image: none !important;
-    border-color: transparent !important;
     box-shadow: none !important;
+}
+
+.search-entry.velora-search-surface {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+.search-entry.velora-search-surface:hover {
+    background-color: rgba(255, 255, 255, 0.090) !important;
+    border-color: rgba(255, 255, 255, 0.13) !important;
+}
+
+.search-entry.velora-search-surface:focus {
+    background-color: rgba(255, 255, 255, 0.105) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
 /* Search providers sit directly on the same native blurred wallpaper used
@@ -1373,11 +1387,8 @@
 /* Velora Spotlight ------------------------------------------------------- */
 
 /*
- * Spotlight reuses the exact App Grid search material:
- *   search-entry -> ShellCardGlassManager -> LiquidEffect(shellCard role)
- *
- * No independent colour/material recipe belongs here. These rules own only
- * standalone layout/spacing; shared Overview rules above own visible paint.
+ * Spotlight and App Grid share .velora-search-surface. These rules own only
+ * Spotlight container layout; the shared search recipe above owns the entry.
  */
 .velora-spotlight-layer {
     background-color: transparent;

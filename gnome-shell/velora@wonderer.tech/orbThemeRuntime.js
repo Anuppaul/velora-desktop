@@ -10,6 +10,7 @@ import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js'
 
 import {collectDockApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
+import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
 import {
     allocateAcrossRings,
@@ -119,10 +120,15 @@ export default class VeloraRuntime extends Extension {
         this._dragCurrentY = 0;
         this._dragGrab = null;
         this._liquidGlassIntegration = null;
+        this._searchSurfaceManager = null;
         this._spotlightSearch = null;
 
         this._removeStaleLayers();
         this._createLayer();
+
+        this._searchSurfaceManager =
+            new SearchSurfaceManager();
+        this._searchSurfaceManager.setup();
 
         this._liquidGlassIntegration = new LiquidGlassIntegration({
             veloraSettings: this._settings,
@@ -147,10 +153,6 @@ export default class VeloraRuntime extends Extension {
             new SpotlightSearchController({
                 settings: this._settings,
                 appSystem: this._appSystem,
-                attachShellCard: actor =>
-                    this._liquidGlassIntegration
-                        ?.attachShellCard?.(actor) ??
-                    null,
                 beforeOpen: () => {
                     this._cancelOpenTimer();
                     this._cancelCloseTimer();
@@ -189,6 +191,8 @@ export default class VeloraRuntime extends Extension {
         this._hideAppPreview(true);
         this._spotlightSearch?.destroy?.();
         this._spotlightSearch = null;
+        this._searchSurfaceManager?.cleanup?.();
+        this._searchSurfaceManager = null;
         this._cleanupDockHoverPreviews();
         this._closeMenu(true);
         this._destroyClosingActors();
@@ -231,6 +235,7 @@ export default class VeloraRuntime extends Extension {
         this._closingActors.clear();
         this._closingActors = null;
         this._liquidGlassIntegration = null;
+        this._searchSurfaceManager = null;
         this._spotlightSearch = null;
         this._appSystem = null;
         this._shellSettings = null;
