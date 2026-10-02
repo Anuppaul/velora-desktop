@@ -182,42 +182,99 @@ export class OverviewCloseGlassManager {
     }
 
     _setupOverviewFrameLoop() {
-        const ensure = () => this._ensureStageSync();
         const stop = () => {
             this._root?.hide?.();
             this._stopStageSync();
         };
 
+        const sync = () => {
+            const appGridActive =
+                Boolean(
+                    Main.overview
+                        ?.dash
+                        ?.showAppsButton
+                        ?.checked
+                );
+            const searchActive =
+                Boolean(
+                    Main.overview
+                        ?.searchController
+                        ?.searchActive
+                );
+
+            if (
+                this._enabled &&
+                Main.overview?.visible &&
+                this._overview?.visible &&
+                !appGridActive &&
+                !searchActive
+            ) {
+                this._ensureStageSync();
+            } else {
+                stop();
+            }
+        };
+
         try {
             this._overviewSignals.push({
                 object: Main.overview,
-                id: Main.overview.connect('showing', ensure),
+                id: Main.overview.connect(
+                    'showing',
+                    sync
+                ),
             });
             this._overviewSignals.push({
                 object: Main.overview,
-                id: Main.overview.connect('hidden', stop),
+                id: Main.overview.connect(
+                    'hidden',
+                    stop
+                ),
             });
         } catch {
             // Overview lifecycle signals vary slightly across Shell builds.
         }
 
         try {
+            const showAppsButton =
+                Main.overview
+                    ?.dash
+                    ?.showAppsButton;
+            if (showAppsButton) {
+                this._overviewSignals.push({
+                    object: showAppsButton,
+                    id: showAppsButton.connect(
+                        'notify::checked',
+                        sync
+                    ),
+                });
+            }
+        } catch {}
+
+        try {
+            const searchController =
+                Main.overview?.searchController;
+            if (searchController) {
+                this._overviewSignals.push({
+                    object: searchController,
+                    id: searchController.connect(
+                        'notify::search-active',
+                        sync
+                    ),
+                });
+            }
+        } catch {}
+
+        try {
             this._overviewSignals.push({
                 object: this._overview,
                 id: this._overview.connect(
                     'notify::visible',
-                    () => {
-                        if (this._overview?.visible)
-                            this._ensureStageSync();
-                        else
-                            stop();
-                    }
+                    sync
                 ),
             });
         } catch {}
 
-        if (Main.overview?.visible || this._overview?.visible)
-            this._ensureStageSync();
+        sync();
     }
 
     _createLayer() {
@@ -893,10 +950,26 @@ export class OverviewCloseGlassManager {
             return;
         }
 
+        const appGridActive =
+            Boolean(
+                Main.overview
+                    ?.dash
+                    ?.showAppsButton
+                    ?.checked
+            );
+        const searchActive =
+            Boolean(
+                Main.overview
+                    ?.searchController
+                    ?.searchActive
+            );
+
         if (
             !this._overview.visible ||
             !this._overview.mapped ||
-            !Main.overview?.visible
+            !Main.overview?.visible ||
+            appGridActive ||
+            searchActive
         ) {
             if (this._root.visible)
                 this._root.hide?.();

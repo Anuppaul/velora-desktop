@@ -1,3 +1,4 @@
+import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
@@ -8,6 +9,7 @@ const APP_GRID_CLASS = 'apps-scroll-view';
 const SEARCH_RESULTS_NAME = 'searchResults';
 const OVERVIEW_WALLPAPER_CLASS = 'velora-overview-wallpaper';
 const BLUR_RADIUS = 36;
+const TRANSITION_BLUR_RADIUS = 12;
 const BLUR_BRIGHTNESS = 0.82;
 
 function classesOf(actor) {
@@ -28,6 +30,8 @@ export class AppGridBackdropManager {
         this._visibilitySignals = [];
         this._monitorsId = 0;
         this._scaleId = 0;
+        this._settleBlurSourceId = 0;
+        this._currentBlurRadius = BLUR_RADIUS;
     }
 
     setup() {
@@ -42,27 +46,51 @@ export class AppGridBackdropManager {
         this._createLayer();
         this._findOverviewSurfaces();
 
-        const syncVisibility = () => this._syncVisibility();
-        const visibilitySources = [
-            [Main.overview, ['showing', 'shown', 'hiding', 'hidden']],
-            [overview, ['notify::visible', 'notify::mapped']],
-        ];
-
-        for (const [object, signals] of visibilitySources) {
+        const connect = (object, signal, callback) => {
             if (!object)
-                continue;
+                return;
 
-            for (const signal of signals) {
-                try {
-                    this._visibilitySignals.push({
-                        object,
-                        id: object.connect(signal, syncVisibility),
-                    });
-                } catch {
-                    // Signal availability varies slightly between Shell builds.
-                }
+            try {
+                this._visibilitySignals.push({
+                    object,
+                    id: object.connect(signal, callback),
+                });
+            } catch {
+                // Signal availability varies slightly between Shell builds.
             }
-        }
+        };
+
+        connect(
+            Main.overview,
+            'showing',
+            () => this._syncVisibility('showing')
+        );
+        connect(
+            Main.overview,
+            'shown',
+            () => this._syncVisibility('shown')
+        );
+        connect(
+            Main.overview,
+            'hiding',
+            () => this._syncVisibility('hiding')
+        );
+        connect(
+            Main.overview,
+            'hidden',
+            () => this._syncVisibility('hidden')
+        );
+        connect(
+            overview,
+            'notify::visible',
+            () => this._syncVisibility()
+        );
+        connect(
+            overview,
+            'notify::mapped',
+            () => this._syncVisibility()
+        );
+
         this._syncVisibility();
 
         this._monitorsId = Main.layoutManager.connect(
@@ -157,7 +185,9 @@ export class AppGridBackdropManager {
         this._updateBlur();
     }
 
-    _updateBlur() {
+    _updateBlur(radius = this._currentBlurRadius) {
+        this._currentBlurRadius = radius;
+
         let scale = 1;
         try {
             scale =
@@ -173,7 +203,7 @@ export class AppGridBackdropManager {
                 );
             effect?.set?.({
                 brightness: BLUR_BRIGHTNESS,
-                radius: BLUR_RADIUS * scale,
+                radius: radius * scale,
             });
         }
     }
@@ -231,7 +261,42 @@ export class AppGridBackdropManager {
         );
     }
 
-    _syncVisibility() {
+    _cancelSettledBlur() {
+        if (!this._settleBlurSourceId)
+            return;
+
+        try {
+            GLib.source_remove(
+                this._settleBlurSourceId
+            );
+        } catch {}
+        this._settleBlurSourceId = 0;
+    }
+
+    _scheduleSettledBlur() {
+        this._cancelSettledBlur();
+
+        this._settleBlurSourceId =
+            GLib.idle_add(
+                GLib.PRIORITY_DEFAULT_IDLE,
+                () => {
+                    this._settleBlurSourceId = 0;
+
+                    if (
+                        this._enabled &&
+                        Main.overview?.visible
+                    ) {
+                        this._updateBlur(
+                            BLUR_RADIUS
+                        );
+                    }
+
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+    }
+
+    _syncVisibility(phase = null) {
         if (!this._enabled || !this._layer)
             return;
 
@@ -251,9 +316,23 @@ export class AppGridBackdropManager {
             overview.add_style_class_name?.(
                 OVERVIEW_WALLPAPER_CLASS
             );
+
+            if (
+                phase === 'showing' ||
+                phase === 'hiding'
+            ) {
+                this._cancelSettledBlur();
+                this._updateBlur(
+                    TRANSITION_BLUR_RADIUS
+                );
+            } else if (phase === 'shown') {
+                this._scheduleSettledBlur();
+            }
+
             if (!this._layer.visible)
                 this._layer.show?.();
         } else {
+            this._cancelSettledBlur();
             overview?.remove_style_class_name?.(
                 OVERVIEW_WALLPAPER_CLASS
             );
@@ -272,6 +351,7 @@ export class AppGridBackdropManager {
         if (!this._enabled)
             return;
         this._enabled = false;
+        this._cancelSettledBlur();
 
         for (const {object, id} of this._visibilitySignals) {
             try {
