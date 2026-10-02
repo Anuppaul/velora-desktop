@@ -281,6 +281,10 @@ class ShellCardSurface {
                 ? 0.0
                 : null
         );
+        this._effect.setShadowOverride?.(
+            this._isSearchEntry ? 0.0 : null,
+            this._isSearchEntry ? 0.0 : null
+        );
 
         this._material?.queue_redraw?.();
     }

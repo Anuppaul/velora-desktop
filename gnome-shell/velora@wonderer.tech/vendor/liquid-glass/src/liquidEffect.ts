@@ -307,6 +307,7 @@ export const LiquidEffect = GObject.registerClass({
 
   declare private _material: MaterialSettings;
   declare private _aoIntensityOverride: number | null;
+  declare private _shadowOverride: {radius: number; intensity: number} | null;
 
   declare private _crop: CropPass;
 
@@ -374,6 +375,7 @@ export const LiquidEffect = GObject.registerClass({
     this._geometry = new GlassGeometry(this._uniforms.values);
     this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
     this._aoIntensityOverride = null;
+    this._shadowOverride = null;
 
     this._material.initialize();
     this._loadAllShadersAsync();
@@ -446,6 +448,11 @@ export const LiquidEffect = GObject.registerClass({
 
     if (this._aoIntensityOverride !== null)
       this._uniforms.set('ao_intensity', this._aoIntensityOverride);
+
+    if (this._shadowOverride) {
+      this._uniforms.set('shadow_radius', this._shadowOverride.radius);
+      this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
+    }
 
     // ── Live geometry ───────────────────────────────────────────────────────
     // [FIX] The one place in the frame where an animated actor's position is
@@ -1271,6 +1278,22 @@ export const LiquidEffect = GObject.registerClass({
     if (this._aoIntensityOverride !== null)
       this._uniforms.set('ao_intensity', this._aoIntensityOverride);
 
+    this._queueRepaintIfDirty();
+  }
+
+  setShadowOverride(radius: number | null = null, intensity: number | null = null): void {
+    if (radius === null || intensity === null) {
+      this._shadowOverride = null;
+      return;
+    }
+
+    this._shadowOverride = {
+      radius: Math.max(0.0, Number(radius) || 0.0),
+      intensity: Math.max(0.0, Number(intensity) || 0.0),
+    };
+
+    this._uniforms.set('shadow_radius', this._shadowOverride.radius);
+    this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
     this._queueRepaintIfDirty();
   }
 
