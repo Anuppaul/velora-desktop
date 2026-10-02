@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-10-02.183"
+INSTALLER_VERSION="2026-10-02.184"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -34,6 +34,7 @@ RUNTIME_FILES=(
     "popupGlass.js"
     "shellCards.js"
     "appGridBackdrop.js"
+    "overviewSearchGlass.js"
     "overviewCloseGlass.js"
     "spotlightSearch.js"
     "sharedAdaptiveText.js"
