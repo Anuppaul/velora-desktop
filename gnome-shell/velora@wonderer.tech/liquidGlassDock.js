@@ -33,6 +33,9 @@ import {
     OrbGlassManager,
 } from './orbGlass.js';
 import {
+    SpotlightGlassManager,
+} from './spotlightGlass.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -430,6 +433,7 @@ export class LiquidGlassIntegration {
         this._overviewCloseGlassManager = null;
         this._sharedAdaptiveTextManager = null;
         this._orbGlassManager = null;
+        this._spotlightGlassManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._desktopInterfaceSettings = null;
@@ -467,6 +471,21 @@ export class LiquidGlassIntegration {
         this._enabled = false;
         this._externalGlobalStack = false;
         this._managerHealth = {};
+    }
+
+    attachSpotlightGlass(target, hostLayer) {
+        const attached =
+            this._spotlightGlassManager
+                ?.attach?.(
+                    target,
+                    hostLayer
+                ) ?? false;
+
+        if (attached)
+            this._sharedAdaptiveTextManager
+                ?.refresh?.();
+
+        return attached;
     }
 
     async enable() {
@@ -531,9 +550,30 @@ export class LiquidGlassIntegration {
             );
         }
 
-        // Keep the Velora-owned Orb and top-panel material live-bound to the
-        // same shared appearance controls in both standalone and upstream-stack
-        // modes.
+        try {
+            this._spotlightGlassManager =
+                new SpotlightGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                });
+            this._spotlightGlassManager.setup();
+            this._managerHealth.spotlightGlassManager = true;
+            console.log(
+                '[Velora][LiquidGlass] spotlightGlassManager active'
+            );
+        } catch (error) {
+            this._spotlightGlassManager = null;
+            this._managerHealth.spotlightGlassManager = false;
+            console.error(
+                '[Velora][LiquidGlass] spotlightGlassManager setup failed: ' +
+                error
+            );
+        }
+
+        // Keep Velora-owned materials live-bound to the same shared appearance
+        // controls in both standalone and upstream-stack modes.
         this._setupSharedCardAppearanceSync();
 
         // Dash-to-Dock's extend-height setting is its panel-mode source of
@@ -667,6 +707,7 @@ export class LiquidGlassIntegration {
                 this._shellCardGlassManager?.updateAppearance();
                 this._overviewCloseGlassManager?.updateAppearance();
                 this._orbGlassManager?.updateAppearance();
+                this._spotlightGlassManager?.refresh();
                 this._sharedAdaptiveTextManager?.refresh();
             }
         );
@@ -1307,6 +1348,7 @@ export class LiquidGlassIntegration {
         this._appGridBackdropManager?.updateAppearance(state);
         this._overviewCloseGlassManager?.updateAppearance(state);
         this._orbGlassManager?.updateAppearance(state);
+        this._spotlightGlassManager?.updateAppearance(state);
         this._sharedAdaptiveTextManager?.refresh();
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
@@ -1523,26 +1565,6 @@ export class LiquidGlassIntegration {
             filterOpacity * 0.6
         );
 
-        // Search stays on the lightweight seam-free path, but shares the
-        // System Liquid Glass colour/density controls. The neutral white
-        // filter and tint strength combine just like the accepted card look.
-        const searchOpacity = Math.max(
-            0,
-            Math.min(
-                0.24,
-                (state.opacity ?? 0) +
-                filterOpacity
-            )
-        );
-        const searchHoverOpacity = Math.min(
-            0.27,
-            searchOpacity + 0.015
-        );
-        const searchFocusOpacity = Math.min(
-            0.30,
-            searchOpacity + 0.030
-        );
-
         const systemAccent =
             this._readSystemAccentColor();
         const accentColor = systemAccent.color;
@@ -1598,30 +1620,6 @@ export class LiquidGlassIntegration {
             ') !important;\n' +
             '  background-image: none !important;\n' +
             '  box-shadow: none !important;\n' +
-            '}\n' +
-            '.search-entry.velora-search-surface {\n' +
-            '  background-color: rgba(' +
-            (state.r ?? 255) + ',' +
-            (state.g ?? 255) + ',' +
-            (state.b ?? 255) + ',' +
-            searchOpacity.toFixed(3) +
-            ') !important;\n' +
-            '}\n' +
-            '.search-entry.velora-search-surface:hover {\n' +
-            '  background-color: rgba(' +
-            (state.r ?? 255) + ',' +
-            (state.g ?? 255) + ',' +
-            (state.b ?? 255) + ',' +
-            searchHoverOpacity.toFixed(3) +
-            ') !important;\n' +
-            '}\n' +
-            '.search-entry.velora-search-surface:focus {\n' +
-            '  background-color: rgba(' +
-            (state.r ?? 255) + ',' +
-            (state.g ?? 255) + ',' +
-            (state.b ?? 255) + ',' +
-            searchFocusOpacity.toFixed(3) +
-            ') !important;\n' +
             '}\n' +
             '#panel.velora-liquid-top-panel {\n' +
             '  background-color: rgba(255,255,255,' +
@@ -4912,6 +4910,9 @@ export class LiquidGlassIntegration {
                 orbGlassManager: Boolean(
                     this._orbGlassManager
                 ),
+                spotlightGlassManager: Boolean(
+                    this._spotlightGlassManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -5092,6 +5093,12 @@ export class LiquidGlassIntegration {
             this._orbGlassManager
         );
         this._orbGlassManager = null;
+
+        cleanup(
+            'spotlightGlassManager',
+            this._spotlightGlassManager
+        );
+        this._spotlightGlassManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);

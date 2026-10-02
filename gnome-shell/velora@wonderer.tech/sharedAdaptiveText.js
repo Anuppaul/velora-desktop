@@ -16,7 +16,8 @@ const TEXT_DARK_CLASS = 'velora-shared-text-dark';
 const SHELL_CARD_CLASS = 'velora-liquid-shell-card';
 const POPUP_CLASS = 'velora-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
-const SEARCH_SURFACE_CLASS = 'velora-search-surface';
+const SPOTLIGHT_SEARCH_CLASS =
+    'velora-spotlight-glass-entry';
 
 const SCAN_INTERVAL_US = 1000000;
 const FRAME_TICK_GATE_US = 250000;
@@ -196,7 +197,7 @@ export class SharedAdaptiveTextManager {
         return (
             classes.includes(SHELL_CARD_CLASS) ||
             classes.includes(SEARCH_PROVIDER_CLASS) ||
-            classes.includes(SEARCH_SURFACE_CLASS) ||
+            classes.includes(SPOTLIGHT_SEARCH_CLASS) ||
             this._isManagedPopup(actor)
         );
     }

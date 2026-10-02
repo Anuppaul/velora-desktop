@@ -9,8 +9,6 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Keyboard from 'resource:///org/gnome/shell/ui/status/keyboard.js';
 
-import {decorateSearchEntry} from './searchSurface.js';
-
 const KEYBINDING_NAME = 'spotlight-keybinding';
 const INPUT_SOURCE_KEYBINDING = 'switch-input-source';
 const INPUT_SOURCE_SCHEMA = 'org.gnome.desktop.wm.keybindings';
@@ -45,6 +43,9 @@ export class SpotlightSearchController {
             Shell.AppSystem.get_default();
         this._beforeOpen =
             params.beforeOpen ?? null;
+        this._attachSpotlightGlass =
+            params.attachSpotlightGlass ??
+            null;
 
         this._enabled = false;
         this._visible = false;
@@ -578,7 +579,17 @@ export class SpotlightSearchController {
 
         Main.uiGroup.add_child(this._layer);
 
-        decorateSearchEntry(this._entry);
+        try {
+            this._attachSpotlightGlass?.(
+                this._entry,
+                this._layer
+            );
+        } catch (error) {
+            console.error(
+                '[Velora][Spotlight] core glass attach failed: ' +
+                error
+            );
+        }
 
         this._entry.clutter_text.connect(
             'text-changed',
@@ -1224,5 +1235,6 @@ export class SpotlightSearchController {
         this._appSystem = null;
         this._wmKeySettings = null;
         this._inputSourceManager = null;
+        this._attachSpotlightGlass = null;
     }
 }

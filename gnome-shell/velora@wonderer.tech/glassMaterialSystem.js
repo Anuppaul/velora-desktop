@@ -187,6 +187,13 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveResampleMs: 4000,
         hoverResponse: 0.38,
     }),
+    spotlight: Object.freeze({
+        multiRegion: true,
+        sceneFpsCap: 24,
+        adaptiveText: true,
+        hoverResponse: 0.32,
+        focusResponse: 0.16,
+    }),
     osd: Object.freeze({
         multiRegion: false,
     }),

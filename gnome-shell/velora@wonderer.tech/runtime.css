@@ -585,20 +585,6 @@
     border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
-/* SharedAdaptiveText owns foreground polarity for both App Grid and
- * Super+Space search. Keep the hint and symbolic icons on the same side. */
-.search-entry.velora-search-surface.velora-shared-text-light,
-.search-entry.velora-search-surface.velora-shared-text-light StLabel.hint-text,
-.search-entry.velora-search-surface.velora-shared-text-light .search-entry-icon {
-    color: #f7f8fc !important;
-}
-
-.search-entry.velora-search-surface.velora-shared-text-dark,
-.search-entry.velora-search-surface.velora-shared-text-dark StLabel.hint-text,
-.search-entry.velora-search-surface.velora-shared-text-dark .search-entry-icon {
-    color: #17191f !important;
-}
-
 /* Search providers sit directly on the same native blurred wallpaper used
  * by App Grid. Keep cards deliberately light: no custom per-provider shader,
  * no extra blur pass, just a premium translucent plate over the cached blur. */
@@ -1401,9 +1387,32 @@
 /* Velora Spotlight ------------------------------------------------------- */
 
 /*
- * Spotlight and App Grid share .velora-search-surface. These rules own only
- * Spotlight container layout; the shared search recipe above owns the entry.
+ * The Super+Space entry uses a dedicated core LiquidEffect rendered by
+ * SpotlightGlassManager. Keep native St.Entry paint transparent so the real
+ * Velora glass is the only surface visible. App Grid stays on its separate
+ * lightweight line-free search surface.
  */
+.search-entry.velora-spotlight-glass-entry,
+.search-entry.velora-spotlight-glass-entry:hover,
+.search-entry.velora-spotlight-glass-entry:focus {
+    background-color: rgba(255, 255, 255, 0.035) !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-light,
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-light StLabel.hint-text,
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-light .search-entry-icon {
+    color: #f7f8fc !important;
+}
+
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-dark,
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-dark StLabel.hint-text,
+.search-entry.velora-spotlight-glass-entry.velora-shared-text-dark .search-entry-icon {
+    color: #17191f !important;
+}
+
 .velora-spotlight-layer {
     background-color: transparent;
 }
