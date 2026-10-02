@@ -559,25 +559,29 @@
 /* Overview / Search / App Grid ------------------------------------------ */
 /* Search entry and overview dash receive their own ShellCard LiquidEffect;
  * everything below is only native paint reduction, not another blur pass. */
-#overviewGroup .search-entry.velora-liquid-shell-card {
+#overviewGroup .search-entry.velora-liquid-shell-card,
+.velora-spotlight-card .search-entry.velora-liquid-shell-card {
     background-color: transparent;
     background-image: none;
     border-color: rgba(255, 255, 255, 0.14);
     box-shadow: none;
 }
 
-#overviewGroup .search-entry.velora-liquid-shell-card:hover {
+#overviewGroup .search-entry.velora-liquid-shell-card:hover,
+.velora-spotlight-card .search-entry.velora-liquid-shell-card:hover {
     border-color: rgba(255, 255, 255, 0.20);
 }
 
-#overviewGroup .search-entry.velora-liquid-shell-card:focus {
+#overviewGroup .search-entry.velora-liquid-shell-card:focus,
+.velora-spotlight-card .search-entry.velora-liquid-shell-card:focus {
     border-color: rgba(255, 255, 255, 0.28);
 }
 
 /* Search providers sit directly on the same native blurred wallpaper used
  * by App Grid. Keep cards deliberately light: no custom per-provider shader,
  * no extra blur pass, just a premium translucent plate over the cached blur. */
-#overviewGroup .search-section-content {
+#overviewGroup .search-section-content,
+.velora-spotlight-card .search-section-content {
     background-color: rgba(255, 255, 255, 0.065) !important;
     background-image: none !important;
     border: 1px solid rgba(255, 255, 255, 0.10) !important;
@@ -587,7 +591,8 @@
 
 #overviewGroup .list-search-result,
 #overviewGroup .grid-search-result,
-#overviewGroup .search-provider-icon {
+#overviewGroup .search-provider-icon,
+.velora-spotlight-card .list-search-result {
     background-color: transparent;
     background-image: none;
     border-color: transparent;
@@ -599,7 +604,9 @@
 #overviewGroup .grid-search-result:hover,
 #overviewGroup .grid-search-result:focus,
 #overviewGroup .search-provider-icon:hover,
-#overviewGroup .search-provider-icon:focus {
+#overviewGroup .search-provider-icon:focus,
+.velora-spotlight-card .list-search-result:hover,
+.velora-spotlight-card .list-search-result:focus {
     background-color: rgba(255, 255, 255, 0.085);
     border-color: rgba(255, 255, 255, 0.12);
 }
@@ -1372,9 +1379,11 @@
 /* Velora Spotlight ------------------------------------------------------- */
 
 /*
- * Keep GNOME Search geometry and interaction exactly native. Velora only
- * applies a quiet translucent material treatment so wallpaper colour can bleed
- * through without turning the search field into an opaque dark pill.
+ * Spotlight reuses the exact App Grid search material:
+ *   search-entry -> ShellCardGlassManager -> LiquidEffect(shellCard role)
+ *
+ * No independent colour/material recipe belongs here. These rules own only
+ * standalone layout/spacing; shared Overview rules above own visible paint.
  */
 .velora-spotlight-layer {
     background-color: transparent;
@@ -1389,57 +1398,12 @@
     box-shadow: none;
 }
 
-.search-entry {
-    transition-duration: 120ms;
-}
-
-#velora-spotlight-card .search-entry,
 .velora-spotlight-card .search-entry {
-    color: rgba(248, 244, 255, 0.94);
-    caret-color: rgba(255, 255, 255, 0.96);
-    selected-color: #ffffff;
-    selection-background-color: rgba(167, 139, 250, 0.34);
-    background-color: rgba(244, 236, 255, 0.105);
-    border-color: rgba(255, 255, 255, 0.075);
-    box-shadow: 0 8px 26px 0 rgba(22, 12, 48, 0.16);
+    margin-top: 0;
 }
 
-#velora-spotlight-card .search-entry:hover,
-.velora-spotlight-card .search-entry:hover {
-    background-color: rgba(246, 240, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.095);
-}
-
-#velora-spotlight-card .search-entry:focus,
-.velora-spotlight-card .search-entry:focus {
-    background-color: rgba(248, 242, 255, 0.135);
-    border-color: rgba(224, 210, 255, 0.18);
-    box-shadow: 0 10px 30px 0 rgba(20, 10, 46, 0.18);
-}
-
-#velora-spotlight-card .search-entry .search-entry-icon,
-.velora-spotlight-card .search-entry .search-entry-icon {
-    color: rgba(245, 239, 255, 0.82);
-}
-
-.search-section-content.velora-spotlight-results {
-    margin-top: 2px;
-    background-color: rgba(244, 236, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.07);
-    box-shadow: 0 14px 38px 0 rgba(20, 10, 46, 0.18);
-}
-
-.search-section-content.velora-spotlight-results .list-search-result {
-    color: rgba(248, 244, 255, 0.94);
-}
-
-.search-section-content.velora-spotlight-results .list-search-result:hover,
-.search-section-content.velora-spotlight-results .list-search-result:focus {
-    background-color: rgba(255, 255, 255, 0.09);
-}
-
-.search-section-content.velora-spotlight-results .list-search-result-description {
-    color: rgba(242, 235, 255, 0.58);
+.velora-spotlight-card .search-section-content {
+    margin: 2px 0 0 0;
 }
 
 .velora-spotlight-result-icon-bin {

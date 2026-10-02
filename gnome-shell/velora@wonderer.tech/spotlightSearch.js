@@ -43,6 +43,8 @@ export class SpotlightSearchController {
             Shell.AppSystem.get_default();
         this._beforeOpen =
             params.beforeOpen ?? null;
+        this._attachShellCard =
+            params.attachShellCard ?? null;
 
         this._enabled = false;
         this._visible = false;
@@ -575,6 +577,20 @@ export class SpotlightSearchController {
         this._layer.add_child(this._card);
 
         Main.uiGroup.add_child(this._layer);
+
+        // Reuse the exact same ShellCard LiquidEffect pipeline as GNOME
+        // Overview's App Grid search entry. This is the material path that
+        // produces Velora's accepted search-bar appearance.
+        try {
+            this._attachShellCard?.(
+                this._entry
+            );
+        } catch (error) {
+            console.error(
+                '[Velora][Spotlight] shared search material attach failed: ' +
+                error
+            );
+        }
 
         this._entry.clutter_text.connect(
             'text-changed',
@@ -1220,5 +1236,6 @@ export class SpotlightSearchController {
         this._appSystem = null;
         this._wmKeySettings = null;
         this._inputSourceManager = null;
+        this._attachShellCard = null;
     }
 }

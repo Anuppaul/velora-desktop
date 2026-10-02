@@ -147,6 +147,10 @@ export default class VeloraRuntime extends Extension {
             new SpotlightSearchController({
                 settings: this._settings,
                 appSystem: this._appSystem,
+                attachShellCard: actor =>
+                    this._liquidGlassIntegration
+                        ?.attachShellCard?.(actor) ??
+                    null,
                 beforeOpen: () => {
                     this._cancelOpenTimer();
                     this._cancelCloseTimer();

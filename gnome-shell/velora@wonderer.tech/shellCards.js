@@ -784,6 +784,36 @@ export class ShellCardGlassManager {
         }
     }
 
+    attachExternal(actor) {
+        if (
+            !this._enabled ||
+            !actor
+        ) {
+            return null;
+        }
+
+        const existing =
+            this._surfaces.get(actor);
+        if (existing)
+            return existing;
+
+        const surface =
+            new ShellCardSurface(
+                this,
+                actor
+            );
+
+        if (!surface.attach())
+            return null;
+
+        this._surfaces.set(
+            actor,
+            surface
+        );
+        this._syncStageLoopState();
+        return surface;
+    }
+
     _surfaceDestroyed(actor, surface) {
         if (this._surfaces.get(actor) === surface)
             this._surfaces.delete(actor);

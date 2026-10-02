@@ -469,6 +469,21 @@ export class LiquidGlassIntegration {
         this._managerHealth = {};
     }
 
+    attachShellCard(actor) {
+        if (
+            !this._enabled ||
+            !actor
+        ) {
+            return null;
+        }
+
+        return (
+            this._shellCardGlassManager
+                ?.attachExternal?.(actor) ??
+            null
+        );
+    }
+
     async enable() {
         if (this._enabled)
             return;
