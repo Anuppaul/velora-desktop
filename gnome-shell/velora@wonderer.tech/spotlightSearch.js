@@ -50,8 +50,6 @@ export class SpotlightSearchController {
             params.refreshAdaptiveText ??
             null;
         this._adaptiveRefreshSourceId = 0;
-        this._adaptiveResultsState =
-            'hidden';
 
         this._enabled = false;
         this._visible = false;
@@ -404,10 +402,7 @@ export class SpotlightSearchController {
                         this._visible
                     ) {
                         try {
-                            this._refreshAdaptiveText?.([
-                                this._entry,
-                                this._resultsBox,
-                            ]);
+                            this._refreshAdaptiveText?.();
                         } catch {}
                     }
 
@@ -879,8 +874,6 @@ export class SpotlightSearchController {
 
         this._emptyLabel?.hide?.();
         this._resultsBox?.hide?.();
-        this._adaptiveResultsState =
-            'hidden';
     }
 
     _updateResults() {
@@ -992,19 +985,7 @@ export class SpotlightSearchController {
         else
             this._selectedIndex = -1;
 
-        const adaptiveState =
-            apps.length > 0
-                ? 'results:' + apps.length
-                : 'empty';
-
-        if (
-            adaptiveState !==
-            this._adaptiveResultsState
-        ) {
-            this._adaptiveResultsState =
-                adaptiveState;
-            this._scheduleAdaptiveTextRefresh();
-        }
+        this._scheduleAdaptiveTextRefresh();
     }
 
     _setSelectedIndex(index) {

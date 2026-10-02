@@ -41,8 +41,11 @@ import {
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
 
+const UPSTREAM_EXTENSION_UUID =
+    'liquid-glass@thinkingcoding1231.gmail.com';
+
 const GLASS_SCHEMA =
-    'org.gnome.shell.extensions.velora.glass';
+    'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
 const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV3';
 const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV3';
@@ -141,40 +144,23 @@ export function canonicalVendorRoot() {
     ]);
 }
 
-function isVeloraVendorRoot(root) {
-    const value =
-        String(root ?? '')
-            .replace(/\/+$/, '');
-
-    return (
-        value.endsWith(
-            '/vendor/liquid-glass'
-        ) &&
-        value.includes(
-            '/velora@wonderer.tech/'
-        )
-    );
-}
-
-function acceptLoadedRendererRoot(root) {
-    if (
-        root &&
-        !isVeloraVendorRoot(root)
-    ) {
-        // GNOME Shell keeps GObject registrations and imported ES modules
-        // alive across extension hot reloads. Rejecting an already-loaded
-        // renderer graph here makes every glass manager fail to start until a
-        // full Shell/session restart. Reuse that in-memory graph for this
-        // session only; fresh sessions still resolve the canonical Velora
-        // renderer path below.
-        console.warn(
-            '[Velora][Glass] reusing an already-loaded renderer graph for ' +
-            'hot-session compatibility: ' +
-            root
+function activeUpstreamExtensionRoot() {
+    try {
+        const extension = Main.extensionManager.lookup(
+            UPSTREAM_EXTENSION_UUID
         );
+        if (
+            extension &&
+            extension.state === ExtensionState.ACTIVE &&
+            extension.path
+        ) {
+            return extension.path;
+        }
+    } catch {
+        // Upstream extension is not active/available.
     }
 
-    return root;
+    return null;
 }
 
 function previousRevisionVendorRoot(settings) {
@@ -353,9 +339,6 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     };
 
     if (globalThis[VENDOR_CACHE_KEY]) {
-        acceptLoadedRendererRoot(
-            globalThis[VENDOR_CACHE_KEY].root
-        );
         return ensureQuickSettingsManager(
             globalThis[VENDOR_CACHE_KEY]
         );
@@ -372,9 +355,6 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     // from a new URI can collide with process-global GObject registrations.
     const legacyCache = globalThis[LEGACY_VENDOR_CACHE_KEY] ?? null;
     if (legacyCache?.root) {
-        acceptLoadedRendererRoot(
-            legacyCache.root
-        );
         if (!legacyCache.WindowCloneManager) {
             const windowClones = await import(
                 moduleUri(
@@ -394,12 +374,11 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     let root =
         globalThis[VENDOR_ROOT_KEY] ??
         globalThis[LEGACY_VENDOR_ROOT_KEY] ??
+        activeUpstreamExtensionRoot() ??
         null;
 
-    if (root) {
-        acceptLoadedRendererRoot(root);
+    if (root)
         globalThis[VENDOR_ROOT_KEY] = root;
-    }
 
     if (!root) {
         const liquidType = GObject.type_from_name('LiquidGlassEffect');
@@ -473,6 +452,7 @@ export class LiquidGlassIntegration {
         this._dockVerticalOffsetSettingId = 0;
         this._dockFixedSettleStageId = 0;
         this._dockFixedSettleGeneration = 0;
+        this._dockGlassBeforePanelMode = null;
         this._ubuntuDockModule = null;
         this._ubuntuDockManager = null;
         this._dockModeGeneration = 0;
@@ -489,19 +469,11 @@ export class LiquidGlassIntegration {
         this._dumpKeybindingInstalled = false;
         this._glassRingSamplerActive = false;
         this._enabled = false;
+        this._externalGlobalStack = false;
         this._managerHealth = {};
     }
 
-    refreshAdaptiveText(actors = null) {
-        if (
-            Array.isArray(actors) &&
-            actors.length
-        ) {
-            this._sharedAdaptiveTextManager
-                ?.refreshActors?.(actors);
-            return;
-        }
-
+    refreshAdaptiveText() {
         this._sharedAdaptiveTextManager
             ?.refresh?.();
     }
@@ -537,21 +509,33 @@ export class LiquidGlassIntegration {
         this._settings = createLiquidGlassSettings();
         this._ensureFullGlassOpticsProfile();
 
+        const externalRoot = activeUpstreamExtensionRoot();
+        this._externalGlobalStack = Boolean(
+            externalRoot &&
+            externalRoot === this._vendor.root
+        );
+
         this._logger = new this._vendor.Logger(this._settings);
-        this._vendor.setUtilsLogger(this._logger);
-        this._loadStylesheet();
+        if (!this._externalGlobalStack)
+            this._vendor.setUtilsLogger(this._logger);
+
+        if (!this._externalGlobalStack)
+            this._loadStylesheet();
 
         this._enabled = true;
         console.log(
-            '[Velora][Glass] standalone renderer root: ' +
+            '[Velora][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
         );
 
-        // Attach Velora's shared DashManager rendering pipeline to Main.panel
-        // so the top panel itself receives the same material system.
+        // The upstream extension styles panel dropdowns, not the actual
+        // GNOME top bar. Attach the same upstream DashManager rendering
+        // pipeline to Main.panel so the top panel itself receives glass.
         this._setupTopPanelGlass();
 
-        // Orb is a Velora-owned surface and uses the same standalone renderer.
+        // Orb is a Velora-owned surface. The upstream Liquid Glass extension
+        // never knows about velora-desktop-layer, so it must be attached even
+        // when we reuse an already-active upstream renderer stack.
         try {
             this._orbGlassManager =
                 new OrbGlassManager({
@@ -598,7 +582,8 @@ export class LiquidGlassIntegration {
             );
         }
 
-        // Keep all Velora materials live-bound to the shared appearance controls.
+        // Keep Velora-owned materials live-bound to the same shared appearance
+        // controls in both standalone and upstream-stack modes.
         this._setupSharedCardAppearanceSync();
 
         // Dash-to-Dock's extend-height setting is its panel-mode source of
@@ -608,7 +593,21 @@ export class LiquidGlassIntegration {
         this._setupDashToDockModeWatch();
         this._setupDockVerticalOffsetWatch();
 
+        if (this._dockIsPanelMode())
+            this._syncDockGlassPreferenceForPanelMode(true);
+
         this._findNativeDashToDock();
+
+        if (this._externalGlobalStack) {
+            console.warn(
+                '[Velora][LiquidGlass] original Liquid Glass extension is ' +
+                'already active; reusing its global manager stack and ' +
+                'attaching only Velora-specific dock surfaces.'
+            );
+            this._installDebugState();
+            return;
+        }
+
         this._setupDiagnostics();
 
         const start = (name, fn) => {
@@ -2092,6 +2091,10 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupDashToDockModeWatch() {
+        // Restore the exact dock-glass preference that existed before panel
+        // mode temporarily suppressed the renderer.
+        this._syncDockGlassPreferenceForPanelMode(false);
+
         if (
             this._dashToDockSettings &&
             this._dashToDockPanelModeId
@@ -2355,6 +2358,63 @@ export class LiquidGlassIntegration {
         } catch {
             return false;
         }
+    }
+
+    _syncDockGlassPreferenceForPanelMode(panelMode) {
+        // Our vendored DockManager is detached directly, so changing the
+        // global Liquid Glass preference would only create an unnecessary
+        // remove/recreate cycle. This preference bridge is needed solely when
+        // an already-active upstream Liquid Glass stack owns the dock.
+        if (!this._settings || !this._externalGlobalStack)
+            return;
+
+        if (panelMode) {
+            if (this._dockGlassBeforePanelMode === null) {
+                try {
+                    this._dockGlassBeforePanelMode =
+                        this._settings.get_boolean(
+                            'enable-dock-glass'
+                        );
+                } catch {
+                    this._dockGlassBeforePanelMode = false;
+                }
+            }
+
+            try {
+                if (
+                    this._settings.get_boolean(
+                        'enable-dock-glass'
+                    )
+                ) {
+                    this._settings.set_boolean(
+                        'enable-dock-glass',
+                        false
+                    );
+                }
+            } catch {}
+
+            return;
+        }
+
+        if (this._dockGlassBeforePanelMode === null)
+            return;
+
+        const restore =
+            this._dockGlassBeforePanelMode;
+        this._dockGlassBeforePanelMode = null;
+
+        try {
+            if (
+                this._settings.get_boolean(
+                    'enable-dock-glass'
+                ) !== restore
+            ) {
+                this._settings.set_boolean(
+                    'enable-dock-glass',
+                    restore
+                );
+            }
+        } catch {}
     }
 
     async _setupUbuntuDockBridge() {
@@ -3414,6 +3474,10 @@ export class LiquidGlassIntegration {
             panelMode;
 
         if (panelMode) {
+            this._syncDockGlassPreferenceForPanelMode(
+                true
+            );
+
             this._findNativeDashToDock();
             this._dockModeTransitionTarget = null;
             this._scheduleNativeDashRescan();
@@ -3483,6 +3547,13 @@ export class LiquidGlassIntegration {
         this._dockModeTransitionTarget = null;
         this._dockHandoffActive = true;
 
+        // External Liquid Glass, if present, is restored only AFTER Ubuntu
+        // Dock has left extended geometry. This removes the old full-width
+        // black frame during panel -> dock transitions.
+        this._syncDockGlassPreferenceForPanelMode(
+            false
+        );
+
         this._findNativeDashToDock();
 
         const startedUs =
@@ -3531,6 +3602,9 @@ export class LiquidGlassIntegration {
                             entry
                         );
 
+                        if (this._externalGlobalStack)
+                            continue;
+
                         if (!entry.manager) {
                             ready = false;
                             continue;
@@ -3566,6 +3640,13 @@ export class LiquidGlassIntegration {
                             GLib.get_monotonic_time() -
                             startedUs
                         ) / 1000;
+
+                    if (
+                        this._externalGlobalStack &&
+                        elapsedMs < 320
+                    ) {
+                        ready = false;
+                    }
 
                     if (ready) {
                         this._dockModeHandoffId = 0;
@@ -4058,6 +4139,9 @@ export class LiquidGlassIntegration {
                 true
             );
 
+            if (this._externalGlobalStack)
+                return true;
+
             if (
                 !this._nativeDashIsReady(
                     entry.container
@@ -4089,6 +4173,9 @@ export class LiquidGlassIntegration {
             entry,
             true
         );
+
+        if (this._externalGlobalStack)
+            return true;
 
         if (
             !this._nativeDashIsReady(
@@ -4399,6 +4486,7 @@ export class LiquidGlassIntegration {
         if (
             !entry ||
             entry.manager ||
+            this._externalGlobalStack ||
             this._dockIsPanelMode() ||
             !this._nativeDashIsReady(entry.container)
         ) {
@@ -4851,6 +4939,8 @@ export class LiquidGlassIntegration {
                     this._notificationGlassManager
                 ),
                 osdManager: Boolean(this._osdManager),
+                externalGlobalStack:
+                    this._externalGlobalStack,
                 managerHealth: {
                     ...this._managerHealth,
                 },
@@ -4862,9 +4952,9 @@ export class LiquidGlassIntegration {
                     '[Velora][LiquidGlass][full-status] ' +
                     JSON.stringify(status)
                 );
-                const renderer =
+                const upstream =
                     globalThis.global?._lgGlass?.dump?.() ?? null;
-                return {status, renderer};
+                return {status, upstream};
             },
         };
     }
@@ -4926,27 +5016,30 @@ export class LiquidGlassIntegration {
             this._dumpKeybindingInstalled = false;
         }
 
-        try {
-            this._vendor?.stopGlassRingSampler();
-        } catch {
-            // Diagnostic cleanup is best-effort.
-        }
-        this._glassRingSamplerActive = false;
+        if (!this._externalGlobalStack) {
+            try {
+                this._vendor?.stopGlassRingSampler();
+            } catch {
+                // Diagnostic cleanup is best-effort.
+            }
+            this._glassRingSamplerActive = false;
 
-        try {
-            this._vendor?.adaptiveColorTweener?.stopAll();
-        } catch {
-            // Shared animation cleanup is best-effort.
-        }
-        try {
-            this._vendor?.destroySharedBackgroundSource?.();
-        } catch {
-            // Shared background cleanup is best-effort.
-        }
-        try {
-            this._vendor?.releaseAllClonedWindowActors?.();
-        } catch {
-            // Window clone cleanup is best-effort.
+            // Match upstream teardown ordering for shared compositor state.
+            try {
+                this._vendor?.adaptiveColorTweener?.stopAll();
+            } catch {
+                // Shared animation cleanup is best-effort.
+            }
+            try {
+                this._vendor?.destroySharedBackgroundSource?.();
+            } catch {
+                // Shared background cleanup is best-effort.
+            }
+            try {
+                this._vendor?.releaseAllClonedWindowActors?.();
+            } catch {
+                // Window clone cleanup is best-effort.
+            }
         }
 
         const cleanup = (name, manager) => {
@@ -5023,10 +5116,12 @@ export class LiquidGlassIntegration {
         this._notificationGlassManager = null;
         this._osdManager = null;
 
-        try {
-            this._vendor?.setUtilsLogger?.(null);
-        } catch {
-            // Logger may already be detached.
+        if (!this._externalGlobalStack) {
+            try {
+                this._vendor?.setUtilsLogger?.(null);
+            } catch {
+                // Logger may already be detached.
+            }
         }
 
         try {
@@ -5035,7 +5130,8 @@ export class LiquidGlassIntegration {
             // Logger cleanup is best-effort.
         }
 
-        this._unloadStylesheet();
+        if (!this._externalGlobalStack)
+            this._unloadStylesheet();
 
         if (globalThis[DEBUG_STATE_KEY])
             delete globalThis[DEBUG_STATE_KEY];
@@ -5045,6 +5141,7 @@ export class LiquidGlassIntegration {
         this._vendor = null;
         this._ubuntuDockModule = null;
         this._ubuntuDockManager = null;
+        this._externalGlobalStack = false;
         this._managerHealth = {};
     }
 }

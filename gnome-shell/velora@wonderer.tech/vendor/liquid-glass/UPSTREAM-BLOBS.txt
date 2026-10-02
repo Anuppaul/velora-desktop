@@ -1,7 +1,6 @@
 # Upstream Liquid Glass blob manifest
 # Repository: https://github.com/ryohsuke1231/liquid-glass
 # Commit: 8b216405aff906e56204fc0fa747e7ff69fe4451
-# Runtime/source provenance only. Velora-owned extension packaging and schema are intentionally excluded.
 # Format: <git-blob-sha>  <path relative to vendor/liquid-glass/>
 69555f99de801cc8aa4d0bce506392d97a51f98d  dist/actors/allocation.js
 ded7882a6338312be484f21d0f5ff64556038dab  dist/actors/dockGeometry.js
@@ -55,14 +54,25 @@ d0d704f7793bad3d9fe22da805daf34533d6db5a  dist/rendering/uniforms.js
 f4355e12fffa04ea45c4fc471977583dbed0651e  dist/uiManager.js
 1b8413dc2f8c070eee1a7fd75daf602ade3e61bc  dist/utils.js
 29b4c44e482fde4cea8a5d296fbf7b831a672001  dist/windowListService.js
+64194bf1ff3a3511a5e533314b8aee22e32b96bd  extension.js
 0ae99041a2c76de9ca19ffe3a1e05b0e0bc28a77  global.d.ts
 e5837dc76e9b92551e7b879e90f540490b403e3e  icons/audio-volume-medium-symbolic.svg
 a64bd829885fac4e5e9b3a5d5bce1627cefb5b5e  icons/dock-bottom-symbolic.svg
 60f4b388c5ff708473de58aa493d815c6995081d  icons/image-adjust-shadows-symbolic.svg
 c27e333ae21e1261500ba2274c145c76b0449d8a  icons/shapes-large-symbolic.svg
+01cf56f41e972ffd69a518188e748020884ea1e9  metadata.json
 641e8d061c9fe6a95215e03d232f4447f874ccd9  package-lock.json
 75f9bf20bfcd9f7c4b444345703276c0371211ce  package.json
+0224bc97144a2056884aadb96fafef2b1a6aa727  preferences/advanced-model.js
+41cdb32de331584e71c44517a4a2317c0000dd4c  preferences/advanced.js
+54acb1ff0871c51211f6da8a6adcf8870c574d39  preferences/controls.js
+66e1b38d0fcffa2635ec5501eb849f7a0c43cf9c  preferences/model.js
+edd9fe42a45d206cc53d9c95c27f7edc46d84a09  preferences/pages.js
+36d302b1844d8c5a3f369e9071ff436399ef344b  preferences/panel-menus.js
+845cae953d41c8bb0325e82b0b07a7e2296e07c2  preferences/windows.js
+4ce544c51cc388a5411897d5bf460a18406bd6d2  prefs.js
 d4f2c09f86d3862a28e0d8a0e1957d83656cfd52  resources.gresource.xml
+c38133e085f8c7131b973457616c5fb5c4abcde7  schemas/org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com.gschema.xml
 7052378430b92c1c6e93b5a3c0d7905d39b76734  shaders/downsample.frag
 2a32160cd7cff37fe3d9cbd39ab1c2aae057bf99  shaders/gaussian_h.frag
 11e7e6409946a26fb4108aaf08a53f75959d33f4  shaders/gaussian_v.frag

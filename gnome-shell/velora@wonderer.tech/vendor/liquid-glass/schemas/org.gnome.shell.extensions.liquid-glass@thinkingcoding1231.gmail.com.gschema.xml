@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.velora.glass" path="/org/gnome/shell/extensions/velora/glass/">
+  <schema id="org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com" path="/org/gnome/shell/extensions/liquid-glass/">
 
     <key name="preferences-advanced" type="b">
       <default>false</default>

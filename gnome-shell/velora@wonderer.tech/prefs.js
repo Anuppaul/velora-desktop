@@ -4,8 +4,8 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-const VELORA_GLASS_SCHEMA =
-    'org.gnome.shell.extensions.velora.glass';
+const LIQUID_GLASS_SCHEMA =
+    'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
 function createLiquidGlassSettings(extensionDir) {
     const schemaDir = extensionDir
@@ -18,9 +18,9 @@ function createLiquidGlassSettings(extensionDir) {
         Gio.SettingsSchemaSource.get_default(),
         false
     );
-    const schema = source.lookup(VELORA_GLASS_SCHEMA, true);
+    const schema = source.lookup(LIQUID_GLASS_SCHEMA, true);
     if (!schema)
-        throw new Error('Velora Glass schema not found');
+        throw new Error('Vendored Liquid Glass schema not found');
 
     return new Gio.Settings({settings_schema: schema});
 }
