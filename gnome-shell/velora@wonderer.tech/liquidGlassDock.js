@@ -156,15 +156,21 @@ function isVeloraVendorRoot(root) {
     );
 }
 
-function assertVeloraVendorRoot(root) {
+function acceptLoadedRendererRoot(root) {
     if (
         root &&
         !isVeloraVendorRoot(root)
     ) {
-        throw new Error(
-            'A renderer module graph from outside Velora is already loaded ' +
-            'in this GNOME Shell session. Restart the Shell/session once; ' +
-            'Velora will not reuse that module graph.'
+        // GNOME Shell keeps GObject registrations and imported ES modules
+        // alive across extension hot reloads. Rejecting an already-loaded
+        // renderer graph here makes every glass manager fail to start until a
+        // full Shell/session restart. Reuse that in-memory graph for this
+        // session only; fresh sessions still resolve the canonical Velora
+        // renderer path below.
+        console.warn(
+            '[Velora][Glass] reusing an already-loaded renderer graph for ' +
+            'hot-session compatibility: ' +
+            root
         );
     }
 
@@ -347,7 +353,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     };
 
     if (globalThis[VENDOR_CACHE_KEY]) {
-        assertVeloraVendorRoot(
+        acceptLoadedRendererRoot(
             globalThis[VENDOR_CACHE_KEY].root
         );
         return ensureQuickSettingsManager(
@@ -366,7 +372,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
     // from a new URI can collide with process-global GObject registrations.
     const legacyCache = globalThis[LEGACY_VENDOR_CACHE_KEY] ?? null;
     if (legacyCache?.root) {
-        assertVeloraVendorRoot(
+        acceptLoadedRendererRoot(
             legacyCache.root
         );
         if (!legacyCache.WindowCloneManager) {
@@ -391,7 +397,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
         null;
 
     if (root) {
-        assertVeloraVendorRoot(root);
+        acceptLoadedRendererRoot(root);
         globalThis[VENDOR_ROOT_KEY] = root;
     }
 
