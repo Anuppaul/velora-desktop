@@ -12,7 +12,6 @@ import {
 
 const CARD_CLASS = 'velora-liquid-shell-card';
 const OPTICAL_MARGIN = 104;
-const SEARCH_ENTRY_OPTICAL_MARGIN = 20;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
@@ -67,10 +66,12 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
+        this._isSearchEntry =
+            classesOf(target).includes(
+                'search-entry'
+            );
         this._opticalMargin =
-            classesOf(target).includes('search-entry')
-                ? SEARCH_ENTRY_OPTICAL_MARGIN
-                : OPTICAL_MARGIN;
+            OPTICAL_MARGIN;
         this._effect = null;
         this._signals = [];
         this._destroyed = false;
@@ -266,6 +267,14 @@ class ShellCardSurface {
                 saturation,
                 multiRegion: adapter.multiRegion,
             }
+        );
+
+        // Search bars use the same ShellCard material/refraction as the rest
+        // of Velora, but the directional rim/specular/sheen lobe renders as a
+        // long white streak above/across this extremely wide, shallow surface.
+        // Disable only that lighting group; blur, tint, AO and refraction stay.
+        this._effect.setSurfaceLightEnabled?.(
+            !this._isSearchEntry
         );
 
         this._material?.queue_redraw?.();
