@@ -14,7 +14,6 @@ const INPUT_SOURCE_KEYBINDING = 'switch-input-source';
 const INPUT_SOURCE_SCHEMA = 'org.gnome.desktop.wm.keybindings';
 const MAX_RESULTS = 6;
 const CARD_MAX_WIDTH = 720;
-const CARD_MIN_WIDTH = 460;
 const CARD_MARGIN = 32;
 const SEARCH_BAR_HEIGHT = 56;
 const DEFAULT_VERTICAL_POSITION = 18;
@@ -397,6 +396,7 @@ export class SpotlightSearchController {
 
     close(immediate = false) {
         this._pendingOpen = false;
+        this._cancelSearchUpdate();
 
         if (this._overviewHiddenId) {
             try {
