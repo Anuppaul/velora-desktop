@@ -1,10 +1,18 @@
 # Velora Desktop
 
-**Velora** is an open-source Liquid Glass material layer for **GNOME Shell 50** on Ubuntu.
+**Velora** is my attempt to bring a real Liquid Glass material to **GNOME Shell 50** without turning Ubuntu into a different desktop.
 
-It keeps the desktop's native interaction model, layout, controls, menus, content, and animations intact while progressively replacing supported GNOME Shell surface backgrounds with a GPU-rendered refractive glass material.
+I started building it because I wanted the desktop itself — the Dock, Quick Settings, calendar, notifications, search and other Shell surfaces — to feel more alive, translucent and refractive, but I did not want to replace the parts of GNOME that already work well.
 
-> Native GNOME/Ubuntu behavior first. Velora changes the material underneath it.
+That became the main rule of the project: **reuse the system instead of rebuilding it.**
+
+Velora does not put a second Dock on top of Ubuntu Dock, recreate GNOME popups, or maintain duplicate controls behind the real ones. GNOME still owns the layout, input, hit targets, accessibility, animations and behaviour. Velora works underneath those surfaces and changes the supported material they are painted with.
+
+That choice is also important for performance. Instead of continuously taking CPU screenshots or running a permanent JavaScript polling loop, Velora reuses shared wallpaper/background sources, compositor-native Clutter/Mutter actors and GPU effects. Blur can be downscaled and cached, updates are avoided when values have not changed, and expensive live scene work is only used where it is actually needed.
+
+The goal is simple: **keep GNOME feeling native and responsive while adding refraction, blur, tint, dispersion and depth with as little extra overhead as practical.**
+
+> Native GNOME/Ubuntu behaviour first. Velora changes the material underneath it.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![GNOME Shell](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg)
@@ -24,7 +32,7 @@ It keeps the desktop's native interaction model, layout, controls, menus, conten
 - **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
 - **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
-- **Performance-conscious renderer** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, and no permanent JS polling loop for popup surfaces.
+- **Built for low overhead** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, event-driven updates, and no permanent JS polling loop for popup surfaces.
 - **Open source** — released under the MIT License.
 
 ## Velora in action
