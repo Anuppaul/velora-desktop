@@ -24,6 +24,20 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 <p align="center"><sub>Velora keeps the GNOME desktop native while applying its shared Liquid Glass material across supported Shell surfaces.</sub></p>
 
+<p align="center">
+  <a href="#what-velora-adds--and-what-stays-native"><b>New vs Native</b></a>
+  ·
+  <a href="#velora-in-action"><b>Screenshots</b></a>
+  ·
+  <a href="#first-install"><b>First Install</b></a>
+  ·
+  <a href="#performance-principles"><b>Performance</b></a>
+  ·
+  <a href="#architecture"><b>Architecture</b></a>
+</p>
+
+
+
 ## Highlights
 
 - **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
@@ -37,21 +51,74 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 ## What Velora adds — and what stays native
 
-Velora deliberately mixes **new Velora features** with **native GNOME/Ubuntu surfaces that are only enhanced**. The distinction matters: where GNOME already has a good interaction model, Velora keeps it and changes the material instead of replacing the component.
+Velora deliberately mixes **new Velora features** with **native GNOME/Ubuntu surfaces that are only enhanced**.
 
-| Surface / feature | Ownership | What Velora changes |
+```mermaid
+flowchart LR
+    V["Velora Desktop"]
+
+    subgraph NEW["NEW — built by Velora"]
+        ORB["Velora Orb"]
+        SPOT["Velora Spotlight"]
+    end
+
+    subgraph NATIVE["NATIVE — reused, not replaced"]
+        DOCK["Ubuntu Dock"]
+        GRID["App Grid / Overview"]
+        QUICK["Quick Settings"]
+        CAL["Date / Calendar"]
+        NOTE["Notifications"]
+        POP["Panel / Status Popups"]
+    end
+
+    V --> ORB
+    V --> SPOT
+
+    V -. material / visual layer .-> DOCK
+    V -. material / visual layer .-> GRID
+    V -. material / visual layer .-> QUICK
+    V -. material / visual layer .-> CAL
+    V -. material / visual layer .-> NOTE
+    V -. material / visual layer .-> POP
+```
+
+<details open>
+<summary><b>✨ New features created by Velora</b></summary>
+
+| Feature | What Velora adds |
+| --- | --- |
+| **Velora Orb** | Draggable, multi-monitor radial launcher with app previews, tooltips, running indicators and idle hide/fade behaviour. |
+| **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and result presentation. |
+
+</details>
+
+<details>
+<summary><b>🧩 Native GNOME / Ubuntu surfaces enhanced by Velora</b></summary>
+
+| Native surface | What stays native | What Velora changes |
 | --- | --- | --- |
-| **Velora Orb** | **New Velora feature** | Adds the draggable, multi-monitor radial launcher with app previews, tooltips, running indicators and idle hide/fade behaviour. |
-| **Velora Spotlight** | **New Velora feature** | Adds the centered `Super+Space` application search with adaptive glass and result presentation. |
-| **Ubuntu Dock / Dash-to-Dock** | **Native — enhanced by Velora** | Keeps the real Ubuntu Dock, its icons, hit targets, autohide/intellihide and interaction model; Velora changes the supported surface material and related visual treatment. |
-| **GNOME App Grid / Overview** | **Native — enhanced by Velora** | Keeps GNOME's existing applications view and behaviour while applying supported Velora backdrop/material treatment. |
-| **Date / Calendar menu** | **Native — enhanced by Velora** | Keeps GNOME's original calendar, notifications, controls, geometry and animations; Velora supplies the glass material underneath. |
-| **Quick Settings** | **Native — enhanced by Velora** | Keeps GNOME's real Wi-Fi, Bluetooth, audio, power and other controls; Velora changes the supported Shell surface material. |
-| **Panel / status popups** | **Native — enhanced by Velora** | Reuses GNOME `PopupMenu` surfaces and native `BoxPointer` geometry instead of recreating popup UI. |
-| **Notifications / Shell cards** | **Native — enhanced by Velora** | Keeps native content, actions and animation while applying the shared Velora material where supported. |
-| **Window/application content** | **Native / untouched by Shell theming** | Velora does not replace GTK/libadwaita application interiors; those remain owned by the applications and toolkit. |
+| **Ubuntu Dock / Dash-to-Dock** | Icons, hit targets, autohide/intellihide, app behaviour | Supported background/material and visual treatment |
+| **GNOME App Grid / Overview** | Applications view, interaction, layout | Supported backdrop/material treatment |
+| **Date / Calendar** | Calendar, notifications, controls, geometry, animations | Glass material underneath |
+| **Quick Settings** | Wi-Fi, Bluetooth, audio, power and other controls | Supported Shell surface material |
+| **Panel / status popups** | GNOME `PopupMenu` + `BoxPointer` geometry | Shared glass material |
+| **Notifications / Shell cards** | Content, actions, animation | Shared Velora material where supported |
 
-This is also why Velora avoids the usual "two UIs at once" problem: there is no second Dock pretending to be Ubuntu Dock and no duplicate Quick Settings or calendar sitting behind the real one.
+</details>
+
+<details>
+<summary><b>🛡️ What Velora deliberately leaves alone</b></summary>
+
+- GTK/libadwaita application interiors
+- GNOME's native input and hit targets
+- GNOME accessibility ownership
+- Native Shell animation/geometry where material-only integration is possible
+
+Velora is not trying to become a replacement desktop environment.
+
+</details>
+
+> **Why this matters:** no second Dock pretending to be Ubuntu Dock, no duplicate Quick Settings, and no second calendar sitting behind the real one.
 
 ## Velora in action
 
@@ -121,6 +188,19 @@ Velora directly targets **GNOME Shell/compositor-owned UI**. GTK/libadwaita appl
 
 ## First install
 
+```mermaid
+flowchart LR
+    A["1. Clone"] --> B["2. Run installer"]
+    B --> C{"Loaded in current GNOME session?"}
+    C -- "Yes" --> F["Velora active"]
+    C -- "No" --> D["3. Log Out"]
+    D --> E["Log In"]
+    E --> F
+    F --> G["4. Verify"]
+    G --> H["5. Open Preferences"]
+```
+
+
 > [!IMPORTANT]
 > **A clean first install on GNOME Shell 50 normally needs one Log Out → Log In after the installer finishes.**  
 > This is only to let the running GNOME Shell session discover and load the newly installed local extension. **You do not need Looking Glass or unsafe-mode.**  
@@ -173,6 +253,15 @@ gnome-extensions prefs velora@wonderer.tech
 ```
 
 After this first activation, ordinary runtime updates use Velora's hot-swap path and normally **do not require another logout**.
+
+<details>
+<summary><b>Why is one Log Out → Log In needed on a clean install?</b></summary>
+
+The extension files can be installed immediately, but the already-running GNOME Shell session may not discover a brand-new local extension safely through its normal public activation path. The installer therefore enables Velora persistently, and the next normal login lets GNOME load it cleanly.
+
+This is a **first-discovery issue**, not a normal update requirement.
+
+</details>
 
 ## Update
 
