@@ -66,10 +66,6 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._wallpaperOnly = false;
-        this._isSearchEntry =
-            classesOf(target).includes(
-                'search-entry'
-            );
         this._opticalMargin =
             OPTICAL_MARGIN;
         this._effect = null;
@@ -267,28 +263,6 @@ class ShellCardSurface {
                 saturation,
                 multiRegion: adapter.multiRegion,
             }
-        );
-
-        // Search bars use the same ShellCard material/refraction as the rest
-        // of Velora, but the directional rim/specular/sheen lobe renders as a
-        // long white streak above/across this extremely wide, shallow surface.
-        // Disable only that lighting group; blur, tint, AO and refraction stay.
-        this._effect.setSurfaceLightEnabled?.(
-            !this._isSearchEntry
-        );
-        this._effect.setAoIntensityOverride?.(
-            this._isSearchEntry
-                ? 0.0
-                : null
-        );
-        this._effect.setShadowOverride?.(
-            this._isSearchEntry ? 0.0 : null,
-            this._isSearchEntry ? 0.0 : null
-        );
-        this._effect.setDisplacementScaleOverride?.(
-            this._isSearchEntry
-                ? 0.0
-                : null
         );
 
         this._material?.queue_redraw?.();

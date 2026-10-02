@@ -565,10 +565,10 @@
 .velora-spotlight-card .search-entry.velora-liquid-shell-card:hover,
 #overviewGroup .search-entry.velora-liquid-shell-card:focus,
 .velora-spotlight-card .search-entry.velora-liquid-shell-card:focus {
-    background-color: transparent;
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Search providers sit directly on the same native blurred wallpaper used

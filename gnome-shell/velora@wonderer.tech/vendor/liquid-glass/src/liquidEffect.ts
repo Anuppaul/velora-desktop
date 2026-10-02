@@ -306,9 +306,6 @@ export const LiquidEffect = GObject.registerClass({
   declare private _inLiveGeometry: boolean;
 
   declare private _material: MaterialSettings;
-  declare private _aoIntensityOverride: number | null;
-  declare private _shadowOverride: {radius: number; intensity: number} | null;
-  declare private _displacementScaleOverride: number | null;
 
   declare private _crop: CropPass;
 
@@ -375,9 +372,6 @@ export const LiquidEffect = GObject.registerClass({
     this._uniforms = new UniformState();
     this._geometry = new GlassGeometry(this._uniforms.values);
     this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
-    this._aoIntensityOverride = null;
-    this._shadowOverride = null;
-    this._displacementScaleOverride = null;
 
     this._material.initialize();
     this._loadAllShadersAsync();
@@ -447,18 +441,6 @@ export const LiquidEffect = GObject.registerClass({
    */
   vfunc_paint_target(_paintNode: Clutter.PaintNode, paintContext: Clutter.PaintContext): void {
     this._notePaint();
-
-    if (this._aoIntensityOverride !== null)
-      this._uniforms.set('ao_intensity', this._aoIntensityOverride);
-
-    if (this._shadowOverride) {
-      this._uniforms.set('shadow_radius', this._shadowOverride.radius);
-      this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
-    }
-
-    if (this._displacementScaleOverride !== null)
-      this._uniforms.set('displacement_scale', this._displacementScaleOverride);
-
     // ── Live geometry ───────────────────────────────────────────────────────
     // [FIX] The one place in the frame where an animated actor's position is
     // final. See setLiveGeometryHook() for the whole story; in short, the
@@ -1271,46 +1253,6 @@ export const LiquidEffect = GObject.registerClass({
    */
   setSurfaceLightEnabled(enabled: boolean): void {
     this._uniforms.set('surface_light_enabled', enabled ? 1.0 : 0.0);
-    this._queueRepaintIfDirty();
-  }
-
-  setAoIntensityOverride(value: number | null = null): void {
-    this._aoIntensityOverride =
-      value === null
-        ? null
-        : Math.max(0.0, Number(value) || 0.0);
-
-    if (this._aoIntensityOverride !== null)
-      this._uniforms.set('ao_intensity', this._aoIntensityOverride);
-
-    this._queueRepaintIfDirty();
-  }
-
-  setShadowOverride(radius: number | null = null, intensity: number | null = null): void {
-    if (radius === null || intensity === null) {
-      this._shadowOverride = null;
-      return;
-    }
-
-    this._shadowOverride = {
-      radius: Math.max(0.0, Number(radius) || 0.0),
-      intensity: Math.max(0.0, Number(intensity) || 0.0),
-    };
-
-    this._uniforms.set('shadow_radius', this._shadowOverride.radius);
-    this._uniforms.set('shadow_intensity', this._shadowOverride.intensity);
-    this._queueRepaintIfDirty();
-  }
-
-  setDisplacementScaleOverride(value: number | null = null): void {
-    this._displacementScaleOverride =
-      value === null
-        ? null
-        : Math.max(0.0, Number(value) || 0.0);
-
-    if (this._displacementScaleOverride !== null)
-      this._uniforms.set('displacement_scale', this._displacementScaleOverride);
-
     this._queueRepaintIfDirty();
   }
 
