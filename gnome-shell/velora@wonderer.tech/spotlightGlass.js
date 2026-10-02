@@ -371,9 +371,9 @@ export class SpotlightGlassManager {
             this._root?.hide?.();
             this._lastSceneSyncUs = 0;
             this._lastCullX = NaN;
-        this._lastCullY = NaN;
-        this._lastCullW = NaN;
-        this._lastCullH = NaN;
+            this._lastCullY = NaN;
+            this._lastCullW = NaN;
+            this._lastCullH = NaN;
             return;
         }
 
@@ -548,26 +548,25 @@ export class SpotlightGlassManager {
         if (!changed) {
             let index = 0;
             for (const region of resolvedRegions) {
-                const values = [
-                    Math.round(region.x * 10) / 10,
-                    Math.round(region.y * 10) / 10,
-                    Math.round(region.w * 10) / 10,
-                    Math.round(region.h * 10) / 10,
-                    region.response,
-                ];
+                const x =
+                    Math.round(region.x * 10) / 10;
+                const y =
+                    Math.round(region.y * 10) / 10;
+                const w =
+                    Math.round(region.w * 10) / 10;
+                const h =
+                    Math.round(region.h * 10) / 10;
 
-                for (const value of values) {
-                    if (
-                        this._lastRegionData[index++] !==
-                        value
-                    ) {
-                        changed = true;
-                        break;
-                    }
-                }
-
-                if (changed)
+                if (
+                    this._lastRegionData[index++] !== x ||
+                    this._lastRegionData[index++] !== y ||
+                    this._lastRegionData[index++] !== w ||
+                    this._lastRegionData[index++] !== h ||
+                    this._lastRegionData[index++] !== region.response
+                ) {
+                    changed = true;
                     break;
+                }
             }
         }
 
