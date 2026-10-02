@@ -13,6 +13,10 @@ export const SPOTLIGHT_GLASS_ENTRY_CLASS =
 
 const PAD = 20;
 const SHARED_RADIUS = 128;
+// Covers the shader's 96px edge-lens reach plus blur/filter sampling slack.
+// The scene clone cull must be larger than the visible pill or the refraction
+// samples the clipped edge and recreates the horizontal streak we removed.
+const SCENE_CAPTURE_MARGIN = 160;
 
 function finiteRect(rect) {
     return (
@@ -265,13 +269,7 @@ export class SpotlightGlassManager {
             this._target.visible &&
             this._target.mapped &&
             this._hostLayer.visible &&
-            this._hostLayer.mapped &&
-            (
-                this._target
-                    .get_paint_opacity?.() ??
-                this._target.opacity ??
-                255
-            ) > 0
+            this._hostLayer.mapped
         );
     }
 
@@ -376,11 +374,16 @@ export class SpotlightGlassManager {
 
         let focused = false;
         try {
+            const keyFocus =
+                global.stage.get_key_focus?.() ??
+                null;
             focused =
+                keyFocus === this._target ||
                 Boolean(
-                    this._target
-                        .clutter_text
-                        ?.has_key_focus?.()
+                    keyFocus &&
+                    this._target.contains?.(
+                        keyFocus
+                    )
                 );
         } catch {}
 
@@ -504,11 +507,34 @@ export class SpotlightGlassManager {
             return;
         }
 
+        const left = Math.max(
+            0,
+            region.x -
+                SCENE_CAPTURE_MARGIN
+        );
+        const top = Math.max(
+            0,
+            region.y -
+                SCENE_CAPTURE_MARGIN
+        );
+        const right = Math.min(
+            global.stage.width,
+            region.x +
+                region.w +
+                SCENE_CAPTURE_MARGIN
+        );
+        const bottom = Math.min(
+            global.stage.height,
+            region.y +
+                region.h +
+                SCENE_CAPTURE_MARGIN
+        );
+
         const cullRect = [
-            region.x,
-            region.y,
-            region.w,
-            region.h,
+            left,
+            top,
+            Math.max(1, right - left),
+            Math.max(1, bottom - top),
         ];
         const cullKey =
             cullRect
