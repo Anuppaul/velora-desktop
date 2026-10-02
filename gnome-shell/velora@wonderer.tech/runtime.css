@@ -1372,9 +1372,9 @@
 /* Velora Spotlight ------------------------------------------------------- */
 
 /*
- * The search entry and result rows intentionally use GNOME Shell's own
- * search-entry / search-section-content / list-search-result classes with no
- * visual overrides. Velora owns only placement and container spacing.
+ * Keep GNOME Search geometry and interaction exactly native. Velora only
+ * applies a quiet translucent material treatment so wallpaper colour can bleed
+ * through without turning the search field into an opaque dark pill.
  */
 .velora-spotlight-layer {
     background-color: transparent;
@@ -1389,8 +1389,57 @@
     box-shadow: none;
 }
 
+.search-entry {
+    transition-duration: 120ms;
+}
+
+#velora-spotlight-card .search-entry,
+.velora-spotlight-card .search-entry {
+    color: rgba(248, 244, 255, 0.94);
+    caret-color: rgba(255, 255, 255, 0.96);
+    selected-color: #ffffff;
+    selection-background-color: rgba(167, 139, 250, 0.34);
+    background-color: rgba(244, 236, 255, 0.105);
+    border-color: rgba(255, 255, 255, 0.075);
+    box-shadow: 0 8px 26px 0 rgba(22, 12, 48, 0.16);
+}
+
+#velora-spotlight-card .search-entry:hover,
+.velora-spotlight-card .search-entry:hover {
+    background-color: rgba(246, 240, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.095);
+}
+
+#velora-spotlight-card .search-entry:focus,
+.velora-spotlight-card .search-entry:focus {
+    background-color: rgba(248, 242, 255, 0.135);
+    border-color: rgba(224, 210, 255, 0.18);
+    box-shadow: 0 10px 30px 0 rgba(20, 10, 46, 0.18);
+}
+
+#velora-spotlight-card .search-entry .search-entry-icon,
+.velora-spotlight-card .search-entry .search-entry-icon {
+    color: rgba(245, 239, 255, 0.82);
+}
+
 .search-section-content.velora-spotlight-results {
     margin-top: 2px;
+    background-color: rgba(244, 236, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 14px 38px 0 rgba(20, 10, 46, 0.18);
+}
+
+.search-section-content.velora-spotlight-results .list-search-result {
+    color: rgba(248, 244, 255, 0.94);
+}
+
+.search-section-content.velora-spotlight-results .list-search-result:hover,
+.search-section-content.velora-spotlight-results .list-search-result:focus {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.search-section-content.velora-spotlight-results .list-search-result-description {
+    color: rgba(242, 235, 255, 0.58);
 }
 
 .velora-spotlight-result-icon-bin {
