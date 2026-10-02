@@ -154,10 +154,15 @@ export default class VeloraRuntime extends Extension {
                 settings: this._settings,
                 appSystem: this._appSystem,
                 attachSpotlightGlass:
-                    (target, hostLayer) =>
+                    (
+                        target,
+                        resultsTarget,
+                        hostLayer
+                    ) =>
                         this._liquidGlassIntegration
                             ?.attachSpotlightGlass?.(
                                 target,
+                                resultsTarget,
                                 hostLayer
                             ) ??
                         false,

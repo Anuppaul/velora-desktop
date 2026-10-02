@@ -478,11 +478,16 @@ export class LiquidGlassIntegration {
             ?.refresh?.();
     }
 
-    attachSpotlightGlass(target, hostLayer) {
+    attachSpotlightGlass(
+        target,
+        resultsTarget,
+        hostLayer
+    ) {
         const attached =
             this._spotlightGlassManager
                 ?.attach?.(
                     target,
+                    resultsTarget,
                     hostLayer
                 ) ?? false;
 

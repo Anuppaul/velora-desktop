@@ -10,9 +10,13 @@ import {
 
 export const SPOTLIGHT_GLASS_ENTRY_CLASS =
     'velora-spotlight-glass-entry';
+export const SPOTLIGHT_GLASS_RESULTS_CLASS =
+    'velora-spotlight-glass-results';
 
 const PAD = 20;
-const SHARED_RADIUS = 128;
+// Entry height is 68px; 34px keeps the search bar fully pill-shaped while
+// giving the taller results panel a premium but controlled corner radius.
+const SHARED_RADIUS = 34;
 // Covers the shader's 96px edge-lens reach plus blur/filter sampling slack.
 // The scene clone cull must be larger than the visible pill or the refraction
 // samples the clipped edge and recreates the horizontal streak we removed.
@@ -37,6 +41,7 @@ export class SpotlightGlassManager {
 
         this._enabled = false;
         this._target = null;
+        this._resultsTarget = null;
         this._hostLayer = null;
 
         this._root = null;
@@ -63,7 +68,7 @@ export class SpotlightGlassManager {
             this._readAppearance?.() ?? null;
     }
 
-    attach(target, hostLayer) {
+    attach(target, resultsTarget, hostLayer) {
         if (
             !this._enabled ||
             !target ||
@@ -75,12 +80,18 @@ export class SpotlightGlassManager {
         this._detachTarget();
 
         this._target = target;
+        this._resultsTarget =
+            resultsTarget ?? null;
         this._hostLayer = hostLayer;
 
         try {
             target.add_style_class_name?.(
                 SPOTLIGHT_GLASS_ENTRY_CLASS
             );
+            this._resultsTarget
+                ?.add_style_class_name?.(
+                    SPOTLIGHT_GLASS_RESULTS_CLASS
+                );
         } catch {}
 
         if (!this._root)
@@ -94,9 +105,14 @@ export class SpotlightGlassManager {
         for (const [obj, signal] of [
             [target, 'notify::visible'],
             [target, 'notify::mapped'],
+            [this._resultsTarget, 'notify::visible'],
+            [this._resultsTarget, 'notify::mapped'],
             [hostLayer, 'notify::visible'],
             [hostLayer, 'notify::mapped'],
         ]) {
+            if (!obj)
+                continue;
+
             try {
                 this._signals.push({
                     obj,
@@ -119,6 +135,22 @@ export class SpotlightGlassManager {
                     }
                 ),
             });
+        } catch {}
+
+        try {
+            if (this._resultsTarget) {
+                this._signals.push({
+                    obj: this._resultsTarget,
+                    id: this._resultsTarget.connect(
+                        'destroy',
+                        () => {
+                            this._resultsTarget = null;
+                            this._lastRegionKey = '';
+                            this._lastCullKey = '';
+                        }
+                    ),
+                });
+            }
         } catch {}
 
         this._applyAppearance();
@@ -354,14 +386,22 @@ export class SpotlightGlassManager {
         }
     }
 
-    _region() {
-        if (!this._target)
+    _regionFor(target, interactive = false) {
+        if (
+            !target ||
+            !target.visible ||
+            !target.mapped ||
+            (target.get_paint_opacity?.() ??
+                target.opacity ??
+                255) <= 0
+        ) {
             return null;
+        }
 
         const rect =
             this._vendor
                 .getTransformedRect(
-                    this._target
+                    target
                 );
 
         if (!finiteRect(rect))
@@ -373,28 +413,32 @@ export class SpotlightGlassManager {
                 .spotlight;
 
         let focused = false;
-        try {
-            const keyFocus =
-                global.stage.get_key_focus?.() ??
-                null;
-            focused =
-                keyFocus === this._target ||
-                Boolean(
-                    keyFocus &&
-                    this._target.contains?.(
-                        keyFocus
-                    )
-                );
-        } catch {}
+        if (interactive) {
+            try {
+                const keyFocus =
+                    global.stage.get_key_focus?.() ??
+                    null;
+                focused =
+                    keyFocus === target ||
+                    Boolean(
+                        keyFocus &&
+                        target.contains?.(
+                            keyFocus
+                        )
+                    );
+            } catch {}
+        }
 
         const response =
-            this._target.get_hover?.()
+            interactive &&
+            target.get_hover?.()
                 ? (
                     adapter
                         .hoverResponse ??
                     0.32
                 )
-                : focused
+                : interactive &&
+                    focused
                     ? (
                         adapter
                             .focusResponse ??
@@ -415,6 +459,28 @@ export class SpotlightGlassManager {
         };
     }
 
+    _regions() {
+        const regions = [];
+
+        const entryRegion =
+            this._regionFor(
+                this._target,
+                true
+            );
+        if (entryRegion)
+            regions.push(entryRegion);
+
+        const resultsRegion =
+            this._regionFor(
+                this._resultsTarget,
+                false
+            );
+        if (resultsRegion)
+            regions.push(resultsRegion);
+
+        return regions;
+    }
+
     _syncEffectRegion() {
         if (
             !this._effect ||
@@ -423,8 +489,8 @@ export class SpotlightGlassManager {
             return;
         }
 
-        const region = this._region();
-        if (!region)
+        const regions = this._regions();
+        if (!regions.length)
             return;
 
         const width =
@@ -435,15 +501,17 @@ export class SpotlightGlassManager {
         const key = [
             width,
             height,
-            Math.round(region.x * 10) /
-                10,
-            Math.round(region.y * 10) /
-                10,
-            Math.round(region.w * 10) /
-                10,
-            Math.round(region.h * 10) /
-                10,
-            region.response,
+            ...regions.flatMap(region => [
+                Math.round(region.x * 10) /
+                    10,
+                Math.round(region.y * 10) /
+                    10,
+                Math.round(region.w * 10) /
+                    10,
+                Math.round(region.h * 10) /
+                    10,
+                region.response,
+            ]),
         ].join(':');
 
         if (
@@ -462,7 +530,7 @@ export class SpotlightGlassManager {
             SHARED_RADIUS
         );
         this._effect.setGlassRegions?.(
-            [region]
+            regions
         );
     }
 
@@ -474,8 +542,8 @@ export class SpotlightGlassManager {
             return;
         }
 
-        const region = this._region();
-        if (!region)
+        const regions = this._regions();
+        if (!regions.length)
             return;
 
         const adapter =
@@ -507,26 +575,48 @@ export class SpotlightGlassManager {
             return;
         }
 
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+
+        for (const region of regions) {
+            minX = Math.min(
+                minX,
+                region.x
+            );
+            minY = Math.min(
+                minY,
+                region.y
+            );
+            maxX = Math.max(
+                maxX,
+                region.x + region.w
+            );
+            maxY = Math.max(
+                maxY,
+                region.y + region.h
+            );
+        }
+
         const left = Math.max(
             0,
-            region.x -
+            minX -
                 SCENE_CAPTURE_MARGIN
         );
         const top = Math.max(
             0,
-            region.y -
+            minY -
                 SCENE_CAPTURE_MARGIN
         );
         const right = Math.min(
             global.stage.width,
-            region.x +
-                region.w +
+            maxX +
                 SCENE_CAPTURE_MARGIN
         );
         const bottom = Math.min(
             global.stage.height,
-            region.y +
-                region.h +
+            maxY +
                 SCENE_CAPTURE_MARGIN
         );
 
@@ -670,9 +760,14 @@ export class SpotlightGlassManager {
                 ?.remove_style_class_name?.(
                     SPOTLIGHT_GLASS_ENTRY_CLASS
                 );
+            this._resultsTarget
+                ?.remove_style_class_name?.(
+                    SPOTLIGHT_GLASS_RESULTS_CLASS
+                );
         } catch {}
 
         this._target = null;
+        this._resultsTarget = null;
         this._hostLayer = null;
         this._stopStageLoop();
         this._root?.hide?.();

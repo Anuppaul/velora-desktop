@@ -625,6 +625,7 @@ export class SpotlightSearchController {
         try {
             this._attachSpotlightGlass?.(
                 this._entry,
+                this._resultsBox,
                 this._layer
             );
         } catch (error) {
@@ -983,6 +984,8 @@ export class SpotlightSearchController {
             this._setSelectedIndex(0);
         else
             this._selectedIndex = -1;
+
+        this._scheduleAdaptiveTextRefresh();
     }
 
     _setSelectedIndex(index) {

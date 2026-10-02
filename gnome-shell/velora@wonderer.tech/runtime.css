@@ -1444,6 +1444,32 @@
     margin: 2px 0 0 0;
 }
 
+.velora-spotlight-card
+.velora-spotlight-results.velora-spotlight-glass-results {
+    background-color: rgba(255, 255, 255, 0.025) !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-spotlight-card
+.velora-spotlight-results.velora-spotlight-glass-results
+.list-search-result {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.velora-spotlight-card
+.velora-spotlight-results.velora-spotlight-glass-results
+.list-search-result:hover,
+.velora-spotlight-card
+.velora-spotlight-results.velora-spotlight-glass-results
+.list-search-result:focus {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+}
+
 .velora-spotlight-result-icon-bin {
     min-width: 32px;
     min-height: 32px;
