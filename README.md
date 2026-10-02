@@ -10,6 +10,12 @@ It keeps the desktop's native interaction model, layout, controls, menus, conten
 ![GNOME Shell](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg)
 ![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)
 
+<p align="center">
+  <img src="docs/screenshots/velora-app-grid.png" alt="Velora Desktop on GNOME Shell 50" width="100%">
+</p>
+
+<p align="center"><sub>Velora keeps the GNOME desktop native while applying its shared Liquid Glass material across supported Shell surfaces.</sub></p>
+
 ## Highlights
 
 - **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
@@ -20,6 +26,54 @@ It keeps the desktop's native interaction model, layout, controls, menus, conten
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
 - **Performance-conscious renderer** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, and no permanent JS polling loop for popup surfaces.
 - **Open source** — released under the MIT License.
+
+## Velora in action
+
+### Native Dock + Velora Orb
+
+<table>
+  <tr>
+    <td width="62%" align="center">
+      <img src="docs/screenshots/velora-dock.png" alt="Velora Liquid Glass Ubuntu Dock">
+    </td>
+    <td width="38%" align="center">
+      <img src="docs/screenshots/velora-orb.png" alt="Velora Orb radial launcher">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Native Ubuntu Dock, restyled with Velora's Liquid Glass material.</sub></td>
+    <td align="center"><sub>Velora Orb with the radial application launcher open.</sub></td>
+  </tr>
+</table>
+
+### Spotlight search
+
+<p align="center">
+  <img src="docs/screenshots/velora-spotlight-results.png" alt="Velora Spotlight search with results" width="100%">
+</p>
+
+<p align="center"><sub>Super+Space opens Velora Spotlight with adaptive glass and application results.</sub></p>
+
+### System surfaces
+
+<table>
+  <tr>
+    <td width="34%" align="center">
+      <img src="docs/screenshots/velora-quick-settings.png" alt="Velora Quick Settings">
+    </td>
+    <td width="36%" align="center">
+      <img src="docs/screenshots/velora-calendar-notifications.png" alt="Velora Date and Calendar menu">
+    </td>
+    <td width="30%" align="center">
+      <img src="docs/screenshots/velora-notification.png" alt="Velora notification card">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Quick Settings</sub></td>
+    <td align="center"><sub>Date, calendar and notification center</sub></td>
+    <td align="center"><sub>Shell notification card</sub></td>
+  </tr>
+</table>
 
 ## Design contract
 
