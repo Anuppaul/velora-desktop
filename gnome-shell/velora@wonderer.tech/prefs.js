@@ -264,7 +264,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         const spotlight = new Adw.PreferencesGroup({
             title: 'Spotlight Search',
             description:
-                'Fast centered application search without opening GNOME Overview.',
+                'Fast native-style application search without opening GNOME Overview.',
         });
         searchPage.add(spotlight);
 
@@ -287,11 +287,24 @@ export default class VeloraPreferences extends ExtensionPreferences {
         spotlightShortcut.add_suffix(shortcutLabel);
         spotlight.add(spotlightShortcut);
 
+        const spotlightPosition = addIntSpin(
+            spotlight,
+            settings,
+            'spotlight-vertical-position',
+            'Vertical position',
+            'Position from the top of the active monitor (%). Lower values move the search bar up.',
+            8, 55, 1
+        );
+
         const syncSpotlightSensitivity = () => {
-            spotlightShortcut.sensitive =
+            const enabled =
                 settings.get_boolean(
                     'spotlight-enabled'
                 );
+            spotlightShortcut.sensitive =
+                enabled;
+            spotlightPosition.sensitive =
+                enabled;
         };
         syncSpotlightSensitivity();
         settings.connect(

@@ -16,7 +16,8 @@ const MAX_RESULTS = 6;
 const CARD_MAX_WIDTH = 720;
 const CARD_MIN_WIDTH = 460;
 const CARD_MARGIN = 32;
-const SEARCH_BAR_HEIGHT = 64;
+const SEARCH_BAR_HEIGHT = 56;
+const DEFAULT_VERTICAL_POSITION = 18;
 
 function isSuperSpace(accelerator) {
     return String(accelerator ?? '')
@@ -55,7 +56,13 @@ export class SpotlightSearchController {
 
         this._resultApps = [];
         this._resultButtons = [];
+        this._resultSlots = [];
         this._selectedIndex = -1;
+        this._searchUpdateSourceId = 0;
+        this._lastQuery = null;
+        this._usage = Shell.AppUsage.get_default();
+        this._descriptionCache = new Map();
+        this._lastGeometryKey = '';
 
         this._modalGrab = null;
         this._overviewHiddenId = 0;
@@ -99,6 +106,15 @@ export class SpotlightSearchController {
                         key === KEYBINDING_NAME
                     ) {
                         this._syncShortcut();
+                        return;
+                    }
+
+                    if (
+                        key === 'spotlight-vertical-position' &&
+                        this._visible
+                    ) {
+                        this._lastGeometryKey = '';
+                        this._syncGeometry();
                     }
                 }
             );
@@ -116,8 +132,10 @@ export class SpotlightSearchController {
             this._appSystem.connect(
                 'installed-changed',
                 () => {
+                    this._lastQuery = null;
+                    this._descriptionCache.clear();
                     if (this._visible)
-                        this._updateResults();
+                        this._scheduleResultsUpdate();
                 }
             );
 
@@ -457,47 +475,76 @@ export class SpotlightSearchController {
         this._card.set_pivot_point?.(0.5, 0.5);
 
         this._entry = new St.Entry({
-            style_class: 'velora-spotlight-entry',
-            hint_text: 'Search applications',
+            style_class:
+                'search-entry velora-spotlight-entry',
+            hint_text: 'Type to search',
             can_focus: true,
             track_hover: true,
+            x_expand: true,
         });
         this._entry.set_primary_icon(
             new St.Icon({
-                icon_name: 'system-search-symbolic',
+                icon_name: 'edit-find-symbolic',
                 style_class:
-                    'velora-spotlight-search-icon',
+                    'search-entry-icon velora-spotlight-search-icon',
             })
         );
 
+        this._clearIcon = new St.Icon({
+            icon_name: 'edit-clear-symbolic',
+            style_class:
+                'search-entry-icon velora-spotlight-clear-icon',
+        });
+
         this._resultsBox = new St.BoxLayout({
-            style_class: 'velora-spotlight-results',
+            style_class:
+                'search-section-content velora-spotlight-results',
             orientation: Clutter.Orientation.VERTICAL,
             visible: false,
         });
 
+        for (let i = 0; i < MAX_RESULTS; i++) {
+            const slot =
+                this._createResultSlot(i);
+            this._resultSlots.push(slot);
+            this._resultsBox.add_child(
+                slot.button
+            );
+        }
+
         this._emptyLabel = new St.Label({
-            style_class: 'velora-spotlight-empty',
+            style_class:
+                'search-statustext velora-spotlight-empty',
             text: 'No applications found',
             visible: false,
         });
+        this._resultsBox.add_child(
+            this._emptyLabel
+        );
 
         this._card.add_child(this._entry);
         this._card.add_child(this._resultsBox);
-        this._card.add_child(this._emptyLabel);
         this._layer.add_child(this._card);
 
         Main.uiGroup.add_child(this._layer);
 
         this._entry.clutter_text.connect(
             'text-changed',
-            () => this._updateResults()
+            () => this._scheduleResultsUpdate()
         );
 
         this._entry.clutter_text.connect(
             'key-press-event',
             (_actor, event) =>
                 this._onEntryKeyPress(event)
+        );
+
+        this._entry.connect(
+            'secondary-icon-clicked',
+            () => {
+                this._entry.set_text('');
+                this._entry.grab_key_focus();
+            }
         );
 
         this._layer.connect(
@@ -523,31 +570,216 @@ export class SpotlightSearchController {
         );
     }
 
+    _createResultSlot(index) {
+        const button = new St.Button({
+            style_class:
+                'list-search-result velora-spotlight-result',
+            can_focus: false,
+            reactive: true,
+            track_hover: true,
+            visible: false,
+        });
+
+        const row = new St.BoxLayout({
+            style_class:
+                'list-search-result-content velora-spotlight-result-row',
+            orientation: Clutter.Orientation.HORIZONTAL,
+            x_expand: true,
+        });
+
+        const iconBin = new St.Bin({
+            style_class:
+                'velora-spotlight-result-icon-bin',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        row.add_child(iconBin);
+
+        const labels = new St.BoxLayout({
+            style_class:
+                'velora-spotlight-result-labels',
+            orientation: Clutter.Orientation.VERTICAL,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+
+        const title = new St.Label({
+            style_class:
+                'velora-spotlight-result-title',
+            text: '',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.START,
+        });
+        title.clutter_text.ellipsize =
+            Pango.EllipsizeMode.END;
+        labels.add_child(title);
+
+        const subtitle = new St.Label({
+            style_class:
+                'list-search-result-description velora-spotlight-result-subtitle',
+            text: '',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.START,
+            visible: false,
+        });
+        subtitle.clutter_text.ellipsize =
+            Pango.EllipsizeMode.END;
+        labels.add_child(subtitle);
+
+        row.add_child(labels);
+
+        const action = new St.Label({
+            style_class:
+                'velora-spotlight-result-action',
+            text: 'Open',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        row.add_child(action);
+
+        button.set_child(row);
+
+        const slot = {
+            index,
+            button,
+            iconBin,
+            title,
+            subtitle,
+            action,
+            app: null,
+            appId: null,
+        };
+
+        button.connect(
+            'clicked',
+            () => {
+                if (slot.app)
+                    this._activateApp(slot.app);
+            }
+        );
+
+        button.connect(
+            'notify::hover',
+            () => {
+                if (
+                    button.hover &&
+                    button.visible
+                ) {
+                    this._setSelectedIndex(
+                        index
+                    );
+                }
+            }
+        );
+
+        return slot;
+    }
+
+    _bindResultSlot(slot, app) {
+        if (!slot || !app)
+            return;
+
+        const appId =
+            app.get_id?.() ??
+            app.get_name?.() ??
+            '';
+
+        if (slot.appId !== appId) {
+            slot.app = app;
+            slot.appId = appId;
+            slot.title.text =
+                app.get_name?.() ?? '';
+
+            let description =
+                this._descriptionCache.get(appId);
+            if (description === undefined) {
+                description =
+                    safeDescription(app);
+                this._descriptionCache.set(
+                    appId,
+                    description
+                );
+            }
+
+            slot.subtitle.text =
+                description;
+            slot.subtitle.visible =
+                Boolean(description);
+
+            let icon = null;
+            try {
+                icon =
+                    app.create_icon_texture(32);
+            } catch {}
+
+            slot.iconBin.child = icon;
+        } else {
+            slot.app = app;
+        }
+
+        if (!slot.button.visible)
+            slot.button.show();
+    }
+
+    _cancelSearchUpdate() {
+        if (!this._searchUpdateSourceId)
+            return;
+
+        try {
+            GLib.source_remove(
+                this._searchUpdateSourceId
+            );
+        } catch {}
+        this._searchUpdateSourceId = 0;
+    }
+
+    _scheduleResultsUpdate() {
+        if (
+            !this._visible ||
+            this._searchUpdateSourceId
+        ) {
+            return;
+        }
+
+        this._searchUpdateSourceId =
+            GLib.idle_add(
+                GLib.PRIORITY_HIGH_IDLE,
+                () => {
+                    this._searchUpdateSourceId = 0;
+
+                    if (
+                        this._enabled &&
+                        this._visible
+                    ) {
+                        this._updateResults();
+                    }
+
+                    return GLib.SOURCE_REMOVE;
+                }
+            );
+    }
+
     _clearSearch() {
-        if (this._entry)
+        this._cancelSearchUpdate();
+        this._lastQuery = null;
+
+        if (this._entry) {
             this._entry.set_text('');
+            this._cancelSearchUpdate();
+            this._entry.set_secondary_icon(null);
+        }
 
         this._clearResults();
-        this._emptyLabel?.hide?.();
     }
 
     _clearResults() {
-        if (!this._resultsBox)
-            return;
-
-        for (
-            const child of
-            this._resultsBox.get_children()
-        ) {
-            try {
-                child.destroy();
-            } catch {}
-        }
+        for (const slot of this._resultSlots)
+            slot.button.hide();
 
         this._resultApps = [];
         this._resultButtons = [];
         this._selectedIndex = -1;
-        this._resultsBox.hide();
+
+        this._emptyLabel?.hide?.();
+        this._resultsBox?.hide?.();
     }
 
     _updateResults() {
@@ -561,11 +793,17 @@ export class SpotlightSearchController {
         const query =
             this._entry.get_text().trim();
 
-        this._clearResults();
-        this._emptyLabel?.hide?.();
+        if (query === this._lastQuery)
+            return;
+        this._lastQuery = query;
 
-        if (!query) {
-            this._syncGeometry();
+        if (query) {
+            this._entry.set_secondary_icon(
+                this._clearIcon
+            );
+        } else {
+            this._entry.set_secondary_icon(null);
+            this._clearResults();
             return;
         }
 
@@ -578,8 +816,6 @@ export class SpotlightSearchController {
             groups = [];
         }
 
-        const usage =
-            Shell.AppUsage.get_default();
         const seen = new Set();
         const apps = [];
 
@@ -589,7 +825,7 @@ export class SpotlightSearchController {
             try {
                 group.sort(
                     (a, b) =>
-                        usage.compare(a, b)
+                        this._usage.compare(a, b)
                 );
             } catch {}
 
@@ -626,118 +862,34 @@ export class SpotlightSearchController {
                 break;
         }
 
-        if (!apps.length) {
-            this._emptyLabel?.show?.();
-            this._syncGeometry();
-            return;
-        }
-
         this._resultApps = apps;
+        this._resultButtons = [];
 
-        apps.forEach((app, index) => {
-            const button =
-                this._createResultButton(
-                    app,
-                    index
+        for (let i = 0; i < MAX_RESULTS; i++) {
+            const slot =
+                this._resultSlots[i];
+
+            if (i < apps.length) {
+                this._bindResultSlot(
+                    slot,
+                    apps[i]
                 );
-            this._resultButtons.push(button);
-            this._resultsBox.add_child(button);
-        });
-
-        this._resultsBox.show();
-        this._setSelectedIndex(0);
-        this._syncGeometry();
-    }
-
-    _createResultButton(app, index) {
-        const button = new St.Button({
-            style_class:
-                'velora-spotlight-result',
-            can_focus: false,
-            reactive: true,
-            track_hover: true,
-        });
-
-        const row = new St.BoxLayout({
-            style_class:
-                'velora-spotlight-result-row',
-            orientation: Clutter.Orientation.HORIZONTAL,
-            x_expand: true,
-        });
-
-        let icon = null;
-        try {
-            icon =
-                app.create_icon_texture(34);
-        } catch {}
-
-        if (icon) {
-            icon.add_style_class_name?.(
-                'velora-spotlight-result-icon'
-            );
-            row.add_child(icon);
-        }
-
-        const labels = new St.BoxLayout({
-            style_class:
-                'velora-spotlight-result-labels',
-            orientation: Clutter.Orientation.VERTICAL,
-            x_expand: true,
-        });
-
-        const title = new St.Label({
-            style_class:
-                'velora-spotlight-result-title',
-            text: app.get_name?.() ?? '',
-            x_expand: true,
-            x_align: Clutter.ActorAlign.START,
-        });
-        title.clutter_text.ellipsize =
-            Pango.EllipsizeMode.END;
-        labels.add_child(title);
-
-        const description =
-            safeDescription(app);
-        if (description) {
-            const subtitle = new St.Label({
-                style_class:
-                    'velora-spotlight-result-subtitle',
-                text: description,
-                x_expand: true,
-                x_align:
-                    Clutter.ActorAlign.START,
-            });
-            subtitle.clutter_text.ellipsize =
-                Pango.EllipsizeMode.END;
-            labels.add_child(subtitle);
-        }
-
-        row.add_child(labels);
-
-        const action = new St.Label({
-            style_class:
-                'velora-spotlight-result-action',
-            text: 'Open',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        row.add_child(action);
-
-        button.set_child(row);
-
-        button.connect(
-            'clicked',
-            () => this._activateApp(app)
-        );
-
-        button.connect(
-            'notify::hover',
-            () => {
-                if (button.hover)
-                    this._setSelectedIndex(index);
+                this._resultButtons.push(
+                    slot.button
+                );
+            } else {
+                slot.button.hide();
             }
-        );
+        }
 
-        return button;
+        this._emptyLabel.visible =
+            apps.length === 0;
+        this._resultsBox.show();
+
+        if (apps.length)
+            this._setSelectedIndex(0);
+        else
+            this._selectedIndex = -1;
     }
 
     _setSelectedIndex(index) {
@@ -852,11 +1004,6 @@ export class SpotlightSearchController {
         if (!this._layer || !this._card)
             return;
 
-        this._layer.set_size(
-            global.stage.width,
-            global.stage.height
-        );
-
         const monitor =
             Main.layoutManager.currentMonitor ??
             Main.layoutManager.primaryMonitor ??
@@ -867,16 +1014,32 @@ export class SpotlightSearchController {
                 height: global.stage.height,
             };
 
-        const width = Math.max(
-            CARD_MIN_WIDTH,
-            Math.min(
-                CARD_MAX_WIDTH,
+        const width = Math.min(
+            CARD_MAX_WIDTH,
+            Math.max(
+                360,
                 monitor.width -
                     CARD_MARGIN * 2
             )
         );
 
-        this._card.set_width(width);
+        let verticalPosition =
+            DEFAULT_VERTICAL_POSITION;
+        try {
+            verticalPosition =
+                this._settings.get_int(
+                    'spotlight-vertical-position'
+                );
+        } catch {}
+
+        verticalPosition =
+            Math.max(
+                8,
+                Math.min(
+                    55,
+                    verticalPosition
+                )
+            );
 
         const x =
             monitor.x +
@@ -884,16 +1047,67 @@ export class SpotlightSearchController {
                 (monitor.width - width) / 2
             );
 
-        // Keep the search field itself centered vertically. Results grow below
-        // it, matching the compact Spotlight interaction rather than Overview.
-        const y =
+        const rawY =
             monitor.y +
             Math.round(
-                monitor.height / 2 -
-                SEARCH_BAR_HEIGHT / 2
+                monitor.height *
+                verticalPosition /
+                100
+            );
+        const minY =
+            monitor.y + CARD_MARGIN;
+        const maxY =
+            monitor.y +
+            monitor.height -
+            SEARCH_BAR_HEIGHT -
+            CARD_MARGIN;
+        const y =
+            Math.max(
+                minY,
+                Math.min(maxY, rawY)
             );
 
-        this._card.set_position(x, y);
+        const geometryKey = [
+            global.stage.width,
+            global.stage.height,
+            monitor.x,
+            monitor.y,
+            monitor.width,
+            monitor.height,
+            width,
+            y,
+        ].join(':');
+
+        if (
+            geometryKey ===
+            this._lastGeometryKey
+        ) {
+            return;
+        }
+        this._lastGeometryKey =
+            geometryKey;
+
+        if (
+            this._layer.width !==
+                global.stage.width ||
+            this._layer.height !==
+                global.stage.height
+        ) {
+            this._layer.set_size(
+                global.stage.width,
+                global.stage.height
+            );
+        }
+
+        if (this._card.width !== width)
+            this._card.set_width(width);
+
+        if (
+            this._card.x !== x ||
+            this._card.y !== y
+        ) {
+            this._card.set_position(x, y);
+        }
     }
 
     destroy() {
@@ -901,6 +1115,7 @@ export class SpotlightSearchController {
             return;
 
         this._enabled = false;
+        this._cancelSearchUpdate();
         this.close(true);
         this._uninstallShortcut();
 
@@ -960,6 +1175,11 @@ export class SpotlightSearchController {
         this._emptyLabel = null;
         this._resultApps = [];
         this._resultButtons = [];
+        this._resultSlots = [];
+        this._descriptionCache.clear();
+        this._descriptionCache = null;
+        this._clearIcon = null;
+        this._lastGeometryKey = '';
         this._settings = null;
         this._appSystem = null;
         this._wmKeySettings = null;

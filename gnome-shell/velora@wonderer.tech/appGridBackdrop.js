@@ -9,7 +9,7 @@ const APP_GRID_CLASS = 'apps-scroll-view';
 const SEARCH_RESULTS_NAME = 'searchResults';
 const OVERVIEW_WALLPAPER_CLASS = 'velora-overview-wallpaper';
 const BLUR_RADIUS = 36;
-const TRANSITION_BLUR_RADIUS = 12;
+const TRANSITION_BLUR_RADIUS = 0;
 const BLUR_BRIGHTNESS = 0.82;
 
 function classesOf(actor) {

@@ -131,6 +131,12 @@
       <default>['&lt;Super&gt;space']</default>
       <summary>Velora Spotlight shortcut</summary>
     </key>
+    <key name="spotlight-vertical-position" type="i">
+      <default>18</default>
+      <range min="8" max="55"/>
+      <summary>Velora Spotlight vertical position</summary>
+      <description>Search bar position as a percentage from the top of the active monitor.</description>
+    </key>
 
     <key name="panel-menu-hover-switch" type="b">
       <default>false</default>
