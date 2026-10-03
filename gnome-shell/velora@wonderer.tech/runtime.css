@@ -544,10 +544,16 @@
 }
 
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog {
-    background-color: rgba(255, 255, 255, 0.075) !important;
+    /* The Overview already supplies the expensive blur. This layer only adds
+     * optical separation: a faint neutral veil, brighter top edge and one
+     * soft shadow. No second blur/capture/refraction pass is created. */
+    background-color: rgba(255, 255, 255, 0.085) !important;
     background-image: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 18px 56px 0 rgba(0, 0, 0, 0.26) !important;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.125);
+    background-gradient-end: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 22px 68px 0 rgba(0, 0, 0, 0.30) !important;
 }
 
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-container {
@@ -578,9 +584,9 @@
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button,
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow,
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-entry {
-    background-color: rgba(255, 255, 255, 0.075) !important;
+    background-color: rgba(255, 255, 255, 0.060) !important;
     background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.11) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
     box-shadow: none !important;
 }
 
@@ -589,8 +595,8 @@
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow:hover,
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow:focus,
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-entry:focus {
-    background-color: rgba(255, 255, 255, 0.12) !important;
-    border-color: rgba(255, 255, 255, 0.17) !important;
+    background-color: rgba(255, 255, 255, 0.105) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
 #overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button:active,
