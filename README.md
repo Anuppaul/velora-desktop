@@ -213,7 +213,7 @@ The application source and the launcher shape are independent. Choose a source, 
 | **Spiral** | Apps flow outward along a progressive spiral |
 | **Petal** | Flower-like multi-lobe layout around the Orb |
 
-All geometries reuse the same app buttons, paging, tooltips, live previews and running indicators. They are generated against the active monitor bounds, and unsafe/off-screen or colliding slots are filtered before rendering.
+All geometries reuse the same app buttons, paging, tooltips, live previews and running indicators. Layouts are fit to the active monitor before rendering: complete levels are translated/scaled inward instead of dropping individual off-screen apps. If a requested depth physically cannot fit without icon collisions, Velora reduces the complete outer level and paging absorbs the remaining apps.
 
 Non-Orbit geometries use faint, non-interactive connector lines for visual structure; they do not add another launcher or change application hit targets.
 

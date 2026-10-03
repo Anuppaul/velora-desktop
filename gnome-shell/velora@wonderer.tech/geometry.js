@@ -73,50 +73,40 @@ export function slotsForRings(
     monitor,
     screenMargin
 ) {
-    const minX = monitor.x + screenMargin;
-    const maxX = monitor.x + monitor.width - iconSize - screenMargin;
-    const minY = monitor.y + screenMargin;
-    const maxY = monitor.y + monitor.height - iconSize - screenMargin;
-    const ringSlots = [];
-    const acceptedSlots = [];
-    const minimumDistance = requiredCenterDistance(iconSize, iconGap);
+    const groups = [];
 
     for (let ring = 0; ring < ringCount; ring++) {
-        const radius = orbSize / 2 + (ring + 1) * ringGap;
-        const angles = anglesForRing(radius, arc, iconSize, iconGap);
-        const slots = [];
+        const radius =
+            orbSize / 2 +
+            (ring + 1) * ringGap;
+        const angles =
+            anglesForRing(
+                radius,
+                arc,
+                iconSize,
+                iconGap
+            );
 
-        for (const angle of angles) {
-            const x = centerX + Math.cos(angle) * radius - iconSize / 2;
-            const y = centerY + Math.sin(angle) * radius - iconSize / 2;
-
-            if (x < minX || x > maxX || y < minY || y > maxY)
-                continue;
-
-            const candidate = {
-                x: Math.round(x),
-                y: Math.round(y),
-            };
-
-            const conflicts = acceptedSlots.some(existing => {
-                const dx = candidate.x - existing.x;
-                const dy = candidate.y - existing.y;
-                return Math.hypot(dx, dy) < minimumDistance;
-            });
-
-            if (conflicts)
-                continue;
-
-            slots.push(candidate);
-            acceptedSlots.push(candidate);
-        }
-
-        ringSlots.push(slots);
+        groups.push(
+            angles.map(angle => ({
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius,
+            }))
+        );
     }
 
-    return ringSlots;
+    // Preserve the original Orbit arc/ring ordering, but fit complete rings
+    // into the active monitor instead of dropping individual off-screen slots.
+    return fitGeometryGroups(
+        groups,
+        centerX,
+        centerY,
+        iconSize,
+        iconGap,
+        monitor,
+        screenMargin
+    );
 }
-
 
 function inwardAngle(centerX, centerY, monitor) {
     return Math.atan2(
@@ -134,7 +124,30 @@ function rotateLocal(x, y, angle) {
     };
 }
 
-function filterGeometryGroups(
+function minimumPointDistance(groups) {
+    const points = groups.flat();
+    if (points.length < 2)
+        return Infinity;
+
+    let minimum = Infinity;
+    for (let i = 0; i < points.length; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+            const dx = points[i].x - points[j].x;
+            const dy = points[i].y - points[j].y;
+            const distance = Math.hypot(dx, dy);
+            if (
+                distance > 0.001 &&
+                distance < minimum
+            ) {
+                minimum = distance;
+            }
+        }
+    }
+
+    return minimum;
+}
+
+function fitGeometryGroups(
     groups,
     centerX,
     centerY,
@@ -143,76 +156,172 @@ function filterGeometryGroups(
     monitor,
     screenMargin
 ) {
-    const minX =
-        monitor.x + screenMargin;
-    const maxX =
+    const minCenterX =
+        monitor.x +
+        screenMargin +
+        iconSize / 2;
+    const maxCenterX =
         monitor.x +
         monitor.width -
-        iconSize -
-        screenMargin;
-    const minY =
-        monitor.y + screenMargin;
-    const maxY =
+        screenMargin -
+        iconSize / 2;
+    const minCenterY =
+        monitor.y +
+        screenMargin +
+        iconSize / 2;
+    const maxCenterY =
         monitor.y +
         monitor.height -
-        iconSize -
-        screenMargin;
-    const minimumDistance =
+        screenMargin -
+        iconSize / 2;
+
+    const availableWidth =
+        Math.max(
+            1,
+            maxCenterX - minCenterX
+        );
+    const availableHeight =
+        Math.max(
+            1,
+            maxCenterY - minCenterY
+        );
+    const requiredDistance =
         requiredCenterDistance(
             iconSize,
             iconGap
         );
-    const accepted = [];
 
-    return groups.map(group => {
-        const safe = [];
+    let working =
+        groups
+            .map(group =>
+                group.map(point => ({
+                    x: point.x,
+                    y: point.y,
+                }))
+            )
+            .filter(group => group.length > 0);
 
-        for (const point of group) {
-            const candidate = {
+    while (working.length > 0) {
+        const points = working.flat();
+
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        for (const point of points) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+
+        const spanX =
+            Math.max(1, maxX - minX);
+        const spanY =
+            Math.max(1, maxY - minY);
+        const fitScale =
+            Math.min(
+                1,
+                availableWidth / spanX,
+                availableHeight / spanY
+            );
+
+        const naturalMinDistance =
+            minimumPointDistance(
+                working
+            );
+        const minimumUsableScale =
+            Number.isFinite(
+                naturalMinDistance
+            ) &&
+            naturalMinDistance > 0
+                ? Math.min(
+                    1,
+                    requiredDistance /
+                        naturalMinDistance
+                )
+                : 0;
+
+        // Never keep a geometry depth that only "fits" by crushing icons into
+        // each other. Drop the complete outer level and let paging absorb the
+        // reduced capacity. This preserves shape integrity: no random missing
+        // node inside a level.
+        if (
+            working.length > 1 &&
+            fitScale + 0.001 <
+                minimumUsableScale
+        ) {
+            working =
+                working.slice(
+                    0,
+                    working.length - 1
+                );
+            continue;
+        }
+
+        const scale =
+            Math.max(
+                0.001,
+                Math.min(1, fitScale)
+            );
+
+        const scaledMinX =
+            minX * scale;
+        const scaledMaxX =
+            maxX * scale;
+        const scaledMinY =
+            minY * scale;
+        const scaledMaxY =
+            maxY * scale;
+
+        let shiftX = 0;
+        let shiftY = 0;
+
+        const left =
+            centerX + scaledMinX;
+        const right =
+            centerX + scaledMaxX;
+        const top =
+            centerY + scaledMinY;
+        const bottom =
+            centerY + scaledMaxY;
+
+        if (left < minCenterX)
+            shiftX += minCenterX - left;
+        if (right + shiftX > maxCenterX)
+            shiftX -=
+                right +
+                shiftX -
+                maxCenterX;
+
+        if (top < minCenterY)
+            shiftY += minCenterY - top;
+        if (bottom + shiftY > maxCenterY)
+            shiftY -=
+                bottom +
+                shiftY -
+                maxCenterY;
+
+        return working.map(group =>
+            group.map(point => ({
                 x: Math.round(
                     centerX +
-                    point.x -
+                    shiftX +
+                    point.x * scale -
                     iconSize / 2
                 ),
                 y: Math.round(
                     centerY +
-                    point.y -
+                    shiftY +
+                    point.y * scale -
                     iconSize / 2
                 ),
-            };
+            }))
+        );
+    }
 
-            if (
-                candidate.x < minX ||
-                candidate.x > maxX ||
-                candidate.y < minY ||
-                candidate.y > maxY
-            ) {
-                continue;
-            }
-
-            const conflicts =
-                accepted.some(existing => {
-                    const dx =
-                        candidate.x -
-                        existing.x;
-                    const dy =
-                        candidate.y -
-                        existing.y;
-                    return Math.hypot(
-                        dx,
-                        dy
-                    ) < minimumDistance;
-                });
-
-            if (conflicts)
-                continue;
-
-            safe.push(candidate);
-            accepted.push(candidate);
-        }
-
-        return safe;
-    });
+    return [];
 }
 
 function starGroups(
@@ -490,7 +599,7 @@ export function slotsForGeometry(
         break;
     }
 
-    return filterGeometryGroups(
+    return fitGeometryGroups(
         groups,
         centerX,
         centerY,
