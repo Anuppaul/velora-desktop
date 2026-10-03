@@ -196,6 +196,8 @@ Scroll up / left     → previous page
 
 Paging wraps from the last page back to the first and includes a short scroll throttle so touchpad gestures do not skip multiple pages accidentally. Paging also absorbs apps that cannot fit into the current monitor-safe geometry depth, so moving the Orb near a screen edge does not silently lose applications.
 
+Large pages keep the **same real Liquid Glass treatment on every visible app**. The renderer batches its fixed 16-region shader safely instead of letting icons beyond the first batch fall back to plain rendering; unused batches stay inactive.
+
 </details>
 
 > **Hover Orb → configured radial launcher. Click Orb → native GNOME App Grid.**  

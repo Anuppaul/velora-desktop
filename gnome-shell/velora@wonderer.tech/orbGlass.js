@@ -15,7 +15,8 @@ const ORB_FACE_CLASS = 'velora-orb-face-v2';
 const ORB_GLYPH_CLASS = 'velora-orb-glyph-v2';
 const APP_BUTTON_CLASS = 'velora-app-button';
 const PAD = 20;
-const MAX_REGIONS = 16;
+const REGIONS_PER_BATCH = 16;
+const PREWARMED_BATCHES = 4;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
@@ -66,6 +67,7 @@ export class OrbGlassManager {
         this._sceneRoot = null;
         this._sceneManager = null;
         this._effect = null;
+        this._batches = [];
         this._appearance = null;
 
         this._orbFace = null;
@@ -125,33 +127,73 @@ export class OrbGlassManager {
         root.set_size(global.stage.width, global.stage.height);
         root.hide();
 
+        Main.uiGroup.insert_child_below(
+            root,
+            this._desktopLayer
+        );
+
+        this._root = root;
+        this._batches = [];
+
+        // LiquidEffect's shader has a hard 16-region uniform limit. Pre-warm a
+        // small bounded set of sibling glass batches so large All Apps pages
+        // never fall back to plain icons after region 16. Hidden batches do no
+        // scene synchronization until they actually own visible regions.
+        for (
+            let index = 0;
+            index < PREWARMED_BATCHES;
+            index++
+        ) {
+            this._createBatch(index);
+        }
+
+        const first = this._batches[0] ?? null;
+        this._liquidBox = first?.liquidBox ?? null;
+        this._sceneRoot = first?.sceneRoot ?? null;
+        this._sceneManager = first?.sceneManager ?? null;
+        this._effect = first?.effect ?? null;
+
+        this._applyAppearance();
+    }
+
+    _createBatch(index) {
+        if (!this._root)
+            return null;
+
         const liquidBox = new this._vendor.UnpickableActor({
-            name: 'velora-orb-glass-box',
+            name: `velora-orb-glass-box-${index}`,
             reactive: false,
         });
         liquidBox.set_no_layout?.(true);
         liquidBox.set_position(0, 0);
-        liquidBox.set_size(global.stage.width, global.stage.height);
+        liquidBox.set_size(
+            global.stage.width,
+            global.stage.height
+        );
         liquidBox.set_clip_to_allocation(true);
-        root.add_child(liquidBox);
+        liquidBox.hide?.();
 
         const sceneRoot = new this._vendor.UnpickableActor({
-            name: 'velora-orb-glass-scene',
+            name: `velora-orb-glass-scene-${index}`,
             reactive: false,
         });
         sceneRoot.set_no_layout?.(true);
         sceneRoot.set_position(0, 0);
-        sceneRoot.set_size(global.stage.width, global.stage.height);
+        sceneRoot.set_size(
+            global.stage.width,
+            global.stage.height
+        );
         liquidBox.add_child(sceneRoot);
 
-        const sceneManager = new this._vendor.WindowCloneManager(
-            sceneRoot,
-            null,
-            'velora-orb-glass-scene'
-        );
+        const sceneManager =
+            new this._vendor.WindowCloneManager(
+                sceneRoot,
+                null,
+                `velora-orb-glass-scene-${index}`
+            );
 
         const breaker = new this._vendor.UnpickableActor({
-            name: 'velora-orb-glass-breaker',
+            name: `velora-orb-glass-breaker-${index}`,
             reactive: false,
         });
         breaker.set_no_layout?.(true);
@@ -162,7 +204,7 @@ export class OrbGlassManager {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-orb-shared',
+            owner: `velora-orb-shared-${index}`,
         });
         effect.setPadding?.(PAD);
         effect.setIsDock?.(false);
@@ -170,56 +212,71 @@ export class OrbGlassManager {
         effect.setShadowMaxRadius?.(0);
         liquidBox.add_effect(effect);
 
-        Main.uiGroup.insert_child_below(
-            root,
-            this._desktopLayer
-        );
+        this._root.add_child(liquidBox);
 
-        this._root = root;
-        this._liquidBox = liquidBox;
-        this._sceneRoot = sceneRoot;
-        this._sceneManager = sceneManager;
-        this._effect = effect;
-        this._applyAppearance();
+        const batch = {
+            liquidBox,
+            sceneRoot,
+            sceneManager,
+            effect,
+            lastRegionKey: '',
+            lastSceneSyncUs: 0,
+        };
+        this._batches.push(batch);
+        return batch;
     }
 
     _applyAppearance(
         state = this._appearance ?? this._readAppearance()
     ) {
-        if (!this._effect || !state)
+        if (!this._batches.length || !state)
             return;
 
         this._appearance = state;
-        const role = VELORA_GLASS_ROLES.orbCard;
-        const adapter = VELORA_GLASS_ADAPTERS.orb;
+        const role =
+            VELORA_GLASS_ROLES.orbCard;
+        const adapter =
+            VELORA_GLASS_ADAPTERS.orb;
 
         let brightness = null;
         let contrast = null;
         let saturation = null;
         try {
-            brightness = this._settings.get_double('menu-brightness');
-            contrast = this._settings.get_double('menu-contrast');
-            saturation = this._settings.get_double('menu-saturation');
+            brightness =
+                this._settings.get_double('menu-brightness');
+            contrast =
+                this._settings.get_double('menu-contrast');
+            saturation =
+                this._settings.get_double('menu-saturation');
         } catch {}
 
-        applyVeloraGlassRole(
-            this._effect,
-            role,
-            {
-                tintColor: [
-                    (state.r ?? 255) / 255,
-                    (state.g ?? 255) / 255,
-                    (state.b ?? 255) / 255,
-                ],
-                tintStrength: state.opacity ?? role.tintStrength,
-                baseBlur: state.blur ?? 7,
-                cornerRadius: SHARED_RADIUS,
-                brightness,
-                contrast,
-                saturation,
-                multiRegion: adapter.multiRegion,
-            }
-        );
+        for (const batch of this._batches) {
+            applyVeloraGlassRole(
+                batch.effect,
+                role,
+                {
+                    tintColor: [
+                        (state.r ?? 255) / 255,
+                        (state.g ?? 255) / 255,
+                        (state.b ?? 255) / 255,
+                    ],
+                    tintStrength:
+                        state.opacity ??
+                        role.tintStrength,
+                    baseBlur:
+                        state.blur ?? 7,
+                    cornerRadius:
+                        SHARED_RADIUS,
+                    brightness,
+                    contrast,
+                    saturation,
+                    multiRegion:
+                        adapter.multiRegion,
+                }
+            );
+
+            batch.lastRegionKey = '';
+        }
 
         this._lastRegionKey = '';
         this._glyphSampleDirty = true;
@@ -320,6 +377,8 @@ export class OrbGlassManager {
 
         this._buttons = buttons;
         this._lastRegionKey = '';
+        for (const batch of this._batches)
+            batch.lastRegionKey = '';
     }
 
     _tick() {
@@ -331,26 +390,22 @@ export class OrbGlassManager {
     }
 
     _syncRegions() {
-        if (!this._root || !this._effect)
+        if (
+            !this._root ||
+            !this._batches.length
+        ) {
             return;
+        }
 
         const width = global.stage.width;
         const height = global.stage.height;
-        const adapter = VELORA_GLASS_ADAPTERS.orb;
-        const nowUs = GLib.get_monotonic_time();
+        const adapter =
+            VELORA_GLASS_ADAPTERS.orb;
+        const nowUs =
+            GLib.get_monotonic_time();
 
         this._vendor.setSizeIfChanged(
             this._root,
-            width,
-            height
-        );
-        this._vendor.setSizeIfChanged(
-            this._liquidBox,
-            width,
-            height
-        );
-        this._vendor.setSizeIfChanged(
-            this._sceneRoot,
             width,
             height
         );
@@ -362,21 +417,24 @@ export class OrbGlassManager {
             targets.push(button);
 
         const regions = [];
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
 
         for (const actor of targets) {
             if (
                 !actor?.visible ||
                 !actor?.mapped ||
-                (actor.get_paint_opacity?.() ?? actor.opacity ?? 255) <= 0
+                (
+                    actor.get_paint_opacity?.() ??
+                    actor.opacity ??
+                    255
+                ) <= 0
             ) {
                 continue;
             }
 
-            const rect = this._vendor.getTransformedRect(actor);
+            const rect =
+                this._vendor.getTransformedRect(
+                    actor
+                );
             if (!finiteRect(rect))
                 continue;
 
@@ -390,10 +448,15 @@ export class OrbGlassManager {
                     Math.round(h),
                 ].join(':');
 
-                if (orbRectKey !== this._lastOrbRectKey) {
-                    this._lastOrbRectKey = orbRectKey;
+                if (
+                    orbRectKey !==
+                    this._lastOrbRectKey
+                ) {
+                    this._lastOrbRectKey =
+                        orbRectKey;
                     this._glyphSampleDirty = true;
-                    this._glyphGeometryChangedUs = nowUs;
+                    this._glyphGeometryChangedUs =
+                        nowUs;
                 }
             }
 
@@ -408,47 +471,27 @@ export class OrbGlassManager {
                 baseStrength: 0.0,
                 response:
                     actor.get_hover?.()
-                        ? (adapter.hoverResponse ?? 0.38)
+                        ? (
+                            adapter.hoverResponse ??
+                            0.38
+                        )
                         : 0.0,
             });
-
-            minX = Math.min(minX, x - PAD);
-            minY = Math.min(minY, y - PAD);
-            maxX = Math.max(maxX, x + w + PAD);
-            maxY = Math.max(maxY, y + h + PAD);
-
-            if (regions.length >= MAX_REGIONS)
-                break;
         }
 
         if (!regions.length) {
-            this._effect.setGlassRegions?.([]);
+            for (const batch of this._batches) {
+                batch.effect
+                    ?.setGlassRegions?.([]);
+                batch.lastRegionKey = '';
+                batch.lastSceneSyncUs = 0;
+                batch.liquidBox?.hide?.();
+            }
+
             this._lastRegionKey = '';
             this._lastSceneSyncUs = 0;
             this._root.hide?.();
             return;
-        }
-
-        const key = JSON.stringify([
-            width,
-            height,
-            ...regions.map(r => [
-                Math.round(r.x),
-                Math.round(r.y),
-                Math.round(r.w),
-                Math.round(r.h),
-                r.response,
-            ]),
-        ]);
-
-        const geometryChanged =
-            key !== this._lastRegionKey;
-
-        if (geometryChanged) {
-            this._lastRegionKey = key;
-            this._effect.setResolution?.(width, height);
-            this._effect.setCornerRadius?.(SHARED_RADIUS);
-            this._effect.setGlassRegions?.(regions);
         }
 
         const configuredSceneFps =
@@ -460,28 +503,142 @@ export class OrbGlassManager {
                 configuredSceneFps
             )
         );
-        const intervalUs = 1000000 / sceneFps;
-        const sceneDue =
-            geometryChanged ||
-            this._lastSceneSyncUs === 0 ||
-            nowUs - this._lastSceneSyncUs >= intervalUs;
+        const intervalUs =
+            1000000 / sceneFps;
 
-        if (sceneDue) {
-            try {
-                const cullRect = [
-                    minX,
-                    minY,
-                    maxX - minX,
-                    maxY - minY,
-                ];
-                this._sceneManager?.setCullRect?.(cullRect);
-                this._sceneManager?.applyBgCloneClip?.(
-                    cullRect
+        for (
+            let index = 0;
+            index < this._batches.length;
+            index++
+        ) {
+            const batch =
+                this._batches[index];
+            const start =
+                index * REGIONS_PER_BATCH;
+            const batchRegions =
+                regions.slice(
+                    start,
+                    start +
+                        REGIONS_PER_BATCH
                 );
-                this._sceneManager?.sync?.();
-                this._lastSceneSyncUs = nowUs;
-            } catch {}
+
+            if (!batchRegions.length) {
+                batch.effect
+                    ?.setGlassRegions?.([]);
+                batch.lastRegionKey = '';
+                batch.lastSceneSyncUs = 0;
+                batch.liquidBox?.hide?.();
+                continue;
+            }
+
+            this._vendor.setSizeIfChanged(
+                batch.liquidBox,
+                width,
+                height
+            );
+            this._vendor.setSizeIfChanged(
+                batch.sceneRoot,
+                width,
+                height
+            );
+
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+
+            for (const region of batchRegions) {
+                minX = Math.min(
+                    minX,
+                    region.x
+                );
+                minY = Math.min(
+                    minY,
+                    region.y
+                );
+                maxX = Math.max(
+                    maxX,
+                    region.x + region.w
+                );
+                maxY = Math.max(
+                    maxY,
+                    region.y + region.h
+                );
+            }
+
+            const key = JSON.stringify([
+                width,
+                height,
+                ...batchRegions.map(r => [
+                    Math.round(r.x),
+                    Math.round(r.y),
+                    Math.round(r.w),
+                    Math.round(r.h),
+                    r.response,
+                ]),
+            ]);
+            const geometryChanged =
+                key !==
+                batch.lastRegionKey;
+
+            if (geometryChanged) {
+                batch.lastRegionKey = key;
+                batch.effect
+                    ?.setResolution?.(
+                        width,
+                        height
+                    );
+                batch.effect
+                    ?.setCornerRadius?.(
+                        SHARED_RADIUS
+                    );
+                batch.effect
+                    ?.setGlassRegions?.(
+                        batchRegions
+                    );
+            }
+
+            const sceneDue =
+                geometryChanged ||
+                batch.lastSceneSyncUs === 0 ||
+                nowUs -
+                    batch.lastSceneSyncUs >=
+                    intervalUs;
+
+            if (sceneDue) {
+                try {
+                    const cullRect = [
+                        minX,
+                        minY,
+                        maxX - minX,
+                        maxY - minY,
+                    ];
+                    batch.sceneManager
+                        ?.setCullRect?.(
+                            cullRect
+                        );
+                    batch.sceneManager
+                        ?.applyBgCloneClip?.(
+                            cullRect
+                        );
+                    batch.sceneManager
+                        ?.sync?.();
+                    batch.lastSceneSyncUs =
+                        nowUs;
+                } catch {}
+            }
+
+            if (!batch.liquidBox.visible)
+                batch.liquidBox.show?.();
         }
+
+        // Keep legacy debug mirrors useful for the first batch.
+        this._lastRegionKey =
+            this._batches[0]
+                ?.lastRegionKey ?? '';
+        this._lastSceneSyncUs =
+            this._batches[0]
+                ?.lastSceneSyncUs ?? 0;
 
         if (!this._root.visible)
             this._root.show?.();
@@ -668,9 +825,11 @@ export class OrbGlassManager {
             } catch {}
         }
 
-        try {
-            this._sceneManager?.destroy?.();
-        } catch {}
+        for (const batch of this._batches) {
+            try {
+                batch.sceneManager?.destroy?.();
+            } catch {}
+        }
 
         try {
             this._root?.destroy?.();
@@ -682,6 +841,7 @@ export class OrbGlassManager {
         this._sceneRoot = null;
         this._sceneManager = null;
         this._effect = null;
+        this._batches = [];
         this._orbFace = null;
         this._orbGlyph = null;
         this._buttons.clear();

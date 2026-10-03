@@ -28,6 +28,9 @@ const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
 const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
 const AUTO_LAYOUT_MAX_DEPTH = 8;
+// OrbGlassManager pre-warms four shader batches. One region belongs to the
+// Orb face itself, leaving 63 real-glass app regions per visible page.
+const MAX_VISIBLE_ORB_APPS = 63;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
 const APP_PREVIEW_PADDING = 10;
@@ -1314,7 +1317,10 @@ export default class VeloraRuntime extends Extension {
                 break;
         }
 
-        const visibleCapacity = totalCapacity(capacities);
+        const visibleCapacity = Math.min(
+            totalCapacity(capacities),
+            MAX_VISIBLE_ORB_APPS
+        );
         if (visibleCapacity === 0) {
             this._menuOpen = false;
             this._setOrbVisualPseudoClass('open', false);
