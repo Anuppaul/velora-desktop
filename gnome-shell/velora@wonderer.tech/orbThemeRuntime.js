@@ -8,7 +8,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {ControlsState} from 'resource:///org/gnome/shell/ui/overviewControls.js';
 
-import {collectDockApps} from './apps.js';
+import {collectOrbApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
 import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
@@ -122,6 +122,9 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = null;
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
+        this._orbPageIndex = 0;
+        this._orbPageCount = 1;
+        this._orbPageIndicator = null;
 
         this._removeStaleLayers();
         this._createLayer();
@@ -253,6 +256,9 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = null;
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
+        this._hideOrbPageIndicator(true);
+        this._orbPageIndex = 0;
+        this._orbPageCount = 1;
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;
@@ -305,6 +311,9 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoHideTimer();
         this._cancelOrbAutoFadeTimer();
         this._closeMenu(true);
+        this._hideOrbPageIndicator(true);
+        this._orbPageIndex = 0;
+        this._orbPageCount = 1;
 
         if (this._dragGrab) {
             this._dragGrab.dismiss();
@@ -389,6 +398,44 @@ export default class VeloraRuntime extends Extension {
             this._restoreOrbOpacity(true);
             this._revealOrb();
             this._showAllApps();
+        });
+
+        this._orb.connect('scroll-event', (_actor, event) => {
+            if (!this._menuOpen || this._orbPageCount <= 1)
+                return Clutter.EVENT_PROPAGATE;
+
+            let direction = null;
+            try {
+                direction = event.get_scroll_direction?.();
+            } catch {}
+
+            let delta = 0;
+            if (
+                direction === Clutter.ScrollDirection.DOWN ||
+                direction === Clutter.ScrollDirection.RIGHT
+            ) {
+                delta = 1;
+            } else if (
+                direction === Clutter.ScrollDirection.UP ||
+                direction === Clutter.ScrollDirection.LEFT
+            ) {
+                delta = -1;
+            } else if (
+                direction === Clutter.ScrollDirection.SMOOTH
+            ) {
+                try {
+                    const [, dy] =
+                        event.get_scroll_delta?.() ?? [0, 0];
+                    if (Math.abs(dy) > 0.01)
+                        delta = dy > 0 ? 1 : -1;
+                } catch {}
+            }
+
+            if (!delta)
+                return Clutter.EVENT_PROPAGATE;
+
+            this._changeOrbPage(delta);
+            return Clutter.EVENT_STOP;
         });
 
         this._panGesture = new Clutter.PanGesture();
@@ -532,6 +579,15 @@ export default class VeloraRuntime extends Extension {
                     this._showAppPreview(app, anchor, side);
             }
 
+            if (
+                key === 'orb-app-source' ||
+                key === 'orb-custom-apps'
+            ) {
+                this._orbPageIndex = 0;
+                this._refreshOpenMenu();
+                return;
+            }
+
             if ([
                 'ring-mode',
                 'orb-size',
@@ -542,11 +598,13 @@ export default class VeloraRuntime extends Extension {
                 'show-running-indicator',
                 'animation-ms',
             ].includes(key) && this._menuOpen) {
+                this._orbPageIndex = 0;
                 this._reopenMenu();
             }
         });
 
         const refreshLaunchers = () => {
+            this._orbPageIndex = 0;
             this._refreshOpenMenu();
             this._scanDockHoverPreviews();
         };
@@ -1084,12 +1142,30 @@ export default class VeloraRuntime extends Extension {
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
 
-        const requestedApps = collectDockApps(
+        const configuredSource =
+            this._settings.get_string(
+                'orb-app-source'
+            );
+        const appSource =
+            ['dock', 'custom', 'all'].includes(
+                configuredSource
+            )
+                ? configuredSource
+                : 'dock';
+        const requestedApps = collectOrbApps(
             this._appSystem,
-            this._shellSettings
+            this._shellSettings,
+            appSource,
+            this._settings.get_strv(
+                'orb-custom-apps'
+            )
         );
-        if (requestedApps.length === 0)
+        if (requestedApps.length === 0) {
+            this._orbPageIndex = 0;
+            this._orbPageCount = 1;
+            this._hideOrbPageIndicator(true);
             return;
+        }
 
         this._menuOpen = true;
         this._setOrbVisualPseudoClass('open', true);
@@ -1161,8 +1237,32 @@ export default class VeloraRuntime extends Extension {
             return;
         }
 
-        const apps = requestedApps.slice(0, visibleCapacity);
-        const counts = allocateAcrossRings(apps.length, capacities);
+        this._orbPageCount = Math.max(
+            1,
+            Math.ceil(
+                requestedApps.length /
+                visibleCapacity
+            )
+        );
+        this._orbPageIndex = clamp(
+            this._orbPageIndex,
+            0,
+            this._orbPageCount - 1
+        );
+
+        const pageStart =
+            this._orbPageIndex *
+            visibleCapacity;
+        const apps = requestedApps.slice(
+            pageStart,
+            pageStart + visibleCapacity
+        );
+        const counts = allocateAcrossRings(
+            apps.length,
+            capacities
+        );
+
+        this._syncOrbPageIndicator();
 
         let appIndex = 0;
         for (let ring = 0; ring < rings; ring++) {
@@ -1310,6 +1410,7 @@ export default class VeloraRuntime extends Extension {
         this._cancelAppPreviewHide();
         this._hideAppPreview(immediate);
         this._hideTooltip();
+        this._hideOrbPageIndicator(immediate);
 
         if (!this._menuOpen && this._radialActors.length === 0) {
             this._scheduleOrbAutoHide();
@@ -1364,6 +1465,128 @@ export default class VeloraRuntime extends Extension {
 
         this._scheduleOrbAutoHide();
         this._scheduleOrbAutoFade();
+    }
+
+    _changeOrbPage(delta) {
+        if (
+            !this._menuOpen ||
+            this._orbPageCount <= 1
+        ) {
+            return;
+        }
+
+        const count = this._orbPageCount;
+        this._orbPageIndex =
+            (
+                this._orbPageIndex +
+                delta +
+                count
+            ) % count;
+        this._reopenMenu();
+    }
+
+    _syncOrbPageIndicator() {
+        if (
+            !this._menuOpen ||
+            this._orbPageCount <= 1 ||
+            !this._orb ||
+            !this._layer
+        ) {
+            this._hideOrbPageIndicator(true);
+            return;
+        }
+
+        if (!this._orbPageIndicator) {
+            this._orbPageIndicator = new St.Label({
+                style_class:
+                    'velora-orb-page-indicator',
+                reactive: false,
+            });
+            this._layer.add_child(
+                this._orbPageIndicator
+            );
+        }
+
+        this._orbPageIndicator.text =
+            `${this._orbPageIndex + 1} / ${this._orbPageCount} · scroll`;
+
+        const [orbX, orbY] =
+            this._orb.get_position();
+        const orbSize =
+            this._settings.get_int('orb-size');
+        const monitor = this._monitorAt(
+            orbX + orbSize / 2,
+            orbY + orbSize / 2
+        );
+        const [, naturalWidth] =
+            this._orbPageIndicator
+                .get_preferred_width?.(-1) ??
+            [0, 72];
+        const [, naturalHeight] =
+            this._orbPageIndicator
+                .get_preferred_height?.(-1) ??
+            [0, 24];
+
+        const onLeftHalf =
+            orbX + orbSize / 2 <
+            monitor.x + monitor.width / 2;
+        const desiredX = onLeftHalf
+            ? orbX + orbSize + 10
+            : orbX - naturalWidth - 10;
+        const desiredY =
+            orbY +
+            orbSize / 2 -
+            naturalHeight / 2;
+
+        this._orbPageIndicator.set_position(
+            Math.round(
+                clamp(
+                    desiredX,
+                    monitor.x + SCREEN_MARGIN,
+                    monitor.x +
+                        monitor.width -
+                        naturalWidth -
+                        SCREEN_MARGIN
+                )
+            ),
+            Math.round(
+                clamp(
+                    desiredY,
+                    monitor.y + SCREEN_MARGIN,
+                    monitor.y +
+                        monitor.height -
+                        naturalHeight -
+                        SCREEN_MARGIN
+                )
+            )
+        );
+        this._orbPageIndicator.show?.();
+    }
+
+    _hideOrbPageIndicator(immediate = false) {
+        const indicator =
+            this._orbPageIndicator;
+        this._orbPageIndicator = null;
+
+        if (!indicator)
+            return;
+
+        indicator.remove_all_transitions?.();
+
+        if (immediate) {
+            indicator.destroy?.();
+            return;
+        }
+
+        indicator.ease?.({
+            opacity: 0,
+            duration: 80,
+            mode:
+                Clutter.AnimationMode
+                    .EASE_OUT_QUAD,
+            onComplete: () =>
+                indicator.destroy?.(),
+        });
     }
 
     _destroyClosingActors() {

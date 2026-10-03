@@ -87,7 +87,7 @@ flowchart LR
 
 | Feature | What Velora adds |
 | --- | --- |
-| **Velora Orb** | Draggable, multi-monitor radial launcher with app previews, tooltips, running indicators and idle hide/fade behaviour. |
+| **Velora Orb** | Draggable, multi-monitor radial launcher with Dock Apps, Custom Apps or All Apps sources, paging, app previews, tooltips, running indicators and idle hide/fade behaviour. |
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and result presentation. |
 
 </details>
@@ -135,7 +135,7 @@ Velora is not trying to become a replacement desktop environment.
   </tr>
   <tr>
     <td align="center"><sub>Native Ubuntu Dock, restyled with Velora's Liquid Glass material.</sub></td>
-    <td align="center"><sub>Velora Orb with the radial application launcher open.</sub></td>
+    <td align="center"><sub>Velora Orb with configurable Dock / Custom / All Apps sources.</sub></td>
   </tr>
 </table>
 

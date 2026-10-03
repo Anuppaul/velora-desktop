@@ -129,6 +129,46 @@ function addResetRow(group, title, subtitle, callback) {
     return row;
 }
 
+
+function installedApplications() {
+    const seen = new Set();
+    const apps = [];
+
+    for (const info of Gio.AppInfo.get_all()) {
+        let visible = true;
+        try {
+            visible =
+                info.should_show?.() !== false;
+        } catch {}
+
+        const id = info.get_id?.() ?? '';
+        if (!visible || !id || seen.has(id))
+            continue;
+
+        seen.add(id);
+        apps.push({
+            id,
+            name:
+                info.get_display_name?.() ??
+                info.get_name?.() ??
+                id,
+            icon: info.get_icon?.() ?? null,
+        });
+    }
+
+    apps.sort((a, b) =>
+        a.name.localeCompare(
+            b.name,
+            undefined,
+            {
+                sensitivity: 'base',
+                numeric: true,
+            }
+        )
+    );
+    return apps;
+}
+
 export default class VeloraPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
@@ -479,6 +519,147 @@ export default class VeloraPreferences extends ExtensionPreferences {
                 'Layout, animation, previews and indicators.',
         });
         orbPage.add(launcher);
+
+        const appSource = new Adw.ComboRow({
+            title: 'App source',
+            subtitle:
+                'Choose what appears around the Orb. Scroll on the Orb to move between pages when the selected source has more apps than fit at once.',
+            model: Gtk.StringList.new([
+                'Dock Apps',
+                'Custom Apps',
+                'All Apps',
+            ]),
+        });
+        const appSourceValues = [
+            'dock',
+            'custom',
+            'all',
+        ];
+        let syncingAppSource = false;
+        const syncAppSource = () => {
+            syncingAppSource = true;
+            const value =
+                settings.get_string(
+                    'orb-app-source'
+                );
+            appSource.selected = Math.max(
+                0,
+                appSourceValues.indexOf(value)
+            );
+            syncingAppSource = false;
+        };
+        syncAppSource();
+        appSource.connect(
+            'notify::selected',
+            () => {
+                if (syncingAppSource)
+                    return;
+                settings.set_string(
+                    'orb-app-source',
+                    appSourceValues[
+                        appSource.selected
+                    ] ?? 'dock'
+                );
+            }
+        );
+        settings.connect(
+            'changed::orb-app-source',
+            syncAppSource
+        );
+        launcher.add(appSource);
+
+        const customApps = installedApplications();
+        const customPicker =
+            new Adw.ExpanderRow({
+                title: 'Custom apps',
+                subtitle: '',
+            });
+        launcher.add(customPicker);
+
+        const customRows = new Map();
+        let syncingCustomApps = false;
+
+        const syncCustomApps = () => {
+            const selected =
+                settings.get_strv(
+                    'orb-custom-apps'
+                );
+            const selectedSet =
+                new Set(selected);
+
+            syncingCustomApps = true;
+            for (
+                const [id, row] of
+                customRows
+            ) {
+                row.active =
+                    selectedSet.has(id);
+            }
+            syncingCustomApps = false;
+
+            customPicker.subtitle =
+                selected.length === 1
+                    ? '1 app selected'
+                    : `${selected.length} apps selected`;
+            customPicker.sensitive =
+                settings.get_string(
+                    'orb-app-source'
+                ) === 'custom';
+        };
+
+        for (const app of customApps) {
+            const row = new Adw.SwitchRow({
+                title: app.name,
+                subtitle: app.id,
+            });
+
+            if (app.icon) {
+                const image = new Gtk.Image({
+                    gicon: app.icon,
+                    pixel_size: 24,
+                    valign: Gtk.Align.CENTER,
+                });
+                row.add_prefix?.(image);
+            }
+
+            row.connect(
+                'notify::active',
+                () => {
+                    if (syncingCustomApps)
+                        return;
+
+                    const selected =
+                        settings.get_strv(
+                            'orb-custom-apps'
+                        );
+                    const next =
+                        selected.filter(
+                            id => id !== app.id
+                        );
+
+                    if (row.active)
+                        next.push(app.id);
+
+                    settings.set_strv(
+                        'orb-custom-apps',
+                        next
+                    );
+                }
+            );
+
+            customRows.set(app.id, row);
+            customPicker.add_row(row);
+        }
+
+        syncCustomApps();
+        settings.connect(
+            'changed::orb-custom-apps',
+            syncCustomApps
+        );
+        settings.connect(
+            'changed::orb-app-source',
+            syncCustomApps
+        );
 
         addIntSpin(
             launcher, settings, 'icon-size',
