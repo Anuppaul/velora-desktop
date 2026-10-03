@@ -42,7 +42,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 - **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
 - **Liquid Glass surfaces** — blur, refraction, chromatic dispersion, tint, saturation, rim/specular lighting, and optical depth.
-- **Velora Orb** — draggable, multi-monitor aware radial launcher with app previews, tooltips, running indicators, and idle hide/fade behavior.
+- **Velora Orb** — draggable, multi-monitor aware radial launcher with **Dock Apps / Custom Apps / All Apps** sources, paging, app previews, tooltips, running indicators, and idle hide/fade behavior.
 - **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
 - **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
@@ -138,6 +138,68 @@ Velora is not trying to become a replacement desktop environment.
     <td align="center"><sub>Velora Orb with configurable Dock / Custom / All Apps sources.</sub></td>
   </tr>
 </table>
+
+### Orb app sources
+
+The Orb no longer has to duplicate the Ubuntu Dock. In **Preferences → Orb → Radial Launcher → App source**, choose what the radial launcher should contain:
+
+```mermaid
+flowchart LR
+    ORB["Velora Orb"]
+
+    ORB --> DOCK["Dock Apps"]
+    ORB --> CUSTOM["Custom Apps"]
+    ORB --> ALL["All Apps"]
+
+    DOCK --> D1["Favorites + running apps"]
+    CUSTOM --> C1["Apps selected by you"]
+    ALL --> A1["All visible installed apps"]
+
+    CUSTOM --> PICKER["Built-in app picker"]
+    ALL --> PAGE["Automatic paging"]
+    CUSTOM --> PAGE
+    DOCK --> PAGE
+```
+
+| Source | What appears around the Orb | Best for |
+| --- | --- | --- |
+| **Dock Apps** | Ubuntu favorites + currently running apps | Using the Orb as a Dock-style launcher |
+| **Custom Apps** | Only the apps you select in Velora Preferences | Keeping a separate productivity/tool launcher beside the normal Dock |
+| **All Apps** | Every visible installed application, alphabetically | Using the Orb as a compact full app launcher |
+
+<details open>
+<summary><b>Custom Apps</b></summary>
+
+Select individual applications directly from Velora Preferences. The picker shows the application icon, name and desktop ID, and the Orb preserves the selected set without creating duplicate launchers.
+
+If a selected application is later uninstalled, Velora safely skips the missing desktop ID.
+
+</details>
+
+<details>
+<summary><b>Paging when there are more apps than fit</b></summary>
+
+The Orb keeps its existing radial geometry instead of shrinking icons or creating unlimited rings.
+
+When the selected source contains more applications than the current radial capacity, Velora splits them into pages and shows a small indicator such as:
+
+```text
+1 / 5 · scroll
+```
+
+Scroll over the Orb to move between pages:
+
+```text
+Scroll down / right  → next page
+Scroll up / left     → previous page
+```
+
+Paging wraps from the last page back to the first and includes a short scroll throttle so touchpad gestures do not skip multiple pages accidentally.
+
+</details>
+
+> **Hover Orb → configured radial launcher. Click Orb → native GNOME App Grid.**  
+> The source option changes only what appears around the Orb; clicking the Orb still opens GNOME's normal Applications view.
 
 ### Spotlight search
 
