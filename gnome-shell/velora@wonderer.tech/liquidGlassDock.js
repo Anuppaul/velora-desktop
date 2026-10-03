@@ -4026,11 +4026,34 @@ export class LiquidGlassIntegration {
                 entry
             );
 
+            // A Dash-to-Dock theme/mode rebuild can replace the real
+            // .dash-background actor while the old actor is still paintable
+            // for a frame. Remove every Velora-owned paint marker from the old
+            // actor and restore its captured inline style before following the
+            // replacement. Otherwise rapid panel/dock switching can leave a
+            // stale translucent or fully transparent strip behind.
             try {
                 previous.remove_style_class_name?.(
                     DOCK_PANEL_BACKGROUND_CLASS
                 );
             } catch {}
+            try {
+                previous.remove_style_class_name?.(
+                    DOCK_GLASS_BACKGROUND_CLASS
+                );
+            } catch {}
+
+            if (entry.panelPaintActive) {
+                entry.panelBackgroundStyleGuard = true;
+                try {
+                    previous.set_style?.(
+                        entry.panelBackgroundOriginalStyle ?? null
+                    );
+                } catch {}
+                finally {
+                    entry.panelBackgroundStyleGuard = false;
+                }
+            }
         }
 
         entry.panelBackgroundActor = actor;
