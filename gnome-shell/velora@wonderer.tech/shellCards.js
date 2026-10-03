@@ -16,7 +16,6 @@ const TARGET_CLASSES = new Set([
     'modal-dialog',
     'switcher-list',
     'workspace-switcher',
-    'app-folder-dialog',
     'resize-popup',
     'workspace-thumbnails',
     'dash-background',

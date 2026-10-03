@@ -530,29 +530,81 @@
     background-color: rgba(255, 255, 255, 0.18);
 }
 
-/* App-folder dialog ----------------------------------------------------- */
-.app-folder-dialog.velora-liquid-shell-card .overview-tile,
-.app-folder-dialog.velora-liquid-shell-card .icon-button,
-.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow,
-.app-folder-dialog.velora-liquid-shell-card .folder-name-entry {
-    background-color: rgba(255, 255, 255, 0.09);
-    background-image: none;
-    border-color: rgba(255, 255, 255, 0.11);
-    box-shadow: none;
+/* App Grid folder dialog ------------------------------------------------
+ * Folder dialogs already live on Velora's cached Overview wallpaper blur.
+ * Do not run them through ShellCardGlassManager's second live-scene capture
+ * path: that duplicates work and can visually fight GNOME's native folder
+ * paint. Keep the native dialog/controls and turn only its card material into
+ * one lightweight translucent Overview surface. */
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog-container {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
-.app-folder-dialog.velora-liquid-shell-card .overview-tile:hover,
-.app-folder-dialog.velora-liquid-shell-card .icon-button:hover,
-.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow:hover,
-.app-folder-dialog.velora-liquid-shell-card .folder-name-entry:focus {
-    background-color: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.17);
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 18px 56px 0 rgba(0, 0, 0, 0.26) !important;
 }
 
-.app-folder-dialog.velora-liquid-shell-card .overview-tile:active,
-.app-folder-dialog.velora-liquid-shell-card .icon-button:active,
-.app-folder-dialog.velora-liquid-shell-card .page-navigation-arrow:active {
-    background-color: rgba(255, 255, 255, 0.18);
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-container {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .overview-tile {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .overview-tile:hover,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .overview-tile:focus {
+    background-color: rgba(255, 255, 255, 0.085) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .overview-tile:active,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .overview-tile:checked {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-entry {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.11) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button:hover,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button:focus,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow:hover,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow:focus,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .folder-name-entry:focus {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.17) !important;
+}
+
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .icon-button:active,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-arrow:active {
+    background-color: rgba(255, 255, 255, 0.17) !important;
+}
+
+/* Keep folder pagination/navigation inside the same visual material instead
+ * of painting a nested opaque control surface. */
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-indicators,
+#overviewGroup.velora-overview-wallpaper .app-folder-dialog .page-navigation-hint {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
 }
 
 
