@@ -117,6 +117,413 @@ export function slotsForRings(
     return ringSlots;
 }
 
+
+function inwardAngle(centerX, centerY, monitor) {
+    return Math.atan2(
+        monitor.y + monitor.height / 2 - centerY,
+        monitor.x + monitor.width / 2 - centerX
+    );
+}
+
+function rotateLocal(x, y, angle) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return {
+        x: x * cos - y * sin,
+        y: x * sin + y * cos,
+    };
+}
+
+function filterGeometryGroups(
+    groups,
+    centerX,
+    centerY,
+    iconSize,
+    iconGap,
+    monitor,
+    screenMargin
+) {
+    const minX =
+        monitor.x + screenMargin;
+    const maxX =
+        monitor.x +
+        monitor.width -
+        iconSize -
+        screenMargin;
+    const minY =
+        monitor.y + screenMargin;
+    const maxY =
+        monitor.y +
+        monitor.height -
+        iconSize -
+        screenMargin;
+    const minimumDistance =
+        requiredCenterDistance(
+            iconSize,
+            iconGap
+        );
+    const accepted = [];
+
+    return groups.map(group => {
+        const safe = [];
+
+        for (const point of group) {
+            const candidate = {
+                x: Math.round(
+                    centerX +
+                    point.x -
+                    iconSize / 2
+                ),
+                y: Math.round(
+                    centerY +
+                    point.y -
+                    iconSize / 2
+                ),
+            };
+
+            if (
+                candidate.x < minX ||
+                candidate.x > maxX ||
+                candidate.y < minY ||
+                candidate.y > maxY
+            ) {
+                continue;
+            }
+
+            const conflicts =
+                accepted.some(existing => {
+                    const dx =
+                        candidate.x -
+                        existing.x;
+                    const dy =
+                        candidate.y -
+                        existing.y;
+                    return Math.hypot(
+                        dx,
+                        dy
+                    ) < minimumDistance;
+                });
+
+            if (conflicts)
+                continue;
+
+            safe.push(candidate);
+            accepted.push(candidate);
+        }
+
+        return safe;
+    });
+}
+
+function starGroups(
+    centerX,
+    centerY,
+    orbSize,
+    spacing,
+    depth,
+    monitor
+) {
+    const groups = [];
+    const orientation =
+        inwardAngle(
+            centerX,
+            centerY,
+            monitor
+        );
+
+    // Five stable arms. Additional depth extends those same arms rather than
+    // adding random orbit points, so the silhouette remains recognisably star.
+    for (let level = 0; level < depth; level++) {
+        const radius =
+            orbSize / 2 +
+            spacing * (level + 1);
+        const points = [];
+
+        for (let arm = 0; arm < 5; arm++) {
+            const angle =
+                orientation +
+                2 * Math.PI *
+                arm / 5;
+            points.push({
+                x: Math.cos(angle) *
+                    radius,
+                y: Math.sin(angle) *
+                    radius,
+            });
+        }
+
+        groups.push(points);
+    }
+
+    return groups;
+}
+
+function moleculeGroups(
+    centerX,
+    centerY,
+    orbSize,
+    spacing,
+    depth,
+    monitor
+) {
+    const groups = [];
+    const orientation =
+        inwardAngle(
+            centerX,
+            centerY,
+            monitor
+        );
+    const step =
+        Math.max(
+            spacing * 0.72,
+            orbSize * 0.9
+        );
+    const side =
+        Math.max(
+            spacing * 0.34,
+            orbSize * 0.28
+        );
+    let index = 0;
+
+    // A deterministic zig-zag carbon-chain style layout. Five atoms per level
+    // gives enough capacity without turning it into another circular grid.
+    for (let level = 0; level < depth; level++) {
+        const points = [];
+
+        for (let item = 0; item < 5; item++) {
+            const n = index + 1;
+            const localX =
+                orbSize / 2 +
+                n * step;
+            const localY =
+                (
+                    n % 2 === 0
+                        ? -1
+                        : 1
+                ) * side;
+            points.push(
+                rotateLocal(
+                    localX,
+                    localY,
+                    orientation
+                )
+            );
+            index++;
+        }
+
+        groups.push(points);
+    }
+
+    return groups;
+}
+
+function spiralGroups(
+    centerX,
+    centerY,
+    orbSize,
+    spacing,
+    depth,
+    monitor
+) {
+    const groups = [];
+    const orientation =
+        inwardAngle(
+            centerX,
+            centerY,
+            monitor
+        );
+    let index = 0;
+
+    for (let level = 0; level < depth; level++) {
+        const points = [];
+
+        for (let item = 0; item < 6; item++) {
+            const radius =
+                orbSize / 2 +
+                spacing * 0.72 +
+                index * spacing * 0.22;
+            const angle =
+                orientation +
+                index * 0.72;
+            points.push({
+                x: Math.cos(angle) *
+                    radius,
+                y: Math.sin(angle) *
+                    radius,
+            });
+            index++;
+        }
+
+        groups.push(points);
+    }
+
+    return groups;
+}
+
+function petalGroups(
+    centerX,
+    centerY,
+    orbSize,
+    spacing,
+    depth,
+    monitor
+) {
+    const groups = [];
+    const orientation =
+        inwardAngle(
+            centerX,
+            centerY,
+            monitor
+        );
+
+    for (let level = 0; level < depth; level++) {
+        const points = [];
+        const baseRadius =
+            orbSize / 2 +
+            spacing * (level + 1);
+        const amplitude =
+            spacing * 0.23;
+
+        for (let item = 0; item < 8; item++) {
+            const angle =
+                orientation +
+                2 * Math.PI *
+                item / 8;
+            const radius =
+                baseRadius +
+                amplitude *
+                Math.cos(4 * angle);
+            points.push({
+                x: Math.cos(angle) *
+                    radius,
+                y: Math.sin(angle) *
+                    radius,
+            });
+        }
+
+        groups.push(points);
+    }
+
+    return groups;
+}
+
+export function slotsForGeometry(
+    geometry,
+    centerX,
+    centerY,
+    orbSize,
+    spacing,
+    depth,
+    arc,
+    iconSize,
+    iconGap,
+    monitor,
+    screenMargin
+) {
+    if (geometry === 'orbit') {
+        return slotsForRings(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            arc,
+            iconSize,
+            iconGap,
+            monitor,
+            screenMargin
+        );
+    }
+
+    let groups = null;
+
+    switch (geometry) {
+    case 'star':
+        groups = starGroups(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            monitor
+        );
+        break;
+    case 'molecule':
+        groups = moleculeGroups(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            monitor
+        );
+        break;
+    case 'spiral':
+        groups = spiralGroups(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            monitor
+        );
+        break;
+    case 'petal':
+        groups = petalGroups(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            monitor
+        );
+        break;
+    default:
+        groups = starGroups(
+            centerX,
+            centerY,
+            orbSize,
+            spacing,
+            depth,
+            monitor
+        );
+        break;
+    }
+
+    return filterGeometryGroups(
+        groups,
+        centerX,
+        centerY,
+        iconSize,
+        iconGap,
+        monitor,
+        screenMargin
+    );
+}
+
+export function selectGeometrySlots(
+    slots,
+    count,
+    geometry,
+    arc
+) {
+    if (geometry === 'orbit') {
+        return selectOrganizedSlots(
+            slots,
+            count,
+            arc
+        );
+    }
+
+    if (count <= 0)
+        return [];
+
+    return slots.slice(
+        0,
+        Math.min(count, slots.length)
+    );
+}
+
 export function totalCapacity(capacities) {
     return capacities.reduce((total, value) => total + value, 0);
 }

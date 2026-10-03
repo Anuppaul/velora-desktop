@@ -18,8 +18,8 @@ import {
     clamp,
     effectiveRingGap,
     ICON_HOVER_SCALE,
-    selectOrganizedSlots,
-    slotsForRings,
+    selectGeometrySlots,
+    slotsForGeometry,
     totalCapacity,
 } from './geometry.js';
 
@@ -126,6 +126,7 @@ export default class VeloraRuntime extends Extension {
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
         this._orbLastPageScrollUs = 0;
+        this._geometryActors = [];
 
         this._removeStaleLayers();
         this._createLayer();
@@ -237,6 +238,7 @@ export default class VeloraRuntime extends Extension {
         }
 
         this._hideOrbPageIndicator(true);
+        this._destroyGeometryActors();
         this._orbLastPageScrollUs = 0;
         this._layer?.destroy();
         this._layer = null;
@@ -263,6 +265,7 @@ export default class VeloraRuntime extends Extension {
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbLastPageScrollUs = 0;
+        this._geometryActors = [];
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;
@@ -316,6 +319,7 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._closeMenu(true);
         this._hideOrbPageIndicator(true);
+        this._destroyGeometryActors();
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbLastPageScrollUs = 0;
@@ -586,7 +590,8 @@ export default class VeloraRuntime extends Extension {
 
             if (
                 key === 'orb-app-source' ||
-                key === 'orb-custom-apps'
+                key === 'orb-custom-apps' ||
+                key === 'orb-geometry'
             ) {
                 this._orbPageIndex = 0;
                 this._orbLastPageScrollUs = 0;
@@ -1190,49 +1195,86 @@ export default class VeloraRuntime extends Extension {
         const centerX = orbX + orbSize / 2;
         const centerY = orbY + orbSize / 2;
         const monitor = this._monitorAt(centerX, centerY);
-        const configuredRingMode = this._settings.get_string('ring-mode');
-        const ringMode = ['auto', '2', '3', '4'].includes(configuredRingMode)
-            ? configuredRingMode
-            : 'auto';
+        const configuredRingMode =
+            this._settings.get_string(
+                'ring-mode'
+            );
+        const ringMode =
+            ['auto', '2', '3', '4'].includes(
+                configuredRingMode
+            )
+                ? configuredRingMode
+                : 'auto';
+        const configuredGeometry =
+            this._settings.get_string(
+                'orb-geometry'
+            );
+        const geometry =
+            [
+                'orbit',
+                'star',
+                'molecule',
+                'spiral',
+                'petal',
+            ].includes(configuredGeometry)
+                ? configuredGeometry
+                : 'orbit';
 
-        let rings = ringMode === 'auto' ? 1 : Number(ringMode);
+        let rings =
+            ringMode === 'auto'
+                ? 1
+                : Number(ringMode);
         let slotRings = null;
         let capacities = null;
         let layoutArc = null;
 
-        for (let candidate = rings; candidate <= 4; candidate++) {
-            const outerRadius = orbSize / 2 + candidate * ringGap;
-            const candidateArc = arcForPosition(
-                centerX,
-                centerY,
-                outerRadius,
-                iconSize,
-                monitor
-            );
-            const candidateSlotRings = slotsForRings(
-                centerX,
-                centerY,
-                orbSize,
-                ringGap,
-                candidate,
-                candidateArc,
-                iconSize,
-                iconGap,
-                monitor,
-                SCREEN_MARGIN
-            );
-            const candidateCapacities = candidateSlotRings.map(
-                slots => slots.length
-            );
+        for (
+            let candidate = rings;
+            candidate <= 4;
+            candidate++
+        ) {
+            const outerRadius =
+                orbSize / 2 +
+                candidate * ringGap;
+            const candidateArc =
+                arcForPosition(
+                    centerX,
+                    centerY,
+                    outerRadius,
+                    iconSize,
+                    monitor
+                );
+            const candidateSlotRings =
+                slotsForGeometry(
+                    geometry,
+                    centerX,
+                    centerY,
+                    orbSize,
+                    ringGap,
+                    candidate,
+                    candidateArc,
+                    iconSize,
+                    iconGap,
+                    monitor,
+                    SCREEN_MARGIN
+                );
+            const candidateCapacities =
+                candidateSlotRings.map(
+                    slots => slots.length
+                );
 
             rings = candidate;
-            slotRings = candidateSlotRings;
-            capacities = candidateCapacities;
-            layoutArc = candidateArc;
+            slotRings =
+                candidateSlotRings;
+            capacities =
+                candidateCapacities;
+            layoutArc =
+                candidateArc;
 
             if (
                 ringMode !== 'auto' ||
-                totalCapacity(capacities) >= requestedApps.length
+                totalCapacity(capacities) >=
+                    requestedApps.length
             ) {
                 break;
             }
@@ -1272,52 +1314,226 @@ export default class VeloraRuntime extends Extension {
 
         this._syncOrbPageIndicator();
 
-        let appIndex = 0;
-        for (let ring = 0; ring < rings; ring++) {
-            const count = counts[ring];
-            const selectedSlots = selectOrganizedSlots(
-                slotRings[ring],
-                count,
-                layoutArc
+        const placements = [];
+        for (
+            let ring = 0;
+            ring < rings;
+            ring++
+        ) {
+            const selectedSlots =
+                selectGeometrySlots(
+                    slotRings[ring],
+                    counts[ring],
+                    geometry,
+                    layoutArc
+                );
+            placements.push(
+                ...selectedSlots
             );
+        }
 
-            for (const slot of selectedSlots) {
-                if (appIndex >= apps.length)
-                    break;
+        this._createGeometryLinks(
+            geometry,
+            placements,
+            centerX,
+            centerY,
+            iconSize,
+            animationMs
+        );
 
-                const actor = this._createAppButton(
+        for (
+            let appIndex = 0;
+            appIndex < apps.length &&
+            appIndex < placements.length;
+            appIndex++
+        ) {
+            const slot =
+                placements[appIndex];
+            const actor =
+                this._createAppButton(
                     apps[appIndex],
                     iconSize
                 );
+            actor.set_position(
+                centerX - iconSize / 2,
+                centerY - iconSize / 2
+            );
+            actor.opacity = 0;
+            actor.scale_x = 0.35;
+            actor.scale_y = 0.35;
+            this._layer.add_child(actor);
+            this._radialActors.push(actor);
+
+            if (animationMs <= 0) {
                 actor.set_position(
-                    centerX - iconSize / 2,
-                    centerY - iconSize / 2
+                    slot.x,
+                    slot.y
                 );
-                actor.opacity = 0;
-                actor.scale_x = 0.35;
-                actor.scale_y = 0.35;
-                this._layer.add_child(actor);
-                this._radialActors.push(actor);
-
-                if (animationMs <= 0) {
-                    actor.set_position(slot.x, slot.y);
-                    actor.opacity = 255;
-                    actor.scale_x = 1;
-                    actor.scale_y = 1;
-                } else {
-                    actor.ease({
-                        x: slot.x,
-                        y: slot.y,
-                        opacity: 255,
-                        scale_x: 1,
-                        scale_y: 1,
-                        duration: animationMs,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                    });
-                }
-
-                appIndex++;
+                actor.opacity = 255;
+                actor.scale_x = 1;
+                actor.scale_y = 1;
+            } else {
+                actor.ease({
+                    x: slot.x,
+                    y: slot.y,
+                    opacity: 255,
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: animationMs,
+                    mode:
+                        Clutter.AnimationMode
+                            .EASE_OUT_QUAD,
+                });
             }
+        }
+    }
+
+    _createGeometryLinks(
+        geometry,
+        slots,
+        centerX,
+        centerY,
+        iconSize,
+        animationMs
+    ) {
+        this._destroyGeometryActors();
+
+        if (
+            geometry === 'orbit' ||
+            !slots.length ||
+            !this._layer
+        ) {
+            return;
+        }
+
+        const centers = slots.map(slot => ({
+            x: slot.x + iconSize / 2,
+            y: slot.y + iconSize / 2,
+        }));
+        const links = [];
+
+        if (
+            geometry === 'molecule' ||
+            geometry === 'spiral'
+        ) {
+            let previous = {
+                x: centerX,
+                y: centerY,
+            };
+            for (const point of centers) {
+                links.push([
+                    previous,
+                    point,
+                ]);
+                previous = point;
+            }
+        } else {
+            for (const point of centers) {
+                links.push([
+                    {
+                        x: centerX,
+                        y: centerY,
+                    },
+                    point,
+                ]);
+            }
+        }
+
+        for (const [from, to] of links) {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length =
+                Math.hypot(dx, dy);
+            if (length <= 2)
+                continue;
+
+            const line = new St.Widget({
+                style_class:
+                    'velora-orb-geometry-link',
+                reactive: false,
+            });
+            line.set_size(
+                Math.max(
+                    1,
+                    Math.round(length)
+                ),
+                2
+            );
+            line.set_position(
+                Math.round(from.x),
+                Math.round(from.y - 1)
+            );
+            line.set_pivot_point(
+                0,
+                0.5
+            );
+            line.set_rotation_angle?.(
+                Clutter.RotateAxis.Z_AXIS,
+                Math.atan2(
+                    dy,
+                    dx
+                ) *
+                180 /
+                Math.PI
+            );
+            line.opacity = 0;
+
+            try {
+                this._layer
+                    .insert_child_below?.(
+                        line,
+                        this._orb
+                    );
+            } catch {
+                this._layer.add_child(line);
+            }
+
+            this._geometryActors.push(
+                line
+            );
+
+            if (animationMs <= 0) {
+                line.opacity = 92;
+            } else {
+                line.ease({
+                    opacity: 92,
+                    duration:
+                        Math.min(
+                            animationMs,
+                            180
+                        ),
+                    mode:
+                        Clutter.AnimationMode
+                            .EASE_OUT_QUAD,
+                });
+            }
+        }
+    }
+
+    _destroyGeometryActors(
+        immediate = true
+    ) {
+        const actors =
+            this._geometryActors ?? [];
+        this._geometryActors = [];
+
+        for (const actor of actors) {
+            actor.remove_all_transitions?.();
+
+            if (immediate) {
+                actor.destroy?.();
+                continue;
+            }
+
+            actor.ease?.({
+                opacity: 0,
+                duration: 80,
+                mode:
+                    Clutter.AnimationMode
+                        .EASE_OUT_QUAD,
+                onComplete: () =>
+                    actor.destroy?.(),
+            });
         }
     }
 
@@ -1419,6 +1635,7 @@ export default class VeloraRuntime extends Extension {
         this._hideAppPreview(immediate);
         this._hideTooltip();
         this._hideOrbPageIndicator(immediate);
+        this._destroyGeometryActors(immediate);
 
         if (!this._menuOpen && this._radialActors.length === 0) {
             this._scheduleOrbAutoHide();

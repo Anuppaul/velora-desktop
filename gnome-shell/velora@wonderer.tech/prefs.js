@@ -665,6 +665,61 @@ export default class VeloraPreferences extends ExtensionPreferences {
             syncCustomApps
         );
 
+        const orbGeometry =
+            new Adw.ComboRow({
+                title: 'Geometry',
+                subtitle:
+                    'Change the shape of the Orb launcher without changing app source, paging or interactions.',
+                model: Gtk.StringList.new([
+                    'Orbit',
+                    'Star',
+                    'Molecule',
+                    'Spiral',
+                    'Petal',
+                ]),
+            });
+        const orbGeometryValues = [
+            'orbit',
+            'star',
+            'molecule',
+            'spiral',
+            'petal',
+        ];
+        let syncingOrbGeometry = false;
+        const syncOrbGeometry = () => {
+            syncingOrbGeometry = true;
+            const value =
+                settings.get_string(
+                    'orb-geometry'
+                );
+            orbGeometry.selected =
+                Math.max(
+                    0,
+                    orbGeometryValues
+                        .indexOf(value)
+                );
+            syncingOrbGeometry = false;
+        };
+        syncOrbGeometry();
+        orbGeometry.connect(
+            'notify::selected',
+            () => {
+                if (syncingOrbGeometry)
+                    return;
+                settings.set_string(
+                    'orb-geometry',
+                    orbGeometryValues[
+                        orbGeometry.selected
+                    ] ?? 'orbit'
+                );
+            }
+        );
+        settings.connect(
+            'changed::orb-geometry',
+            syncOrbGeometry
+        );
+        launcher.add(orbGeometry);
+
         addIntSpin(
             launcher, settings, 'icon-size',
             'Icon size',
@@ -679,8 +734,8 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
         addIntSpin(
             launcher, settings, 'ring-gap',
-            'Ring gap',
-            'Distance between radial launcher rings.',
+            'Geometry spacing',
+            'Distance between Orbit rings or the main levels of Star, Molecule, Spiral and Petal layouts.',
             0, 160, 2
         );
         addIntSpin(
@@ -707,13 +762,14 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
 
         const ringMode = new Adw.ComboRow({
-            title: 'Ring mode',
-            subtitle: 'Automatic or fixed radial launcher ring count.',
+            title: 'Layout depth',
+            subtitle:
+                'Automatic or fixed geometry depth. Orbit uses rings; other shapes extend their own structure.',
             model: Gtk.StringList.new([
                 'Auto',
-                '2 rings',
-                '3 rings',
-                '4 rings',
+                '2 levels',
+                '3 levels',
+                '4 levels',
             ]),
         });
         const ringValues = ['auto', '2', '3', '4'];

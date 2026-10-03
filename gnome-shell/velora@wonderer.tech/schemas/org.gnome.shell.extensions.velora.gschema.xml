@@ -84,6 +84,19 @@
       <description>Ordered desktop application IDs used when Orb app source is Custom.</description>
     </key>
 
+    <key name="orb-geometry" type="s">
+      <default>'orbit'</default>
+      <choices>
+        <choice value="orbit"/>
+        <choice value="star"/>
+        <choice value="molecule"/>
+        <choice value="spiral"/>
+        <choice value="petal"/>
+      </choices>
+      <summary>Geometry used by the Orb application launcher</summary>
+      <description>Orbit preserves the classic circular launcher. Star, Molecule, Spiral and Petal use monitor-safe alternative slot generators while preserving the same application buttons and interactions.</description>
+    </key>
+
     <key name="ring-mode" type="s">
       <default>'auto'</default>
       <choices>

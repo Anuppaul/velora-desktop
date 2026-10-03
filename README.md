@@ -42,7 +42,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 - **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
 - **Liquid Glass surfaces** — blur, refraction, chromatic dispersion, tint, saturation, rim/specular lighting, and optical depth.
-- **Velora Orb** — draggable, multi-monitor aware radial launcher with **Dock Apps / Custom Apps / All Apps** sources, paging, app previews, tooltips, running indicators, and idle hide/fade behavior.
+- **Velora Orb** — draggable, multi-monitor aware launcher with **Dock Apps / Custom Apps / All Apps**, paging, and selectable **Orbit / Star / Molecule / Spiral / Petal** geometry.
 - **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
 - **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
@@ -200,6 +200,22 @@ Paging wraps from the last page back to the first and includes a short scroll th
 
 > **Hover Orb → configured radial launcher. Click Orb → native GNOME App Grid.**  
 > The source option changes only what appears around the Orb; clicking the Orb still opens GNOME's normal Applications view.
+
+### Orb geometry
+
+The application source and the launcher shape are independent. Choose a source, then choose how those apps are arranged:
+
+| Geometry | Layout character |
+| --- | --- |
+| **Orbit** | Original circular/ring launcher; this remains the default |
+| **Star** | Five-arm radial structure expanding outward from the Orb |
+| **Molecule** | Inward-oriented zig-zag chain with subtle bond lines |
+| **Spiral** | Apps flow outward along a progressive spiral |
+| **Petal** | Flower-like multi-lobe layout around the Orb |
+
+All geometries reuse the same app buttons, paging, tooltips, live previews and running indicators. They are generated against the active monitor bounds, and unsafe/off-screen or colliding slots are filtered before rendering.
+
+Non-Orbit geometries use faint, non-interactive connector lines for visual structure; they do not add another launcher or change application hit targets.
 
 ### Spotlight search
 
