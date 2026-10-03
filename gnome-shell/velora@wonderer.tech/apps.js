@@ -11,21 +11,33 @@ function addUniqueApp(apps, seen, app) {
 }
 
 function visibleInstalledApps(appSystem) {
-    const installed =
+    // Shell.AppSystem.get_installed() returns GAppInfo objects. Resolve each
+    // visible desktop ID back to Shell.App before it enters the Orb renderer;
+    // Shell.App owns activation, running state and icon texture creation.
+    const installedInfo =
         appSystem.get_installed?.() ?? [];
     const apps = [];
     const seen = new Set();
 
-    for (const app of installed) {
+    for (const info of installedInfo) {
         let visible = true;
         try {
-            const info = app.get_app_info?.();
-            if (info?.should_show)
-                visible = info.should_show();
+            visible =
+                info.should_show?.() !== false;
         } catch {}
 
-        if (visible)
-            addUniqueApp(apps, seen, app);
+        if (!visible)
+            continue;
+
+        const id = info.get_id?.();
+        if (!id)
+            continue;
+
+        addUniqueApp(
+            apps,
+            seen,
+            appSystem.lookup_app(id)
+        );
     }
 
     apps.sort((a, b) =>

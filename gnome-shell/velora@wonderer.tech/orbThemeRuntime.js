@@ -125,6 +125,7 @@ export default class VeloraRuntime extends Extension {
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
+        this._orbLastPageScrollUs = 0;
 
         this._removeStaleLayers();
         this._createLayer();
@@ -235,6 +236,8 @@ export default class VeloraRuntime extends Extension {
             dragGrab.dismiss();
         }
 
+        this._hideOrbPageIndicator(true);
+        this._orbLastPageScrollUs = 0;
         this._layer?.destroy();
         this._layer = null;
         this._orb = null;
@@ -256,9 +259,10 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = null;
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
-        this._hideOrbPageIndicator(true);
+        this._orbPageIndicator = null;
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
+        this._orbLastPageScrollUs = 0;
         this._appSystem = null;
         this._shellSettings = null;
         this._settings = null;
@@ -314,6 +318,7 @@ export default class VeloraRuntime extends Extension {
         this._hideOrbPageIndicator(true);
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
+        this._orbLastPageScrollUs = 0;
 
         if (this._dragGrab) {
             this._dragGrab.dismiss();
@@ -584,6 +589,7 @@ export default class VeloraRuntime extends Extension {
                 key === 'orb-custom-apps'
             ) {
                 this._orbPageIndex = 0;
+                this._orbLastPageScrollUs = 0;
                 this._refreshOpenMenu();
                 return;
             }
@@ -599,12 +605,14 @@ export default class VeloraRuntime extends Extension {
                 'animation-ms',
             ].includes(key) && this._menuOpen) {
                 this._orbPageIndex = 0;
+                this._orbLastPageScrollUs = 0;
                 this._reopenMenu();
             }
         });
 
         const refreshLaunchers = () => {
             this._orbPageIndex = 0;
+            this._orbLastPageScrollUs = 0;
             this._refreshOpenMenu();
             this._scanDockHoverPreviews();
         };
@@ -1474,6 +1482,16 @@ export default class VeloraRuntime extends Extension {
         ) {
             return;
         }
+
+        const nowUs = GLib.get_monotonic_time();
+        if (
+            this._orbLastPageScrollUs &&
+            nowUs - this._orbLastPageScrollUs <
+                140000
+        ) {
+            return;
+        }
+        this._orbLastPageScrollUs = nowUs;
 
         const count = this._orbPageCount;
         this._orbPageIndex =

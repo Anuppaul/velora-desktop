@@ -597,10 +597,14 @@ export default class VeloraPreferences extends ExtensionPreferences {
             }
             syncingCustomApps = false;
 
+            const validSelectedCount =
+                selected.filter(
+                    id => customRows.has(id)
+                ).length;
             customPicker.subtitle =
-                selected.length === 1
+                validSelectedCount === 1
                     ? '1 app selected'
-                    : `${selected.length} apps selected`;
+                    : `${validSelectedCount} apps selected`;
             customPicker.sensitive =
                 settings.get_string(
                     'orb-app-source'
