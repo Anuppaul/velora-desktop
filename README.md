@@ -42,7 +42,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 - **Native GNOME Shell preserved** — Velora does not replace the desktop shell with a custom desktop UI.
 - **Liquid Glass surfaces** — blur, refraction, chromatic dispersion, tint, saturation, rim/specular lighting, and optical depth.
-- **Velora Orb** — draggable, multi-monitor aware launcher with **Dock Apps / Custom Apps / All Apps**, paging, and selectable **Orbit / Star / Molecule / Spiral / Petal** geometry.
+- **Velora Orb** — draggable, multi-monitor aware launcher with **Dock Apps / Custom Apps / All Apps**, paging, selectable **Orbit / Star / Molecule / Spiral / Petal** geometry, and monitor-safe fit logic that prevents individual apps from disappearing off-screen.
 - **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
 - **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
@@ -194,7 +194,7 @@ Scroll down / right  → next page
 Scroll up / left     → previous page
 ```
 
-Paging wraps from the last page back to the first and includes a short scroll throttle so touchpad gestures do not skip multiple pages accidentally.
+Paging wraps from the last page back to the first and includes a short scroll throttle so touchpad gestures do not skip multiple pages accidentally. Paging also absorbs apps that cannot fit into the current monitor-safe geometry depth, so moving the Orb near a screen edge does not silently lose applications.
 
 </details>
 
@@ -213,7 +213,31 @@ The application source and the launcher shape are independent. Choose a source, 
 | **Spiral** | Apps flow outward along a progressive spiral |
 | **Petal** | Flower-like multi-lobe layout around the Orb |
 
-All geometries reuse the same app buttons, paging, tooltips, live previews and running indicators. Layouts are fit to the active monitor before rendering: complete levels are translated/scaled inward instead of dropping individual off-screen apps. If a requested depth physically cannot fit without icon collisions, Velora reduces the complete outer level and paging absorbs the remaining apps.
+All geometries reuse the same app buttons, paging, tooltips, live previews and running indicators.
+
+<details open>
+<summary><b>Monitor-safe geometry</b></summary>
+
+Velora uses a **fit-first** layout path for Orbit, Star, Molecule, Spiral and Petal:
+
+```mermaid
+flowchart LR
+    A["Generate complete geometry"] --> B["Measure active monitor"]
+    B --> C["Translate inward"]
+    C --> D["Scale uniformly if needed"]
+    D --> E{"Still colliding?"}
+    E -- "No" --> F["Render complete levels"]
+    E -- "Yes" --> G["Remove complete outer level"]
+    G --> H["Remaining apps go to next page"]
+```
+
+The important rule is: **individual off-screen slots are not silently dropped.**
+
+This matters especially with **All Apps** when the Orb is near the left, right, top, bottom or a monitor corner. Instead of showing only part of a ring/shape, Velora keeps complete usable levels inside the active monitor and increases paging when necessary.
+
+If a requested depth physically cannot fit without icon collisions, Velora removes the complete outer level rather than cutting random apps out of the shape.
+
+</details>
 
 Non-Orbit geometries use faint, non-interactive connector lines for visual structure; they do not add another launcher or change application hit targets.
 
