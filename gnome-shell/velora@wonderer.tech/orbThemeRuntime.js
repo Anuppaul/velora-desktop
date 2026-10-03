@@ -1479,13 +1479,26 @@ export default class VeloraRuntime extends Extension {
             line.opacity = 0;
 
             try {
-                this._layer
-                    .insert_child_below?.(
+                if (
+                    typeof this._layer
+                        .insert_child_below ===
+                    'function'
+                ) {
+                    this._layer.insert_child_below(
                         line,
                         this._orb
                     );
+                } else {
+                    this._layer.add_child(line);
+                    this._layer
+                        .set_child_below_sibling?.(
+                            line,
+                            this._orb
+                        );
+                }
             } catch {
-                this._layer.add_child(line);
+                if (!line.get_parent?.())
+                    this._layer.add_child(line);
             }
 
             this._geometryActors.push(

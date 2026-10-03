@@ -105,7 +105,7 @@
         <choice value="3"/>
         <choice value="4"/>
       </choices>
-      <summary>Orb radial launcher ring count</summary>
+      <summary>Orb launcher layout depth</summary>
     </key>
     <key name="icon-size" type="i">
       <default>52</default>
@@ -120,7 +120,7 @@
     <key name="ring-gap" type="i">
       <default>80</default>
       <range min="0" max="160"/>
-      <summary>Distance between Orb radial launcher rings</summary>
+      <summary>Spacing between Orb launcher geometry levels</summary>
     </key>
     <key name="hover-delay" type="i">
       <default>100</default>
