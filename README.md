@@ -237,6 +237,8 @@ This matters especially with **All Apps** when the Orb is near the left, right, 
 
 If a requested depth physically cannot fit without icon collisions, Velora removes the complete outer level rather than cutting random apps out of the shape.
 
+In **Auto** layout depth, Velora can also grow beyond the normal four levels (up to a bounded safety limit) when an edge or corner leaves a narrower arc but plenty of inward screen space. This is particularly useful for **All Apps + Orbit** near a monitor corner: the Orbit stays anchored to the Orb, gains additional inward levels, and only falls back to another page when the monitor really has no more clean capacity. Fixed **2 / 3 / 4 levels** remain exact.
+
 </details>
 
 Non-Orbit geometries use faint, non-interactive connector lines for visual structure; they do not add another launcher or change application hit targets.

@@ -27,6 +27,7 @@ const DEFAULT_ORB_ICON = 'start-here-symbolic';
 const FALLBACK_ORB_ICON = 'view-app-grid-symbolic';
 const ORB_AUTO_HIDE_REVEAL_PX = 7;
 const SCREEN_MARGIN = 8;
+const AUTO_LAYOUT_MAX_DEPTH = 8;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
 const APP_PREVIEW_PADDING = 10;
@@ -1228,9 +1229,16 @@ export default class VeloraRuntime extends Extension {
         let capacities = null;
         let layoutArc = null;
 
+        const maxDepth =
+            ringMode === 'auto'
+                ? AUTO_LAYOUT_MAX_DEPTH
+                : rings;
+        let previousCapacity = -1;
+        let stagnantDepths = 0;
+
         for (
             let candidate = rings;
-            candidate <= 4;
+            candidate <= maxDepth;
             candidate++
         ) {
             const outerRadius =
@@ -1262,6 +1270,10 @@ export default class VeloraRuntime extends Extension {
                 candidateSlotRings.map(
                     slots => slots.length
                 );
+            const candidateCapacity =
+                totalCapacity(
+                    candidateCapacities
+                );
 
             rings = candidate;
             slotRings =
@@ -1271,13 +1283,35 @@ export default class VeloraRuntime extends Extension {
             layoutArc =
                 candidateArc;
 
+            if (ringMode !== 'auto')
+                break;
+
             if (
-                ringMode !== 'auto' ||
-                totalCapacity(capacities) >=
-                    requestedApps.length
+                candidateCapacity >=
+                requestedApps.length
             ) {
                 break;
             }
+
+            // Near an edge/corner, Orbit can safely grow deeper into the
+            // monitor even though its angular arc is narrower. Alternative
+            // geometries may hit a physical fit limit earlier; stop after two
+            // consecutive depths add no usable slots instead of doing useless
+            // work up to the hard safety cap.
+            if (
+                candidateCapacity <=
+                previousCapacity
+            ) {
+                stagnantDepths++;
+            } else {
+                stagnantDepths = 0;
+            }
+
+            previousCapacity =
+                candidateCapacity;
+
+            if (stagnantDepths >= 2)
+                break;
         }
 
         const visibleCapacity = totalCapacity(capacities);
