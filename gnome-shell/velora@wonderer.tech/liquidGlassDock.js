@@ -2815,15 +2815,37 @@ export class LiquidGlassIntegration {
             dock.position ??
             null;
 
+        const slide =
+            this._readNativeDockSlide(entry);
+        const visibleSlide =
+            Number.isFinite(slide)
+                ? clampNumber(slide, 0, 1)
+                : (
+                    this._readNativeDockState(entry) ===
+                        NATIVE_DOCK_STATE.SHOWN
+                        ? 1
+                        : 0
+                );
+
+        // _applyDockVerticalOffset() intentionally interpolates the visual
+        // translation to zero while the dock hides. Intellihide, however,
+        // must always test the rectangle where the dock WOULD BE fully shown.
+        // For side docks, compensate for the portion of the configured offset
+        // that is currently interpolated out.
+        const hiddenOffsetCorrection =
+            verticalOffset * (1 - visibleSlide);
+
         switch (position) {
         case St.Side.LEFT:
             x = monitor.x;
+            y = absY - hiddenOffsetCorrection;
             break;
         case St.Side.RIGHT:
             x =
                 monitor.x +
                 monitor.width -
                 width;
+            y = absY - hiddenOffsetCorrection;
             break;
         case St.Side.TOP:
             y =
@@ -3041,6 +3063,20 @@ export class LiquidGlassIntegration {
         // A transition-start signal is the authoritative indication that the
         // glass must remain visible even if the legacy _dockState or slider
         // endpoint has not advanced yet.
+        const slide =
+            this._readNativeDockSlide(entry);
+
+        if (
+            entry.nativeDockTransition ===
+                'hiding' &&
+            Number.isFinite(slide) &&
+            slide <=
+                NATIVE_DOCK_SLIDE_EPSILON
+        ) {
+            entry.nativeDockTransition = null;
+            return false;
+        }
+
         if (
             entry.nativeDockTransition ===
                 'showing' ||
@@ -3049,9 +3085,6 @@ export class LiquidGlassIntegration {
         ) {
             return true;
         }
-
-        const slide =
-            this._readNativeDockSlide(entry);
 
         // Slider endpoints are the authoritative visual truth. On v104 the
         // final notify::slide-x may fire before the animation onComplete writes
@@ -3200,6 +3233,32 @@ export class LiquidGlassIntegration {
                     dock.connect(
                         'notify::dock-state',
                         () => {
+                            const state =
+                                this._readNativeDockState(
+                                    entry
+                                );
+
+                            // Modern builds expose dockState directly. Treat
+                            // its terminal states as an endpoint fallback in
+                            // case notify::slide-x is coalesced or unavailable.
+                            if (
+                                (
+                                    state ===
+                                        NATIVE_DOCK_STATE.HIDDEN &&
+                                    entry.nativeDockTransition ===
+                                        'hiding'
+                                ) ||
+                                (
+                                    state ===
+                                        NATIVE_DOCK_STATE.SHOWN &&
+                                    entry.nativeDockTransition ===
+                                        'showing'
+                                )
+                            ) {
+                                entry.nativeDockTransition =
+                                    null;
+                            }
+
                             this._ensureNativeDockPaintState(
                                 entry
                             );
@@ -3618,9 +3677,27 @@ export class LiquidGlassIntegration {
                             continue;
                         }
 
+                        const slide =
+                            this._readNativeDockSlide(
+                                entry
+                            );
+                        const state =
+                            this._readNativeDockState(
+                                entry
+                            );
                         const hidden =
-                            entry.nativeDock?.dockState === 0;
+                            (
+                                Number.isFinite(slide) &&
+                                slide <=
+                                    NATIVE_DOCK_SLIDE_EPSILON
+                            ) ||
+                            state ===
+                                NATIVE_DOCK_STATE.HIDDEN;
 
+                        // A hidden autohide dock cannot produce a composited
+                        // glass paint yet. Hidden is therefore a valid warm
+                        // handoff state; the first native 'showing' signal will
+                        // reveal the already-initialized glass actor.
                         if (
                             !hidden &&
                             !(
