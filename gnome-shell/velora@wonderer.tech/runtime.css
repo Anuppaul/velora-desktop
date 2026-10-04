@@ -535,18 +535,61 @@
 }
 
 /* Alt-Tab / switcher ---------------------------------------------------- */
+/* The outer switcher-list already owns the real Liquid Glass material.
+ * Reuse that backdrop for application/window tiles instead of stacking
+ * another shader per icon. Native item geometry, keyboard focus, labels,
+ * thumbnails and switching behaviour remain owned by GNOME Shell. */
 .switcher-list.velora-liquid-shell-card .item-box {
+    background-color: rgba(255, 255, 255, 0.055);
+    background-image: none;
+    border: 1px solid rgba(255, 255, 255, 0.095);
+    border-radius: 18px;
+    box-shadow: none;
+}
+
+.switcher-list.velora-liquid-shell-card .item-box:hover,
+.switcher-list.velora-liquid-shell-card .item-box:focus {
+    background-color: rgba(255, 255, 255, 0.085);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: none;
+}
+
+.switcher-list.velora-liquid-shell-card .item-box:selected,
+.switcher-list.velora-liquid-shell-card .item-box:checked {
+    background-color: rgba(255, 255, 255, 0.145);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow: none;
+}
+
+/* App icons/thumbnails stay fully native; only their surrounding tile gets
+ * the Velora plate. This avoids the icon-opacity/disappear class of bugs. */
+.switcher-list.velora-liquid-shell-card .item-box StIcon,
+.switcher-list.velora-liquid-shell-card .item-box .thumbnail {
     background-color: transparent;
     background-image: none;
     box-shadow: none;
 }
 
-.switcher-list.velora-liquid-shell-card .item-box:selected {
-    background-color: rgba(255, 255, 255, 0.18);
+/* Secondary window thumbnails inside the Alt-Tab switcher share the same
+ * visual hierarchy without becoming a second opaque card. */
+.switcher-list.velora-liquid-shell-card .thumbnail-box {
+    background-color: rgba(255, 255, 255, 0.035);
+    background-image: none;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+.switcher-list.velora-liquid-shell-card .thumbnail-box:selected,
+.switcher-list.velora-liquid-shell-card .thumbnail-box:focus {
+    background-color: rgba(255, 255, 255, 0.095);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
 }
 
 .switcher-list.velora-liquid-shell-card .separator {
-    background-color: rgba(255, 255, 255, 0.18);
+    background-color: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
 }
 
 /* App Grid folder dialog ------------------------------------------------
