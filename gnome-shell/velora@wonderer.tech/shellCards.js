@@ -14,7 +14,6 @@ const CARD_CLASS = 'velora-liquid-shell-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
-    'switcher-list',
     'workspace-switcher',
     'resize-popup',
     'workspace-thumbnails',

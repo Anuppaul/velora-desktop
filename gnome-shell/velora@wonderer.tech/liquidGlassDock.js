@@ -36,6 +36,9 @@ import {
     SpotlightGlassManager,
 } from './spotlightGlass.js';
 import {
+    AltTabModalBackdropManager,
+} from './altTabModalBackdrop.js';
+import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
@@ -434,6 +437,7 @@ export class LiquidGlassIntegration {
         this._sharedAdaptiveTextManager = null;
         this._orbGlassManager = null;
         this._spotlightGlassManager = null;
+        this._altTabModalBackdropManager = null;
         this._cardAppearanceSettingId = 0;
         this._cardAppearanceApplyId = 0;
         this._desktopInterfaceSettings = null;
@@ -582,6 +586,25 @@ export class LiquidGlassIntegration {
             );
         }
 
+        try {
+            this._altTabModalBackdropManager =
+                new AltTabModalBackdropManager({
+                    vendor: this._vendor,
+                });
+            this._altTabModalBackdropManager.setup();
+            this._managerHealth.altTabModalBackdropManager = true;
+            console.log(
+                '[Velora][LiquidGlass] altTabModalBackdropManager active'
+            );
+        } catch (error) {
+            this._altTabModalBackdropManager = null;
+            this._managerHealth.altTabModalBackdropManager = false;
+            console.error(
+                '[Velora][LiquidGlass] altTabModalBackdropManager setup failed: ' +
+                error
+            );
+        }
+
         // Keep Velora-owned materials live-bound to the same shared appearance
         // controls in both standalone and upstream-stack modes.
         this._setupSharedCardAppearanceSync();
@@ -718,6 +741,7 @@ export class LiquidGlassIntegration {
                 this._overviewCloseGlassManager?.updateAppearance();
                 this._orbGlassManager?.updateAppearance();
                 this._spotlightGlassManager?.refresh();
+                this._altTabModalBackdropManager?.refresh();
                 this._sharedAdaptiveTextManager?.refresh();
             }
         );
@@ -5023,6 +5047,9 @@ export class LiquidGlassIntegration {
                 spotlightGlassManager: Boolean(
                     this._spotlightGlassManager
                 ),
+                altTabModalBackdropManager: Boolean(
+                    this._altTabModalBackdropManager
+                ),
                 glassOpacity:
                     this._veloraSettings?.get_int?.(
                         'glass-opacity'
@@ -5209,6 +5236,12 @@ export class LiquidGlassIntegration {
             this._spotlightGlassManager
         );
         this._spotlightGlassManager = null;
+
+        cleanup(
+            'altTabModalBackdropManager',
+            this._altTabModalBackdropManager
+        );
+        this._altTabModalBackdropManager = null;
 
         this._cleanupNativeNotificationStyler();
         cleanup('osdManager', this._osdManager);

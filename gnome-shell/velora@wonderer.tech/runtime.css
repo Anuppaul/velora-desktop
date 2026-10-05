@@ -534,80 +534,86 @@
     border-color: transparent;
 }
 
-/* Alt-Tab / switcher ---------------------------------------------------- */
-/* Premium hierarchy: the outer switcher owns the real Liquid Glass surface.
- * Unselected applications float cleanly with no card chrome. Only the active
- * selection receives a focused glass capsule. This keeps the switcher calm,
- * makes the current target obvious, and avoids the utility-grid look caused by
- * wrapping every icon in its own plate. */
-.switcher-list.velora-liquid-shell-card .item-box {
+/* Alt-Tab modal --------------------------------------------------------- */
+/* Alt+Tab is treated as a focused modal experience: the dedicated runtime
+ * backdrop blurs the live desktop and applies a dark veil full-screen.
+ * Therefore switcher text has one stable light polarity and needs no adaptive
+ * sampling. Native GNOME layout, keyboard navigation and switching stay intact. */
+.velora-alt-tab-modal-dim {
+    background-color: rgba(7, 9, 14, 0.52);
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.switcher-list.velora-alt-tab-modal-switcher {
+    color: rgba(248, 249, 253, 0.98) !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.switcher-list.velora-alt-tab-modal-switcher StLabel,
+.switcher-list.velora-alt-tab-modal-switcher StIcon {
+    color: rgba(248, 249, 253, 0.98) !important;
+}
+
+.switcher-list.velora-alt-tab-modal-switcher .item-box {
     background-color: transparent;
     background-image: none;
     border: 1px solid transparent;
-    border-radius: 24px;
+    border-radius: 22px;
     box-shadow: none;
 }
 
-/* Pointer/focus gets only a whisper of material. Keyboard Alt-Tab selection
- * below remains the primary visual state. */
-.switcher-list.velora-liquid-shell-card .item-box:hover,
-.switcher-list.velora-liquid-shell-card .item-box:focus {
-    background-color: rgba(127, 127, 127, 0.065);
-    background-image: none;
-    border-color: rgba(127, 127, 127, 0.22);
+.switcher-list.velora-alt-tab-modal-switcher .item-box:hover,
+.switcher-list.velora-alt-tab-modal-switcher .item-box:focus {
+    background-color: rgba(255, 255, 255, 0.075);
+    border-color: rgba(255, 255, 255, 0.12);
     box-shadow: none;
 }
 
-/* One premium selected capsule: translucent neutral body, a fine native
- * accent rim and controlled depth. The neutral body supplies contrast on both
- * white and dark backdrops while the accent identifies the active target. */
-.switcher-list.velora-liquid-shell-card .item-box:selected,
-.switcher-list.velora-liquid-shell-card .item-box:checked {
-    background-color: rgba(86, 88, 98, 0.16);
+/* The selected application is the only strong card. Against the controlled
+ * dark modal backdrop it can stay consistently light and premium without
+ * dynamic text/color decisions. */
+.switcher-list.velora-alt-tab-modal-switcher .item-box:selected,
+.switcher-list.velora-alt-tab-modal-switcher .item-box:checked {
+    background-color: rgba(255, 255, 255, 0.115);
     background-image: none;
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.20);
-    background-gradient-end: rgba(20, 22, 30, 0.16);
-    border: 1px solid -st-accent-color;
-    border-radius: 24px;
-    box-shadow:
-        0 10px 30px 0 rgba(0, 0, 0, 0.22),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.24);
+    background-gradient-start: rgba(255, 255, 255, 0.16);
+    background-gradient-end: rgba(255, 255, 255, 0.075);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px 0 rgba(0, 0, 0, 0.28);
 }
 
-/* Icons and thumbnails remain exactly GNOME's native actors. */
-.switcher-list.velora-liquid-shell-card .item-box StIcon,
-.switcher-list.velora-liquid-shell-card .item-box .thumbnail {
+.switcher-list.velora-alt-tab-modal-switcher .item-box StIcon,
+.switcher-list.velora-alt-tab-modal-switcher .item-box .thumbnail {
     background-color: transparent;
     background-image: none;
     border-color: transparent;
     box-shadow: none;
 }
 
-/* Secondary window thumbnails are also chrome-free until selected. */
-.switcher-list.velora-liquid-shell-card .thumbnail-box {
+.switcher-list.velora-alt-tab-modal-switcher .thumbnail-box {
     background-color: transparent;
     background-image: none;
     border: 1px solid transparent;
-    border-radius: 18px;
+    border-radius: 16px;
     box-shadow: none;
 }
 
-.switcher-list.velora-liquid-shell-card .thumbnail-box:selected,
-.switcher-list.velora-liquid-shell-card .thumbnail-box:focus {
-    background-color: rgba(86, 88, 98, 0.13);
-    background-image: none;
-    background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.16);
-    background-gradient-end: rgba(20, 22, 30, 0.13);
-    border: 1px solid -st-accent-color;
-    box-shadow:
-        0 7px 22px 0 rgba(0, 0, 0, 0.18),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
+.switcher-list.velora-alt-tab-modal-switcher .thumbnail-box:selected,
+.switcher-list.velora-alt-tab-modal-switcher .thumbnail-box:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.24);
 }
 
-.switcher-list.velora-liquid-shell-card .separator {
-    background-color: rgba(127, 127, 127, 0.22);
+.switcher-list.velora-alt-tab-modal-switcher .separator {
+    background-color: rgba(255, 255, 255, 0.20);
     box-shadow: none;
 }
 

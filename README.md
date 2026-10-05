@@ -46,6 +46,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 - **Native Ubuntu Dock integration** — the existing Ubuntu Dock/Dash-to-Dock interaction model and icon behavior stay intact while supported material is themed.
 - **Popup integration** — Date/Calendar, Quick Settings, panel/status menus, and standard GNOME PopupMenu surfaces use the shared glass system.
 - **Notifications and Shell cards** — supported Shell-owned cards receive the same visual language without replacing their native content or controls.
+- **Modal Alt+Tab** — native GNOME switching stays intact while the live desktop becomes a full-screen blurred, darkened backdrop with fixed high-contrast switcher text.
 - **Built for low overhead** — shared wallpaper sources, GPU-native actors/effects, downscaled blur, caching/reuse, event-driven updates, and no permanent JS polling loop for popup surfaces.
 - **Open source** — released under the MIT License.
 
