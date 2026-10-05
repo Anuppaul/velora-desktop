@@ -534,6 +534,21 @@
     border-color: transparent;
 }
 
+/* Alt-Tab outer palette hard reset ------------------------------------- */
+/* GNOME/Yaru paints .switcher-list as one large rounded palette. Velora's
+ * modal design does not use that plate at all: only foreground app/window
+ * items remain above the full-screen backdrop. Keep layout ownership native,
+ * remove paint only. */
+.switcher-list,
+.switcher-popup .switcher-list,
+.switcher-list.velora-alt-tab-modal-switcher {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-width: 0 !important;
+    box-shadow: none !important;
+}
+
 /* Alt-Tab modal --------------------------------------------------------- */
 /* Alt+Tab is treated as a focused modal experience: the dedicated runtime
  * backdrop blurs the live desktop and applies a dark veil full-screen.
