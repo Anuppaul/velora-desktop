@@ -535,36 +535,44 @@
 }
 
 /* Alt-Tab / switcher ---------------------------------------------------- */
-/* The outer switcher-list already owns the real Liquid Glass material.
- * Reuse that backdrop for application/window tiles instead of stacking
- * another shader per icon. Native item geometry, keyboard focus, labels,
- * thumbnails and switching behaviour remain owned by GNOME Shell. */
+/* Premium tile treatment over the ONE real Liquid Glass switcher surface.
+ * No per-item blur/shader is added. A balanced light-to-dark neutral gradient
+ * creates edge contrast on both bright and dark backdrops without turning
+ * every app into an opaque gray card. */
 .switcher-list.velora-liquid-shell-card .item-box {
-    /* Mid-neutral glass stays readable over both very dark and very bright
-     * backdrops. Pure white tint/rim disappears over light wallpapers. */
-    background-color: rgba(127, 127, 127, 0.11);
+    background-color: rgba(127, 127, 127, 0.055);
     background-image: none;
-    border: 1px solid rgba(127, 127, 127, 0.30);
-    border-radius: 18px;
-    box-shadow: none;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.095);
+    background-gradient-end: rgba(18, 20, 28, 0.075);
+    border: 1px solid rgba(127, 127, 127, 0.24);
+    border-radius: 20px;
+    box-shadow: 0 5px 18px 0 rgba(0, 0, 0, 0.10);
 }
 
 .switcher-list.velora-liquid-shell-card .item-box:hover,
 .switcher-list.velora-liquid-shell-card .item-box:focus {
-    background-color: rgba(127, 127, 127, 0.17);
-    border-color: rgba(127, 127, 127, 0.42);
-    box-shadow: none;
+    background-color: rgba(127, 127, 127, 0.085);
+    background-gradient-start: rgba(255, 255, 255, 0.13);
+    background-gradient-end: rgba(18, 20, 28, 0.095);
+    border-color: rgba(127, 127, 127, 0.34);
+    box-shadow: 0 7px 22px 0 rgba(0, 0, 0, 0.13);
 }
 
+/* Selection is a lifted glass capsule, not a solid accent block. The native
+ * Shell accent is kept to one fine rim so the active app remains obvious on
+ * white, dark and highly saturated backgrounds. */
 .switcher-list.velora-liquid-shell-card .item-box:selected,
 .switcher-list.velora-liquid-shell-card .item-box:checked {
-    background-color: rgba(127, 127, 127, 0.20);
-    border-color: -st-accent-color;
-    box-shadow: none;
+    background-color: rgba(127, 127, 127, 0.11);
+    background-gradient-start: rgba(255, 255, 255, 0.18);
+    background-gradient-end: rgba(18, 20, 28, 0.12);
+    border: 1px solid -st-accent-color;
+    box-shadow: 0 9px 28px 0 rgba(0, 0, 0, 0.18);
 }
 
-/* App icons/thumbnails stay fully native; only their surrounding tile gets
- * the Velora plate. This avoids the icon-opacity/disappear class of bugs. */
+/* App icons/thumbnails stay completely native. Only the surrounding material
+ * changes, avoiding the icon-opacity/disappear class of regressions. */
 .switcher-list.velora-liquid-shell-card .item-box StIcon,
 .switcher-list.velora-liquid-shell-card .item-box .thumbnail {
     background-color: transparent;
@@ -572,25 +580,30 @@
     box-shadow: none;
 }
 
-/* Secondary window thumbnails inside the Alt-Tab switcher share the same
- * visual hierarchy without becoming a second opaque card. */
+/* Secondary window previews are deliberately quieter than the main selected
+ * application tile, but use the same balanced material hierarchy. */
 .switcher-list.velora-liquid-shell-card .thumbnail-box {
-    background-color: rgba(127, 127, 127, 0.08);
+    background-color: rgba(127, 127, 127, 0.045);
     background-image: none;
-    border: 1px solid rgba(127, 127, 127, 0.24);
-    border-radius: 14px;
-    box-shadow: none;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.075);
+    background-gradient-end: rgba(18, 20, 28, 0.055);
+    border: 1px solid rgba(127, 127, 127, 0.20);
+    border-radius: 15px;
+    box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.08);
 }
 
 .switcher-list.velora-liquid-shell-card .thumbnail-box:selected,
 .switcher-list.velora-liquid-shell-card .thumbnail-box:focus {
-    background-color: rgba(127, 127, 127, 0.16);
-    border-color: -st-accent-color;
-    box-shadow: none;
+    background-color: rgba(127, 127, 127, 0.09);
+    background-gradient-start: rgba(255, 255, 255, 0.14);
+    background-gradient-end: rgba(18, 20, 28, 0.10);
+    border: 1px solid -st-accent-color;
+    box-shadow: 0 7px 20px 0 rgba(0, 0, 0, 0.14);
 }
 
 .switcher-list.velora-liquid-shell-card .separator {
-    background-color: rgba(255, 255, 255, 0.16);
+    background-color: rgba(127, 127, 127, 0.26);
     box-shadow: none;
 }
 
