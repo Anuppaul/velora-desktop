@@ -9,7 +9,7 @@ TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
 BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
 BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
-INSTALLER_VERSION="2026-10-02.220"
+INSTALLER_VERSION="2026-10-05.221"
 
 BOOTSTRAP_FILES=(
     "extension.js"
@@ -41,6 +41,7 @@ RUNTIME_FILES=(
     "spotlightSearch.js"
     "sharedAdaptiveText.js"
     "orbGlass.js"
+    "altTabModalBackdrop.js"
 )
 
 RUNTIME_DIRS=(
@@ -78,6 +79,61 @@ for required_dir in "${RUNTIME_DIRS[@]}"; do
     [[ -d "${SOURCE_DIR}/${required_dir}" ]] ||
         fail "Required Velora runtime directory is missing: ${required_dir}"
 done
+
+# Keep the hot-swap runtime manifest honest. A newly imported local module must
+# be listed in RUNTIME_FILES so it participates in both the revision hash and
+# the staged runtime copy. Failing here is much safer than discovering the
+# omission after GNOME Shell has already attempted a hot import.
+python3 - "${SOURCE_DIR}" "${RUNTIME_FILES[@]}" <<'PY'
+import posixpath
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+manifest = set(sys.argv[2:])
+
+patterns = [
+    re.compile(r"""\bfrom\s+['"]([^'"]+)['"]"""),
+    re.compile(r"""\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)"""),
+]
+
+missing = set()
+
+for relative in sorted(manifest):
+    if not relative.endswith(".js"):
+        continue
+
+    path = root / relative
+    text = path.read_text(encoding="utf-8")
+
+    for pattern in patterns:
+        for specifier in pattern.findall(text):
+            if not specifier.startswith("."):
+                continue
+
+            target = posixpath.normpath(
+                posixpath.join(
+                    posixpath.dirname(relative),
+                    specifier,
+                )
+            )
+
+            if not posixpath.splitext(target)[1]:
+                target += ".js"
+
+            if target.endswith(".js") and target not in manifest:
+                missing.add((relative, target))
+
+if missing:
+    print(
+        "ERROR: Velora runtime manifest is missing local JS imports:",
+        file=sys.stderr,
+    )
+    for source, target in sorted(missing):
+        print(f"  {source} -> {target}", file=sys.stderr)
+    raise SystemExit(1)
+PY
 
 GNOME_VERSION="$(gnome-shell --version 2>/dev/null)" ||
     fail "Unable to read the GNOME Shell version."
