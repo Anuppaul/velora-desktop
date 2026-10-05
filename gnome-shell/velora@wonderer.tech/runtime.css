@@ -540,24 +540,26 @@
  * another shader per icon. Native item geometry, keyboard focus, labels,
  * thumbnails and switching behaviour remain owned by GNOME Shell. */
 .switcher-list.velora-liquid-shell-card .item-box {
-    background-color: rgba(255, 255, 255, 0.055);
+    /* Mid-neutral glass stays readable over both very dark and very bright
+     * backdrops. Pure white tint/rim disappears over light wallpapers. */
+    background-color: rgba(127, 127, 127, 0.11);
     background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.095);
+    border: 1px solid rgba(127, 127, 127, 0.30);
     border-radius: 18px;
     box-shadow: none;
 }
 
 .switcher-list.velora-liquid-shell-card .item-box:hover,
 .switcher-list.velora-liquid-shell-card .item-box:focus {
-    background-color: rgba(255, 255, 255, 0.085);
-    border-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(127, 127, 127, 0.17);
+    border-color: rgba(127, 127, 127, 0.42);
     box-shadow: none;
 }
 
 .switcher-list.velora-liquid-shell-card .item-box:selected,
 .switcher-list.velora-liquid-shell-card .item-box:checked {
-    background-color: rgba(255, 255, 255, 0.145);
-    border-color: rgba(255, 255, 255, 0.24);
+    background-color: rgba(127, 127, 127, 0.20);
+    border-color: -st-accent-color;
     box-shadow: none;
 }
 
@@ -573,17 +575,17 @@
 /* Secondary window thumbnails inside the Alt-Tab switcher share the same
  * visual hierarchy without becoming a second opaque card. */
 .switcher-list.velora-liquid-shell-card .thumbnail-box {
-    background-color: rgba(255, 255, 255, 0.035);
+    background-color: rgba(127, 127, 127, 0.08);
     background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(127, 127, 127, 0.24);
     border-radius: 14px;
     box-shadow: none;
 }
 
 .switcher-list.velora-liquid-shell-card .thumbnail-box:selected,
 .switcher-list.velora-liquid-shell-card .thumbnail-box:focus {
-    background-color: rgba(255, 255, 255, 0.095);
-    border-color: rgba(255, 255, 255, 0.16);
+    background-color: rgba(127, 127, 127, 0.16);
+    border-color: -st-accent-color;
     box-shadow: none;
 }
 
