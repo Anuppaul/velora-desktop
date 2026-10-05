@@ -535,77 +535,82 @@
 }
 
 /* Alt-Tab / switcher ---------------------------------------------------- */
-/* Premium tile treatment over the ONE real Liquid Glass switcher surface.
- * No per-item blur/shader is added. A balanced light-to-dark neutral gradient
- * creates edge contrast on both bright and dark backdrops without turning
- * every app into an opaque gray card. */
+/* Premium hierarchy: the outer switcher owns the real Liquid Glass surface.
+ * Unselected applications float cleanly with no card chrome. Only the active
+ * selection receives a focused glass capsule. This keeps the switcher calm,
+ * makes the current target obvious, and avoids the utility-grid look caused by
+ * wrapping every icon in its own plate. */
 .switcher-list.velora-liquid-shell-card .item-box {
-    background-color: rgba(127, 127, 127, 0.055);
+    background-color: transparent;
     background-image: none;
-    background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.095);
-    background-gradient-end: rgba(18, 20, 28, 0.075);
-    border: 1px solid rgba(127, 127, 127, 0.24);
-    border-radius: 20px;
-    box-shadow: 0 5px 18px 0 rgba(0, 0, 0, 0.10);
+    border: 1px solid transparent;
+    border-radius: 24px;
+    box-shadow: none;
 }
 
+/* Pointer/focus gets only a whisper of material. Keyboard Alt-Tab selection
+ * below remains the primary visual state. */
 .switcher-list.velora-liquid-shell-card .item-box:hover,
 .switcher-list.velora-liquid-shell-card .item-box:focus {
-    background-color: rgba(127, 127, 127, 0.085);
-    background-gradient-start: rgba(255, 255, 255, 0.13);
-    background-gradient-end: rgba(18, 20, 28, 0.095);
-    border-color: rgba(127, 127, 127, 0.34);
-    box-shadow: 0 7px 22px 0 rgba(0, 0, 0, 0.13);
+    background-color: rgba(127, 127, 127, 0.065);
+    background-image: none;
+    border-color: rgba(127, 127, 127, 0.22);
+    box-shadow: none;
 }
 
-/* Selection is a lifted glass capsule, not a solid accent block. The native
- * Shell accent is kept to one fine rim so the active app remains obvious on
- * white, dark and highly saturated backgrounds. */
+/* One premium selected capsule: translucent neutral body, a fine native
+ * accent rim and controlled depth. The neutral body supplies contrast on both
+ * white and dark backdrops while the accent identifies the active target. */
 .switcher-list.velora-liquid-shell-card .item-box:selected,
 .switcher-list.velora-liquid-shell-card .item-box:checked {
-    background-color: rgba(127, 127, 127, 0.11);
-    background-gradient-start: rgba(255, 255, 255, 0.18);
-    background-gradient-end: rgba(18, 20, 28, 0.12);
+    background-color: rgba(86, 88, 98, 0.16);
+    background-image: none;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.20);
+    background-gradient-end: rgba(20, 22, 30, 0.16);
     border: 1px solid -st-accent-color;
-    box-shadow: 0 9px 28px 0 rgba(0, 0, 0, 0.18);
+    border-radius: 24px;
+    box-shadow:
+        0 10px 30px 0 rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.24);
 }
 
-/* App icons/thumbnails stay completely native. Only the surrounding material
- * changes, avoiding the icon-opacity/disappear class of regressions. */
+/* Icons and thumbnails remain exactly GNOME's native actors. */
 .switcher-list.velora-liquid-shell-card .item-box StIcon,
 .switcher-list.velora-liquid-shell-card .item-box .thumbnail {
     background-color: transparent;
     background-image: none;
+    border-color: transparent;
     box-shadow: none;
 }
 
-/* Secondary window previews are deliberately quieter than the main selected
- * application tile, but use the same balanced material hierarchy. */
+/* Secondary window thumbnails are also chrome-free until selected. */
 .switcher-list.velora-liquid-shell-card .thumbnail-box {
-    background-color: rgba(127, 127, 127, 0.045);
+    background-color: transparent;
     background-image: none;
-    background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.075);
-    background-gradient-end: rgba(18, 20, 28, 0.055);
-    border: 1px solid rgba(127, 127, 127, 0.20);
-    border-radius: 15px;
-    box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.08);
+    border: 1px solid transparent;
+    border-radius: 18px;
+    box-shadow: none;
 }
 
 .switcher-list.velora-liquid-shell-card .thumbnail-box:selected,
 .switcher-list.velora-liquid-shell-card .thumbnail-box:focus {
-    background-color: rgba(127, 127, 127, 0.09);
-    background-gradient-start: rgba(255, 255, 255, 0.14);
-    background-gradient-end: rgba(18, 20, 28, 0.10);
+    background-color: rgba(86, 88, 98, 0.13);
+    background-image: none;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.16);
+    background-gradient-end: rgba(20, 22, 30, 0.13);
     border: 1px solid -st-accent-color;
-    box-shadow: 0 7px 20px 0 rgba(0, 0, 0, 0.14);
+    box-shadow:
+        0 7px 22px 0 rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
 }
 
 .switcher-list.velora-liquid-shell-card .separator {
-    background-color: rgba(127, 127, 127, 0.26);
+    background-color: rgba(127, 127, 127, 0.22);
     box-shadow: none;
 }
+
 
 /* App Grid folder dialog ------------------------------------------------
  * Folder dialogs already live on Velora's cached Overview wallpaper blur.
