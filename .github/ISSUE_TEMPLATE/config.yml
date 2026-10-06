@@ -3,3 +3,6 @@ contact_links:
   - name: Ideas and design discussion
     url: https://github.com/Anuppaul/velora-desktop/discussions
     about: Use Discussions for broad ideas before opening large implementation work.
+  - name: Security vulnerability
+    url: https://github.com/Anuppaul/velora-desktop/security/policy
+    about: Read the security policy and use private vulnerability reporting when available. Do not post exploit details publicly.
