@@ -489,7 +489,14 @@ When a popup is converted, Velora logs an attached surface entry.
 
 ## Contributing
 
-Contributions are welcome.
+Contributions are welcome — including documentation, GNOME Shell 50 compatibility testing, reproducible bug reports, accessibility QA, performance work and focused code fixes.
+
+**Start here:**
+
+- [Contributor guide](CONTRIBUTING.md)
+- [Good first issues](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+- [Help wanted](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
+- [Discussions](https://github.com/Anuppaul/velora-desktop/discussions)
 
 If you are changing Shell integration behavior, keep the core contract intact:
 
@@ -499,7 +506,7 @@ If you are changing Shell integration behavior, keep the core contract intact:
 - avoid unnecessary polling or expensive CPU capture paths
 - document architectural changes that affect surface ownership or rendering
 
-For substantial changes, open an issue or pull request with the GNOME Shell version, reproduction steps, and relevant Shell logs.
+For substantial changes, open an issue or discussion first. Pull requests now include a review checklist for GNOME Shell version, testing, cleanup, performance and provenance.
 
 ## License
 
