@@ -39,7 +39,9 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
   <a href="#contributing"><b>Contribute</b></a>
 </p>
 
-
+<p align="center">
+  <img src="docs/graphics/velora-glass-system.svg" alt="Velora Desktop visual system overview" width="100%">
+</p>
 
 ## Highlights
 
@@ -56,34 +58,9 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 
 Velora deliberately mixes **new Velora features** with **native GNOME/Ubuntu surfaces that are only enhanced**.
 
-```mermaid
-flowchart LR
-    V["Velora Desktop"]
-
-    subgraph NEW["NEW — built by Velora"]
-        ORB["Velora Orb"]
-        SPOT["Velora Spotlight"]
-    end
-
-    subgraph NATIVE["NATIVE — reused, not replaced"]
-        DOCK["Ubuntu Dock"]
-        GRID["App Grid / Overview"]
-        QUICK["Quick Settings"]
-        CAL["Date / Calendar"]
-        NOTE["Notifications"]
-        POP["Panel / Status Popups"]
-    end
-
-    V --> ORB
-    V --> SPOT
-
-    V -. material / visual layer .-> DOCK
-    V -. material / visual layer .-> GRID
-    V -. material / visual layer .-> QUICK
-    V -. material / visual layer .-> CAL
-    V -. material / visual layer .-> NOTE
-    V -. material / visual layer .-> POP
-```
+<p align="center">
+  <img src="docs/graphics/native-vs-velora.svg" alt="GNOME and Velora ownership model" width="100%">
+</p>
 
 <details open>
 <summary><b>✨ New features created by Velora</b></summary>
@@ -491,6 +468,10 @@ Expected popup adapter startup output includes:
 When a popup is converted, Velora logs an attached surface entry.
 
 ## Contributing
+
+<p align="center">
+  <img src="docs/graphics/contributor-path.svg" alt="Velora contributor workflow" width="100%">
+</p>
 
 Contributions are welcome — including documentation, GNOME Shell 50 compatibility testing, reproducible bug reports, accessibility QA, performance work and focused code fixes.
 
