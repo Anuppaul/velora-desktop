@@ -102,6 +102,12 @@ That means contributions should preserve native layout, controls, hit targets, a
 
 See [CONTRIBUTORS.md](CONTRIBUTORS.md) for how code, testing, documentation and review contributions are recognized.
 
+## Security reports
+
+If you believe you found a security vulnerability, **do not post exploit details in a public issue or discussion**.
+
+Read [SECURITY.md](SECURITY.md) and use GitHub private vulnerability reporting when it is available for the repository.
+
 ## Community standards
 
 Participation is covered by the [Community Code of Conduct](CODE_OF_CONDUCT.md).
