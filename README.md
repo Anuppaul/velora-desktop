@@ -477,6 +477,7 @@ Contributions are welcome — including documentation, GNOME Shell 50 compatibil
 
 **Start here:**
 
+- [Community hub](COMMUNITY.md) — choose how you want to participate
 - [Contributor guide](CONTRIBUTING.md)
 - [Contributor map](docs/CONTRIBUTOR_MAP.md) — find the right component and risk level
 - [Development guide](docs/DEVELOPMENT.md) — local setup, logs and smoke testing
