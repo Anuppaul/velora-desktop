@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a focused Velora improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Velora preserves native GNOME/Ubuntu interaction. Proposals should prefer enhancing native Shell surfaces over replacing them.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: textarea
+    id: native
+    attributes:
+      label: Native GNOME impact
+      description: Explain how this preserves GNOME layout, controls, hit targets, accessibility and animation.
+    validations:
+      required: true
+  - type: textarea
+    id: performance
+    attributes:
+      label: Performance considerations
+      description: Note timers, polling, new actors/effects, live capture, or other continuous work if applicable.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This does not require replacing a native GNOME surface with a duplicate UI.
+          required: true
+        - label: I searched existing issues and discussions for similar proposals.
+          required: true
