@@ -1,0 +1,67 @@
+name: Compatibility report
+description: Share verified GNOME Shell 50 compatibility results
+title: "[Compatibility] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Velora on another environment. Please report observed results, not assumed compatibility.
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      placeholder: "Example: Ubuntu ..."
+    validations:
+      required: true
+  - type: input
+    id: gnome
+    attributes:
+      label: GNOME Shell version
+      placeholder: "50.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session
+      options:
+        - Wayland
+        - X11
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Velora revision
+      placeholder: "git rev-parse --short HEAD"
+    validations:
+      required: true
+  - type: checkboxes
+    id: surfaces
+    attributes:
+      label: Verified surfaces
+      options:
+        - label: Install / activation
+        - label: Ubuntu Dock / native Dock integration
+        - label: Quick Settings
+        - label: Date / Calendar
+        - label: Notifications
+        - label: Panel/status popups
+        - label: App Grid / Overview
+        - label: Velora Orb
+        - label: Spotlight
+        - label: Disable / re-enable cleanup
+  - type: textarea
+    id: notes
+    attributes:
+      label: Results and notes
+      description: Describe failures, warnings, visual differences or special setup.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshots or relevant logs are welcome.
