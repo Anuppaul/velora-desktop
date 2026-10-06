@@ -20,6 +20,8 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
 [![Repository checks](https://github.com/Anuppaul/velora-desktop/actions/workflows/repository-checks.yml/badge.svg)](https://github.com/Anuppaul/velora-desktop/actions/workflows/repository-checks.yml)
 
+> **Project status:** Active development · GNOME Shell 50 · source install/update supported. Velora is not claiming official GNOME Extensions publication yet.
+
 <p align="center">
   <img src="docs/screenshots/velora-app-grid.png" alt="Velora Desktop on GNOME Shell 50" width="100%">
 </p>
