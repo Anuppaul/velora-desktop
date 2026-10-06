@@ -18,6 +18,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 ![GNOME Shell](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg)
 ![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+[![Repository checks](https://github.com/Anuppaul/velora-desktop/actions/workflows/repository-checks.yml/badge.svg)](https://github.com/Anuppaul/velora-desktop/actions/workflows/repository-checks.yml)
 
 <p align="center">
   <img src="docs/screenshots/velora-app-grid.png" alt="Velora Desktop on GNOME Shell 50" width="100%">
@@ -37,6 +38,8 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
   <a href="#architecture"><b>Architecture</b></a>
   ·
   <a href="#contributing"><b>Contribute</b></a>
+  ·
+  <a href="#project-documentation"><b>Project Docs</b></a>
 </p>
 
 <p align="center">
@@ -450,6 +453,16 @@ For implementation details, see:
 
 - [Architecture documentation](docs/ARCHITECTURE.md)
 - [GNOME Shell integration notes](gnome-shell/README.md)
+
+## Project documentation
+
+| Area | Document |
+| --- | --- |
+| **Community** | [Community Hub](COMMUNITY.md) · [Contributing](CONTRIBUTING.md) · [Contributors](CONTRIBUTORS.md) |
+| **Development** | [Docs Index](docs/README.md) · [Contributor Map](docs/CONTRIBUTOR_MAP.md) · [Development Guide](docs/DEVELOPMENT.md) |
+| **Project direction** | [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md) |
+| **Maintenance** | [Governance](GOVERNANCE.md) · [Support](SUPPORT.md) · [Release Process](docs/RELEASE_PROCESS.md) · [Triage](docs/TRIAGE.md) |
+| **Policies** | [Security](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Third-Party Notices](THIRD_PARTY_NOTICES.md) |
 
 ## Development
 
