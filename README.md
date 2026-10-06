@@ -17,6 +17,7 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![GNOME Shell](https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg)
 ![Open Source](https://img.shields.io/badge/Open%20Source-Yes-brightgreen.svg)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
 
 <p align="center">
   <img src="docs/screenshots/velora-app-grid.png" alt="Velora Desktop on GNOME Shell 50" width="100%">
@@ -34,6 +35,8 @@ The goal is simple: **keep GNOME feeling native and responsive while adding refr
   <a href="#performance-principles"><b>Performance</b></a>
   ·
   <a href="#architecture"><b>Architecture</b></a>
+  ·
+  <a href="#contributing"><b>Contribute</b></a>
 </p>
 
 
