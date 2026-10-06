@@ -8,6 +8,21 @@ Velora is a GNOME Shell 50 extension with one non-negotiable product rule:
 
 Before starting a large change, open an issue or discussion so the approach can be agreed on first.
 
+## Contributor coordination
+
+Before coding, use the [Contributor Map](docs/CONTRIBUTOR_MAP.md) to find the relevant component and risk level.
+
+If an issue already exists:
+
+1. comment that you would like to work on it;
+2. add a short implementation plan;
+3. coordinate with anyone already active on the issue;
+4. link the issue from your pull request.
+
+For architecture ideas or questions that are not yet scoped as bugs/tasks, start a [GitHub Discussion](https://github.com/Anuppaul/velora-desktop/discussions).
+
+For local setup, logs and smoke testing, use the [Development Guide](docs/DEVELOPMENT.md).
+
 ## Good places to start
 
 New contributors do not need to understand the full renderer.
