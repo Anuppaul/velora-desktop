@@ -1,0 +1,8 @@
+# Default ownership
+* @Anuppaul
+
+# Core GNOME Shell integration and release-sensitive paths
+/gnome-shell/ @Anuppaul
+/.github/ @Anuppaul
+/SECURITY.md @Anuppaul
+/LICENSE @Anuppaul
