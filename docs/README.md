@@ -12,6 +12,7 @@ This directory contains the technical and contributor documentation for Velora D
 
 - [Release Process](RELEASE_PROCESS.md) — release readiness, validation and tagging discipline.
 - [Issue and Pull Request Triage](TRIAGE.md) — issue quality, labels and review flow.
+- [Repository Settings Checklist](REPOSITORY_SETTINGS.md) — GitHub-hosted protections, security settings and discoverability.
 
 ## Repository-level policies
 
