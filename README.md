@@ -478,9 +478,13 @@ Contributions are welcome — including documentation, GNOME Shell 50 compatibil
 **Start here:**
 
 - [Contributor guide](CONTRIBUTING.md)
+- [Contributor map](docs/CONTRIBUTOR_MAP.md) — find the right component and risk level
+- [Development guide](docs/DEVELOPMENT.md) — local setup, logs and smoke testing
 - [Good first issues](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
 - [Help wanted](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
-- [Discussions](https://github.com/Anuppaul/velora-desktop/discussions)
+- [Discussions](https://github.com/Anuppaul/velora-desktop/discussions) — ideas and contributor coordination
+- [Contributors](CONTRIBUTORS.md) — contribution and recognition paths
+- [Community Code of Conduct](CODE_OF_CONDUCT.md)
 
 If you are changing Shell integration behavior, keep the core contract intact:
 
