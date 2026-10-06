@@ -1,0 +1,44 @@
+title: "[Contributor] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this to ask where to contribute, discuss an implementation approach, or coordinate work before opening a pull request.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Orb
+        - Spotlight
+        - Dock
+        - Quick Settings / Calendar / PopupMenu
+        - Notifications
+        - App Grid / Overview
+        - Preferences
+        - Installer
+        - Performance
+        - Accessibility
+        - Documentation / QA
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What are you trying to work on?
+      description: Link an issue if one already exists.
+    validations:
+      required: true
+  - type: input
+    id: gnome
+    attributes:
+      label: GNOME Shell version
+      placeholder: "50.x"
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or proposed approach
+    validations:
+      required: true
