@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+<title id="title">Velora Desktop visual system</title>
+<desc id="desc">Velora Orb and Spotlight connect to native GNOME Shell surfaces through a shared Liquid Glass material layer.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0b1020"/>
+    <stop offset="0.48" stop-color="#17203a"/>
+    <stop offset="1" stop-color="#090d18"/>
+  </linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".34"/>
+    <stop offset=".45" stop-color="#9edcff" stop-opacity=".13"/>
+    <stop offset="1" stop-color="#c7a8ff" stop-opacity=".18"/>
+  </linearGradient>
+  <radialGradient id="orb" cx=".34" cy=".28" r=".82">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset=".16" stop-color="#a8e7ff"/>
+    <stop offset=".5" stop-color="#7d75ff"/>
+    <stop offset="1" stop-color="#222b55"/>
+  </radialGradient>
+  <filter id="blur"><feGaussianBlur stdDeviation="28"/></filter>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000" flood-opacity=".34"/>
+  </filter>
+</defs>
+
+<rect width="1200" height="680" rx="36" fill="url(#bg)"/>
+<circle cx="235" cy="120" r="145" fill="#3c9cff" opacity=".22" filter="url(#blur)"/>
+<circle cx="1010" cy="555" r="170" fill="#9368ff" opacity=".2" filter="url(#blur)"/>
+<circle cx="830" cy="120" r="110" fill="#2de2c5" opacity=".11" filter="url(#blur)"/>
+
+<text x="70" y="82" fill="#fff" font-family="system-ui, sans-serif" font-size="36" font-weight="700">Velora Desktop</text>
+<text x="70" y="116" fill="#b7c4df" font-family="system-ui, sans-serif" font-size="18">Native GNOME behavior. Refracted material underneath.</text>
+
+<g filter="url(#shadow)">
+  <rect x="390" y="175" width="420" height="330" rx="42" fill="url(#glass)" stroke="#ffffff" stroke-opacity=".45"/>
+  <rect x="413" y="198" width="374" height="284" rx="30" fill="#0d1528" fill-opacity=".48" stroke="#ffffff" stroke-opacity=".16"/>
+</g>
+
+<circle cx="600" cy="330" r="82" fill="url(#orb)" stroke="#fff" stroke-opacity=".66" stroke-width="2"/>
+<circle cx="600" cy="330" r="55" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".26"/>
+<text x="600" y="325" text-anchor="middle" fill="#fff" font-family="system-ui, sans-serif" font-size="22" font-weight="700">VELORA</text>
+<text x="600" y="352" text-anchor="middle" fill="#dfeaff" font-family="system-ui, sans-serif" font-size="14">shared glass core</text>
+
+<g fill="#eaf4ff" font-family="system-ui, sans-serif" font-size="15" font-weight="600">
+  <text x="155" y="250">Ubuntu Dock</text>
+  <text x="146" y="340">Quick Settings</text>
+  <text x="164" y="430">Calendar</text>
+  <text x="922" y="250">Notifications</text>
+  <text x="930" y="340">App Grid</text>
+  <text x="904" y="430">Panel Popups</text>
+</g>
+
+<g stroke="#8fd8ff" stroke-opacity=".7" stroke-width="2" fill="none">
+  <path d="M305 244 C380 244 420 280 515 310"/>
+  <path d="M305 335 C390 335 430 330 512 330"/>
+  <path d="M305 425 C390 425 430 380 520 350"/>
+  <path d="M895 244 C820 244 780 280 685 310"/>
+  <path d="M895 335 C810 335 770 330 688 330"/>
+  <path d="M895 425 C810 425 770 380 680 350"/>
+</g>
+
+<g>
+  <rect x="115" y="220" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="115" y="310" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="115" y="400" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="895" y="220" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="895" y="310" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+  <rect x="895" y="400" width="190" height="52" rx="18" fill="#fff" fill-opacity=".08" stroke="#fff" stroke-opacity=".2"/>
+</g>
+
+<g font-family="system-ui, sans-serif">
+  <rect x="390" y="540" width="195" height="62" rx="22" fill="#7d75ff" fill-opacity=".22" stroke="#bcb8ff" stroke-opacity=".55"/>
+  <text x="487" y="567" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Velora Orb</text>
+  <text x="487" y="588" text-anchor="middle" fill="#cdd6f4" font-size="12">radial launcher</text>
+
+  <rect x="615" y="540" width="195" height="62" rx="22" fill="#3c9cff" fill-opacity=".18" stroke="#9edcff" stroke-opacity=".55"/>
+  <text x="712" y="567" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Spotlight</text>
+  <text x="712" y="588" text-anchor="middle" fill="#cdd6f4" font-size="12">Super + Space</text>
+</g>
+
+<text x="600" y="646" text-anchor="middle" fill="#8fa1c3" font-family="system-ui, sans-serif" font-size="13">GPU-native • shared sources • event-driven • no duplicate GNOME UI</text>
+</svg>
