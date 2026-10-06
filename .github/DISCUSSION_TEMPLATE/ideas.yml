@@ -1,0 +1,31 @@
+title: "[Idea] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for design or architecture ideas that are not yet ready to become implementation issues.
+  - type: textarea
+    id: goal
+    attributes:
+      label: User goal
+      description: What should become better for the user?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the idea without assuming a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: native
+    attributes:
+      label: Native GNOME ownership
+      description: Which behavior should remain owned by GNOME?
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs or risks
+      description: Performance, lifecycle, accessibility, compatibility or complexity concerns.
