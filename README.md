@@ -486,6 +486,7 @@ Contributions are welcome — including documentation, GNOME Shell 50 compatibil
 - [Discussions](https://github.com/Anuppaul/velora-desktop/discussions) — ideas and contributor coordination
 - [Contributors](CONTRIBUTORS.md) — contribution and recognition paths
 - [Community Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md) — report vulnerabilities responsibly; do not post exploit details publicly
 
 If you are changing Shell integration behavior, keep the core contract intact:
 
