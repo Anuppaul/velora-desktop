@@ -1,0 +1,78 @@
+name: Repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check shell script syntax
+        run: bash -n gnome-shell/install.sh
+
+      - name: Validate repository metadata and XML
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path(".")
+          ext = root / "gnome-shell" / "velora@wonderer.tech"
+          metadata_path = ext / "metadata.json"
+
+          required = [
+              root / "README.md",
+              root / "LICENSE",
+              root / "SECURITY.md",
+              root / "CONTRIBUTING.md",
+              root / "CODE_OF_CONDUCT.md",
+              metadata_path,
+              ext / "extension.js",
+              ext / "prefs.js",
+              ext / "schemas" / "org.gnome.shell.extensions.velora.gschema.xml",
+          ]
+
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit("Missing required files:\n" + "\n".join(missing))
+
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          if metadata.get("uuid") != "velora@wonderer.tech":
+              raise SystemExit("metadata.json UUID does not match the extension directory")
+
+          shell_versions = [str(v) for v in metadata.get("shell-version", [])]
+          if "50" not in shell_versions:
+              raise SystemExit("metadata.json must include GNOME Shell 50")
+
+          schema = metadata.get("settings-schema")
+          expected_schema = "org.gnome.shell.extensions.velora"
+          if schema != expected_schema:
+              raise SystemExit(f"Unexpected settings schema: {schema!r}")
+
+          for path in root.rglob("*.xml"):
+              ET.parse(path)
+
+          for path in root.rglob("*.svg"):
+              ET.parse(path)
+
+          print("Repository metadata/XML/SVG checks passed.")
+          PY
+
+      - name: Check for unresolved merge markers
+        run: |
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' --             ':!gnome-shell/velora@wonderer.tech/vendor/**'; then
+            echo "Unresolved merge-conflict marker found."
+            exit 1
+          fi
