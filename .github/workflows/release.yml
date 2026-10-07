@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: ${TAG}" >&2
+            echo "Expected vMAJOR.MINOR.PATCH, for example v0.1.0" >&2
+            exit 1
+          fi
+
+          git fetch origin main --no-tags
+          TAG_COMMIT="$(git rev-list -n1 "${TAG}")"
+
+          if ! git merge-base --is-ancestor "${TAG_COMMIT}" origin/main; then
+            echo "Release tag must point to a commit contained in main." >&2
+            exit 1
+          fi
+
+          echo "TAG=${TAG}" >> "${GITHUB_ENV}"
+          echo "TAG_COMMIT=${TAG_COMMIT}" >> "${GITHUB_ENV}"
+
+      - name: Validate release source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bash -n gnome-shell/install.sh
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path(".")
+          extension = root / "gnome-shell" / "velora@wonderer.tech"
+          metadata = json.loads((extension / "metadata.json").read_text(encoding="utf-8"))
+
+          required = [
+              root / "README.md",
+              root / "LICENSE",
+              root / "SECURITY.md",
+              root / "THIRD_PARTY_NOTICES.md",
+              extension / "extension.js",
+              extension / "prefs.js",
+              extension / "runtime.js",
+              extension / "vendor" / "liquid-glass" / "LICENSE",
+              extension / "vendor" / "liquid-glass" / "UPSTREAM.md",
+              extension / "schemas" / "org.gnome.shell.extensions.velora.gschema.xml",
+          ]
+
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit("Missing release files:\n" + "\n".join(missing))
+
+          if metadata.get("uuid") != "velora@wonderer.tech":
+              raise SystemExit("Unexpected extension UUID")
+
+          if "50" not in [str(v) for v in metadata.get("shell-version", [])]:
+              raise SystemExit("Release does not declare GNOME Shell 50 support")
+
+          for path in root.rglob("*.xml"):
+              ET.parse(path)
+
+          print("Release source validation passed.")
+          PY
+
+      - name: Build source release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${TAG#v}"
+          ARCHIVE="velora-desktop-${VERSION}.tar.gz"
+
+          git archive             --format=tar.gz             --prefix="velora-desktop-${VERSION}/"             --output="${ARCHIVE}"             "${TAG_COMMIT}"
+
+          sha256sum "${ARCHIVE}" > SHA256SUMS
+
+          {
+            echo "## Release artifact"
+            echo
+            echo "- \`${ARCHIVE}\` — complete Velora source tree for this tag"
+            echo "- \`SHA256SUMS\` — SHA-256 checksum"
+            echo
+            echo "Install after extraction:"
+            echo
+            echo "\`\`\`bash"
+            echo "bash gnome-shell/install.sh"
+            echo "\`\`\`"
+            echo
+            echo "Target: **GNOME Shell 50**"
+          } > RELEASE_ARTIFACTS.md
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release create "${TAG}"             "velora-desktop-${TAG#v}.tar.gz"             "SHA256SUMS"             --title "Velora Desktop ${TAG}"             --generate-notes             --notes-file RELEASE_ARTIFACTS.md             --verify-tag
