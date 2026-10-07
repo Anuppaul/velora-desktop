@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Check out tagged revision
+      - name: Check out revision
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -36,7 +36,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           git fetch origin main --tags
 
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
@@ -60,10 +59,8 @@ jobs:
             TAG="${GITHUB_REF_NAME}"
             if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "Invalid release tag: ${TAG}" >&2
-              echo "Expected vMAJOR.MINOR.PATCH, for example v0.1.0" >&2
               exit 1
             fi
-
             TAG_COMMIT="$(git rev-list -n1 "${TAG}")"
           fi
 
@@ -79,7 +76,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           bash -n gnome-shell/install.sh
 
           python3 - <<'PY'
@@ -120,16 +116,14 @@ jobs:
           print("Release source validation passed.")
           PY
 
-      - name: Build source release bundle
+      - name: Build release artifacts
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION="${TAG#v}"
           ARCHIVE="velora-desktop-${VERSION}.tar.gz"
 
-          git archive             --format=tar.gz             --prefix="velora-desktop-${VERSION}/"             --output="${ARCHIVE}"             "${TAG_COMMIT}"
-
+          git archive --format=tar.gz --prefix="velora-desktop-${VERSION}/" --output="${ARCHIVE}" "${TAG_COMMIT}"
           sha256sum "${ARCHIVE}" > SHA256SUMS
 
           {
@@ -147,11 +141,26 @@ jobs:
             echo "Target: **GNOME Shell 50**"
           } > RELEASE_ARTIFACTS.md
 
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="${TAG}" -f target_commitish="${TAG_COMMIT}" --jq '.body' > GENERATED_NOTES.md
+
+          {
+            cat RELEASE_ARTIFACTS.md
+            echo
+            echo "---"
+            echo
+            cat GENERATED_NOTES.md
+          } > RELEASE_NOTES.md
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-
-          gh release create "${TAG}"             "velora-desktop-${TAG#v}.tar.gz"             "SHA256SUMS"             --title "Velora Desktop ${TAG}"             --generate-notes             --notes-file RELEASE_ARTIFACTS.md             --verify-tag
+          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "SHA256SUMS" --title "Velora Desktop ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
