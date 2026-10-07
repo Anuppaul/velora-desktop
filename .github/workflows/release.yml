@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the v prefix (example: 0.1.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -24,20 +30,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate release tag
+      - name: Resolve and validate release tag
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         shell: bash
         run: |
           set -euo pipefail
 
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: ${TAG}" >&2
-            echo "Expected vMAJOR.MINOR.PATCH, for example v0.1.0" >&2
-            exit 1
-          fi
+          git fetch origin main --tags
 
-          git fetch origin main --no-tags
-          TAG_COMMIT="$(git rev-list -n1 "${TAG}")"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ ! "${INPUT_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Invalid version: ${INPUT_VERSION}" >&2
+              echo "Expected MAJOR.MINOR.PATCH, for example 0.1.0" >&2
+              exit 1
+            fi
+
+            TAG="v${INPUT_VERSION}"
+            TAG_COMMIT="$(git rev-parse origin/main)"
+
+            if git rev-parse "${TAG}" >/dev/null 2>&1; then
+              echo "Tag already exists: ${TAG}" >&2
+              exit 1
+            fi
+
+            git tag "${TAG}" "${TAG_COMMIT}"
+            git push origin "${TAG}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Invalid release tag: ${TAG}" >&2
+              echo "Expected vMAJOR.MINOR.PATCH, for example v0.1.0" >&2
+              exit 1
+            fi
+
+            TAG_COMMIT="$(git rev-list -n1 "${TAG}")"
+          fi
 
           if ! git merge-base --is-ancestor "${TAG_COMMIT}" origin/main; then
             echo "Release tag must point to a commit contained in main." >&2
