@@ -65,15 +65,45 @@ Release notes should include:
 - security fixes after coordinated disclosure;
 - contributor credit.
 
-## Tagging
+## Tagging and automatic release
 
-Tags should identify the exact reviewed release commit.
-
-Recommended shape once versioning begins:
+Tags must identify the exact reviewed release commit and use:
 
 ```text
 vMAJOR.MINOR.PATCH
 ```
+
+For example:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Pushing a matching tag triggers `.github/workflows/release.yml`.
+
+You can also create the tag and release entirely from GitHub:
+
+1. open **Actions → Release**;
+2. choose **Run workflow**;
+3. enter a version such as `0.1.0`.
+
+The workflow creates `v0.1.0` on the current `main` commit and continues through the same validation and publishing path.
+
+The release workflow:
+
+1. validates the tag format;
+2. confirms the tagged commit is contained in `main`;
+3. validates the release source and GNOME Shell 50 metadata;
+4. creates a versioned source archive;
+5. generates `SHA256SUMS`;
+6. creates the GitHub Release automatically with generated notes.
+
+A tag that does not match `vMAJOR.MINOR.PATCH` does not trigger the release workflow.
+
+Do not move or reuse an already published release tag. Publish a new patch/minor/major version instead.
 
 ## Post-release
 
