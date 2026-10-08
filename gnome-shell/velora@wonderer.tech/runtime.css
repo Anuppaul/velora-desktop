@@ -342,13 +342,7 @@
     box-shadow: none;
 }
 
-/* Nested submenus sit inside the already-glassed parent popup. A translucent
- * tint preserves hierarchy without adding another blur pass. */
-.velora-liquid-popup-content .popup-sub-menu {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.10);
-    box-shadow: none;
-}
+
 
 /* Native notification banner --------------------------------------------- */
 /* NotificationGlassManager owns the real refractive surface. Native message
