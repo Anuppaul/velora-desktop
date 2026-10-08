@@ -250,6 +250,7 @@ Velora's runtime is designed around a few constraints:
 - no CPU framebuffer screenshot loop
 - shared wallpaper/background sources
 - compositor-native Clutter/Mutter rendering paths
+- Orb Liquid Glass allocates extra 16-region shader batches only when large app pages need them; hidden batches avoid redundant uniform updates
 - cached/downscaled blur where appropriate
 - property writes avoided when values have not changed
 - expensive material created only where required
