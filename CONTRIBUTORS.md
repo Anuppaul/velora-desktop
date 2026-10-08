@@ -14,6 +14,16 @@ Contributions may be recognized through:
 - release notes when a contribution materially changes a release;
 - explicit co-author credit where multiple people worked on the same patch.
 
+## Community contributors
+
+Thank you to the people helping improve Velora through code and review.
+
+| Contributor | Contribution |
+| --- | --- |
+| [@syamjir](https://github.com/syamjir) | Identified and submitted a focused fix for redundant popup submenu CSS in [PR #18](https://github.com/Anuppaul/velora-desktop/pull/18) (related to [issue #9](https://github.com/Anuppaul/velora-desktop/issues/9)). |
+
+Contributors remain credited through GitHub commit and pull-request history as well. This table highlights specific community contributions; it is not an exhaustive contributor ranking.
+
 ## Ways to contribute
 
 You do not need to change renderer code.
