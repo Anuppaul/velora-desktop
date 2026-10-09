@@ -213,6 +213,7 @@ export class OrbGlassManager {
             sceneManager,
             effect,
             lastRegionKey: '',
+            lastRegionGeometry: null,
             lastSceneSyncUs: 0,
             lastCullRect: null,
         };
@@ -245,6 +246,7 @@ export class OrbGlassManager {
         }
 
         batch.lastRegionKey = '';
+        batch.lastRegionGeometry = null;
         batch.lastSceneSyncUs = 0;
         batch.lastCullRect = null;
     }
@@ -299,6 +301,7 @@ export class OrbGlassManager {
             );
 
             batch.lastRegionKey = '';
+            batch.lastRegionGeometry = null;
         }
 
         this._lastRegionKey = '';
@@ -400,8 +403,10 @@ export class OrbGlassManager {
 
         this._buttons = buttons;
         this._lastRegionKey = '';
-        for (const batch of this._batches)
+        for (const batch of this._batches) {
             batch.lastRegionKey = '';
+            batch.lastRegionGeometry = null;
+        }
     }
 
     _tick() {
@@ -585,23 +590,66 @@ export class OrbGlassManager {
                 );
             }
 
-            const key = JSON.stringify([
-                width,
-                height,
-                ...batchRegions.map(r => [
-                    Math.round(r.x),
-                    Math.round(r.y),
-                    Math.round(r.w),
-                    Math.round(r.h),
-                    r.response,
-                ]),
-            ]);
-            const geometryChanged =
-                key !==
-                batch.lastRegionKey;
+            // Previously each compositor frame created a mapped array and
+            // JSON-serialized every region, even on a stationary 63-app page.
+            // Compare against the last numeric snapshot without allocating
+            // that intermediate key; preserve the *same* rounded geometry
+            // and exact hover-response semantics as the original key.
+            const previousGeometry =
+                batch.lastRegionGeometry;
+            let geometryChanged =
+                !previousGeometry ||
+                previousGeometry.length !==
+                    2 + batchRegions.length * 5 ||
+                previousGeometry[0] !== width ||
+                previousGeometry[1] !== height;
+
+            if (!geometryChanged) {
+                for (
+                    let regionIndex = 0;
+                    regionIndex < batchRegions.length;
+                    regionIndex++
+                ) {
+                    const r = batchRegions[regionIndex];
+                    const offset = 2 + regionIndex * 5;
+                    if (
+                        previousGeometry[offset] !==
+                            Math.round(r.x) ||
+                        previousGeometry[offset + 1] !==
+                            Math.round(r.y) ||
+                        previousGeometry[offset + 2] !==
+                            Math.round(r.w) ||
+                        previousGeometry[offset + 3] !==
+                            Math.round(r.h) ||
+                        previousGeometry[offset + 4] !==
+                            r.response
+                    ) {
+                        geometryChanged = true;
+                        break;
+                    }
+                }
+            }
 
             if (geometryChanged) {
-                batch.lastRegionKey = key;
+                const nextGeometry = [
+                    width,
+                    height,
+                ];
+                for (const r of batchRegions) {
+                    nextGeometry.push(
+                        Math.round(r.x),
+                        Math.round(r.y),
+                        Math.round(r.w),
+                        Math.round(r.h),
+                        r.response
+                    );
+                }
+                batch.lastRegionGeometry =
+                    nextGeometry;
+                // Preserve the existing diagnostics key; serialization only
+                // happens when a real region state transition requires it.
+                batch.lastRegionKey =
+                    JSON.stringify(nextGeometry);
                 batch.effect
                     ?.setResolution?.(
                         width,

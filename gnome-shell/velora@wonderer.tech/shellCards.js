@@ -73,6 +73,8 @@ class ShellCardSurface {
         this._lastCaptureY = NaN;
         this._lastCaptureW = NaN;
         this._lastCaptureH = NaN;
+        this._lastPaintWidth = NaN;
+        this._lastPaintHeight = NaN;
     }
 
     attach() {
@@ -481,8 +483,13 @@ class ShellCardSurface {
         if (!sceneDue)
             return;
 
-        sceneManager.setCullRect?.(captureRect);
-        sceneManager.applyBgCloneClip?.(captureRect);
+        // Stable cards still need live window-clone synchronization, but
+        // unchanged capture bounds must not reconfigure clipping every
+        // scheduled scene refresh.
+        if (captureChanged) {
+            sceneManager.setCullRect?.(captureRect);
+            sceneManager.applyBgCloneClip?.(captureRect);
+        }
         sceneManager.sync?.();
 
         this._lastCaptureX = absX;
@@ -507,6 +514,18 @@ class ShellCardSurface {
         const [w, h] = material.get_size?.() ?? [0, 0];
         if (w <= 1 || h <= 1)
             return;
+
+        // Geometry uniforms are local to the card's own capture, so a
+        // stationary card uses the same values even while its parent moves.
+        // Avoid writing all six uniforms on every paint of the same size.
+        if (
+            w === this._lastPaintWidth &&
+            h === this._lastPaintHeight
+        ) {
+            return;
+        }
+        this._lastPaintWidth = w;
+        this._lastPaintHeight = h;
 
         // Paint hook is uniforms-only; live scene actor writes happen before
         // update in ShellCardGlassManager.
