@@ -214,6 +214,7 @@ export class OrbGlassManager {
             effect,
             lastRegionKey: '',
             lastSceneSyncUs: 0,
+            lastCullRect: null,
         };
         this._batches.push(batch);
         return batch;
@@ -245,6 +246,7 @@ export class OrbGlassManager {
 
         batch.lastRegionKey = '';
         batch.lastSceneSyncUs = 0;
+        batch.lastCullRect = null;
     }
 
     _applyAppearance(
@@ -630,14 +632,28 @@ export class OrbGlassManager {
                         maxX - minX,
                         maxY - minY,
                     ];
-                    batch.sceneManager
-                        ?.setCullRect?.(
-                            cullRect
-                        );
-                    batch.sceneManager
-                        ?.applyBgCloneClip?.(
-                            cullRect
-                        );
+                    // Keep live window clones syncing, but avoid re-setting
+                    // stationary capture bounds on every scene frame.
+                    const previous =
+                        batch.lastCullRect;
+                    if (
+                        !previous ||
+                        cullRect.some(
+                            (value, i) =>
+                                value !== previous[i]
+                        )
+                    ) {
+                        batch.sceneManager
+                            ?.setCullRect?.(
+                                cullRect
+                            );
+                        batch.sceneManager
+                            ?.applyBgCloneClip?.(
+                                cullRect
+                            );
+                        batch.lastCullRect =
+                            cullRect;
+                    }
                     batch.sceneManager
                         ?.sync?.();
                     batch.lastSceneSyncUs =

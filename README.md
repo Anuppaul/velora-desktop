@@ -253,6 +253,7 @@ Velora's runtime is designed around a few constraints:
 - Orb Liquid Glass allocates extra 16-region shader batches only when large app pages need them; hidden batches avoid redundant uniform updates
 - cached/downscaled blur where appropriate
 - property writes avoided when values have not changed
+- unchanged adaptive-text inline styles and stationary Orb capture bounds are not re-applied each refresh
 - expensive material created only where required
 - native GNOME animation remains responsible for transforms
 
