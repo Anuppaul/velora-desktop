@@ -130,6 +130,8 @@ export default class VeloraRuntime extends Extension {
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
         this._orbLastPageScrollUs = 0;
+        // Reuse app selection and fitted geometry only within one open menu.
+        this._orbPageSession = null;
         this._geometryActors = [];
 
         this._removeStaleLayers();
@@ -269,6 +271,7 @@ export default class VeloraRuntime extends Extension {
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbLastPageScrollUs = 0;
+        this._orbPageSession = null;
         this._geometryActors = [];
         this._appSystem = null;
         this._shellSettings = null;
@@ -1144,7 +1147,7 @@ export default class VeloraRuntime extends Extension {
         }
     }
 
-    _openMenu() {
+    _openMenu(reusePageSession = false) {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
@@ -1159,6 +1162,12 @@ export default class VeloraRuntime extends Extension {
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
 
+        const pageSession = reusePageSession
+            ? this._orbPageSession
+            : null;
+        if (!pageSession)
+            this._orbPageSession = null;
+
         const configuredSource =
             this._settings.get_string(
                 'orb-app-source'
@@ -1169,14 +1178,17 @@ export default class VeloraRuntime extends Extension {
             )
                 ? configuredSource
                 : 'dock';
-        const requestedApps = collectOrbApps(
-            this._appSystem,
-            this._shellSettings,
-            appSource,
-            this._settings.get_strv(
-                'orb-custom-apps'
-            )
-        );
+        // Paging should not enumerate the full installed-app list again.
+        // Explicit refresh, settings changes and fresh opens recalculate it.
+        const requestedApps = pageSession?.apps ??
+            collectOrbApps(
+                this._appSystem,
+                this._shellSettings,
+                appSource,
+                this._settings.get_strv(
+                    'orb-custom-apps'
+                )
+            );
         if (requestedApps.length === 0) {
             this._orbPageIndex = 0;
             this._orbPageCount = 1;
@@ -1239,82 +1251,97 @@ export default class VeloraRuntime extends Extension {
         let previousCapacity = -1;
         let stagnantDepths = 0;
 
-        for (
-            let candidate = rings;
-            candidate <= maxDepth;
-            candidate++
-        ) {
-            const outerRadius =
-                orbSize / 2 +
-                candidate * ringGap;
-            const candidateArc =
-                arcForPosition(
-                    centerX,
-                    centerY,
-                    outerRadius,
-                    iconSize,
-                    monitor
-                );
-            const candidateSlotRings =
-                slotsForGeometry(
-                    geometry,
-                    centerX,
-                    centerY,
-                    orbSize,
-                    ringGap,
-                    candidate,
-                    candidateArc,
-                    iconSize,
-                    iconGap,
-                    monitor,
-                    SCREEN_MARGIN
-                );
-            const candidateCapacities =
-                candidateSlotRings.map(
-                    slots => slots.length
-                );
-            const candidateCapacity =
-                totalCapacity(
-                    candidateCapacities
-                );
-
-            rings = candidate;
-            slotRings =
-                candidateSlotRings;
-            capacities =
-                candidateCapacities;
-            layoutArc =
-                candidateArc;
-
-            if (ringMode !== 'auto')
-                break;
-
-            if (
-                candidateCapacity >=
-                requestedApps.length
+        if (pageSession) {
+            rings = pageSession.rings;
+            slotRings = pageSession.slotRings;
+            capacities = pageSession.capacities;
+            layoutArc = pageSession.layoutArc;
+        } else {
+            for (
+                let candidate = rings;
+                candidate <= maxDepth;
+                candidate++
             ) {
-                break;
+                const outerRadius =
+                    orbSize / 2 +
+                    candidate * ringGap;
+                const candidateArc =
+                    arcForPosition(
+                        centerX,
+                        centerY,
+                        outerRadius,
+                        iconSize,
+                        monitor
+                    );
+                const candidateSlotRings =
+                    slotsForGeometry(
+                        geometry,
+                        centerX,
+                        centerY,
+                        orbSize,
+                        ringGap,
+                        candidate,
+                        candidateArc,
+                        iconSize,
+                        iconGap,
+                        monitor,
+                        SCREEN_MARGIN
+                    );
+                const candidateCapacities =
+                    candidateSlotRings.map(
+                        slots => slots.length
+                    );
+                const candidateCapacity =
+                    totalCapacity(
+                        candidateCapacities
+                    );
+
+                rings = candidate;
+                slotRings =
+                    candidateSlotRings;
+                capacities =
+                    candidateCapacities;
+                layoutArc =
+                    candidateArc;
+
+                if (ringMode !== 'auto')
+                    break;
+
+                if (
+                    candidateCapacity >=
+                    requestedApps.length
+                ) {
+                    break;
+                }
+
+                // Near an edge/corner, Orbit can safely grow deeper into the
+                // monitor even though its angular arc is narrower. Alternative
+                // geometries may hit a physical fit limit earlier; stop after two
+                // consecutive depths add no usable slots instead of doing useless
+                // work up to the hard safety cap.
+                if (
+                    candidateCapacity <=
+                    previousCapacity
+                ) {
+                    stagnantDepths++;
+                } else {
+                    stagnantDepths = 0;
+                }
+
+                previousCapacity =
+                    candidateCapacity;
+
+                if (stagnantDepths >= 2)
+                    break;
             }
-
-            // Near an edge/corner, Orbit can safely grow deeper into the
-            // monitor even though its angular arc is narrower. Alternative
-            // geometries may hit a physical fit limit earlier; stop after two
-            // consecutive depths add no usable slots instead of doing useless
-            // work up to the hard safety cap.
-            if (
-                candidateCapacity <=
-                previousCapacity
-            ) {
-                stagnantDepths++;
-            } else {
-                stagnantDepths = 0;
-            }
-
-            previousCapacity =
-                candidateCapacity;
-
-            if (stagnantDepths >= 2)
-                break;
+            this._orbPageSession = {
+                apps: requestedApps,
+                rings,
+                slotRings,
+                capacities,
+                layoutArc,
+                placementsByLength: new Map(),
+            };
         }
 
         const visibleCapacity = Math.min(
@@ -1323,6 +1350,7 @@ export default class VeloraRuntime extends Extension {
         );
         if (visibleCapacity === 0) {
             this._menuOpen = false;
+            this._orbPageSession = null;
             this._setOrbVisualPseudoClass('open', false);
             return;
         }
@@ -1354,22 +1382,30 @@ export default class VeloraRuntime extends Extension {
 
         this._syncOrbPageIndicator();
 
-        const placements = [];
-        for (
-            let ring = 0;
-            ring < rings;
-            ring++
-        ) {
-            const selectedSlots =
-                selectGeometrySlots(
-                    slotRings[ring],
-                    counts[ring],
-                    geometry,
-                    layoutArc
+        // Page 1 and 2 commonly have the same app count; reuse their
+        // exact slot selection. A shorter final page has a separate plan.
+        let placements = this._orbPageSession
+            ?.placementsByLength.get(apps.length);
+        if (!placements) {
+            placements = [];
+            for (
+                let ring = 0;
+                ring < rings;
+                ring++
+            ) {
+                const selectedSlots =
+                    selectGeometrySlots(
+                        slotRings[ring],
+                        counts[ring],
+                        geometry,
+                        layoutArc
+                    );
+                placements.push(
+                    ...selectedSlots
                 );
-            placements.push(
-                ...selectedSlots
-            );
+            }
+            this._orbPageSession
+                ?.placementsByLength.set(apps.length, placements);
         }
 
         this._createGeometryLinks(
@@ -1689,6 +1725,7 @@ export default class VeloraRuntime extends Extension {
         this._hideTooltip();
         this._hideOrbPageIndicator(immediate);
         this._destroyGeometryActors(immediate);
+        this._orbPageSession = null;
 
         if (!this._menuOpen && this._radialActors.length === 0) {
             this._scheduleOrbAutoHide();
@@ -1770,7 +1807,7 @@ export default class VeloraRuntime extends Extension {
                 delta +
                 count
             ) % count;
-        this._reopenMenu();
+        this._reopenMenu(true);
     }
 
     _syncOrbPageIndicator() {
@@ -1889,9 +1926,15 @@ export default class VeloraRuntime extends Extension {
         this._closingActors.clear();
     }
 
-    _reopenMenu() {
+    _reopenMenu(reusePageSession = false) {
+        // Normal close always releases cached apps and geometry. Only a
+        // page turn may carry the snapshot across the immediate reopen.
+        const pageSession = reusePageSession && this._menuOpen
+            ? this._orbPageSession
+            : null;
         this._closeMenu(true);
-        this._openMenu();
+        this._orbPageSession = pageSession;
+        this._openMenu(Boolean(pageSession));
     }
 
     _refreshOpenMenu() {
