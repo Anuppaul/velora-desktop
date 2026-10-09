@@ -847,13 +847,21 @@ export class OverviewCloseGlassManager {
         // Inline color wins over Yaru/tooltip/accent foreground rules. This is
         // intentional: adaptive polarity must only ever be near-black/near-white.
         try {
-            actor.set_style?.(
-                'color: ' + color + ';'
-            );
+            const desiredStyle =
+                'color: ' + color + ';';
+            const currentStyle =
+                actor.get_style?.() ??
+                actor.style ??
+                null;
+
+            // Keep foreground adaptive without re-invalidating the GNOME
+            // theme when a caption sample confirms the same color.
+            if (currentStyle !== desiredStyle)
+                actor.set_style?.(desiredStyle);
         } catch {}
     }
 
-    async _sampleCaptionPolarity(generation) {
+    async _sampleCaptionPolarity(generation, visible) {
         if (
             !this._enabled ||
             generation !== this._captionGeneration ||
@@ -862,7 +870,8 @@ export class OverviewCloseGlassManager {
             return;
         }
 
-        const visible = this._visibleCaptions();
+        // Reuse the rectangles collected by the due-time sampler. Calling
+        // _visibleCaptions() here again doubles transformed-geometry work.
         if (!visible.length)
             return;
 
@@ -932,7 +941,7 @@ export class OverviewCloseGlassManager {
         this._lastCaptionSampleUs = nowUs;
         const generation = ++this._captionGeneration;
 
-        this._sampleCaptionPolarity(generation)
+        this._sampleCaptionPolarity(generation, visible)
             .catch(() => {})
             .finally(() => {
                 if (generation === this._captionGeneration)
@@ -1160,7 +1169,13 @@ export class OverviewCloseGlassManager {
         }
 
         if (!regions.length) {
-            this._effect.setGlassRegions?.([]);
+            // Empty shader uniforms need to be sent only once per transition.
+            // Clear the geometry cache too so a newly revealed button uploads
+            // its regions even if its rectangle is unchanged.
+            if (this._lastRegionGeometry.length) {
+                this._effect.setGlassRegions?.([]);
+                this._lastRegionGeometry = [];
+            }
             if (this._root.visible)
                 this._root.hide?.();
             return;
