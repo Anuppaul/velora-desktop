@@ -25,6 +25,7 @@ const SHARED_RADIUS = 24;
 const ICON_BADGE_SIZE = 48;
 const ICON_VISUAL_SIZE = 40;
 const SCAN_INTERVAL_US = 180000;
+const SCAN_FALLBACK_INTERVAL_US = 1200000;
 const CAPTION_SAMPLE_INTERVAL_US = 650000;
 const CAPTION_SAMPLE_GRID = 18;
 const CAPTION_SWITCH_ADVANTAGE = 1.18;
@@ -133,6 +134,9 @@ export class OverviewCloseGlassManager {
         this._stageId = 0;
         this._overviewSignals = [];
         this._lastScanUs = 0;
+        this._scanDirty = true;
+        this._watchedActors = new Map();
+        this._treeWatchReady = false;
         this._lastRegionKey = '';
         this._lastRegionGeometry = [];
         this._enabled = false;
@@ -152,8 +156,9 @@ export class OverviewCloseGlassManager {
         this._appearance = this._readAppearance();
 
         this._createLayer();
-        this._scan(true);
 
+        // Native Overview actors are only watched/scanned while the window
+        // picker is active. No full-tree walk at extension startup.
         this._setupOverviewFrameLoop();
 
         console.log(
@@ -185,6 +190,7 @@ export class OverviewCloseGlassManager {
         const stop = () => {
             this._root?.hide?.();
             this._stopStageSync();
+            this._stopTreeWatch();
         };
 
         const sync = () => {
@@ -209,6 +215,10 @@ export class OverviewCloseGlassManager {
                 !appGridActive &&
                 !searchActive
             ) {
+                if (!this._stageId) {
+                    this._startTreeWatch();
+                    this._scan(true);
+                }
                 this._ensureStageSync();
             } else {
                 stop();
@@ -416,18 +426,130 @@ export class OverviewCloseGlassManager {
         this._lastRegionKey = '';
     }
 
+    _ignoreTreeNode(actor) {
+        if (!actor || actor === this._root)
+            return true;
+
+        // Renderer/clone subtrees are not native Overview controls. Do not
+        // count their internal mutations as reasons to rebuild the registry.
+        const name = actor.get_name?.() ?? '';
+        return name.startsWith('velora-') ||
+            name.startsWith('lg-');
+    }
+
+    _startTreeWatch() {
+        if (!this._enabled || !this._overview ||
+            this._watchedActors.size > 0)
+            return;
+
+        this._watchTreeNode(this._overview);
+        const rootEntry = this._watchedActors.get(this._overview);
+        this._treeWatchReady = Boolean(
+            rootEntry?.added && rootEntry?.removed
+        );
+        this._scanDirty = true;
+    }
+
+    _watchTreeNode(actor) {
+        if (
+            !this._enabled ||
+            this._ignoreTreeNode(actor) ||
+            this._watchedActors.has(actor)
+        ) {
+            return;
+        }
+
+        const entry = {added: 0, removed: 0, destroyed: 0};
+        this._watchedActors.set(actor, entry);
+
+        try {
+            entry.added = actor.connect('child-added',
+                (_parent, child) => {
+                    if (this._ignoreTreeNode(child))
+                        return;
+                    this._scanDirty = true;
+                    this._watchTreeNode(child);
+                });
+        } catch {}
+
+        try {
+            entry.removed = actor.connect('child-removed',
+                (_parent, child) => {
+                    if (this._ignoreTreeNode(child))
+                        return;
+                    this._scanDirty = true;
+                    this._unwatchTreeNode(child);
+                });
+        } catch {}
+
+        try {
+            entry.destroyed = actor.connect('destroy', () => {
+                this._scanDirty = true;
+                this._unwatchTreeNode(actor);
+            });
+        } catch {}
+
+        for (const child of actor.get_children?.() ?? [])
+            this._watchTreeNode(child);
+    }
+
+    _unwatchTreeNode(actor) {
+        if (!actor || !this._watchedActors.has(actor))
+            return;
+
+        for (const child of actor.get_children?.() ?? [])
+            this._unwatchTreeNode(child);
+
+        const entry = this._watchedActors.get(actor);
+        this._watchedActors.delete(actor);
+        for (const id of [
+            entry.added, entry.removed, entry.destroyed,
+        ]) {
+            if (!id)
+                continue;
+            try {
+                actor.disconnect(id);
+            } catch {}
+        }
+    }
+
+    _stopTreeWatch() {
+        // Release all native actor subscriptions when Overview is hidden.
+        // This avoids retaining its subtree for the rest of the session.
+        for (const [actor, entry] of this._watchedActors) {
+            for (const id of [
+                entry.added, entry.removed, entry.destroyed,
+            ]) {
+                if (!id)
+                    continue;
+                try {
+                    actor.disconnect(id);
+                } catch {}
+            }
+        }
+        this._watchedActors.clear();
+        this._treeWatchReady = false;
+        this._scanDirty = true;
+        this._lastScanUs = 0;
+    }
+
     _scan(force = false) {
         if (!this._overview)
             return;
 
         const nowUs = GLib.get_monotonic_time();
+        const scanInterval = this._treeWatchReady
+            ? SCAN_FALLBACK_INTERVAL_US
+            : SCAN_INTERVAL_US;
         if (
             !force &&
-            nowUs - this._lastScanUs < SCAN_INTERVAL_US
+            !this._scanDirty &&
+            nowUs - this._lastScanUs < scanInterval
         ) {
             return;
         }
         this._lastScanUs = nowUs;
+        this._scanDirty = false;
 
         const found = new Set();
         const foundCaptions = new Set();
@@ -1236,6 +1358,7 @@ export class OverviewCloseGlassManager {
         this._enabled = false;
 
         this._stopStageSync();
+        this._stopTreeWatch();
 
         for (const {object, id} of this._overviewSignals) {
             try {
