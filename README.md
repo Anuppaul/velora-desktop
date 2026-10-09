@@ -254,6 +254,7 @@ Velora's runtime is designed around a few constraints:
 - cached/downscaled blur where appropriate
 - property writes avoided when values have not changed
 - hot-path Orb geometry comparison avoids per-frame JSON serialization for static app pages; native Shell-card glass avoids repeated capture-clip and geometry-uniform writes while stationary
+- Orb paging reuses the current open-menu app selection, fitted radial layout and repeated page-size slot plans; normal close and explicit changes rebuild them
 - unchanged adaptive-text inline styles and stationary Orb capture bounds are not re-applied each refresh
 - expensive material created only where required
 - unchanged Overview blur settings and search-card capture bounds are not re-applied every refresh
