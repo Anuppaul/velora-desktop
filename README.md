@@ -256,6 +256,7 @@ Velora's runtime is designed around a few constraints:
 - unchanged adaptive-text inline styles and stationary Orb capture bounds are not re-applied each refresh
 - expensive material created only where required
 - unchanged Overview blur settings and search-card capture bounds are not re-applied every refresh
+- Overview window captions reuse sampled geometry and skip unchanged color writes; empty close-button glass regions clear just once
 - native GNOME animation remains responsible for transforms
 
 Performance-sensitive changes should include reproducible before/after evidence where practical.
