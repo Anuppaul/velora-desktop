@@ -92,6 +92,7 @@ export class OverviewSearchGlassManager {
         this._lastRegionGeometry = [];
         this._lastRootW = 0;
         this._lastRootH = 0;
+        this._lastCaptureRect = null;
     }
 
     setup() {
@@ -140,6 +141,7 @@ export class OverviewSearchGlassManager {
         const stop = () => {
             this._root?.hide?.();
             this._stopStageSync();
+            this._lastCaptureRect = null;
         };
 
         const sync = () => {
@@ -659,12 +661,25 @@ export class OverviewSearchGlassManager {
             nowUs - this._lastSceneSyncUs >=
                 sceneIntervalUs
         ) {
-            this._sceneManager?.setCullRect?.(
-                captureRect
-            );
-            this._sceneManager?.applyBgCloneClip?.(
-                captureRect
-            );
+            // The background scene stays live at its usual FPS; capture
+            // bounds only need to change when provider geometry moves.
+            const previous =
+                this._lastCaptureRect;
+            if (
+                !previous ||
+                captureRect.some(
+                    (value, index) =>
+                        value !== previous[index]
+                )
+            ) {
+                this._sceneManager?.setCullRect?.(
+                    captureRect
+                );
+                this._sceneManager?.applyBgCloneClip?.(
+                    captureRect
+                );
+                this._lastCaptureRect = captureRect;
+            }
             this._sceneManager?.sync?.();
             this._lastSceneSyncUs = nowUs;
         }
@@ -714,6 +729,7 @@ export class OverviewSearchGlassManager {
         this._lastRegionKey = '';
         this._lastRegionGeometry = [];
         this._lastSceneSyncUs = 0;
+        this._lastCaptureRect = null;
 
         console.log(
             '[Velora][OverviewSearchGlass] stopped'
