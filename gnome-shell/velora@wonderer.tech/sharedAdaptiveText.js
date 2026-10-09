@@ -428,9 +428,17 @@ export class SharedAdaptiveTextManager {
                 ? original.replace(/;\s*$/, '') + '; '
                 : '';
 
-            actor.set_style?.(
-                prefix + 'color: ' + color + ';'
-            );
+            const desiredStyle =
+                prefix + 'color: ' + color + ';';
+
+            // Sampling unchanged polarity must not trigger another Shell
+            // style invalidation. Still correct a later external override.
+            const currentStyle =
+                actor.get_style?.() ??
+                actor.style ??
+                null;
+            if (currentStyle !== desiredStyle)
+                actor.set_style?.(desiredStyle);
         } catch {}
     }
 
