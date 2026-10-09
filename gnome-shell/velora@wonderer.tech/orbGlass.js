@@ -16,7 +16,7 @@ const ORB_GLYPH_CLASS = 'velora-orb-glyph-v2';
 const APP_BUTTON_CLASS = 'velora-app-button';
 const PAD = 20;
 const REGIONS_PER_BATCH = 16;
-const PREWARMED_BATCHES = 4;
+const MAX_GLASS_BATCHES = 4;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
@@ -135,17 +135,10 @@ export class OrbGlassManager {
         this._root = root;
         this._batches = [];
 
-        // LiquidEffect's shader has a hard 16-region uniform limit. Pre-warm a
-        // small bounded set of sibling glass batches so large All Apps pages
-        // never fall back to plain icons after region 16. Hidden batches do no
-        // scene synchronization until they actually own visible regions.
-        for (
-            let index = 0;
-            index < PREWARMED_BATCHES;
-            index++
-        ) {
-            this._createBatch(index);
-        }
+        // Most Orb sessions need a single 16-region glass batch. Create
+        // further full-screen shader/scene pairs only on demand, retaining
+        // them for smooth paging once a large All Apps page has been opened.
+        this._createBatch(0);
 
         const first = this._batches[0] ?? null;
         this._liquidBox = first?.liquidBox ?? null;
@@ -224,6 +217,34 @@ export class OrbGlassManager {
         };
         this._batches.push(batch);
         return batch;
+    }
+
+    _ensureBatchCount(count) {
+        const wanted = Math.min(
+            MAX_GLASS_BATCHES,
+            Math.max(1, count)
+        );
+        if (this._batches.length >= wanted)
+            return;
+
+        while (this._batches.length < wanted)
+            this._createBatch(this._batches.length);
+
+        // Initialize the new shader effects before their first visible frame.
+        // Existing batches are invalidated only on an actual new allocation.
+        this._applyAppearance(this._appearance);
+    }
+
+    _clearBatch(batch) {
+        // Empty regions upload all fixed-size uniform arrays; do not repeat
+        // that upload on every frame while a batch is already hidden.
+        if (batch.liquidBox?.visible) {
+            batch.effect?.setGlassRegions?.([]);
+            batch.liquidBox.hide?.();
+        }
+
+        batch.lastRegionKey = '';
+        batch.lastSceneSyncUs = 0;
     }
 
     _applyAppearance(
@@ -480,19 +501,19 @@ export class OrbGlassManager {
         }
 
         if (!regions.length) {
-            for (const batch of this._batches) {
-                batch.effect
-                    ?.setGlassRegions?.([]);
-                batch.lastRegionKey = '';
-                batch.lastSceneSyncUs = 0;
-                batch.liquidBox?.hide?.();
-            }
+            for (const batch of this._batches)
+                this._clearBatch(batch);
 
             this._lastRegionKey = '';
             this._lastSceneSyncUs = 0;
-            this._root.hide?.();
+            if (this._root.visible)
+                this._root.hide?.();
             return;
         }
+
+        this._ensureBatchCount(
+            Math.ceil(regions.length / REGIONS_PER_BATCH)
+        );
 
         const configuredSceneFps =
             this._appearance?.sceneFps ?? 30;
@@ -523,11 +544,7 @@ export class OrbGlassManager {
                 );
 
             if (!batchRegions.length) {
-                batch.effect
-                    ?.setGlassRegions?.([]);
-                batch.lastRegionKey = '';
-                batch.lastSceneSyncUs = 0;
-                batch.liquidBox?.hide?.();
+                this._clearBatch(batch);
                 continue;
             }
 
