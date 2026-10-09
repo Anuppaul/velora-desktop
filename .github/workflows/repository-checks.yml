@@ -20,6 +20,9 @@ jobs:
       - name: Check shell script syntax
         run: bash -n gnome-shell/install.sh
 
+      - name: Test optional performance sampler
+        run: python3 -m unittest discover -s tools -p 'test_velora_perf.py'
+
       - name: Validate repository metadata and XML
         run: |
           python3 - <<'PY'
