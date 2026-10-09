@@ -11,3 +11,6 @@ Thumbs.db
 *.log
 tmp/
 .temp/
+
+# Local opt-in resource-profiling reports
+dist/velora-perf/

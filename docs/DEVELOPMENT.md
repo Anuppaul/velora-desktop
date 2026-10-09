@@ -104,6 +104,8 @@ Document whether your change:
 
 Prefer event-driven updates and reuse.
 
+To record repeatable, read-only GNOME resource baselines, see [Performance capture](PERFORMANCE.md). This does not measure frame rates.
+
 ## Cleanup changes
 
 When touching Shell actors, signals, timeouts, keybindings or monkey patches, verify teardown explicitly.

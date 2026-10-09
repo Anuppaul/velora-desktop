@@ -261,7 +261,7 @@ Velora's runtime is designed around a few constraints:
 - native Overview actor add/remove events invalidate the window-chrome registry; quiet frames skip full-tree scans with a conservative fallback reconciliation
 - native GNOME animation remains responsible for transforms
 
-Performance-sensitive changes should include reproducible before/after evidence where practical.
+Performance-sensitive changes should include reproducible before/after evidence where practical. See the [optional performance capture guide](docs/PERFORMANCE.md) for GNOME Shell CPU/RAM and NVIDIA GPU baseline comparisons.
 
 ## Development
 
