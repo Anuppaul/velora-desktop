@@ -32,6 +32,8 @@ export class AppGridBackdropManager {
         this._scaleId = 0;
         this._settleBlurSourceId = 0;
         this._currentBlurRadius = BLUR_RADIUS;
+        this._lastAppliedBlurRadius = null;
+        this._lastAppliedBlurScale = null;
     }
 
     setup() {
@@ -147,6 +149,11 @@ export class AppGridBackdropManager {
             this._layer?.destroy_all_children?.();
         } catch {}
 
+        // Monitor rebuild replaces the BlurEffect objects; initialize the
+        // new effects even when the requested radius and scale are unchanged.
+        this._lastAppliedBlurRadius = null;
+        this._lastAppliedBlurScale = null;
+
         if (!this._layer)
             return;
 
@@ -196,15 +203,39 @@ export class AppGridBackdropManager {
                     .scale_factor ?? 1;
         } catch {}
 
-        for (const widget of this._layer?.get_children?.() ?? []) {
+        // Appearance refresh and lifecycle signals may request identical
+        // blur properties repeatedly. Avoid unnecessary effect invalidation.
+        if (
+            this._lastAppliedBlurRadius === radius &&
+            this._lastAppliedBlurScale === scale
+        ) {
+            return;
+        }
+
+        const widgets =
+            this._layer?.get_children?.() ?? [];
+        let allApplied = widgets.length > 0;
+
+        for (const widget of widgets) {
             const effect =
                 widget.get_effect?.(
                     'velora-overview-native-blur'
                 );
-            effect?.set?.({
+            if (!effect) {
+                allApplied = false;
+                continue;
+            }
+
+            effect.set?.({
                 brightness: BLUR_BRIGHTNESS,
                 radius: radius * scale,
             });
+        }
+
+        // Retry when a monitor's effect has not attached yet.
+        if (allApplied) {
+            this._lastAppliedBlurRadius = radius;
+            this._lastAppliedBlurScale = scale;
         }
     }
 
