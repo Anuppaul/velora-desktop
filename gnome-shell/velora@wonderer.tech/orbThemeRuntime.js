@@ -31,6 +31,8 @@ const AUTO_LAYOUT_MAX_DEPTH = 8;
 // OrbGlassManager pre-warms four shader batches. One region belongs to the
 // Orb face itself, leaving 63 real-glass app regions per visible page.
 const MAX_VISIBLE_ORB_APPS = 63;
+// Retain at most two detached pages while Orb is open.
+const MAX_CACHED_INACTIVE_ORB_PAGES = 2;
 const APP_PREVIEW_MAX_WINDOWS = 4;
 const APP_PREVIEW_GAP = 8;
 const APP_PREVIEW_PADDING = 10;
@@ -132,6 +134,7 @@ export default class VeloraRuntime extends Extension {
         this._orbLastPageScrollUs = 0;
         // Reuse app selection and fitted geometry only within one open menu.
         this._orbPageSession = null;
+        this._activeOrbPageIndex = null;
         this._geometryActors = [];
 
         this._removeStaleLayers();
@@ -272,6 +275,7 @@ export default class VeloraRuntime extends Extension {
         this._orbPageCount = 1;
         this._orbLastPageScrollUs = 0;
         this._orbPageSession = null;
+        this._activeOrbPageIndex = null;
         this._geometryActors = [];
         this._appSystem = null;
         this._shellSettings = null;
@@ -1147,7 +1151,7 @@ export default class VeloraRuntime extends Extension {
         }
     }
 
-    _openMenu(reusePageSession = false) {
+    _openMenu(reusePageSession = false, recycledButtons = null) {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelOrbAutoHideTimer();
@@ -1341,6 +1345,8 @@ export default class VeloraRuntime extends Extension {
                 capacities,
                 layoutArc,
                 placementsByLength: new Map(),
+                // Detached inactive pages are excluded from OrbGlass scans.
+                inactiveButtons: new Map(),
             };
         }
 
@@ -1426,10 +1432,15 @@ export default class VeloraRuntime extends Extension {
             const slot =
                 placements[appIndex];
             const actor =
+                recycledButtons?.[appIndex] ??
                 this._createAppButton(
                     apps[appIndex],
                     iconSize
                 );
+            if (recycledButtons) {
+                actor.remove_all_transitions?.();
+                actor.show?.();
+            }
             actor.set_position(
                 centerX - iconSize / 2,
                 centerY - iconSize / 2
@@ -1462,6 +1473,7 @@ export default class VeloraRuntime extends Extension {
                 });
             }
         }
+        this._activeOrbPageIndex = this._orbPageIndex;
     }
 
     _createGeometryLinks(
@@ -1717,7 +1729,7 @@ export default class VeloraRuntime extends Extension {
         return button;
     }
 
-    _closeMenu(immediate = false) {
+    _closeMenu(immediate = false, preservePageButtons = false) {
         this._cancelOpenTimer();
         this._cancelCloseTimer();
         this._cancelAppPreviewHide();
@@ -1725,7 +1737,17 @@ export default class VeloraRuntime extends Extension {
         this._hideTooltip();
         this._hideOrbPageIndicator(immediate);
         this._destroyGeometryActors(immediate);
-        this._orbPageSession = null;
+        if (!preservePageButtons) {
+            // Native close/disable/refresh releases every detached actor.
+            for (const buttons of
+                this._orbPageSession?.inactiveButtons?.values() ?? []) {
+                for (const actor of buttons)
+                    actor.destroy?.();
+            }
+            this._orbPageSession?.inactiveButtons?.clear();
+            this._orbPageSession = null;
+        }
+        this._activeOrbPageIndex = null;
 
         if (!this._menuOpen && this._radialActors.length === 0) {
             this._scheduleOrbAutoHide();
@@ -1739,11 +1761,25 @@ export default class VeloraRuntime extends Extension {
         this._radialActors = [];
 
         if (!this._orb || immediate) {
-            for (const actor of actors)
+            const detached = [];
+            for (const actor of actors) {
+                if (preservePageButtons &&
+                    actor.get_parent?.() === this._layer) {
+                    try {
+                        actor.remove_all_transitions?.();
+                        actor.hide?.();
+                        this._layer.remove_child(actor);
+                        detached.push(actor);
+                        continue;
+                    } catch {
+                        // Fall back to destruction if detachment fails.
+                    }
+                }
                 actor.destroy();
+            }
             this._scheduleOrbAutoHide();
             this._scheduleOrbAutoFade();
-            return;
+            return detached;
         }
 
         const duration = Math.min(
@@ -1927,14 +1963,40 @@ export default class VeloraRuntime extends Extension {
     }
 
     _reopenMenu(reusePageSession = false) {
-        // Normal close always releases cached apps and geometry. Only a
-        // page turn may carry the snapshot across the immediate reopen.
-        const pageSession = reusePageSession && this._menuOpen
+        const session = reusePageSession && this._menuOpen
             ? this._orbPageSession
             : null;
-        this._closeMenu(true);
-        this._orbPageSession = pageSession;
-        this._openMenu(Boolean(pageSession));
+        const outgoingPage = this._activeOrbPageIndex;
+        const outgoingCount = this._radialActors.length;
+        const incomingPage = this._orbPageIndex;
+        // Take the incoming page out of the LRU before evicting any entries.
+        const cachedNext =
+            session?.inactiveButtons?.get(incomingPage) ?? null;
+        session?.inactiveButtons?.delete(incomingPage);
+
+        const detached = this._closeMenu(true, Boolean(session));
+        if (session) {
+            if (detached?.length === outgoingCount &&
+                detached.length && outgoingPage !== null) {
+                session.inactiveButtons.set(outgoingPage, detached);
+            } else {
+                for (const actor of detached ?? [])
+                    actor.destroy?.();
+            }
+            while (
+                session.inactiveButtons.size >
+                MAX_CACHED_INACTIVE_ORB_PAGES
+            ) {
+                const oldest = session.inactiveButtons.keys()
+                    .next().value;
+                const evicted = session.inactiveButtons.get(oldest);
+                session.inactiveButtons.delete(oldest);
+                for (const actor of evicted ?? [])
+                    actor.destroy?.();
+            }
+            this._orbPageSession = session;
+        }
+        this._openMenu(Boolean(session), cachedNext);
     }
 
     _refreshOpenMenu() {
