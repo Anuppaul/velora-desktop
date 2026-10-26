@@ -287,3 +287,31 @@ The user approved the visible v10 Liquid Glass preview and fixed 16:9 ratio, but
 ## Mini 16:9 window preview baseline
 
 Following the approved 640×360 preview, the default 100% Window Preview Size now displays a **480×270 logical-pixel** card on a sufficiently large monitor (a 25% reduction in width and height). The existing 50% size displays **240×135**, and 180% displays **864×486** when screen space permits. A smaller monitor continues to cap the frame to the available space and maintain the exact **16:9** ratio. No changes to the v10 Liquid Glass renderer, visible backdrop, thumbnail aspect-ratio containment, input, preview fades, or resource lifetime are required. The mini-layout test covers the three representative sizes and multiple display geometries; the real compositor appearance still needs on-device validation.
+
+## Remove the remaining preview white layer (single-material glass)
+
+The compact **480×270 exact-16:9** running-window preview already has its own
+Velora LiquidEffect as the first child of the native card. However, the card
+still received a painted translucent white body when glass was active, and
+`LiquidGlassIntegration._applyCardAppearanceStylesheet()` applied a generic
+`.velora-liquid-shell-card` **`!important` white-filter override** on top of
+all native shell cards, including this preview. A hovered/focused native
+thumbnail also received an additional 5.5% white tile fill. These are visual
+layers independent of the actual refractive LiquidEffect.
+
+Active preview cards now draw **transparent CSS backgrounds** in both the
+static stylesheet and the dynamically generated appearance stylesheet, with
+a **preview-specific exception placed after the generic shell-card white
+filter**. The generic white filter remains adjustable for other cards.
+Thumbnail hover/focus no longer paints a white plate; hit targets, focus
+semantics, live window clones and click-to-activate code are unchanged.
+
+If preview glass fails to attach, the non-glass preview still has its existing
+neutral 18% CSS fallback, so it never reverts to the original black surface.
+No new shader, nested actor, compositor capture or GPU pass was introduced.
+Preview dimensions remain **480×270** at 100% and exact **16:9** at all sizes.
+
+Run `node tools/test_preview_glass.mjs` and
+`node tools/test_preview_layout.mjs`. Verify the visual appearance in GNOME
+Shell 50, particularly running-app hover, thumbnail focus, and dynamic changes
+to the global Glass Filter setting; mock tests do not prove the GPU visuals.
