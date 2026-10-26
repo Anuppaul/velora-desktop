@@ -166,7 +166,8 @@ fx.setBlurRadius(7);
 assert.equal(blurRadii.at(-1), 7);
 fx._frostAmount = 0.78;
 fx._applyVeloraBlurRadius();
-assert.ok(Math.abs(blurRadii.at(-1) - 16.36) < 0.0001);
+assert.ok(Math.abs(blurRadii.at(-1) - 25.72) < 0.0001,
+    'dense Frosted must use a clearly stronger native blur');
 fx._frostAmount = 0;
 fx._applyVeloraBlurRadius();
 assert.equal(blurRadii.at(-1), 7, 'Liquid blur restored exactly');
@@ -192,7 +193,40 @@ assert.equal(
     'flat/full paths must share the same static grain implementation'
 );
 assert.doesNotMatch(shader, /sampler2D velora_/);
+
+// Full Crystal should be visually distinct, not merely Liquid with a white
+// tint. Verify both rendering branches, the density-to-matte blend, the
+// refraction suppression and the removal of RGB dispersion in Frosted mode.
+// This remains a source-level GPU contract, NOT a live compositor screenshot.
+assert.match(shader, /float matte = pow\(frost, 0\.62\)/);
+assert.match(shader, /return mix\(desaturated, crystalWhite, 0\.87 \* matte\)/);
+assert.match(shader, /float crystalLensSuppression = smoothstep\(/);
+assert.match(shader, /dispPx \*= mix\(1\.0, 0\.09, crystalLensSuppression\)/);
+assert.match(shader, /float crystalChroma = 1\.0 - smoothstep\(/);
+assert.match(shader, /\* lensShape \* crystalChroma;/);
+assert.match(shader, /veloraGlassGrain\(floor\(pixel \* 0\.25\) \* 4\.0\)/);
+assert.match(shader, /vec3\(0\.79, 0\.90, 1\.0\)/);
+assert.match(shader, /if \(frost < 0\.0001\)\s*return fine;/);
+// At the *previous* 78% default, the matte crystal should already be strong
+// even on an installation whose prior default is still stored explicitly.
+const matteAmountAtOldDefault = 0.87 * Math.pow(0.78, 0.62);
+assert.ok(matteAmountAtOldDefault > 0.73);
+const smoothstep = (a, b, x) => {
+    const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+};
+const remainingRefraction = 1 - 0.91 * smoothstep(0, 0.72, 0.78);
+const remainingChroma = 1 - smoothstep(0, 0.45, 0.78);
+assert.ok(remainingRefraction <= 0.1);
+assert.equal(remainingChroma, 0, 'no rainbow edge on dense Frosted');
+assert.equal(1 - 0.91 * smoothstep(0, 0.72, 0), 1,
+    'Liquid refraction remains mathematically unchanged');
+assert.equal(1 - smoothstep(0, 0.45, 0), 1,
+    'Liquid RGB fringe remains unchanged');
+
 assert.match(canonicalSchema, /<key name="glass-style" type="s">/);
+assert.match(canonicalSchema, /<key name="frost-density" type="i">\s*<default>88<\/default>/);
+assert.match(canonicalSchema, /<key name="frost-grain" type="i">\s*<default>62<\/default>/);
 assert.match(canonicalSchema, /<default>'liquid'<\/default>/);
 for (const key of ['frost-density', 'frost-grain', 'frost-edge-glow'])
     assert.match(canonicalSchema, new RegExp('<key name="' + key + '"'));
@@ -207,4 +241,4 @@ assert.match(integration, /this\._applyFrostedCrystalSettings\(\)/);
 assert.match(integration, /'frost-density',\s*'frost-grain',\s*'frost-edge-glow'/);
 assert.doesNotMatch(method, /glass-displacement-scale|glass-chroma-strength|glass-rim-intensity/);
 
-console.log('Liquid/Frosted live picker, persistable modes, matte shader, user optics and reversible blur PASS.');
+console.log('Full Frosted Crystal visual separation, live mode, dense diffusion, unchanged Liquid optics and reversible blur PASS.');
