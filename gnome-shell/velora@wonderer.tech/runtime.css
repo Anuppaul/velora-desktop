@@ -312,7 +312,7 @@
 /* Glass is ready: transparent native background over the refractive layer.
  * Keep the full-width panel geometry strictly square, never a rounded pill.
  * This rule outranks the fallback-only .panel-background selectors above. */
-.velora-ubuntu-dock-panel-background.velora-ubuntu-dock-glass-background,
+.dash-background.velora-ubuntu-dock-panel-background.velora-ubuntu-dock-glass-background,
 .liquid-glass-transparent .dash-background.velora-ubuntu-dock-panel-background.velora-ubuntu-dock-glass-background {
     background-color: transparent !important;
     background-image: none !important;
