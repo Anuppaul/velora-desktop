@@ -148,8 +148,12 @@ assert.equal(handlers.size, 0, 'material must disconnect mode listeners');
 const blurBegin = effectSource.indexOf('    _applyVeloraBlurRadius() {');
 const blurEnd = effectSource.indexOf('\n    /**', blurBegin);
 assert.ok(blurBegin >= 0 && blurEnd > blurBegin);
+const extractedMethods = effectSource.slice(blurBegin, blurEnd)
+    // Class methods have no comma separators, unlike object literals.
+    .replace(/\n    setBlurRadius\(radius\)/,
+        ',\n    setBlurRadius(radius)');
 const methods = new Function(
-    'return ({' + effectSource.slice(blurBegin, blurEnd) + '});'
+    'return ({' + extractedMethods + '});'
 )();
 const blurRadii = [];
 const fx = {
