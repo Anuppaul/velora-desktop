@@ -155,7 +155,8 @@ for (const [count, w, h] of [
 // landscape glass rectangle. Now card aspect follows the real frame.
 const portraitFrame = {x: 100, y: 80, width: 600, height: 1050};
 const {card: terminal} = render([portraitFrame]);
-assert.deepEqual([terminal.width, terminal.height], [177, 302]);
+assert.deepEqual([terminal.width, terminal.height], [302, 520],
+    'tall native thumbnail stays legible rather than shrinking to ~165px');
 assert.ok(terminal.children[0].width / terminal.width > 0.90);
 assert.ok(terminal.children[0].height / terminal.height > 0.90);
 assert.ok(terminal.width / terminal.height < 0.66);
@@ -184,7 +185,8 @@ const bufferTop = preview.y + (buffer.y - frame.y) * scale;
 assert.ok(bufferLeft >= 1 && bufferTop >= 1);
 assert.ok(bufferLeft + buffer.width * scale <= tile.width - 1);
 assert.ok(bufferTop + buffer.height * scale <= tile.height - 1);
-assert.ok(decorated.width < 250);
+assert.ok(decorated.width < 320,
+    'visible CSD buffer produces proportionate portrait glass');
 
 // Small native windows may be scaled up by GNOME's Clutter compositor;
 // a forced 1:1 cap would strand them in oversized glass.
