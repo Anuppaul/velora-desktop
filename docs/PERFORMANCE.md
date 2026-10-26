@@ -236,3 +236,46 @@ GNOME Shell 50 visual check is still required for buffer-clipping behavior.
 Run `node tools/test_preview_layout.mjs` and
 `node tools/test_preview_glass.mjs`; repeat with a tall Terminal, Files, an
 app with mixed portrait/landscape windows, and the native Dock hover path.
+
+## Running-window preview: exact 16:9 and visible Liquid Glass
+
+The owner requested **one fixed 16:9 outer frame** for Terminal, Files and
+other running-window previews (Orb and native Ubuntu Dock). Previous v47
+followed each source window's aspect ratio; v48 deliberately makes only the
+*outer* glass and each thumbnail tile 16:9. The live
+`Shell.WindowPreviewLayout` clone still preserves the source window's
+original aspect using *contain*, including its native CSD/window buffer.
+A portrait Terminal may therefore have glass-visible side bands; unlike a
+stretched thumbnail, its text remains proportionate and uncropped.
+
+At 100% App Preview Size and at least a 1920×1080 monitor, the frame is
+**784×441 logical pixels, exactly 16:9**, for 1, 2, 3, and 4-window previews.
+At 50% it is 384×216. On smaller monitors its width snaps to a 16px unit
+so the ratio remains exactly 16:9 after fitting screen boundaries. A single
+window uses one 16:9 tile; multiple windows use centered, non-overlapping,
+equal-aspect native click targets. The existing 1.65× boost and App Preview
+Size preference still drive *overall* size.
+
+The original Liquid Glass preview was inserted as a sibling inside the
+desktop's `Clutter.FixedLayout`. This could leave the material invisible or
+out of sync with its 120ms parent fade/zoom. The preview-only
+`ShellCardSurface` now inserts its **one refractive material as the first
+child of the preview card**, below the native live thumbnails. Parent opacity
+and scale are inherited once, avoiding accidental squared translucency and
+stale sibling allocation. Other shell cards retain their previous sibling
+geometry and animation behavior. An 8.5% neutral tint is part of the active
+card's CSS body, while an 18% neutral fallback makes the card visible even
+before its asynchronous GPU shader loads or if attachment fails. Neither is
+a second overlay actor, border, or new shader pass. The shader still drives
+the v10 refractive rim, blur and background distortion.
+
+The Orb app-region scanner ignores these nested preview clone subtrees to
+avoid expensive recursive walks during hover. Preview destruction still
+releases the bounded window-clone manager and its compositor frame callback.
+
+Run `node tools/test_preview_layout.mjs` and
+`node tools/test_preview_glass.mjs`. On a real GNOME Shell 50 session, check
+Terminal, Files, several simultaneously running windows, the fixed frame
+ratio, the visible refractive rim, window activation, native Dock hover,
+monitor edges and whether short open/close fades flicker. CI's mocked
+GObject/Clutter actors do not certify live GPU shader output.
