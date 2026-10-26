@@ -40,6 +40,7 @@ import {
     VELORA_GLASS_ROLES,
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
+import {PanelGlassSurface} from './panelGlass.js';
 
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
@@ -68,6 +69,13 @@ const DOCK_GLASS_BACKGROUND_CLASS =
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 18;
+const DOCK_PANEL_READY_CLASS = 'velora-native-panel-liquid-ready';
+const DOCK_PANEL_GLASS_STYLE =
+    'background-color: transparent; ' +
+    'background-image: none; ' +
+    'border-color: transparent; ' +
+    'border-radius: 0px; ' +
+    'box-shadow: none;';
 const DOCK_PANEL_BACKDROP_NAME = 'velora-dock-panel-local-backdrop';
 // Panel-local frosted glass: the blur effect is applied to Ubuntu Dock's
 // native .dash-background only, never to the whole monitor. A thin highlight
@@ -1377,6 +1385,7 @@ export class LiquidGlassIntegration {
         for (const entry of this._nativeDashEntries) {
             if (entry.manager)
                 this._applySharedDashMaterial(entry.manager, 'dock');
+            entry.panelLiquidSurface?.updateAppearance?.();
         }
 
         console.log(
@@ -3930,13 +3939,11 @@ export class LiquidGlassIntegration {
         } catch {}
     }
 
-    // DockDash offscreen_redirect=ALWAYS isolates its children from the
-    // desktop; an effect on .dash-background cannot sample real windows.
-    // Put a BACKGROUND blur immediately below the dock root in uiGroup.
-    // The effect actor is sized/clipped to the native panel bounds ONLY.
+    // The native panel owns a bounded stage-level LiquidEffect material.
+    // Do not use DashManager's full-monitor capture (PR #35 regression).
     _ensurePanelBackdrop(entry, source) {
         const uiGroup = Main.layoutManager.uiGroup;
-        if (!entry || !source || !uiGroup)
+        if (!entry || !source || !uiGroup || !this._vendor)
             return false;
 
         let root = entry.container;
@@ -3955,48 +3962,47 @@ export class LiquidGlassIntegration {
         }
         this._removePanelBackdrop(entry);
 
-        let actor = null;
         try {
-            actor = new St.Widget({
-                name: DOCK_PANEL_BACKDROP_NAME,
-                style_class: 'velora-dock-panel-backdrop',
-                reactive: false,
-                track_hover: false,
-                width: 1,
-                height: 1,
-                opacity: 0,
-            });
-            actor.set_clip_to_allocation(true);
-            actor.add_effect_with_name(
-                DOCK_PANEL_BLUR_EFFECT,
-                new Shell.BlurEffect({
-                    mode: Shell.BlurMode.BACKGROUND,
-                    sigma: DOCK_PANEL_BLUR_RADIUS,
-                    brightness: 1.0,
-                })
+            const surface = new PanelGlassSurface(
+                this._vendor,
+                this._settings,
+                () => this._readSharedCardAppearance()
             );
-            uiGroup.insert_child_below(actor, root);
-            entry.panelBackdropActor = actor;
+            if (!surface.attach(uiGroup, root)) {
+                surface.destroy();
+                return false;
+            }
+            entry.panelLiquidSurface = surface;
+            entry.panelBackdropActor = surface._material;
             entry.panelBackdropSource = source;
             entry.panelBackdropRoot = root;
+
+            // Scoped only to this one native Panel Mode surface. Scene sync
+            // stops completely when its manager is destroyed or disabled.
+            entry.panelGlassFrameSignal = global.stage.connect(
+                'before-update',
+                () => {
+                    try {
+                        this._syncPanelBackdropGeometry(entry);
+                    } catch {
+                        // Preserve native background fallback on actor teardown.
+                        entry.panelLiquidSurface?.hide();
+                    }
+                }
+            );
             this._syncPanelBackdropGeometry(entry);
             return true;
         } catch (error) {
-            try {
-                actor?.destroy?.();
-            } catch {}
-            entry.panelBackdropActor = null;
-            entry.panelBackdropSource = null;
-            entry.panelBackdropRoot = null;
-            console.warn('[Velora][Dock] bounded blur fallback: ' + error);
+            this._removePanelBackdrop(entry);
+            console.warn('[Velora][Dock] panel material fallback: ' + error);
             return false;
         }
     }
 
     _syncPanelBackdropGeometry(entry) {
-        const actor = entry?.panelBackdropActor;
+        const surface = entry?.panelLiquidSurface;
         const source = entry?.panelBackdropSource;
-        if (!actor || !source || !this._dockIsPanelMode())
+        if (!surface || !source || !this._dockIsPanelMode())
             return;
 
         try {
@@ -4012,14 +4018,15 @@ export class LiquidGlassIntegration {
                 monitor &&
                 [x, y, w, h].every(Number.isFinite) &&
                 w > 1 && h > 1 &&
-                // Malformed geometry must never blur the entire desktop.
+                // Guard all four edges and constrain *thickness*. Never
+                // allow a malformed fullscreen-sized blur/material actor.
                 Math.min(w, h) <= Math.min(
-                    240,
-                    (w >= h ? monitor.height : monitor.width) * 0.35
+                    180,
+                    (w >= h ? monitor.height : monitor.width) * 0.25
                 );
             if (!valid) {
-                if (actor.opacity !== 0)
-                    actor.opacity = 0;
+                surface.hide();
+                this._setPanelLiquidReady(entry, false);
                 return;
             }
 
@@ -4029,43 +4036,55 @@ export class LiquidGlassIntegration {
             const bottom = Math.min(y + h, monitor.y + monitor.height);
             const width = right - left, height = bottom - top;
             if (width <= 1 || height <= 1) {
-                if (actor.opacity !== 0)
-                    actor.opacity = 0;
+                surface.hide();
+                this._setPanelLiquidReady(entry, false);
                 return;
             }
+
             const [uiX, uiY] =
                 Main.layoutManager.uiGroup.get_transformed_position?.() ??
                 [0, 0];
-            if (
-                Math.abs(actor.x - (left - uiX)) > 0.1 ||
-                Math.abs(actor.y - (top - uiY)) > 0.1
-            )
-                actor.set_position(left - uiX, top - uiY);
-            if (
-                Math.abs(actor.width - width) > 0.1 ||
-                Math.abs(actor.height - height) > 0.1
-            )
-                actor.set_size(width, height);
             const opacity = source.get_paint_opacity?.() ??
                 source.opacity ?? 255;
-            if (actor.opacity !== opacity)
-                actor.opacity = opacity;
+            surface.setBounds(
+                left - uiX, top - uiY, width, height, opacity
+            );
+            this._setPanelLiquidReady(entry, surface.ready);
         } catch {
-            if (actor.opacity !== 0)
-                actor.opacity = 0;
+            surface.hide();
+            this._setPanelLiquidReady(entry, false);
         }
+    }
+
+    _setPanelLiquidReady(entry, ready) {
+        if (!entry || entry.panelLiquidReady === ready)
+            return;
+        entry.panelLiquidReady = ready;
+        const background = entry.panelBackgroundActor;
+        if (!background)
+            return;
+        try {
+            if (ready)
+                background.add_style_class_name?.(DOCK_PANEL_READY_CLASS);
+            else
+                background.remove_style_class_name?.(DOCK_PANEL_READY_CLASS);
+            this._setDockPanelPremiumStyle(entry, background);
+        } catch {}
     }
 
     _removePanelBackdrop(entry) {
         if (!entry)
             return;
-        const actor = entry.panelBackdropActor;
+        if (entry.panelGlassFrameSignal) {
+            try { global.stage.disconnect(entry.panelGlassFrameSignal); } catch {}
+            entry.panelGlassFrameSignal = 0;
+        }
+        this._setPanelLiquidReady(entry, false);
+        try { entry.panelLiquidSurface?.destroy(); } catch {}
+        entry.panelLiquidSurface = null;
         entry.panelBackdropActor = null;
         entry.panelBackdropSource = null;
         entry.panelBackdropRoot = null;
-        try {
-            actor?.destroy?.();
-        } catch {}
     }
 
     _syncDockGlassBackgroundClass(entry, enabled) {
@@ -4137,14 +4156,15 @@ export class LiquidGlassIntegration {
             actor.style ??
             '';
 
-        if (current === DOCK_PANEL_PREMIUM_STYLE)
+        const desired = entry.panelLiquidReady
+            ? DOCK_PANEL_GLASS_STYLE
+            : DOCK_PANEL_PREMIUM_STYLE;
+        if (current === desired)
             return;
 
         entry.panelBackgroundStyleGuard = true;
         try {
-            actor.set_style?.(
-                DOCK_PANEL_PREMIUM_STYLE
-            );
+            actor.set_style?.(desired);
         } catch {}
         finally {
             entry.panelBackgroundStyleGuard = false;
@@ -4859,6 +4879,9 @@ export class LiquidGlassIntegration {
                     panelBackdropActor: null,
                     panelBackdropSource: null,
                     panelBackdropRoot: null,
+                    panelLiquidSurface: null,
+                    panelLiquidReady: false,
+                    panelGlassFrameSignal: 0,
                 };
                 this._nativeDashEntries.push(entry);
 

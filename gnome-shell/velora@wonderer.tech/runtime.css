@@ -281,7 +281,7 @@
 /* The only stage-level blur used for Ubuntu Dock Panel Mode is constrained
  * to its native .dash-background rectangle, with no black fullscreen actor. */
 .velora-dock-panel-backdrop {
-    background-color: rgba(250, 252, 255, 0.045);
+    background-color: transparent;
     background-image: none;
     border-color: transparent;
     border-radius: 0px !important;
@@ -319,6 +319,18 @@
     border-color: rgba(255, 255, 255, 0.21) !important;
     border-radius: 0 !important;
     box-shadow: inset 0 1px rgba(255,255,255,0.20) !important;
+}
+
+/* Once the small LiquidEffect has *actually composited*, remove the
+ * fallback white plate in front of it. No extra blur/actor is stacked.
+ * Before shader warmup or if the scene fails, native fallback remains. */
+.dash-background.velora-ubuntu-dock-panel-background.velora-native-panel-liquid-ready,
+.liquid-glass-transparent .dash-background.velora-ubuntu-dock-panel-background.velora-native-panel-liquid-ready {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
 }
 
 #dashtodockDashContainer.velora-dock-panel-mode .overview-icon {
