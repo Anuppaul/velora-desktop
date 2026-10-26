@@ -199,6 +199,9 @@ sceneUs += 100000;
 stage.update();
 assert.equal(surface._sceneManager !== null, true);
 assert.equal(MockWindowClones.created, 1);
+// GNOME maps the background material after its parent has been laid out.
+// The actor mock has no compositor, so supply that mapping explicitly.
+surface._material.mapped = true;
 surface._effect.geometryHook();
 assert.deepEqual(surface._effect.glassGeometry,
     [104, 104, 315, 196], 'bounded real glass, not fullscreen FBO');
