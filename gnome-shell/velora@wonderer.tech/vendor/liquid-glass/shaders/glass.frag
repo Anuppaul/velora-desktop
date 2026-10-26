@@ -612,7 +612,7 @@ vec3 sampleBackdrop(vec2 uvc, vec2 ext, vec2 texel, vec2 resolution) {
 // layer (not a CSS overlay). Applying it ahead of the user tint preserves
 // the tint color/strength and leaves the output alpha exactly unchanged.
 // It is sampled once per pixel, requires no extra texture or render pass.
-const float VELORA_MILKY_WHITE_SHADE = 0.10;
+const float VELORA_MILKY_WHITE_SHADE = 0.15;
 
 // Velora premium glass grain: fine, screen-static monochrome microtexture.
 // Reuse the existing single hash/dither evaluation, with a subtle but visible
