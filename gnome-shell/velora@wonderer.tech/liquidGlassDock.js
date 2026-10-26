@@ -3955,7 +3955,8 @@ export class LiquidGlassIntegration {
 
         if (
             entry.panelLiquidSurface &&
-            entry.panelLiquidSource === source
+            entry.panelLiquidSource === source &&
+            !entry.panelLiquidSurface._destroyed
         )
             return true;
 
@@ -4414,9 +4415,11 @@ export class LiquidGlassIntegration {
         this._watchDockPanelBackground(entry);
 
         if (panelMode) {
+            // A repeated native mode scan must not remove the ready shader's
+            // class: otherwise CSS hides real refraction behind fallback tint.
             this._syncDockGlassBackgroundClass(
                 entry,
-                false
+                Boolean(entry.panelLiquidReady)
             );
             this._setDockPanelModeClass(
                 entry.container,
