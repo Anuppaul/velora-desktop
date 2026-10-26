@@ -315,3 +315,51 @@ Run `node tools/test_preview_glass.mjs` and
 `node tools/test_preview_layout.mjs`. Verify the visual appearance in GNOME
 Shell 50, particularly running-app hover, thumbnail focus, and dynamic changes
 to the global Glass Filter setting; mock tests do not prove the GPU visuals.
+
+## Live material modes: Liquid Glass v10 and Frosted Crystal
+
+Velora now retains the original v10 **Liquid Glass** as the default and adds
+**Frosted Crystal**, selected from **Extensions → Velora Desktop → Preferences
+→ Appearance → Glass Material**. The selected mode is stored in Velora's
+canonical `glass-style` GSettings key (`liquid` / `frosted`) and changes
+live. Frost Density, Micro-grain and Crystal Edge Glow are independent
+0–100 controls; changing modes never modifies a user's existing Advanced
+Liquid optics, tint, blur, or Date Menu settings.
+
+### Rendering architecture
+- The canonical settings bridge sends a **0.0 (Liquid) or 0–1.0 (Frosted)**
+  amount and grain/glow values to new vendored GSettings keys. Every existing
+  `MaterialSettings` instance binds them to three added uniforms in the
+  **same** LiquidEffect fragment shader. This includes native Dock/Panel,
+  Orb, Spotlight, popups, Quick Settings, and the bounded window-preview card.
+- **Liquid amount=0 is the identity path**: the original v10 blur radius and
+  shader body/highlight/grain are unchanged. Selecting Liquid again uses the
+  original saved values, not a reconstructed approximation.
+- Frosted uses more of the existing blur (an amount-based addition up to
+  12px when the original blur is enabled), desaturates and softens contrast,
+  blends toward neutral satin white/cool crystal, raises the amplitude of
+  the existing screen-static hash grain and reduces strong specular glints.
+  It leaves a subtle single crystalline rim; both flat-interior and full
+  refraction paths use the same matte treatment. Explicit user blur=0 stays
+  off. Changing only Grain or Glow does **not** reconfigure the blur kernel.
+- No second glass actor, GL texture, dedicated blur engine, animated noise
+  pass, new framebuffer, CPU screenshot, or extra compositor timer is added.
+  Blur radius **can** increase GPU work on the existing pipeline; this is not
+  an FPS/performance benchmark.
+
+### Verification and acceptance
+Run `node tools/test_frosted_crystal.mjs`, plus existing
+`test_liquid_optics.mjs`, `test_preview_glass.mjs` and Shell frame-budget
+tests. CI also validates both GSettings schema files and modified vendored
+module syntax. Test on GNOME Shell 50:
+1. Switch `Liquid → Frosted → Liquid` repeatedly with Quick Settings,
+   Calendar, Orb, Spotlight, and native Ubuntu Dock visible, checking that
+   no black frame or one-frame white flash appears.
+2. Compare identical wallpapers/settings and verify Liquid v10 optics return
+   exactly; test custom Advanced optics and explicit blur=0, along with
+   the Frosted Density/Grain/Edge controls and their persisted state.
+3. Verify the compact **480×270 fixed-16:9** preview's shader, frame, live
+   clickable thumbnail and no extra CSS overlay remain intact in both modes.
+4. Check text contrast, all monitor edges, panel↔dock handoff, modal menus
+   and repeated hover/close cleanup. Measure actual CPU/GPU impact in the
+   accepted sampler before claiming performance parity.
