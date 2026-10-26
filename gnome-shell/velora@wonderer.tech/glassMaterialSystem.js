@@ -20,21 +20,25 @@ export const GLASS_INTERACTION = Object.freeze({
     epsilon: 0.008,
 });
 
+// v9 richer liquid profile: more visible refraction and glints without
+// increasing the blur radius, tint/fog, number of shader passes or FBO size.
+// MaterialSettings reads these through the GSettings migration in
+// liquidGlassDock.js; role.optics remains the canonical target profile.
 const INNER_CARD_OPTICS = Object.freeze({
-    max_z: 118.0,
-    displacement_scale: 42.0,
+    max_z: 132.0,
+    displacement_scale: 50.0,
     edge_smoothing: 0.82,
     profile_shape_n: 3.9,
     ior: 1.68,
-    chroma_strength: 1.4,
-    specular_intensity: 0.55,
-    shininess: 62.0,
-    rim_width: 2.8,
-    rim_intensity: 0.90,
+    chroma_strength: 1.6,
+    specular_intensity: 0.69,
+    shininess: 70.0,
+    rim_width: 3.3,
+    rim_intensity: 1.07,
     rim_directional_power: 1.55,
-    rim_power: 2.3,
-    rim_light_color_intensity: 1.18,
-    sheen_intensity: 0.10,
+    rim_power: 2.15,
+    rim_light_color_intensity: 1.24,
+    sheen_intensity: 0.15,
     light_angle_deg: 108.0,
     ao_intensity: 0.34,
     ao_radius: 1.3,
@@ -185,14 +189,16 @@ export const VELORA_GLASS_ADAPTERS = Object.freeze({
         adaptiveText: true,
         adaptiveDebounceMs: 180,
         adaptiveResampleMs: 4000,
-        hoverResponse: 0.38,
+        // Interactive refraction brightens gently under the cursor; shader
+        // response is bounded [0,1] and does not schedule extra GPU passes.
+        hoverResponse: 0.48,
     }),
     spotlight: Object.freeze({
         multiRegion: true,
         sceneFpsCap: 24,
         adaptiveText: true,
-        hoverResponse: 0.32,
-        focusResponse: 0.16,
+        hoverResponse: 0.40,
+        focusResponse: 0.20,
     }),
     osd: Object.freeze({
         multiRegion: false,
