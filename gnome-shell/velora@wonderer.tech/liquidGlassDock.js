@@ -1203,6 +1203,66 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] performance profile v8 seeded'
             );
         }
+
+        if (version < 9) {
+            // v9: richer liquid optics without a stronger fog/blur layer.
+            // Only change values that match the shipped v7/v5 profile;
+            // advanced preferences the user customized remain untouched.
+            // MaterialSettings owns these uniforms and its live GSettings
+            // bindings propagate the migrated values to all glass surfaces.
+            const optics = VELORA_GLASS_ROLES.innerCard.optics;
+            const seededOptics = [
+                ['glass-max-z', 118.0, 'max_z'],
+                ['glass-displacement-scale', 42.0, 'displacement_scale'],
+                ['glass-chroma-strength', 1.4, 'chroma_strength'],
+                ['glass-specular-intensity', 0.55, 'specular_intensity'],
+                ['glass-shininess', 62.0, 'shininess'],
+                ['glass-rim-width', 2.8, 'rim_width'],
+                ['glass-rim-intensity', 0.90, 'rim_intensity'],
+                ['glass-rim-power', 2.3, 'rim_power'],
+                [
+                    'glass-rim-light-color-intensity',
+                    1.18,
+                    'rim_light_color_intensity',
+                ],
+                ['glass-sheen-intensity', 0.10, 'sheen_intensity'],
+            ];
+
+            for (const [key, previous, name] of seededOptics) {
+                try {
+                    const current = this._settings.get_double(key);
+                    const target = optics[name];
+                    if (Number.isFinite(target) &&
+                        Math.abs(current - previous) < 0.0001) {
+                        this._settings.set_double(key, target);
+                    }
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] liquid optics v9 skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            }
+
+            // Do not touch native geometry, shaders, blur radius, downscale,
+            // neutral milky tint/grain, contrast or any saved custom setting.
+            try {
+                this._veloraSettings.set_int(
+                    'glass-optics-profile-version',
+                    9
+                );
+                version = 9;
+            } catch (error) {
+                console.warn(
+                    '[Velora][LiquidGlass] liquid optics v9 incomplete: ' +
+                    error
+                );
+            }
+
+            console.log(
+                '[Velora][LiquidGlass] richer liquid optics v9 seeded'
+            );
+        }
     }
 
     _readSharedCardAppearance() {
