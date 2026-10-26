@@ -100,93 +100,69 @@ function previewWindowBounds(window) {
 // Build each thumbnail from its own aspect ratio. GNOME's native
 // Shell.WindowPreviewLayout performs the actual live texture allocation;
 // this only plans the outer clickable tiles and refractive card geometry.
+// One consistent 16:9 glass frame for every running-window preview, regardless
+// of the app's original aspect ratio or window count. GNOME renders each live
+// Shell.WindowPreviewLayout thumbnail *inside* its own 16:9 tile using contain,
+// so a portrait Terminal is not distorted or cropped.
+//
+// Use a width divisible by 16 so the glass card's 16:9 ratio is *exact* in
+// integer logical pixels, even on HiDPI or narrow multi-monitor layouts.
 function planWindowPreview(windows, preferredScale, monitor) {
     const count = windows.length;
-    const columns = count === 1 ? 1 : 2;
-    const maxTileWidth = (count === 1 ? 280 :
-        count === 2 ? 220 : 190) * preferredScale;
-    const maxTileHeight = (count === 1 ? 176 :
-        count === 2 ? 140 : 120) * preferredScale;
+    if (!count)
+        return null;
 
-    const tiles = windows.map(window => {
-        const bounds = previewWindowBounds(window);
-        // Portrait windows need a larger *height* budget to be readable.
-        // The old landscape-only cap shrank a tall Terminal to ~165px wide.
-        // Keep its target width comparable to the native landscape tile's
-        // height (while fitting the anchor monitor in a single later pass).
-        const portraitBoost = Math.max(
-            1,
-            Math.min(2, bounds.height / bounds.width)
-        );
-        const fit = Math.min(
-            maxTileWidth / bounds.width,
-            maxTileHeight * portraitBoost / bounds.height
-        );
+    const columns = count === 1 ? 1 : 2;
+    const rows = Math.ceil(count / columns);
+    const maxWidth = Math.max(16, Math.min(
+        480 * preferredScale,
+        monitor.width - SCREEN_MARGIN * 2,
+        (monitor.height - SCREEN_MARGIN * 2) * 16 / 9
+    ));
+
+    const cardWidth = Math.max(16, Math.floor(maxWidth / 16) * 16);
+    const cardHeight = cardWidth * 9 / 16;
+
+    // A 16:9 tile for every app, packed and centered within the one 16:9
+    // glass card. Two apps sit side by side; four form a 2x2 native grid.
+    const freeWidth = Math.max(
+        16,
+        cardWidth - APP_PREVIEW_PADDING * 2 -
+            (columns - 1) * APP_PREVIEW_GAP
+    );
+    const freeHeight = Math.max(
+        9,
+        cardHeight - APP_PREVIEW_PADDING * 2 -
+            (rows - 1) * APP_PREVIEW_GAP
+    );
+    const tileMaxWidth = Math.min(
+        freeWidth / columns,
+        freeHeight / rows * 16 / 9
+    );
+    const tileWidth = Math.max(16, Math.floor(tileMaxWidth / 16) * 16);
+    const tileHeight = tileWidth * 9 / 16;
+
+    const groupWidth = columns * tileWidth +
+        (columns - 1) * APP_PREVIEW_GAP;
+    const groupHeight = rows * tileHeight +
+        (rows - 1) * APP_PREVIEW_GAP;
+    const startY = Math.floor((cardHeight - groupHeight) / 2);
+    const tiles = windows.map((window, index) => {
+        const row = Math.floor(index / columns);
+        const col = index % columns;
+        const rowCount = Math.min(columns, count - row * columns);
+        const rowWidth = rowCount * tileWidth +
+            (rowCount - 1) * APP_PREVIEW_GAP;
+        const rowX = Math.floor((cardWidth - rowWidth) / 2);
+
         return {
-            bounds,
-            width: Math.max(1, bounds.width * fit),
-            height: Math.max(1, bounds.height * fit),
+            bounds: previewWindowBounds(window),
+            width: tileWidth,
+            height: tileHeight,
+            x: rowX + col * (tileWidth + APP_PREVIEW_GAP),
+            y: startY + row * (tileHeight + APP_PREVIEW_GAP),
         };
     });
-
-    const groups = [];
-    for (let i = 0; i < count; i += columns)
-        groups.push(tiles.slice(i, i + columns));
-
-    // Fit to the actual anchor monitor; keep one uniform global scale across
-    // all cards so a crowded 4-window preview cannot spill off-screen.
-    const widestRow = Math.max(...groups.map(row =>
-        row.reduce((sum, tile) => sum + tile.width, 0)
-    ));
-    const totalRowHeight = groups.reduce((sum, row) =>
-        sum + Math.max(...row.map(tile => tile.height)), 0
-    );
-    const usableWidth = Math.max(1,
-        monitor.width - 2 * (SCREEN_MARGIN + APP_PREVIEW_PADDING) -
-        (columns - 1) * APP_PREVIEW_GAP
-    );
-    const usableHeight = Math.max(1,
-        monitor.height - 2 * (SCREEN_MARGIN + APP_PREVIEW_PADDING) -
-        (groups.length - 1) * APP_PREVIEW_GAP
-    );
-    const fitMonitor = Math.min(
-        1,
-        usableWidth / widestRow,
-        usableHeight / totalRowHeight
-    );
-
-    for (const tile of tiles) {
-        tile.width = Math.max(1, Math.floor(tile.width * fitMonitor));
-        tile.height = Math.max(1, Math.floor(tile.height * fitMonitor));
-    }
-
-    const rows = [];
-    for (let i = 0; i < tiles.length; i += columns) {
-        const rowTiles = tiles.slice(i, i + columns);
-        rows.push({
-            tiles: rowTiles,
-            width: rowTiles.reduce((sum, tile) => sum + tile.width, 0) +
-                (rowTiles.length - 1) * APP_PREVIEW_GAP,
-            height: Math.max(...rowTiles.map(tile => tile.height)),
-        });
-    }
-    const cardWidth = 2 * APP_PREVIEW_PADDING +
-        Math.max(...rows.map(row => row.width));
-    const cardHeight = 2 * APP_PREVIEW_PADDING +
-        rows.reduce((sum, row) => sum + row.height, 0) +
-        (rows.length - 1) * APP_PREVIEW_GAP;
-
-    let y = APP_PREVIEW_PADDING;
-    for (const row of rows) {
-        let x = APP_PREVIEW_PADDING +
-            Math.floor((cardWidth - 2 * APP_PREVIEW_PADDING - row.width) / 2);
-        for (const tile of row.tiles) {
-            tile.x = x;
-            tile.y = y + Math.floor((row.height - tile.height) / 2);
-            x += tile.width + APP_PREVIEW_GAP;
-        }
-        y += row.height + APP_PREVIEW_GAP;
-    }
 
     return {cardWidth, cardHeight, tiles};
 }
@@ -2627,10 +2603,10 @@ export default class VeloraRuntime extends Extension {
             preferredSide
         );
 
-        // The original Shell.WindowPreviewLayout continues rendering the
-        // live thumbnail tiles. Only the opaque preview-card background is
-        // replaced with Velora's existing bounded Liquid Glass material.
-        // The glass manager owns its cleanup when this card is destroyed.
+        // Render the native WindowPreviewLayout clones in fixed 16:9 slots.
+        // The glass renderer inserts its refractive material underneath those
+        // tiles, as the preview card's first child. Parent opacity/scale and
+        // teardown then stay aligned with GNOME's compositor automatically.
         this._liquidGlassIntegration
             ?.attachPreviewGlass?.(card);
 
