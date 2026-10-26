@@ -20,8 +20,8 @@ jobs:
       - name: Check shell script syntax
         run: bash -n gnome-shell/install.sh
 
-      - name: Test optional performance sampler
-        run: python3 -m unittest discover -s tools -p 'test_velora_perf.py'
+      - name: Test performance sampler and runtime packaging
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
 
       - name: Check Velora runtime JS syntax and frame budget
         run: |
