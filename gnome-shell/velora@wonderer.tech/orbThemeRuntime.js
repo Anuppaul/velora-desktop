@@ -110,9 +110,17 @@ function planWindowPreview(windows, preferredScale, monitor) {
 
     const tiles = windows.map(window => {
         const bounds = previewWindowBounds(window);
+        // Portrait windows need a larger *height* budget to be readable.
+        // The old landscape-only cap shrank a tall Terminal to ~165px wide.
+        // Keep its target width comparable to the native landscape tile's
+        // height (while fitting the anchor monitor in a single later pass).
+        const portraitBoost = Math.max(
+            1,
+            Math.min(2, bounds.height / bounds.width)
+        );
         const fit = Math.min(
             maxTileWidth / bounds.width,
-            maxTileHeight / bounds.height
+            maxTileHeight * portraitBoost / bounds.height
         );
         return {
             bounds,
