@@ -47,6 +47,142 @@ const DOCK_PREVIEW_RESCAN_MS = 1400;
 const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
 const VELORA_SCHEMA_ID = 'org.gnome.shell.extensions.velora';
 
+// WindowPreviewLayout sizes the native clone from the Meta.Window *frame*,
+// but its compositor texture may include a wider/taller buffer (CSD shadow).
+// Fit the glass card to the visible union, not a hardcoded landscape ratio.
+// The GJS getters return stage coordinates; the returned sizes are logical px.
+function previewWindowBounds(window) {
+    const rawFrame = window.get_frame_rect();
+    const frame = {
+        x: Number.isFinite(rawFrame?.x) ? rawFrame.x : 0,
+        y: Number.isFinite(rawFrame?.y) ? rawFrame.y : 0,
+        width: Math.max(1, rawFrame?.width || 1),
+        height: Math.max(1, rawFrame?.height || 1),
+    };
+
+    let buffer = null;
+    try {
+        buffer = window.get_buffer_rect?.() ?? null;
+    } catch {
+        // A destroyed or not-yet-composited actor can lack buffer geometry.
+    }
+
+    if (!buffer ||
+        ![buffer.x, buffer.y, buffer.width, buffer.height]
+            .every(Number.isFinite) ||
+        buffer.width <= 0 || buffer.height <= 0) {
+        return {
+            frame,
+            x: frame.x,
+            y: frame.y,
+            width: frame.width,
+            height: frame.height,
+        };
+    }
+
+    const x = Math.min(frame.x, buffer.x);
+    const y = Math.min(frame.y, buffer.y);
+    return {
+        frame,
+        x,
+        y,
+        width: Math.max(
+            1,
+            Math.max(frame.x + frame.width, buffer.x + buffer.width) - x
+        ),
+        height: Math.max(
+            1,
+            Math.max(frame.y + frame.height, buffer.y + buffer.height) - y
+        ),
+    };
+}
+
+// Build each thumbnail from its own aspect ratio. GNOME's native
+// Shell.WindowPreviewLayout performs the actual live texture allocation;
+// this only plans the outer clickable tiles and refractive card geometry.
+function planWindowPreview(windows, preferredScale, monitor) {
+    const count = windows.length;
+    const columns = count === 1 ? 1 : 2;
+    const maxTileWidth = (count === 1 ? 280 :
+        count === 2 ? 220 : 190) * preferredScale;
+    const maxTileHeight = (count === 1 ? 176 :
+        count === 2 ? 140 : 120) * preferredScale;
+
+    const tiles = windows.map(window => {
+        const bounds = previewWindowBounds(window);
+        const fit = Math.min(
+            maxTileWidth / bounds.width,
+            maxTileHeight / bounds.height
+        );
+        return {
+            bounds,
+            width: Math.max(1, bounds.width * fit),
+            height: Math.max(1, bounds.height * fit),
+        };
+    });
+
+    const groups = [];
+    for (let i = 0; i < count; i += columns)
+        groups.push(tiles.slice(i, i + columns));
+
+    // Fit to the actual anchor monitor; keep one uniform global scale across
+    // all cards so a crowded 4-window preview cannot spill off-screen.
+    const widestRow = Math.max(...groups.map(row =>
+        row.reduce((sum, tile) => sum + tile.width, 0)
+    ));
+    const totalRowHeight = groups.reduce((sum, row) =>
+        sum + Math.max(...row.map(tile => tile.height)), 0
+    );
+    const usableWidth = Math.max(1,
+        monitor.width - 2 * (SCREEN_MARGIN + APP_PREVIEW_PADDING) -
+        (columns - 1) * APP_PREVIEW_GAP
+    );
+    const usableHeight = Math.max(1,
+        monitor.height - 2 * (SCREEN_MARGIN + APP_PREVIEW_PADDING) -
+        (groups.length - 1) * APP_PREVIEW_GAP
+    );
+    const fitMonitor = Math.min(
+        1,
+        usableWidth / widestRow,
+        usableHeight / totalRowHeight
+    );
+
+    for (const tile of tiles) {
+        tile.width = Math.max(1, Math.floor(tile.width * fitMonitor));
+        tile.height = Math.max(1, Math.floor(tile.height * fitMonitor));
+    }
+
+    const rows = [];
+    for (let i = 0; i < tiles.length; i += columns) {
+        const rowTiles = tiles.slice(i, i + columns);
+        rows.push({
+            tiles: rowTiles,
+            width: rowTiles.reduce((sum, tile) => sum + tile.width, 0) +
+                (rowTiles.length - 1) * APP_PREVIEW_GAP,
+            height: Math.max(...rowTiles.map(tile => tile.height)),
+        });
+    }
+    const cardWidth = 2 * APP_PREVIEW_PADDING +
+        Math.max(...rows.map(row => row.width));
+    const cardHeight = 2 * APP_PREVIEW_PADDING +
+        rows.reduce((sum, row) => sum + row.height, 0) +
+        (rows.length - 1) * APP_PREVIEW_GAP;
+
+    let y = APP_PREVIEW_PADDING;
+    for (const row of rows) {
+        let x = APP_PREVIEW_PADDING +
+            Math.floor((cardWidth - 2 * APP_PREVIEW_PADDING - row.width) / 2);
+        for (const tile of row.tiles) {
+            tile.x = x;
+            tile.y = y + Math.floor((row.height - tile.height) / 2);
+            x += tile.width + APP_PREVIEW_GAP;
+        }
+        y += row.height + APP_PREVIEW_GAP;
+    }
+
+    return {cardWidth, cardHeight, tiles};
+}
+
 function createCanonicalVeloraSettings(uuid) {
     const schemaDir = GLib.build_filenamev([
         GLib.get_user_data_dir(),
@@ -2408,25 +2544,6 @@ export default class VeloraRuntime extends Extension {
 
         this._hideAppPreview(true);
 
-        const count = windows.length;
-        const columns = count === 1 ? 1 : 2;
-        const rows = Math.ceil(count / columns);
-
-        const baseTileWidth =
-            count === 1 ? 280 :
-            count === 2 ? 220 :
-            190;
-        const baseTileHeight =
-            count === 1 ? 176 :
-            count === 2 ? 140 :
-            120;
-
-        // Grow both the glass rectangle and its real live thumbnails. Do not
-        // scale the whole actor: native pointer targets and Shell's
-        // WindowPreviewLayout must keep their correct physical dimensions.
-        const requestedScale =
-            this._settings.get_int('app-preview-size') / 100 *
-            APP_PREVIEW_SIZE_BOOST;
         const [anchorX, anchorY] =
             anchorActor.get_transformed_position();
         const [anchorWidth, anchorHeight] =
@@ -2435,42 +2552,13 @@ export default class VeloraRuntime extends Extension {
             anchorX + anchorWidth / 2,
             anchorY + anchorHeight / 2
         );
-
-        const chromeWidth =
-            APP_PREVIEW_PADDING * 2 +
-            Math.max(0, columns - 1) * APP_PREVIEW_GAP;
-        const chromeHeight =
-            APP_PREVIEW_PADDING * 2 +
-            Math.max(0, rows - 1) * APP_PREVIEW_GAP;
-        // Respect both edges of the actual monitor, including multi-monitor
-        // setups and high user-selected preview sizes. Keeping one uniform
-        // scale preserves each tile's aspect ratio and glass geometry.
-        const availableWidth = Math.max(
-            1, monitor.width - SCREEN_MARGIN * 2 - chromeWidth
+        const layout = planWindowPreview(
+            windows,
+            this._settings.get_int('app-preview-size') / 100 *
+                APP_PREVIEW_SIZE_BOOST,
+            monitor
         );
-        const availableHeight = Math.max(
-            1, monitor.height - SCREEN_MARGIN * 2 - chromeHeight
-        );
-        const previewScale = Math.min(
-            requestedScale,
-            availableWidth / (columns * baseTileWidth),
-            availableHeight / (rows * baseTileHeight)
-        );
-        const tileWidth = Math.max(
-            1, Math.round(baseTileWidth * previewScale)
-        );
-        const tileHeight = Math.max(
-            1, Math.round(baseTileHeight * previewScale)
-        );
-
-        const cardWidth =
-            APP_PREVIEW_PADDING * 2 +
-            columns * tileWidth +
-            Math.max(0, columns - 1) * APP_PREVIEW_GAP;
-        const cardHeight =
-            APP_PREVIEW_PADDING * 2 +
-            rows * tileHeight +
-            Math.max(0, rows - 1) * APP_PREVIEW_GAP;
+        const {cardWidth, cardHeight} = layout;
 
         const card = new St.Widget({
             style_class: 'velora-app-preview-card',
@@ -2482,20 +2570,14 @@ export default class VeloraRuntime extends Extension {
         card.set_pivot_point(0.5, 0.5);
 
         windows.forEach((window, index) => {
+            const item = layout.tiles[index];
             const tile = this._createWindowPreviewTile(
                 window,
-                tileWidth,
-                tileHeight
+                item.width,
+                item.height,
+                item.bounds
             );
-            const column = index % columns;
-            const row = Math.floor(index / columns);
-
-            tile.set_position(
-                APP_PREVIEW_PADDING +
-                    column * (tileWidth + APP_PREVIEW_GAP),
-                APP_PREVIEW_PADDING +
-                    row * (tileHeight + APP_PREVIEW_GAP)
-            );
+            tile.set_position(item.x, item.y);
             card.add_child(tile);
         });
 
@@ -2558,7 +2640,9 @@ export default class VeloraRuntime extends Extension {
         return true;
     }
 
-    _createWindowPreviewTile(window, tileWidth, tileHeight) {
+    _createWindowPreviewTile(
+        window, tileWidth, tileHeight, bounds = previewWindowBounds(window)
+    ) {
         const content = new St.Widget({
             style_class: 'velora-window-preview-content',
             reactive: false,
@@ -2570,35 +2654,44 @@ export default class VeloraRuntime extends Extension {
         const previewLayout = new Shell.WindowPreviewLayout();
         const preview = new Clutter.Actor({
             reactive: false,
-            clip_to_allocation: true,
+            // The source window buffer can extend beyond its frame (shadows).
+            // Let the native clone paint that extent; the *tile* clips it.
+            clip_to_allocation: false,
         });
         // Shell.WindowPreviewLayout tracks its container. GNOME Shell itself
         // assigns it after actor construction to avoid GJS container setup
         // issues during initialization.
         preview.layout_manager = previewLayout;
 
-        const frame = window.get_frame_rect();
-        // The thumbnail is the content, not a postcard inside another card.
-        // Keep 2px breathing room per side for clean antialiasing, while the
-        // surrounding Liquid Glass provides the only decorative surface.
+        // Fit the *painted* union of frame+buffer into the native tile.
+        // WindowPreviewLayout positions its Clutter.Clone from frame origin,
+        // and therefore raw frame-only sizing can let CSD/shadow pixels
+        // overflow the card or produce asymmetrical empty side areas.
         const maxWidth = Math.max(1, tileWidth - 4);
         const maxHeight = Math.max(1, tileHeight - 4);
-        const frameWidth = Math.max(1, frame.width);
-        const frameHeight = Math.max(1, frame.height);
         const scale = Math.min(
-            maxWidth / frameWidth,
-            maxHeight / frameHeight,
+            maxWidth / bounds.width,
+            maxHeight / bounds.height,
             1
         );
-        const previewWidth = Math.max(1, Math.round(frameWidth * scale));
-        const previewHeight = Math.max(1, Math.round(frameHeight * scale));
+        const previewWidth = Math.max(
+            1, Math.floor(bounds.frame.width * scale)
+        );
+        const previewHeight = Math.max(
+            1, Math.floor(bounds.frame.height * scale)
+        );
 
         preview.set_size(previewWidth, previewHeight);
         preview.set_position(
-            Math.round((tileWidth - previewWidth) / 2),
-            Math.round((tileHeight - previewHeight) / 2)
+            Math.round(
+                (tileWidth - bounds.width * scale) / 2 +
+                (bounds.frame.x - bounds.x) * scale
+            ),
+            Math.round(
+                (tileHeight - bounds.height * scale) / 2 +
+                (bounds.frame.y - bounds.y) * scale
+            )
         );
-
         previewLayout.add_window(window);
         content.add_child(preview);
 
@@ -2608,6 +2701,7 @@ export default class VeloraRuntime extends Extension {
             can_focus: true,
             reactive: true,
             track_hover: true,
+            clip_to_allocation: true,
             child: content,
         });
         tile.set_size(tileWidth, tileHeight);
