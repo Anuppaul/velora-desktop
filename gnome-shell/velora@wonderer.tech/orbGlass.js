@@ -236,12 +236,14 @@ export class OrbGlassManager {
         if (this._batches.length >= wanted)
             return;
 
+        const added = [];
         while (this._batches.length < wanted)
-            this._createBatch(this._batches.length);
+            added.push(this._createBatch(this._batches.length));
 
-        // Initialize the new shader effects before their first visible frame.
-        // Existing batches are invalidated only on an actual new allocation.
-        this._applyAppearance(this._appearance);
+        // Initializing newly allocated shader batches must not re-upload
+        // uniforms to the *already visible* Orb face material, which caused
+        // a visible one-frame pulse on the first expanded menu open.
+        this._applyAppearance(this._appearance, added);
     }
 
     _clearBatch(batch) {
@@ -259,7 +261,8 @@ export class OrbGlassManager {
     }
 
     _applyAppearance(
-        state = this._appearance ?? this._readAppearance()
+        state = this._appearance ?? this._readAppearance(),
+        targets = this._batches
     ) {
         if (!this._batches.length || !state)
             return;
@@ -282,7 +285,7 @@ export class OrbGlassManager {
                 this._settings.get_double('menu-saturation');
         } catch {}
 
-        for (const batch of this._batches) {
+        for (const batch of targets) {
             applyVeloraGlassRole(
                 batch.effect,
                 role,
@@ -311,12 +314,16 @@ export class OrbGlassManager {
             batch.lastRegionGeometry = null;
         }
 
-        this._lastRegionKey = '';
-        this._lastRegionPassUs = 0;
-        this._glyphSampleDirty = true;
-        this._glyphGeometryChangedUs =
-            GLib.get_monotonic_time();
-        this._root?.queue_redraw?.();
+        if (targets === this._batches) {
+            // A user appearance change affects existing batches; creating
+            // additional batches does not invalidate material already shown.
+            this._lastRegionKey = '';
+            this._lastRegionPassUs = 0;
+            this._glyphSampleDirty = true;
+            this._glyphGeometryChangedUs =
+                GLib.get_monotonic_time();
+            this._root?.queue_redraw?.();
+        }
     }
 
     updateAppearance(
