@@ -222,7 +222,8 @@ const glassCss = css.match(
 const tileCss = css.match(/\.velora-window-preview-tile\s*\{([^}]*)\}/)?.[1];
 assert.ok(normalCss && glassCss && tileCss);
 assert.match(normalCss, /background-color:\s*rgba\(232,\s*243,\s*255,\s*0\.18\)/);
-assert.match(glassCss, /background-color:\s*rgba\(255,\s*255,\s*255,\s*0\.085\)/);
+assert.match(glassCss,
+    /background-color:\s*transparent\s*!important\s*;/);
 assert.match(normalCss, /border:\s*0/);
 assert.match(tileCss, /background-color:\s*transparent/);
 console.log('Fixed 16:9 glass, live window contain, visibility, CSD, multi-monitor and click targets PASS.');
