@@ -69,7 +69,9 @@ Open **GNOME Extensions → Velora Desktop → Preferences → Appearance → Gl
 | Material | Appearance | Adjustable controls |
 | --- | --- | --- |
 | **Liquid Glass** (default) | Original v10 refractive lens, chromatic highlights, glossy edge lighting and clear glass body | Existing blur, tint, optics and advanced rendering controls remain untouched. |
-| **Frosted Crystal** | Matte/diffused backdrop with more blur, luminous but understated crystal edges, fine static micro-grain and soft neutral tint | Frost Density, Micro-grain and Crystal Edge Glow |
+| **Frosted Crystal** | Dense pearl-white satin diffusion, strongly softened backdrop, subtle 4px micro-etched crystal texture, near-zero rainbow fringe and broad ice-blue edge glow | Frost Density, Micro-grain and Crystal Edge Glow |
+
+At the default Frost Density, the frosted material now masks most fine wallpaper detail instead of resembling a lightly tinted Liquid surface. Its diffuse crystal texture is spatially stable rather than animated. Selecting Liquid restores the original sharp refractive lens and chromatic optics without resetting any Advanced settings. Increasing Frost Density increases matte coverage; lowering it lets more wallpaper detail through.
 
 Switching back to Liquid Glass restores the same saved v10 material, including user-adjusted Advanced optics. Frosted controls are saved separately: no reset or migration of existing preferences is required. Both modes use **one shared LiquidEffect shader and its existing blur pipeline**—no second overlay or noise texture. Frosted blur can cost more GPU work than Liquid; no benchmark claim is made without a compositor trace.
 

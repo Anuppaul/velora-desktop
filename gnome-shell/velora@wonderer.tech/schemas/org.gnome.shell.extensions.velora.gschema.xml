@@ -199,12 +199,12 @@
       <description>Liquid Glass preserves the v10 refractive material, while Frosted Crystal uses a matte-diffused surface with grain and soft edge light.</description>
     </key>
     <key name="frost-density" type="i">
-      <default>78</default>
+      <default>88</default>
       <range min="0" max="100"/>
       <summary>Frosted Crystal matte diffusion density</summary>
     </key>
     <key name="frost-grain" type="i">
-      <default>55</default>
+      <default>62</default>
       <range min="0" max="100"/>
       <summary>Frosted Crystal microscopic glass grain</summary>
     </key>

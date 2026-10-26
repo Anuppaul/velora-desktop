@@ -363,3 +363,48 @@ module syntax. Test on GNOME Shell 50:
 4. Check text contrast, all monitor edges, panel↔dock handoff, modal menus
    and repeated hover/close cleanup. Measure actual CPU/GPU impact in the
    accepted sampler before claiming performance parity.
+
+## Frosted Crystal v2 — pronounced matte versus Liquid lens
+
+Following GNOME visual feedback that the first Frosted mode was almost
+indistinguishable from the v10 Liquid material, this refines the **same shader
+and Settings toggle**, retaining the original Liquid identity branch:
+
+- **Opaque-looking matte pearl body:** Frosted now suppresses backdrop
+  contrast/chroma and blends toward a cool pale crystal pigment with
+  `0.87 * pow(frostAmount, 0.62)` material density (roughly 74% of the
+  material color at the older 78% default, and about 80% at the new 88%
+  default). This lives INSIDE the shader, not in CSS or another actor;
+  backdrop shape, rounded geometry and alpha are unchanged.
+- **Much less liquid refraction:** reduce the optical edge displacement
+  toward 9% at normal Frosted density while preserving 100% of the
+  original v10 displacement in Liquid mode.
+- **No rainbow fringe in Frosted:** eliminate edge chromatic separation at
+  normal Frosted density and preserve the original RGB separation in Liquid.
+  The monochromatic branch also avoids the more expensive three-channel
+  samples when the crystal mode is engaged.
+- **Micro-etched crystal dust:** in Frosted only, combine the existing
+  screen-static 1px hash with a subtle 4px faceted version of the SAME hash,
+  scaled by the independent Grain setting. No texture lookup, animated
+  grain, extra sampler or extra render pass is introduced. Liquid still uses
+  only the previous single hash.
+- **Diffused highlights:** strong specular/mirror lighting is heavily
+  muted; a soft ice-blue perimeter remains controlled by Crystal Edge Glow.
+  Both the flat interior early-out and the full refractive shader path
+  apply matching body and grain.
+- **Strong single-chain blur:** additional blur scales up to +24px over the
+  user's pre-existing radius (formerly +12px), using the EXISTING
+  Dual Kawase/Gaussian pipeline. A larger radius *can* use more levels of
+  that pipeline for some starting radii; it does not create a second
+  blur effect. The user's explicit zero blur is still respected, and
+  selecting Liquid restores their original radius exactly.
+- **New installations default to** Frost Density 88 and Micro-grain 62
+  when Frosted is selected, rather than 78 and 55. Custom GSettings values
+  are never rewritten by a migration. Liquid remains the default mode.
+
+**Regression:** `node tools/test_frosted_crystal.mjs` checks
+reversible blur, unique mode-specific shader branches, the strong density
+curve and identity at frostAmount=0. Existing preview, optics and frame-budget
+checks remain. On-device GNOME Shell 50 acceptance remains mandatory for
+color/contrast, GPU cost, readability, transition flicker, multi-monitor
+and panel/dock visuals.
