@@ -261,7 +261,6 @@ Velora's runtime is designed around a few constraints:
 - unchanged Overview blur settings and search-card capture bounds are not re-applied every refresh
 - Overview window captions reuse sampled geometry and skip unchanged color writes; empty close-button glass regions clear just once
 - native Overview actor add/remove events invalidate the window-chrome registry; quiet frames skip full-tree scans with a conservative fallback reconciliation
-- Ubuntu Dock Panel Mode uses the actual Liquid Glass background with square 0px corners after an initial native blur fallback (Dock icons, layout and native autohide remain unchanged)
 - native GNOME animation remains responsible for transforms
 
 Performance-sensitive changes should include reproducible before/after evidence where practical.
