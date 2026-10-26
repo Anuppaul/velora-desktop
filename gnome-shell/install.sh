@@ -33,6 +33,7 @@ RUNTIME_FILES=(
     "notificationGlass.js"
     "popupGlass.js"
     "shellCards.js"
+    "panelLiquidGlass.js"
     "appGridBackdrop.js"
     "overviewSearchGlass.js"
     "overviewCloseGlass.js"

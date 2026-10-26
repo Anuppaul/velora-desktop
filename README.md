@@ -261,7 +261,7 @@ Velora's runtime is designed around a few constraints:
 - unchanged Overview blur settings and search-card capture bounds are not re-applied every refresh
 - Overview window captions reuse sampled geometry and skip unchanged color writes; empty close-button glass regions clear just once
 - native Overview actor add/remove events invalidate the window-chrome registry; quiet frames skip full-tree scans with a conservative fallback reconciliation
-- Ubuntu Dock Panel Mode blurs the true desktop from a separate stage-level **panel-sized** actor behind DockDash; keeps square 0px corners, milky-white veil, native icons and autohide. No full-screen capture or per-pixel refraction is introduced.
+- Ubuntu Dock Panel Mode uses the same real Liquid Glass optical shader as Velora Shell Cards, but in a strictly bounded **panel-sized** stage actor with square 0px corners; a native stage blur remains until the shader successfully composites. No full-monitor DashManager capture is used.
 - native GNOME animation remains responsible for transforms
 
 Performance-sensitive changes should include reproducible before/after evidence where practical.

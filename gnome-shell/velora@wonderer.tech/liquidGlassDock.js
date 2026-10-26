@@ -35,6 +35,8 @@ import {
 import {
     SpotlightGlassManager,
 } from './spotlightGlass.js';
+import {PanelLiquidGlassSurface} from './panelLiquidGlass.js';
+
 import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
@@ -72,6 +74,12 @@ const DOCK_PANEL_BACKDROP_NAME = 'velora-dock-panel-local-backdrop';
 // Panel-local frosted glass: the blur effect is applied to Ubuntu Dock's
 // native .dash-background only, never to the whole monitor. A thin highlight
 // and the accepted milky tint add depth without another capture pass.
+const DOCK_PANEL_GLASS_STYLE =
+    'background-color: transparent; ' +
+    'background-image: none; ' +
+    'border-color: transparent; ' +
+    'border-radius: 0px; ' +
+    'box-shadow: none;';
 const DOCK_PANEL_PREMIUM_STYLE =
     'background-color: rgba(245,248,255,0.15); ' +
     'background-image: none; ' +
@@ -1377,6 +1385,7 @@ export class LiquidGlassIntegration {
         for (const entry of this._nativeDashEntries) {
             if (entry.manager)
                 this._applySharedDashMaterial(entry.manager, 'dock');
+            entry.panelLiquidSurface?.updateAppearance?.(state);
         }
 
         console.log(
@@ -3934,6 +3943,69 @@ export class LiquidGlassIntegration {
     // desktop; an effect on .dash-background cannot sample real windows.
     // Put a BACKGROUND blur immediately below the dock root in uiGroup.
     // The effect actor is sized/clipped to the native panel bounds ONLY.
+    _ensurePanelLiquidGlass(entry, source) {
+        if (
+            !this._enabled ||
+            !entry?.container ||
+            !source ||
+            this._externalGlobalStack ||
+            !this._dockIsPanelMode()
+        )
+            return false;
+
+        if (
+            entry.panelLiquidSurface &&
+            entry.panelLiquidSource === source
+        )
+            return true;
+
+        this._removePanelLiquidGlass(entry);
+        let surface;
+        surface = new PanelLiquidGlassSurface({
+            vendor: this._vendor,
+            settings: this._settings,
+            source,
+            dockContainer: entry.container,
+            readAppearance: () => this._readSharedCardAppearance(),
+            onReady: ready => {
+                if (entry.panelLiquidSurface !== surface)
+                    return;
+                entry.panelLiquidReady = ready;
+                // The old stage blur and native veil are an explicitly
+                // retained fallback until the shader *actually* paints.
+                if (ready) {
+                    this._removePanelBackdrop(entry);
+                    this._syncDockGlassBackgroundClass(entry, true);
+                } else {
+                    this._syncDockGlassBackgroundClass(entry, false);
+                    if (entry.panelPaintActive &&
+                        this._dockIsPanelMode())
+                        this._ensurePanelBackdrop(entry, source);
+                }
+                this._setDockPanelPremiumStyle(entry, source);
+            },
+        });
+        entry.panelLiquidSurface = surface;
+        entry.panelLiquidSource = source;
+        if (!surface.attach()) {
+            this._removePanelLiquidGlass(entry);
+            return false;
+        }
+        return true;
+    }
+
+    _removePanelLiquidGlass(entry) {
+        if (!entry)
+            return;
+        const surface = entry.panelLiquidSurface;
+        // Disown FIRST: destroy's readiness callback must not reinstate
+        // a backdrop after the panel has already switched mode.
+        entry.panelLiquidSurface = null;
+        entry.panelLiquidSource = null;
+        entry.panelLiquidReady = false;
+        try { surface?.destroy?.(); } catch {}
+    }
+
     _ensurePanelBackdrop(entry, source) {
         const uiGroup = Main.layoutManager.uiGroup;
         if (!entry || !source || !uiGroup)
@@ -4137,13 +4209,16 @@ export class LiquidGlassIntegration {
             actor.style ??
             '';
 
-        if (current === DOCK_PANEL_PREMIUM_STYLE)
+        const desired = entry.panelLiquidReady
+            ? DOCK_PANEL_GLASS_STYLE
+            : DOCK_PANEL_PREMIUM_STYLE;
+        if (current === desired)
             return;
 
         entry.panelBackgroundStyleGuard = true;
         try {
             actor.set_style?.(
-                DOCK_PANEL_PREMIUM_STYLE
+                desired
             );
         } catch {}
         finally {
@@ -4169,6 +4244,7 @@ export class LiquidGlassIntegration {
             entry.panelBackgroundActor;
 
         if (previous) {
+            this._removePanelLiquidGlass(entry);
             this._removePanelBackdrop(entry);
             this._removeDockPanelBlur(previous);
             this._disconnectDockPanelBackgroundWatcher(
@@ -4269,6 +4345,7 @@ export class LiquidGlassIntegration {
             );
 
         if (!enabled) {
+            this._removePanelLiquidGlass(entry);
             this._removePanelBackdrop(entry);
             if (!entry.panelPaintActive)
                 return;
@@ -4317,11 +4394,10 @@ export class LiquidGlassIntegration {
         // Native .dash-background retains its square translucent veil.
         // BACKGROUND blur must sit outside DockDash's offscreen FBO.
         this._removeDockPanelBlur(actor);
-        this._setDockPanelPremiumStyle(
-            entry,
-            actor
-        );
-        this._ensurePanelBackdrop(entry, actor);
+        this._setDockPanelPremiumStyle(entry, actor);
+        if (!entry.panelLiquidReady)
+            this._ensurePanelBackdrop(entry, actor);
+        this._ensurePanelLiquidGlass(entry, actor);
     }
 
     _syncNativeDashEntryMode(entry) {
@@ -4859,6 +4935,9 @@ export class LiquidGlassIntegration {
                     panelBackdropActor: null,
                     panelBackdropSource: null,
                     panelBackdropRoot: null,
+                    panelLiquidSurface: null,
+                    panelLiquidSource: null,
+                    panelLiquidReady: false,
                 };
                 this._nativeDashEntries.push(entry);
 
@@ -4945,6 +5024,7 @@ export class LiquidGlassIntegration {
         entry.nativeFixedSettleKey = '';
         entry.nativeFixedSettleFrames = 0;
 
+        this._removePanelLiquidGlass(entry);
         this._removePanelBackdrop(entry);
         this._disconnectDockPanelBackgroundWatcher(
             entry
