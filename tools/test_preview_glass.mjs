@@ -64,6 +64,11 @@ class Actor {
         child.parent = this;
         this._children.splice(index, 0, child);
     }
+    insert_child_at_index(child, index) {
+        child.parent?.remove_child(child);
+        child.parent = this;
+        this._children.splice(index, 0, child);
+    }
     add_effect(effect) {this.effect = effect;}
     queue_redraw() {}
     show() {this.visible = true;}
@@ -185,16 +190,33 @@ assert.equal(manager.attachPreview(card), true);
 assert.equal(manager._surfaces.size, 1, 'no duplicate effect per card');
 assert.equal(card._classes.has('velora-liquid-shell-card'), true);
 const surface = manager._surfaces.get(card);
-assert.equal(surface._material.parent, cardLayer);
-assert.ok(cardLayer._children.indexOf(surface._material) <
-    cardLayer._children.indexOf(card), 'material below live thumbnails');
+assert.equal(surface._material.parent, card,
+    'preview glass must belong to the native card, not its sibling');
+assert.equal(card._children[0], surface._material,
+    'refractive actor is FIRST child underneath live thumbnails');
+assert.equal(cardLayer._children.includes(surface._material), false,
+    'avoid stale sibling mapping/opacity and obscured preview glass');
+assert.equal(surface._previewInTarget, true);
+assert.equal(surface._material.scale_x, 1,
+    'parent handles GNOME preview zoom without double scaling');
 assert.equal(surface._effect.owner, 'velora-shell-card');
 assert.equal(surface._effect.appearance.cornerRadius, 16);
 assert.equal(stage._signals.size, 0, 'unmapped card adds no frame loop');
 
 card.mapped = true;
+card.opacity = 150;
+card.scale_x = 0.96;
+card.scale_y = 0.96;
 card.emit('notify::mapped');
 assert.equal(stage._signals.size, 1, 'one visible preview frame callback');
+sceneUs += 10000;
+stage.update();
+assert.equal(surface._material.opacity, 255,
+    'glass inherits parent fade; does not square its opacity');
+assert.equal(surface._material.scale_x, 1);
+assert.equal(surface._material.scale_y, 1);
+assert.equal(surface._material.translation_x, 0);
+assert.equal(surface._material.translation_y, 0);
 sceneUs += 100000;
 stage.update();
 assert.equal(surface._sceneManager !== null, true);
@@ -228,11 +250,14 @@ const css = await readFile(new URL(
     '../gnome-shell/velora@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
 const previewBlock = css.match(/\.velora-app-preview-card\s*\{([^}]*)\}/);
-assert.ok(previewBlock);
+const liveBlock = css.match(/\.velora-app-preview-card\.velora-liquid-shell-card\s*\{([^}]*)\}/);
+assert.ok(previewBlock && liveBlock);
 assert.doesNotMatch(previewBlock[1], /rgba\(\s*8\s*,\s*9\s*,\s*12\s*,\s*0\.94/);
-assert.match(css, /\.velora-app-preview-card\.velora-liquid-shell-card/);
+assert.match(previewBlock[1], /rgba\(232,\s*243,\s*255,\s*0\.18\)/);
+assert.match(liveBlock[1], /rgba\(255,\s*255,\s*255,\s*0\.085\)/);
+assert.match(liveBlock[1], /border-color:\s*transparent/);
 const orbSource = await readFile(new URL(
     '../gnome-shell/velora@wonderer.tech/orbThemeRuntime.js', import.meta.url
 ), 'utf8');
 assert.match(orbSource, /attachPreviewGlass\?\.\(card\)/);
-console.log('Orb preview Liquid Glass, window thumbnail stacking, lifecycle and fallback PASS.');
+console.log('Preview Liquid Glass child compositing, fade, bounded shader, teardown and visible fallback PASS.');

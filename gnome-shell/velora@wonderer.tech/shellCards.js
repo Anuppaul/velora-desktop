@@ -58,6 +58,13 @@ class ShellCardSurface {
         this._settings = manager._settings;
         this._target = target;
         this._parent = target.get_parent?.() ?? null;
+        // Preview's glass must paint *inside* the native card, underneath the
+        // real window clones. A sibling in the enclosing FixedLayout can have
+        // stale allocation/opacity or end up behind the desktop layer, which
+        // leaves only the nearly invisible fallback. Child composition follows
+        // the card's native opacity/scale automatically, without double fades.
+        this._previewInTarget =
+            classesOf(target).includes(PREVIEW_CARD_CLASS);
         this._overlay = null;
         this._wrappedBinParent = null;
         this._material = null;
@@ -123,7 +130,12 @@ class ShellCardSurface {
         material.add_effect(effect);
 
         try {
-            if (
+            if (this._previewInTarget) {
+                // One refractive actor, painted FIRST inside the native
+                // preview card. Leave Shell.WindowPreviewLayout clones above
+                // it, with no new root, fullscreen pane or input blocker.
+                this._target.insert_child_at_index(material, 0);
+            } else if (
                 this._parent instanceof St.Bin &&
                 this._parent.get_child?.() === this._target
             ) {
@@ -335,8 +347,8 @@ class ShellCardSurface {
             return;
         }
 
-        const localX = this._overlay ? 0 : x;
-        const localY = this._overlay ? 0 : y;
+        const localX = this._previewInTarget || this._overlay ? 0 : x;
+        const localY = this._previewInTarget || this._overlay ? 0 : y;
 
         this._vendor.setPositionIfChanged(
             this._material,
@@ -348,45 +360,61 @@ class ShellCardSurface {
             w + this._opticalMargin * 2,
             h + this._opticalMargin * 2
         );
-        const scaleX = this._target.scale_x ?? 1;
-        const scaleY = this._target.scale_y ?? 1;
-        const [pivotX, pivotY] =
-            this._target.get_pivot_point?.() ?? [0.5, 0.5];
-        const materialW =
-            w + this._opticalMargin * 2;
-        const materialH =
-            h + this._opticalMargin * 2;
-
-        const desiredPivotX =
-            (this._opticalMargin + pivotX * w) / materialW;
-        const desiredPivotY =
-            (this._opticalMargin + pivotY * h) / materialH;
-        const [materialPivotX, materialPivotY] =
-            this._material.get_pivot_point?.() ??
-            [NaN, NaN];
-
-        if (
-            Math.abs(materialPivotX - desiredPivotX) > 0.0001 ||
-            Math.abs(materialPivotY - desiredPivotY) > 0.0001
-        ) {
-            this._material.set_pivot_point(
-                desiredPivotX,
-                desiredPivotY
+        if (this._previewInTarget) {
+            // The preview card owns its opening/closing opacity and scale.
+            // Its glass child inherits both automatically. Copying them onto
+            // the child too would square the alpha and make the material
+            // disappear at the start/end of the 120 ms animation.
+            if (this._material.opacity !== 255)
+                this._material.opacity = 255;
+            if (this._material.scale_x !== 1 ||
+                this._material.scale_y !== 1)
+                this._material.set_scale(1, 1);
+            this._vendor.setTranslationIfChanged(
+                this._material, 0, 0
             );
+        } else {
+            // Other GNOME Shell cards still position their material as a
+            // separate sibling; preserve the accepted transform-mirroring.
+            const scaleX = this._target.scale_x ?? 1;
+            const scaleY = this._target.scale_y ?? 1;
+            const [pivotX, pivotY] =
+                this._target.get_pivot_point?.() ?? [0.5, 0.5];
+            const materialW =
+                w + this._opticalMargin * 2;
+            const materialH =
+                h + this._opticalMargin * 2;
+
+            const desiredPivotX =
+                (this._opticalMargin + pivotX * w) / materialW;
+            const desiredPivotY =
+                (this._opticalMargin + pivotY * h) / materialH;
+            const [materialPivotX, materialPivotY] =
+                this._material.get_pivot_point?.() ?? [NaN, NaN];
+
+            if (
+                Math.abs(materialPivotX - desiredPivotX) > 0.0001 ||
+                Math.abs(materialPivotY - desiredPivotY) > 0.0001
+            ) {
+                this._material.set_pivot_point(
+                    desiredPivotX,
+                    desiredPivotY
+                );
+            }
+            if (
+                this._material.scale_x !== scaleX ||
+                this._material.scale_y !== scaleY
+            ) {
+                this._material.set_scale(scaleX, scaleY);
+            }
+            this._vendor.setTranslationIfChanged(
+                this._material,
+                this._target.translation_x ?? 0,
+                this._target.translation_y ?? 0
+            );
+            if (this._material.opacity !== opacity)
+                this._material.opacity = opacity;
         }
-        if (
-            this._material.scale_x !== scaleX ||
-            this._material.scale_y !== scaleY
-        ) {
-            this._material.set_scale(scaleX, scaleY);
-        }
-        this._vendor.setTranslationIfChanged(
-            this._material,
-            this._target.translation_x ?? 0,
-            this._target.translation_y ?? 0
-        );
-        if (this._material.opacity !== opacity)
-            this._material.opacity = opacity;
         if (!this._material.visible)
             this._material.show?.();
 
@@ -634,6 +662,7 @@ class ShellCardSurface {
         this._sceneManager = null;
         this._wallpaperMirror = null;
         this._effect = null;
+        this._previewInTarget = false;
         this._target = null;
         this._parent = null;
         this._manager = null;
