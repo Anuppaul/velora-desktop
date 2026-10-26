@@ -61,3 +61,28 @@ GNOME Overview / Home → Applications keeps a single native wallpaper BlurEffec
 5. Use the performance sampler from above under matching conditions. A CI syntax/unit test alone cannot prove frame-perfect rendering on a real compositor.
 
 CI smoke checks: `node tools/test_frame_budget.mjs` and `node tools/test_orb_transitions.mjs`.
+
+## Liquid Glass optics v9 (GPU cost unchanged by design)
+
+The richer Liquid Glass look is a **material-uniform tune**, not a new rendering pipeline. The canonical `glass-optics-profile-version` migrates from v8 to v9 once, updating only the exact shipped prior optics values in the existing vendored GSettings namespace. Custom Advanced renderer values are kept.
+
+| Uniform | Previous baseline | Liquid v9 |
+| --- | ---: | ---: |
+| glass-max-z (lens depth) | 118 | 132 |
+| glass-displacement-scale (refraction) | 42 | 50 |
+| glass-chroma-strength (color splitting) | 1.4 | 1.6 |
+| glass-specular-intensity | 0.55 | 0.69 |
+| glass-shininess | 62 | 70 |
+| glass-rim-width | 2.8 | 3.3 |
+| glass-rim-intensity | 0.90 | 1.07 |
+| glass-rim-power | 2.3 | 2.15 |
+| glass-rim-light-color-intensity | 1.18 | 1.24 |
+| glass-sheen-intensity | 0.10 | 0.15 |
+
+Orb hover response rises 0.38 → 0.48; Spotlight hover/focus responses increase modestly. Neutral white body shade, texture grain, user tint and filter, blur radius, GLSL implementation, FBO allocations, capture clipping, native window geometry, and the 24 FPS expensive-scene cap are unchanged. The same shader code executes with different constant uniforms, so no additional pass or texture is introduced; **this is not a measured FPS or GPU-power result**.
+
+For visual acceptance on GNOME Shell 50, compare the exact same wallpaper and window arrangement before and after installing. Check Orb icon edges, Date/Quick Settings cards, Spotlight, Top Panel, and the native Ubuntu Dock in panel/floating modes; verify legibility and that there is no black-frame flash or shimmer. Run:
+```bash
+node tools/test_liquid_optics.mjs
+```
+This verifies migration and custom-setting preservation, not on-screen rendering.
