@@ -136,20 +136,21 @@
     box-shadow: none;
 }
 
-/* Active preview keeps a subtle luminous body under LiquidEffect. The
- * translucent tint is the St.Widget's own backdrop, not a second actor,
- * shader pass or side frame. */
+/* Once ShellCardSurface attached the actual v10 refractive LiquidEffect,
+ * the card must paint NO second white veil under it. A separate dynamic
+ * stylesheet handles global shell-card filter opacity; this preview-only
+ * exception must remain transparent even when that stylesheet is refreshed.
+ * Keep the 18% neutral fallback above ONLY when glass never attached. */
 .velora-app-preview-card.velora-liquid-shell-card {
-    background-color: rgba(255, 255, 255, 0.085);
-    background-image: none;
-    border-color: transparent;
-    box-shadow: none;
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
-/* Native Shell.WindowPreviewLayout thumbnails float directly above the one
- * glass surface. The old per-tile frosted plate/border was a visible
- * second layer around every preview, especially along its left/right sides.
- * Keep only a quiet pointer/focus affordance for the clickable St.Button. */
+/* Native live window clones stay directly above a SINGLE glass surface.
+ * Tile hover/focus must not paint an extra white sheet over the refracted
+ * card. Input and keyboard-focus handling remain native to St.Button. */
 .velora-window-preview-tile {
     min-width: 0;
     min-height: 0;
@@ -165,7 +166,8 @@
 
 .velora-window-preview-tile:hover,
 .velora-window-preview-tile:focus {
-    background-color: rgba(255, 255, 255, 0.055);
+    background-color: transparent;
+    background-image: none;
     border: 0;
     box-shadow: none;
 }
