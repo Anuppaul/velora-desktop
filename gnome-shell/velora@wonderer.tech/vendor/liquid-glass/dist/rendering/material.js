@@ -3,12 +3,15 @@ export class MaterialSettings {
     _uniforms;
     _blur;
     _setDiagnostics;
+    _onFrostChanged;
     _settingsIds = [];
-    constructor(_settings, _uniforms, _blur, _setDiagnostics) {
+    constructor(_settings, _uniforms, _blur, _setDiagnostics,
+                _onFrostChanged = null) {
         this._settings = _settings;
         this._uniforms = _uniforms;
         this._blur = _blur;
         this._setDiagnostics = _setDiagnostics;
+        this._onFrostChanged = _onFrostChanged;
     }
     initialize() {
         // ── Default values for the composite shader's uniforms ──
@@ -73,6 +76,12 @@ export class MaterialSettings {
         // The footprint taps are on unless an A/B turns them off; an unset Cogl
         // uniform reads 0.0, which would silently disable them.
         this._uniforms.set('edge_taps_enabled', 1.0);
+        // Zero is bit-for-bit backward compatible with Liquid Glass v10.
+        // Default uniforms must exist even if an older external schema is
+        // loaded. Frosted Crystal uses the SAME composite shader and FBO.
+        this._uniforms.set('velora_frost_amount', 0.0);
+        this._uniforms.set('velora_frost_grain', 0.55);
+        this._uniforms.set('velora_frost_edge_glow', 0.52);
         this._settingsIds = [];
         if (this._settings) {
             this._bindSettings();
@@ -141,6 +150,46 @@ export class MaterialSettings {
         const settings = this._settings;
         if (!settings)
             return;
+
+        // The Velora material mode is independent of the vendor's Advanced
+        // optical settings. Do not overwrite any refraction or highlight key.
+        // Listen to canonical-bridge values on EVERY LiquidEffect instance,
+        // including native Dock/Panel/Quick Settings and preview surfaces.
+        const applyFrost = (initial = false) => {
+            let amount = 0.0, grain = 0.55, edgeGlow = 0.52;
+            try {
+                amount = settings.get_double('velora-frost-amount');
+                grain = settings.get_double('velora-frost-grain');
+                edgeGlow = settings.get_double('velora-frost-edge-glow');
+            } catch {
+                // Older upstream schema -> original Liquid look, no crash.
+            }
+            amount = Math.max(0, Math.min(1, amount));
+            grain = Math.max(0, Math.min(1, grain));
+            edgeGlow = Math.max(0, Math.min(1, edgeGlow));
+            this._uniforms.set('velora_frost_amount', amount);
+            this._uniforms.set('velora_frost_grain', grain);
+            this._uniforms.set('velora_frost_edge_glow', edgeGlow);
+            this._onFrostChanged?.(amount, initial);
+        };
+        applyFrost(true);
+        for (const key of [
+            'velora-frost-amount',
+            'velora-frost-grain',
+            'velora-frost-edge-glow',
+        ]) {
+            try {
+                if (settings.settings_schema?.has_key?.(key) === false)
+                    continue;
+                this._settingsIds.push(
+                    settings.connect('changed::' + key,
+                        () => applyFrost(false))
+                );
+            } catch {
+                // Optional with an independently installed upstream renderer.
+            }
+        }
+
         mappings.forEach(map => {
             // Apply the initial value.
             this._uniforms.set(map.uniform, settings.get_double(map.key));
