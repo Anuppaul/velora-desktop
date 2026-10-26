@@ -197,3 +197,40 @@ cleanup are preserved. Run `node tools/test_preview_layout.mjs` and
 `node tools/test_preview_glass.mjs` to check the source implementation.
 Visual acceptance on GNOME Shell 50 should focus on actual layered rims,
 hover and focus visibility, screen-edge fit and larger-preview GPU budget.
+
+## Native preview geometry correction (portrait Terminal / wide Files)
+
+Previously every Orb or Ubuntu Dock live-window preview was laid out in a
+**fixed landscape card** (single-window maximum 474 × 302 px), regardless of
+the real source window's aspect ratio. A tall Terminal could occupy a narrow
+strip in the middle of a huge glass plate and its compositor buffer/decoration
+could protrude above or below the card. This was a layout bug, not extra
+Liquid Glass shader depth or the previous side CSS border.
+
+The preview now computes a *visible bounds union* from the native
+`Meta.Window.get_frame_rect()` plus optional `get_buffer_rect()`. Each
+window receives its own proportional live thumbnail size. The outer glass
+card is assembled tightly from those tiles and not from fixed landscape
+slots. Mixed 2–4-window groups use individual aspect ratios, centered rows
+and one monitor-safe scale. The existing user's App Preview Size preference
+and the 1.65× requested boost are retained **as upper limits**, not forced
+blank-card dimensions.
+
+The `Shell.WindowPreviewLayout` native compositor clone is positioned using
+the frame/buffer offset so its paint fits within its tile; the tile and content
+clip the final pixels. The frame actor alone does not clip (otherwise window
+decorations disappear). Small real windows may scale up to fill their
+proportional card, eliminating the old 1:1-size restriction. No new shader
+pass, GPU texture, scene poll, or animation is added. v10 Liquid Glass,
+preview click/hover and side-layer removal are unchanged.
+
+At 100% settings on a large display, a portrait 600×1050 window produces
+approximately **177×302 px** of preview glass instead of **474×302 px**
+while a landscape 1550×980 window produces ~471×302 px. The actual sizes
+depend on the source window's buffer and CSD shadow. The original screen
+capture revealed the mismatch; mock tests verify the geometry, but a live
+GNOME Shell 50 visual check is still required for buffer-clipping behavior.
+
+Run `node tools/test_preview_layout.mjs` and
+`node tools/test_preview_glass.mjs`; repeat with a tall Terminal, Files, an
+app with mixed portrait/landscape windows, and the native Dock hover path.
