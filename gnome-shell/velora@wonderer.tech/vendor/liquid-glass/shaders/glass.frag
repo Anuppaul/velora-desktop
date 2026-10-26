@@ -608,17 +608,18 @@ vec3 sampleBackdrop(vec2 uvc, vec2 ext, vec2 texel, vec2 resolution) {
     return sum * 0.1;
 }
 
-// Screen-static ordered-ish noise, +-0.5/255, added just before the result is
-// quantised to 8 bits.
+// Velora premium glass grain: fine, screen-static monochrome microtexture.
+// Reuse the existing single hash/dither evaluation, with a subtle but visible
+// ~3% peak-to-peak RGB luminance range (about +/- 0.014 per channel).
+// No texture fetch, extra shader pass, animation, or per-frame randomness.
+// Floor to the physical pixel grid to avoid grain crawling during transforms.
 //
-// [NEW] The backdrop behind the glass is blurred, which means it is almost
-// always a very shallow gradient — and a shallow gradient in 8 bits banks up
-// into visible Mach bands (the "steps" across the glass over a smooth
-// wallpaper). One LSB of noise breaks the quantisation up into dithering
-// noise the eye integrates away instead. It is also, not coincidentally, part
-// of why the real thing reads as a material rather than as a gradient.
-float ditherLSB(vec2 p) {
-    return (fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+// Grain is applied ONLY to the glass body in both the flat-interior fast path
+// and the full refractive path. It never touches the drop shadow, transparent
+// margin or optional solid panel fallback.
+float veloraGlassGrain(vec2 p) {
+    vec2 pixel = floor(p);
+    return (fract(sin(dot(pixel, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.028;
 }
 
 // [NEW] Adjust color saturation, contrast, brightness
@@ -880,9 +881,9 @@ void main() {
         }
         litFlat = max(litFlat, 0.0);
 
-        // [NEW] See ditherLSB(). The flat interior is where banding shows the
-        // most: it is a blurred gradient with nothing else drawn over it.
-        litFlat = max(litFlat + ditherLSB(pixel_coord), 0.0);
+        // The fast path must carry the SAME grain as the full glass path;
+        // otherwise a flat interior would turn glossy/smooth abruptly.
+        litFlat = max(litFlat + veloraGlassGrain(pixel_coord), 0.0);
 
         // alpha == insideMask == 1, so the shadow and panel terms are both 0.
         cogl_color_out = vec4(litFlat, 1.0) * cogl_color_in;
@@ -1468,10 +1469,10 @@ void main() {
     finalRgb += panelTerm.rgb;
     finalAlpha += panelTerm.a;
 
-    // [NEW] See ditherLSB(). Scaled by the coverage because finalRgb is
-    // premultiplied — dithering a transparent pixel's colour would break that
-    // invariant and show up as a faint haze outside the glass.
-    finalRgb = max(finalRgb + ditherLSB(pixel_coord) * finalAlpha, 0.0);
+    // Micro-grain belongs to the GLASS, not its drop shadow or panel fill.
+    // Premultiply by insideMask (alpha), never finalAlpha: the latter also
+    // includes shadow/panel coverage and would add a noisy exterior halo.
+    finalRgb = max(finalRgb + veloraGlassGrain(pixel_coord) * alpha, 0.0);
 
     // Output with premultiplied alpha format, required by Clutter/Cogl pipeline.
     cogl_color_out = vec4(finalRgb, finalAlpha) * cogl_color_in;

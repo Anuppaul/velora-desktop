@@ -263,7 +263,9 @@ Velora's runtime is designed around a few constraints:
 - native Overview actor add/remove events invalidate the window-chrome registry; quiet frames skip full-tree scans with a conservative fallback reconciliation
 - native GNOME animation remains responsible for transforms
 
-Performance-sensitive changes should include reproducible before/after evidence where practical. See the [optional performance capture guide](docs/PERFORMANCE.md) for GNOME Shell CPU/RAM and NVIDIA GPU baseline comparisons.
+Performance-sensitive changes should include reproducible before/after evidence where practical.
+
+Velora's shared Liquid Glass shader uses a subtle **static micro-grain** on the glass body (both flat and refractive paths). It is procedural, requires no additional GPU texture/pass, and leaves panel-mode Dock, transparent margins and shadow-only pixels unchanged. See the [optional performance capture guide](docs/PERFORMANCE.md) for GNOME Shell CPU/RAM and NVIDIA GPU baseline comparisons.
 
 ## Development
 
