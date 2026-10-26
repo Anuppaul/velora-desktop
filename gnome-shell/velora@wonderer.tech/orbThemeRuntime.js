@@ -38,7 +38,9 @@ const APP_PREVIEW_MAX_WINDOWS = 4;
 // Keep just a narrow hit-target-safe gap around the live thumbnail, not a
 // second decorative side frame. The monitor-fit guard below prevents overflow
 // even at the user's full 50–180% Preview Size preference.
-const APP_PREVIEW_SIZE_BOOST = 1.65;
+// More compact than the previous 784x441 glass while preserving native
+// fixed 16:9 geometry, thumbnails, user size control, and compositor fit.
+const APP_PREVIEW_SIZE_BOOST = 1.35;
 const APP_PREVIEW_GAP = 8;
 // Native 16:9 thumbnail cards keep one clearly visible refractive perimeter.
 // This is inner breathing room, not a second opaque side layer.
