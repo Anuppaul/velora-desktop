@@ -279,10 +279,10 @@
 }
 
 /* Ubuntu Dock panel mode -------------------------------------------------
- * The real native .dash-background gets a square-cornered Liquid Glass
- * layer after shader warm-up. Until ready, the previous translucent blur
- * stays visible to prevent black/unallocated intermediate frames.
- * Native layout, icons and intelligent autohide remain untouched. */
+ * Panel mode intentionally does NOT use Liquid Glass. Keep Ubuntu Dock's
+ * geometry/placement native and paint one quiet premium surface instead:
+ * translucent neutral-white body + subtle native BACKGROUND blur,
+ * no refraction, no glass rim and no outer shadow. */
 #dashtodockDashContainer.velora-dock-panel-mode,
 #dashtodockDashContainer.velora-dock-panel-mode.liquid-glass-transparent,
 #dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,
@@ -306,18 +306,6 @@
     background-image: none !important;
     border-color: rgba(255, 255, 255, 0.13) !important;
     border-radius: 0 !important;
-    box-shadow: none !important;
-}
-
-/* Glass is ready: transparent native background over the refractive layer.
- * Keep the full-width panel geometry strictly square, never a rounded pill.
- * This rule outranks the fallback-only .panel-background selectors above. */
-.dash-background.velora-ubuntu-dock-panel-background.velora-ubuntu-dock-glass-background,
-.liquid-glass-transparent .dash-background.velora-ubuntu-dock-panel-background.velora-ubuntu-dock-glass-background {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    border-radius: 0px !important;
     box-shadow: none !important;
 }
 

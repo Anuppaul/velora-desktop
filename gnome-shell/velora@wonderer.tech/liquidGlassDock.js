@@ -74,16 +74,6 @@ const DOCK_PANEL_PREMIUM_STYLE =
     'border-color: rgba(255,255,255,0.13); ' +
     'border-radius: 0px; ' +
     'box-shadow: none;';
-// While the real shader is active, the native background must not overlay
-// the glass with a second translucent fill or an additional Shell blur.
-const DOCK_PANEL_GLASS_STYLE =
-    'background-color: transparent; ' +
-    'background-image: none; ' +
-    'border-color: transparent; ' +
-    'border-radius: 0px; ' +
-    'box-shadow: none;';
-const DOCK_PANEL_SHADER_WARMUP_MS = 120;
-const DOCK_PANEL_SHADER_WARMUP_MAX_ATTEMPTS = 45;
 const DOCK_MODE_SETTLE_FRAMES = 2;
 const DOCK_HANDOFF_POLL_MS = 24;
 const DOCK_HANDOFF_MAX_MS = 5000;
@@ -597,8 +587,8 @@ export class LiquidGlassIntegration {
         this._setupSharedCardAppearanceSync();
 
         // Dash-to-Dock's extend-height setting is its panel-mode source of
-        // truth. Track it independently of floating-dock geometry so panel
-        // mode can use its own square-cornered background glass material.
+        // truth. Track it independently from the glass renderer so panel mode
+        // can intentionally use a premium non-glass surface.
         await this._setupUbuntuDockBridge();
         this._setupDashToDockModeWatch();
         this._setupDockVerticalOffsetWatch();
@@ -1308,10 +1298,9 @@ export class LiquidGlassIntegration {
         let brightness = null;
         let contrast = null;
         let saturation = null;
-        const isDockPanel = surface === 'dockPanel';
         let cornerRadius = isTopPanel
             ? (adapter.cornerRadius ?? 0)
-            : (isDockPanel ? 0 : null);
+            : null;
 
         try {
             brightness =
@@ -1321,7 +1310,7 @@ export class LiquidGlassIntegration {
             saturation =
                 this._settings.get_double('dock-saturation');
 
-            if (!isTopPanel && !isDockPanel) {
+            if (!isTopPanel) {
                 cornerRadius =
                     this._settings.get_double(
                         'dock-corner-radius'
@@ -1380,10 +1369,7 @@ export class LiquidGlassIntegration {
         );
         for (const entry of this._nativeDashEntries) {
             if (entry.manager)
-                this._applySharedDashMaterial(
-                    entry.manager,
-                    entry.managerMode === 'panel' ? 'dockPanel' : 'dock'
-                );
+                this._applySharedDashMaterial(entry.manager, 'dock');
         }
 
         console.log(
@@ -3054,10 +3040,7 @@ export class LiquidGlassIntegration {
         if (!entry?.container)
             return false;
 
-        if (
-            this._dockIsPanelMode() &&
-            entry.managerMode !== 'panel'
-        )
+        if (this._dockIsPanelMode())
             return false;
 
         if (
@@ -3139,13 +3122,6 @@ export class LiquidGlassIntegration {
         const manager = entry?.manager;
         if (!manager)
             return;
-
-        if (
-            entry.managerMode === 'panel' &&
-            !entry.panelGlassReady
-        ) {
-            this._syncPanelGlassReady(entry);
-        }
 
         const visible =
             this._nativeDockGlassVisible(
@@ -4015,16 +3991,13 @@ export class LiquidGlassIntegration {
             actor.style ??
             '';
 
-        const desired = entry.panelGlassReady
-            ? DOCK_PANEL_GLASS_STYLE
-            : DOCK_PANEL_PREMIUM_STYLE;
-        if (current === desired)
+        if (current === DOCK_PANEL_PREMIUM_STYLE)
             return;
 
         entry.panelBackgroundStyleGuard = true;
         try {
             actor.set_style?.(
-                desired
+                DOCK_PANEL_PREMIUM_STYLE
             );
         } catch {}
         finally {
@@ -4193,84 +4166,10 @@ export class LiquidGlassIntegration {
         actor.add_style_class_name?.(
             DOCK_PANEL_BACKGROUND_CLASS
         );
-        if (entry.panelGlassReady) {
-            this._removeDockPanelBlur(actor);
-        } else {
-            this._ensureDockPanelBlur(actor);
-        }
+        this._ensureDockPanelBlur(actor);
         this._setDockPanelPremiumStyle(
             entry,
             actor
-        );
-    }
-
-    _syncPanelGlassReady(entry) {
-        if (
-            !entry ||
-            entry.managerMode !== 'panel' ||
-            !entry.manager ||
-            !this._dockIsPanelMode()
-        ) {
-            return false;
-        }
-
-        const effect = entry.manager.effect;
-        // A vendor setting or module reload may replace/remove the effect
-        // while the panel is still in place. Restore the native fallback
-        // instead of leaving the transparent background over no shader.
-        if (
-            entry.panelGlassReady &&
-            (
-                !effect ||
-                effect !== entry.panelGlassEffect ||
-                !effect._shadersLoaded
-            )
-        ) {
-            entry.panelGlassReady = false;
-            entry.panelGlassEffect = null;
-            this._syncDockGlassBackgroundClass(entry, false);
-            this._applyDockPanelPaint(entry, true);
-        }
-
-        const ready = Boolean(
-            effect?._shadersLoaded &&
-            (effect?._diagCompositedPaintCount ?? 0) > 0
-        );
-        if (!ready || entry.panelGlassReady)
-            return ready;
-
-        entry.panelGlassReady = true;
-        entry.panelGlassEffect = effect;
-        // Only after the glass has painted successfully: remove the
-        // temporary native blur/fill, exposing the actual refractive layer.
-        this._applyDockPanelPaint(entry, true);
-        this._syncDockGlassBackgroundClass(entry, true);
-        return true;
-    }
-
-    _schedulePanelGlassReveal(entry) {
-        if (entry?.panelGlassWarmupId)
-            return;
-
-        let attempts = 0;
-        entry.panelGlassWarmupId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            DOCK_PANEL_SHADER_WARMUP_MS,
-            () => {
-                if (
-                    !this._enabled ||
-                    entry.managerMode !== 'panel' ||
-                    !entry.manager ||
-                    !this._dockIsPanelMode() ||
-                    this._syncPanelGlassReady(entry) ||
-                    ++attempts >=
-                        DOCK_PANEL_SHADER_WARMUP_MAX_ATTEMPTS
-                ) {
-                    entry.panelGlassWarmupId = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-                return GLib.SOURCE_CONTINUE;
-            }
         );
     }
 
@@ -4288,19 +4187,10 @@ export class LiquidGlassIntegration {
         this._watchDockPanelBackground(entry);
 
         if (panelMode) {
-            // Panel's native dash-background owns the physical full-width
-            // rectangle; do not render against the icon/reveal container.
-            if (
-                entry.manager &&
-                (
-                    entry.managerMode !== 'panel' ||
-                    entry.managerTargetActor !==
-                        entry.panelBackgroundActor
-                )
-            ) {
-                this._cleanupNativeDashManager(entry);
-            }
-
+            this._syncDockGlassBackgroundClass(
+                entry,
+                false
+            );
             this._setDockPanelModeClass(
                 entry.container,
                 true
@@ -4310,27 +4200,8 @@ export class LiquidGlassIntegration {
                 true
             );
 
-            if (!this._externalGlobalStack && !entry.manager) {
-                this._attachNativeDashManager(entry, true);
-            }
-
-            // A global dock-glass preference toggle may remove the vendor
-            // effect. Panel Mode independently owns its glass background.
-            if (entry.manager && !entry.manager.effect) {
-                this._syncPanelGlassReady(entry);
-                entry.manager._applyEffect?.();
-                this._applySharedDashMaterial(
-                    entry.manager,
-                    'dockPanel'
-                );
-                this._schedulePanelGlassReveal(entry);
-            }
-
-            this._syncPanelGlassReady(entry);
-            this._syncDockGlassBackgroundClass(
-                entry,
-                Boolean(entry.panelGlassReady)
-            );
+            // Panel mode deliberately has no Liquid Glass/refraction shader.
+            this._cleanupNativeDashManager(entry);
             return true;
         }
 
@@ -4391,11 +4262,6 @@ export class LiquidGlassIntegration {
                 entry.manager
             );
         }
-
-        // Do not let a previous full-width panel shader survive into
-        // the floating-dock allocation. Retain the existing warm handoff.
-        if (entry.managerMode === 'panel')
-            this._cleanupNativeDashManager(entry);
 
         this._setDockPanelModeClass(
             entry.container,
@@ -4470,20 +4336,9 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupNativeDashManager(entry) {
-        if (!entry)
+        if (!entry?.manager)
             return;
 
-        if (entry.panelGlassWarmupId) {
-            try {
-                GLib.source_remove(entry.panelGlassWarmupId);
-            } catch {}
-            entry.panelGlassWarmupId = 0;
-        }
-
-        if (!entry.manager)
-            return;
-
-        const wasPanelGlass = entry.managerMode === 'panel';
         entry.nativeVisibilityGate = null;
         entry.nativeVisibilityGateInstalled = false;
         entry.nativeGlassVisible = null;
@@ -4503,17 +4358,6 @@ export class LiquidGlassIntegration {
             );
         }
         entry.manager = null;
-        entry.managerMode = null;
-        entry.managerTargetActor = null;
-        if (wasPanelGlass) {
-            entry.panelGlassReady = false;
-            entry.panelGlassEffect = null;
-            // If panel mode remains active, the native background is a
-            // safe visible fallback while the next shader is prepared.
-            if (entry.panelPaintActive)
-                this._applyDockPanelPaint(entry, true);
-            this._syncDockGlassBackgroundClass(entry, false);
-        }
     }
 
     _prepareUbuntuDockManagerInstance(entry, manager) {
@@ -4714,15 +4558,9 @@ export class LiquidGlassIntegration {
         } catch {}
 
         const useGlassBackground =
-            (
-                entry.managerMode === 'panel' &&
-                entry.panelGlassReady
-            ) ||
-            (
-                !this._dockIsPanelMode() &&
-                this._dockModeTransitionTarget !== false &&
-                !this._dockHandoffActive
-            );
+            !this._dockIsPanelMode() &&
+            this._dockModeTransitionTarget !== false &&
+            !this._dockHandoffActive;
 
         this._syncDockGlassBackgroundClass(
             entry,
@@ -4746,33 +4584,22 @@ export class LiquidGlassIntegration {
         );
     }
 
-    _attachNativeDashManager(entry, panelGlass = false) {
+    _attachNativeDashManager(entry) {
         if (
             !entry ||
             entry.manager ||
             this._externalGlobalStack ||
-            panelGlass !== this._dockIsPanelMode() ||
+            this._dockIsPanelMode() ||
             !this._nativeDashIsReady(entry.container)
         ) {
             return false;
         }
 
-        const target = panelGlass
-            ? (entry.panelBackgroundActor ??
-                this._watchDockPanelBackground(entry))
-            : entry.container;
-        if (!target)
-            return false;
-
         try {
-            entry.managerMode = panelGlass ? 'panel' : 'dock';
-            entry.managerTargetActor = target;
-            entry.panelGlassReady = false;
-            entry.panelGlassEffect = null;
             entry.manager =
                 new this._vendor.DashManager(
                     this._vendor.root,
-                    target,
+                    entry.container,
                     this._settings,
                     this._logger
                 );
@@ -4799,28 +4626,22 @@ export class LiquidGlassIntegration {
             );
 
             entry.manager.setup();
-            // Panel glass is independent of the floating dock preference.
-            // The top bar uses the same explicit opt-in effect startup.
-            if (panelGlass && !entry.manager.effect)
-                entry.manager._applyEffect?.();
 
             entry.manager.setMaterialOverride?.(
                 () => this._applySharedDashMaterial(
                     entry.manager,
-                    panelGlass ? 'dockPanel' : 'dock'
+                    'dock'
                 )
             );
             this._applySharedDashMaterial(
                 entry.manager,
-                panelGlass ? 'dockPanel' : 'dock'
+                'dock'
             );
 
             this._syncNativeDockBinding(entry);
             this._finalizeUbuntuDockManagerInstance(
                 entry
             );
-            if (panelGlass)
-                this._schedulePanelGlassReveal(entry);
 
             return true;
         } catch (error) {
@@ -4850,11 +4671,6 @@ export class LiquidGlassIntegration {
                 entry = {
                     container,
                     manager: null,
-                    managerMode: null,
-                    managerTargetActor: null,
-                    panelGlassReady: false,
-                    panelGlassEffect: null,
-                    panelGlassWarmupId: 0,
                     destroyId: 0,
                     mappedId: 0,
                     nativeDock: null,
