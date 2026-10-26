@@ -68,6 +68,7 @@ const DOCK_GLASS_BACKGROUND_CLASS =
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 18;
+const DOCK_PANEL_BACKDROP_NAME = 'velora-dock-panel-local-backdrop';
 // Panel-local frosted glass: the blur effect is applied to Ubuntu Dock's
 // native .dash-background only, never to the whole monitor. A thin highlight
 // and the accepted milky tint add depth without another capture pass.
@@ -1930,6 +1931,7 @@ export class LiquidGlassIntegration {
             ) {
                 visualRoot.translation_y = 0;
             }
+            this._syncPanelBackdropGeometry(entry);
             return;
         }
 
@@ -3928,6 +3930,144 @@ export class LiquidGlassIntegration {
         } catch {}
     }
 
+    // DockDash offscreen_redirect=ALWAYS isolates its children from the
+    // desktop; an effect on .dash-background cannot sample real windows.
+    // Put a BACKGROUND blur immediately below the dock root in uiGroup.
+    // The effect actor is sized/clipped to the native panel bounds ONLY.
+    _ensurePanelBackdrop(entry, source) {
+        const uiGroup = Main.layoutManager.uiGroup;
+        if (!entry || !source || !uiGroup)
+            return false;
+
+        let root = entry.container;
+        while (root && root.get_parent?.() !== uiGroup)
+            root = root.get_parent?.() ?? null;
+        if (!root)
+            return false;
+
+        if (
+            entry.panelBackdropActor &&
+            entry.panelBackdropSource === source &&
+            entry.panelBackdropRoot === root
+        ) {
+            this._syncPanelBackdropGeometry(entry);
+            return true;
+        }
+        this._removePanelBackdrop(entry);
+
+        let actor = null;
+        try {
+            actor = new St.Widget({
+                name: DOCK_PANEL_BACKDROP_NAME,
+                style_class: 'velora-dock-panel-backdrop',
+                reactive: false,
+                track_hover: false,
+                width: 1,
+                height: 1,
+                opacity: 0,
+            });
+            actor.set_clip_to_allocation(true);
+            actor.add_effect_with_name(
+                DOCK_PANEL_BLUR_EFFECT,
+                new Shell.BlurEffect({
+                    mode: Shell.BlurMode.BACKGROUND,
+                    sigma: DOCK_PANEL_BLUR_RADIUS,
+                    brightness: 1.0,
+                })
+            );
+            uiGroup.insert_child_below(actor, root);
+            entry.panelBackdropActor = actor;
+            entry.panelBackdropSource = source;
+            entry.panelBackdropRoot = root;
+            this._syncPanelBackdropGeometry(entry);
+            return true;
+        } catch (error) {
+            try {
+                actor?.destroy?.();
+            } catch {}
+            entry.panelBackdropActor = null;
+            entry.panelBackdropSource = null;
+            entry.panelBackdropRoot = null;
+            console.warn('[Velora][Dock] bounded blur fallback: ' + error);
+            return false;
+        }
+    }
+
+    _syncPanelBackdropGeometry(entry) {
+        const actor = entry?.panelBackdropActor;
+        const source = entry?.panelBackdropSource;
+        if (!actor || !source || !this._dockIsPanelMode())
+            return;
+
+        try {
+            const [x, y] = source.get_transformed_position();
+            const [w, h] = source.get_transformed_size();
+            const index = Main.layoutManager.findIndexForActor(source);
+            const monitor = Main.layoutManager.monitors[
+                index >= 0 ? index : Main.layoutManager.primaryIndex
+            ] ?? Main.layoutManager.primaryMonitor;
+            const valid = source.get_stage?.() === global.stage &&
+                source.mapped !== false &&
+                source.visible !== false &&
+                monitor &&
+                [x, y, w, h].every(Number.isFinite) &&
+                w > 1 && h > 1 &&
+                // Malformed geometry must never blur the entire desktop.
+                Math.min(w, h) <= Math.min(
+                    240,
+                    (w >= h ? monitor.height : monitor.width) * 0.35
+                );
+            if (!valid) {
+                if (actor.opacity !== 0)
+                    actor.opacity = 0;
+                return;
+            }
+
+            const left = Math.max(x, monitor.x);
+            const top = Math.max(y, monitor.y);
+            const right = Math.min(x + w, monitor.x + monitor.width);
+            const bottom = Math.min(y + h, monitor.y + monitor.height);
+            const width = right - left, height = bottom - top;
+            if (width <= 1 || height <= 1) {
+                if (actor.opacity !== 0)
+                    actor.opacity = 0;
+                return;
+            }
+            const [uiX, uiY] =
+                Main.layoutManager.uiGroup.get_transformed_position?.() ??
+                [0, 0];
+            if (
+                Math.abs(actor.x - (left - uiX)) > 0.1 ||
+                Math.abs(actor.y - (top - uiY)) > 0.1
+            )
+                actor.set_position(left - uiX, top - uiY);
+            if (
+                Math.abs(actor.width - width) > 0.1 ||
+                Math.abs(actor.height - height) > 0.1
+            )
+                actor.set_size(width, height);
+            const opacity = source.get_paint_opacity?.() ??
+                source.opacity ?? 255;
+            if (actor.opacity !== opacity)
+                actor.opacity = opacity;
+        } catch {
+            if (actor.opacity !== 0)
+                actor.opacity = 0;
+        }
+    }
+
+    _removePanelBackdrop(entry) {
+        if (!entry)
+            return;
+        const actor = entry.panelBackdropActor;
+        entry.panelBackdropActor = null;
+        entry.panelBackdropSource = null;
+        entry.panelBackdropRoot = null;
+        try {
+            actor?.destroy?.();
+        } catch {}
+    }
+
     _syncDockGlassBackgroundClass(entry, enabled) {
         const actor =
             this._watchDockPanelBackground(
@@ -4029,6 +4169,7 @@ export class LiquidGlassIntegration {
             entry.panelBackgroundActor;
 
         if (previous) {
+            this._removePanelBackdrop(entry);
             this._removeDockPanelBlur(previous);
             this._disconnectDockPanelBackgroundWatcher(
                 entry
@@ -4128,6 +4269,7 @@ export class LiquidGlassIntegration {
             );
 
         if (!enabled) {
+            this._removePanelBackdrop(entry);
             if (!entry.panelPaintActive)
                 return;
 
@@ -4172,11 +4314,14 @@ export class LiquidGlassIntegration {
         actor.add_style_class_name?.(
             DOCK_PANEL_BACKGROUND_CLASS
         );
-        this._ensureDockPanelBlur(actor);
+        // Native .dash-background retains its square translucent veil.
+        // BACKGROUND blur must sit outside DockDash's offscreen FBO.
+        this._removeDockPanelBlur(actor);
         this._setDockPanelPremiumStyle(
             entry,
             actor
         );
+        this._ensurePanelBackdrop(entry, actor);
     }
 
     _syncNativeDashEntryMode(entry) {
@@ -4711,6 +4856,9 @@ export class LiquidGlassIntegration {
                     panelBackgroundStyleId: 0,
                     panelBackgroundStyleGuard: false,
                     panelPaintActive: false,
+                    panelBackdropActor: null,
+                    panelBackdropSource: null,
+                    panelBackdropRoot: null,
                 };
                 this._nativeDashEntries.push(entry);
 
@@ -4797,6 +4945,7 @@ export class LiquidGlassIntegration {
         entry.nativeFixedSettleKey = '';
         entry.nativeFixedSettleFrames = 0;
 
+        this._removePanelBackdrop(entry);
         this._disconnectDockPanelBackgroundWatcher(
             entry
         );
