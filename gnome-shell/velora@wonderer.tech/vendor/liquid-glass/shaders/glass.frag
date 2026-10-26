@@ -634,27 +634,42 @@ float veloraGlassGrain(vec2 p) {
     return (fract(sin(dot(pixel, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.028;
 }
 
-// Matte crystal body: a diffuse neutral tint with restrained color, preserving
-// the wallpaper's chroma rather than painting a flat white CSS rectangle.
-// Both the full lens path and the fast flat-interior path call this function.
-// Liquid amount=0 is intentionally an identity operation.
+// Velora Frosted Crystal: a genuine satin-matte *material*, not another
+// semi-transparent CSS pane. Dense neutral diffusion flattens the backdrop's
+// fine color/contrast while leaving a hint of its broad wallpaper tones.
+// Frost=0 is an identity operation, preserving every Liquid v10 pixel.
 vec3 veloraCrystalBody(vec3 color) {
     float frost = clamp(velora_frost_amount, 0.0, 1.0);
     if (frost < 0.0001)
         return color;
+
+    // Lift strongly at default density 78%: the old 0.47*frost blend made
+    // Frosted barely distinguishable from the existing 15% Liquid milk tint.
+    float matte = pow(frost, 0.62);
     float lum = dot(color, vec3(0.299, 0.587, 0.114));
-    vec3 softened = mix(color, vec3(lum), 0.22 * frost);
-    return mix(softened, vec3(0.90, 0.935, 0.965), 0.47 * frost);
+    vec3 desaturated = mix(color, vec3(lum), 0.64 * matte);
+    vec3 crystalWhite = mix(
+        vec3(0.885, 0.925, 0.968),
+        vec3(0.970, 0.983, 1.000),
+        0.28 * clamp(lum, 0.0, 1.0)
+    );
+    return mix(desaturated, crystalWhite, 0.87 * matte);
 }
 
-// The same existing static monochrome hash, only a modest increase in its
-// amplitude in Frosted mode. No noise texture, animated sampling, or extra
-// texture fetch. Never apply grain outside the physical glass alpha.
+// One screen-anchored crystalline micro-etch texture at two spatial scales:
+// fine frost dust + a subtle 4px mineral-facet grain. This reuses the same
+// hash, no noise image, animated time uniform, or second GPU render pass.
+// The second hash is evaluated ONLY in Frosted mode, never for Liquid v10.
 float veloraCrystalGrain(vec2 pixel) {
+    float fine = veloraGlassGrain(pixel);
     float frost = clamp(velora_frost_amount, 0.0, 1.0);
+    if (frost < 0.0001)
+        return fine;
     float grain = clamp(velora_frost_grain, 0.0, 1.0);
-    return veloraGlassGrain(pixel) *
-        (1.0 + frost * (0.75 + grain * 1.20));
+    float micro = fine * (1.0 + frost * (0.25 + 3.40 * grain));
+    float facet = veloraGlassGrain(floor(pixel * 0.25) * 4.0) *
+        frost * grain * 0.70;
+    return micro + facet;
 }
 
 // [NEW] Adjust color saturation, contrast, brightness
@@ -910,10 +925,14 @@ void main() {
         float flatResponse = 1.0 + opticalResponse * 0.28;
         float specFlat = pow(facing, max(shininess, 1.0)) * specular_intensity * 0.65 * flatResponse;
         float sheenFlat = pow(facing, 1.65) * sheen_intensity * flatResponse;
-        // A satin-frosted center is matte rather than mirror-like, with just
-        // a little soft directional glow left for dimensional readability.
+        // Matte interior scatters highlights instead of reflecting a hard
+        // mirror glint. Keep only an understated soft crystal sheen.
         vec3 addedFlat = vec3(specFlat + sheenFlat) * surface_light_enabled;
-        addedFlat *= mix(1.0, 0.35, clamp(velora_frost_amount, 0.0, 1.0));
+        addedFlat *= mix(
+            1.0,
+            0.15,
+            smoothstep(0.0, 0.8, clamp(velora_frost_amount, 0.0, 1.0))
+        );
 
         // Screen blend, then the same overflow normalization as the full path.
         vec3 litFlat = flatRgb + addedFlat - (flatRgb * addedFlat);
@@ -1165,6 +1184,13 @@ void main() {
     float lensShape = pow(edgeT, EDGE_LENS_FALLOFF);
 
     vec2 dispPx = disp * resolution * lensShape * lensScale;
+    // A real frosted surface diffuses light; it is not a magnifying Liquid
+    // lens. Strongly suppress curved refraction only while Frosted is active.
+    // The original exact refraction survives when velora_frost_amount=0.
+    float crystalLensSuppression = smoothstep(
+        0.0, 0.72, clamp(velora_frost_amount, 0.0, 1.0)
+    );
+    dispPx *= mix(1.0, 0.09, crystalLensSuppression);
     float dispLenPx = length(dispPx);
     vec2 dispDirPx = dispPx / max(dispLenPx, 1.0e-4);
     // The one hard limit left. It exists because the blurred region is sized
@@ -1217,7 +1243,14 @@ void main() {
     //
     // The schema default and the prefs range are rescaled to match (1.5px
     // default, 0-5px range).
-    vec2 chromaVec = chromaDir * (chroma_strength / resolution) * lensShape;
+    // Crystalline matte glass must not keep Liquid's rainbow fringe.
+    // At normal Frosted density, this also takes the shader's faster
+    // achromatic sampling path rather than doing three RGB fetch groups.
+    float crystalChroma = 1.0 - smoothstep(
+        0.0, 0.45, clamp(velora_frost_amount, 0.0, 1.0)
+    );
+    vec2 chromaVec = chromaDir *
+        (chroma_strength / resolution) * lensShape * crystalChroma;
     vec2 uvG = refractedUv;
 
     // [PERF] Is the channel split large enough to change any sampled texel?
@@ -1457,19 +1490,19 @@ void main() {
     // (already-independent) outer drop shadow and inner AO darkening in
     // baseColor remain — no rim/specular/sheen glint hugging the edge.
     vec3 addedLight = (vec3(specularLight + finalRimLight + idleRim) + sheenColor) * surface_light_enabled;
-    // Frosted Crystal swaps strong glassy sparkles for a low-energy crystal
-    // edge reflection. This is still in the SAME shader lighting sum.
+    // Frosted Crystal swaps Liquid's harsh specular glints for a broad,
+    // pale blue-white crystalline rim. Its intensity remains user-tunable
+    // without introducing an overlay actor, shadow or shader pass.
     float frostAmount = clamp(velora_frost_amount, 0.0, 1.0);
+    float crystalEdgeGlow = clamp(velora_frost_edge_glow, 0.0, 1.0);
+    float frostMatte = smoothstep(0.0, 0.75, frostAmount);
     addedLight *= mix(
-        1.0,
-        0.26 + 0.28 * clamp(velora_frost_edge_glow, 0.0, 1.0),
-        frostAmount
+        1.0, 0.09 + 0.14 * crystalEdgeGlow, frostMatte
     );
-    addedLight += vec3(
-        edgeBand * lightMask * 0.16 *
-        clamp(velora_frost_edge_glow, 0.0, 1.0) *
-        frostAmount * surface_light_enabled
-    );
+    addedLight += vec3(0.79, 0.90, 1.0) *
+        pow(max(edgeBand, 0.0), 0.58) * lightMask *
+        (0.05 + 0.21 * crystalEdgeGlow) *
+        frostMatte * surface_light_enabled;
 
     // 2. Screen Blend Mode (A + B - A*B)
     // Instead of simply adding lights (which causes intense overexposure and blows out 
