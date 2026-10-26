@@ -283,3 +283,7 @@ GObject/Clutter actors do not certify live GPU shader output.
 ## Compact fixed 16:9 preview (main update)
 
 The user approved the visible v10 Liquid Glass preview and fixed 16:9 ratio, but requested a smaller overall frame. Reduce the preview multiplier from **1.65× to 1.35×**, giving **640×360 logical px at the existing 100% App Preview Size** (previously 784×441), and **320×180 px at 50%** (previously 384×216), on a sufficiently large monitor. It still obeys 50–180% settings and smaller-monitor safety clamps. No other native preview, glass material, layer, clip, animation or renderer code changes. On GNOME 50 confirm the glass remains visible, the outer frame stays 16:9, and native thumbnail clicks, CSD shadows and Dock hover work.
+
+## Mini 16:9 window preview baseline
+
+Following the approved 640×360 preview, the default 100% Window Preview Size now displays a **480×270 logical-pixel** card on a sufficiently large monitor (a 25% reduction in width and height). The existing 50% size displays **240×135**, and 180% displays **864×486** when screen space permits. A smaller monitor continues to cap the frame to the available space and maintain the exact **16:9** ratio. No changes to the v10 Liquid Glass renderer, visible backdrop, thumbnail aspect-ratio containment, input, preview fades, or resource lifetime are required. The mini-layout test covers the three representative sizes and multiple display geometries; the real compositor appearance still needs on-device validation.
