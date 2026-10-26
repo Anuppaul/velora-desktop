@@ -278,6 +278,16 @@
     box-shadow: none;
 }
 
+/* The only stage-level blur used for Ubuntu Dock Panel Mode is constrained
+ * to its native .dash-background rectangle, with no black fullscreen actor. */
+.velora-dock-panel-backdrop {
+    background-color: rgba(250, 252, 255, 0.045);
+    background-image: none;
+    border-color: transparent;
+    border-radius: 0px !important;
+    box-shadow: none;
+}
+
 /* Ubuntu Dock Panel Mode uses panel-local frosted glass: a native BACKGROUND
  * blur plus neutral milky tint and a thin surface-light highlight, drawn only
  * on the real .dash-background. No full-monitor renderer is attached here.
