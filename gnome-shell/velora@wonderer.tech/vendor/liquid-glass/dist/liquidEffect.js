@@ -213,8 +213,12 @@ export const LiquidEffect = GObject.registerClass({
             this._blur,
             enabled => { this._diagEnabled = enabled; },
             (amount, initial) => {
-                this._frostAmount = Math.max(0, Math.min(1, amount));
-                if (this._requestedBlurRadius !== null)
+                const nextAmount = Math.max(0, Math.min(1, amount));
+                const blurChanged = nextAmount !== this._frostAmount;
+                this._frostAmount = nextAmount;
+                // Grain/edge changes only update one shader uniform; do not
+                // reconfigure the blur kernel for unrelated slider events.
+                if (blurChanged && this._requestedBlurRadius !== null)
                     this._applyVeloraBlurRadius();
                 if (!initial)
                     this.queue_repaint();
