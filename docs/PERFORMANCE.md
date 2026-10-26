@@ -279,3 +279,7 @@ Terminal, Files, several simultaneously running windows, the fixed frame
 ratio, the visible refractive rim, window activation, native Dock hover,
 monitor edges and whether short open/close fades flicker. CI's mocked
 GObject/Clutter actors do not certify live GPU shader output.
+
+## Compact fixed 16:9 preview (main update)
+
+The user approved the visible v10 Liquid Glass preview and fixed 16:9 ratio, but requested a smaller overall frame. Reduce the preview multiplier from **1.65× to 1.35×**, giving **640×360 logical px at the existing 100% App Preview Size** (previously 784×441), and **320×180 px at 50%** (previously 384×216), on a sufficiently large monitor. It still obeys 50–180% settings and smaller-monitor safety clamps. No other native preview, glass material, layer, clip, animation or renderer code changes. On GNOME 50 confirm the glass remains visible, the outer frame stays 16:9, and native thumbnail clicks, CSD shadows and Dock hover work.
