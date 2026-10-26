@@ -288,10 +288,10 @@
     box-shadow: none;
 }
 
-/* Ubuntu Dock Panel Mode uses panel-local frosted glass: a native BACKGROUND
- * blur plus neutral milky tint and a thin surface-light highlight, drawn only
- * on the real .dash-background. No full-monitor renderer is attached here.
- * Native layout/autohide remain untouched and all corners stay square. */
+/* Ubuntu Dock Panel Mode keeps a native milky tint/blur until its small
+ * dedicated Velora LiquidEffect paints; then these fallback layers clear.
+ * The live material is bounded to native panel geometry, not the monitor.
+ * Native layout, icons, autohide and square corners stay untouched. */
 #dashtodockDashContainer.velora-dock-panel-mode,
 #dashtodockDashContainer.velora-dock-panel-mode.liquid-glass-transparent,
 #dashtodockDashContainer.velora-dock-panel-mode #dashtodockContainer,

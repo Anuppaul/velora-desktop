@@ -4430,7 +4430,9 @@ export class LiquidGlassIntegration {
                 true
             );
 
-            // Panel mode deliberately has no Liquid Glass/refraction shader.
+            // Panel Mode uses the small PanelLiquidGlassSurface, NEVER the
+            // vendored full-monitor Dock DashManager that previously blacked
+            // the desktop during extended geometry.
             this._cleanupNativeDashManager(entry);
             return true;
         }
