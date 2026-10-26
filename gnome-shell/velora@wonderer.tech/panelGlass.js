@@ -223,7 +223,9 @@ export class PanelGlassSurface {
         const rectangle = [absX, absY, width, height];
         const changed = !this._lastCapture ||
             rectangle.some((v, i) => this._lastCapture[i] !== v);
-        if (!changed && !frameDue(nowUs, this._lastSceneUs, SCENE_FPS))
+        // A hide/reveal at identical bounds still needs a fresh capture.
+        if (!changed && !this._boundsDirty &&
+            !frameDue(nowUs, this._lastSceneUs, SCENE_FPS))
             return;
 
         // Same scene mapping as ShellCardSurface: screen-coordinate window
