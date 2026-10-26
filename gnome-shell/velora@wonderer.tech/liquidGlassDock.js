@@ -73,7 +73,10 @@ const DOCK_PANEL_BLUR_RADIUS = 18;
 // and the accepted milky tint add depth without another capture pass.
 const DOCK_PANEL_PREMIUM_STYLE =
     'background-color: rgba(245,248,255,0.15); ' +
-    'background-image: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0.015)); ' +
+    'background-image: none; ' +
+    'background-gradient-direction: vertical; ' +
+    'background-gradient-start: rgba(255,255,255,0.15); ' +
+    'background-gradient-end: rgba(255,255,255,0.015); ' +
     'border-color: rgba(255,255,255,0.21); ' +
     'border-radius: 0px; ' +
     'box-shadow: inset 0 1px rgba(255,255,255,0.20);';
