@@ -1,6 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com" path="/org/gnome/shell/extensions/liquid-glass/">
+    <!-- Velora-only material uniforms. Liquid uses amount=0 and therefore
+         preserves the exact existing shader output. They are updated by the
+         canonical Velora settings bridge, not directly from the preferences
+         window; all LiquidEffect instances observe them live. -->
+    <key name="velora-frost-amount" type="d">
+      <default>0.0</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Frosted Crystal material blend (zero = original Liquid)</summary>
+    </key>
+    <key name="velora-frost-grain" type="d">
+      <default>0.55</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Frosted Crystal fine-grain intensity</summary>
+    </key>
+    <key name="velora-frost-edge-glow" type="d">
+      <default>0.52</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Frosted Crystal edge illumination intensity</summary>
+    </key>
+
 
     <key name="preferences-advanced" type="b">
       <default>false</default>
