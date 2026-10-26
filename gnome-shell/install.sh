@@ -41,6 +41,7 @@ RUNTIME_FILES=(
     "spotlightSearch.js"
     "sharedAdaptiveText.js"
     "orbGlass.js"
+    "panelGlass.js"
 )
 
 RUNTIME_DIRS=(
