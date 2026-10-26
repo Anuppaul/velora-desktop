@@ -1091,8 +1091,13 @@ export const LiquidEffect = GObject.registerClass({
             return;
         // Stronger diffusion in the SAME native blur pipeline, not another
         // render pass. User's explicit zero blur always remains zero.
+        // Full crystal diffusion needs a genuinely blurred backdrop, not
+        // just the v1 +9px haze. The existing Kawase/Gaussian chain already
+        // supports this radius; no second compositor effect is allocated.
+        // Higher radii may select an additional *existing* blur pyramid level,
+        // so GNOME GPU performance still needs real-device validation.
         const extra = base > 0
-            ? Math.min(18.0, this._frostAmount * 12.0)
+            ? Math.min(24.0, this._frostAmount * 24.0)
             : 0;
         this._blur.setBlurRadius(base + extra);
     }
