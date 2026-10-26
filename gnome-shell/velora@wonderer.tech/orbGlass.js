@@ -2,6 +2,7 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import {frameDue} from './frameBudget.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -17,6 +18,9 @@ const APP_BUTTON_CLASS = 'velora-app-button';
 const PAD = 20;
 const REGIONS_PER_BATCH = 16;
 const MAX_GLASS_BATCHES = 4;
+// Expanded All Apps uses a 24 FPS clone-scene cap; sample 30 FPS to
+// preserve responsive hover while avoiding repeated 60/144 Hz actor scans.
+const EXPANDED_REGION_FPS = 30;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
@@ -78,6 +82,8 @@ export class OrbGlassManager {
         this._scanIdleId = 0;
         this._lastRegionKey = '';
         this._lastSceneSyncUs = 0;
+        this._lastRegionPassUs = 0;
+        this._expandedRegionsActive = false;
 
         this._screenshot = null;
         this._samplePending = false;
@@ -305,6 +311,7 @@ export class OrbGlassManager {
         }
 
         this._lastRegionKey = '';
+        this._lastRegionPassUs = 0;
         this._glyphSampleDirty = true;
         this._glyphGeometryChangedUs =
             GLib.get_monotonic_time();
@@ -402,6 +409,8 @@ export class OrbGlassManager {
         }
 
         this._buttons = buttons;
+        this._lastRegionPassUs = 0;
+        this._expandedRegionsActive = false;
         this._lastRegionKey = '';
         for (const batch of this._batches) {
             batch.lastRegionKey = '';
@@ -431,6 +440,17 @@ export class OrbGlassManager {
             VELORA_GLASS_ADAPTERS.orb;
         const nowUs =
             GLib.get_monotonic_time();
+
+        // Expanded pages may have 60+ app actors. GNOME's before-update
+        // signal can run much faster than their 24 FPS Liquid Glass scene.
+        // Skip the full geometry/hover scan only on an already-visible
+        // expanded page, never on the small Orb or initial page reveal.
+        if (this._expandedRegionsActive &&
+            !frameDue(
+                nowUs, this._lastRegionPassUs, EXPANDED_REGION_FPS
+            ))
+            return;
+        this._lastRegionPassUs = nowUs;
 
         this._vendor.setSizeIfChanged(
             this._root,
@@ -506,6 +526,8 @@ export class OrbGlassManager {
                         : 0.0,
             });
         }
+
+        this._expandedRegionsActive = regions.length > REGIONS_PER_BATCH;
 
         if (!regions.length) {
             for (const batch of this._batches)
