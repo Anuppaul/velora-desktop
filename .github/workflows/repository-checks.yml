@@ -31,6 +31,7 @@ jobs:
             done
           node tools/test_frame_budget.mjs
           node tools/test_orb_transitions.mjs
+          node tools/test_preview_glass.mjs
           node tools/test_liquid_optics.mjs
 
       - name: Validate repository metadata and XML

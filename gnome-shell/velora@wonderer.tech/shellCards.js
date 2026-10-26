@@ -11,6 +11,7 @@ import {
 } from './glassMaterialSystem.js';
 
 const CARD_CLASS = 'velora-liquid-shell-card';
+const PREVIEW_CARD_CLASS = 'velora-app-preview-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
@@ -19,6 +20,7 @@ const TARGET_CLASSES = new Set([
     'resize-popup',
     'workspace-thumbnails',
     'dash-background',
+    PREVIEW_CARD_CLASS,
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
@@ -643,6 +645,10 @@ export class ShellCardGlassManager {
         this._vendor = params.vendor;
         this._settings = params.settings;
         this._readAppearance = params.readAppearance;
+        // Preview cards live under Velora's separately managed desktop layer.
+        // In manual-only mode we reuse the same effect pipeline without
+        // traversing the Shell tree or installing another polling loop.
+        this._manualOnly = Boolean(params.manualOnly);
         this._appearance = null;
         this._surfaces = new Map();
         this._watched = new Map();
@@ -656,7 +662,8 @@ export class ShellCardGlassManager {
         this._enabled = true;
         this._appearance = this._readAppearance();
 
-        this._watchTree(Main.uiGroup);
+        if (!this._manualOnly)
+            this._watchTree(Main.uiGroup);
 
         this._syncStageLoopState();
 
@@ -769,6 +776,14 @@ export class ShellCardGlassManager {
 
         for (const child of actor.get_children?.() ?? [])
             this._watchTree(child);
+    }
+
+    attachPreview(actor) {
+        if (!this._enabled ||
+            !classesOf(actor).includes(PREVIEW_CARD_CLASS))
+            return false;
+        this._maybeAttach(actor);
+        return this._surfaces.has(actor);
     }
 
     _maybeAttach(actor) {

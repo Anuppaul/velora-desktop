@@ -119,3 +119,28 @@ is introduced. **This is a source-level design claim, not an FPS or GPU power
 benchmark.** Check real GNOME Shell 50 transitions, all glass surfaces,
 readability and GPU usage before concluding visually or operationally perfect.
 Run `node tools/test_liquid_optics.mjs` to verify migration behavior.
+
+## Orb and Ubuntu Dock live-window preview glass
+
+The shared running-window preview card previously used a nearly opaque
+`rgba(8, 9, 12, 0.94)` black background. It now uses the same bounded
+`ShellCardSurface` LiquidEffect as Velora's other premium shell cards:
+live desktop/window refraction, 16px native card corners, v10 material optics,
+and 104px capture margin around the card rather than a fullscreen effect.
+
+The preview glass manager is **manual-only**: no global GNOME Shell tree scan
+or extra recurring timer. It is only used after real, taskbar-visible app
+windows are found; the original native `Shell.WindowPreviewLayout` tiles,
+hover interactions, click-to-activate, position, opening/closing and fade
+animations remain unchanged. Glass is placed **behind** those tiles.
+Card destruction releases its WindowCloneManager and stage frame connection.
+When the renderer cannot attach, a faint neutral translucent preview card
+remains instead of the former opaque black rectangle.
+
+Regression check: `node tools/test_preview_glass.mjs`. On a real
+GNOME Shell 50 desktop, test one-, two-, three-, and four-window previews,
+Orb hover and native Ubuntu Dock hover; switch windows, close/reopen previews,
+drag near each screen edge, and check that glass never turns into a
+full-monitor black surface, that the previews remain clickable, and that
+idle resource use returns after closing a preview. Mock tests do not
+replace compositor/GPU measurement.

@@ -444,6 +444,7 @@ export class LiquidGlassIntegration {
 
         this._popupGlassManager = null;
         this._shellCardGlassManager = null;
+        this._previewGlassManager = null;
         this._appGridBackdropManager = null;
         this._overviewCloseGlassManager = null;
         this._sharedAdaptiveTextManager = null;
@@ -511,6 +512,22 @@ export class LiquidGlassIntegration {
                 ?.refresh?.();
 
         return attached;
+    }
+
+    attachPreviewGlass(target) {
+        // Manual-only reuse of ShellCardSurface: same refractive shader,
+        // stage-local 104px optical headroom and window-clone ROI clipping.
+        // Preview content/activation remains owned by the original St.Widget.
+        try {
+            return this._previewGlassManager
+                ?.attachPreview?.(target) ?? false;
+        } catch (error) {
+            console.warn(
+                '[Velora][PreviewGlass] using translucent fallback: ' +
+                error
+            );
+            return false;
+        }
     }
 
     async enable() {
@@ -595,6 +612,28 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] spotlightGlassManager setup failed: ' +
                 error
             );
+        }
+
+        // App/window previews live outside GNOME's native popup registry.
+        // Reuse the tested ShellCardSurface pipeline on demand, even when an
+        // independently active upstream glass stack owns normal shell cards.
+        // No preview is allocated until there is a real running window.
+        try {
+            this._previewGlassManager =
+                new ShellCardGlassManager({
+                    vendor: this._vendor,
+                    settings: this._settings,
+                    readAppearance: () =>
+                        this._readSharedCardAppearance(),
+                    manualOnly: true,
+                });
+            this._previewGlassManager.setup();
+            this._managerHealth.previewGlassManager = true;
+        } catch (error) {
+            try { this._previewGlassManager?.cleanup?.(); } catch {}
+            this._previewGlassManager = null;
+            this._managerHealth.previewGlassManager = false;
+            console.warn('[Velora][PreviewGlass] setup failed: ' + error);
         }
 
         // Keep Velora-owned materials live-bound to the same shared appearance
@@ -1485,6 +1524,7 @@ export class LiquidGlassIntegration {
 
         this._popupGlassManager?.updateAppearance(state);
         this._shellCardGlassManager?.updateAppearance(state);
+        this._previewGlassManager?.updateAppearance(state);
         this._appGridBackdropManager?.updateAppearance(state);
         this._overviewCloseGlassManager?.updateAppearance(state);
         this._orbGlassManager?.updateAppearance(state);
@@ -5303,6 +5343,9 @@ export class LiquidGlassIntegration {
                 shellCardGlassManager: Boolean(
                     this._shellCardGlassManager
                 ),
+                previewGlassManager: Boolean(
+                    this._previewGlassManager
+                ),
                 appGridBackdropManager: Boolean(
                     this._appGridBackdropManager
                 ),
@@ -5474,6 +5517,9 @@ export class LiquidGlassIntegration {
             this._shellCardGlassManager
         );
         this._shellCardGlassManager = null;
+
+        cleanup('previewGlassManager', this._previewGlassManager);
+        this._previewGlassManager = null;
 
         cleanup(
             'appGridBackdropManager',

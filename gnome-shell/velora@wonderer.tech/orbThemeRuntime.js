@@ -2494,6 +2494,13 @@ export default class VeloraRuntime extends Extension {
             preferredSide
         );
 
+        // The original Shell.WindowPreviewLayout continues rendering the
+        // live thumbnail tiles. Only the opaque preview-card background is
+        // replaced with Velora's existing bounded Liquid Glass material.
+        // The glass manager owns its cleanup when this card is destroyed.
+        this._liquidGlassIntegration
+            ?.attachPreviewGlass?.(card);
+
         card.opacity = 0;
         card.scale_x = 0.96;
         card.scale_y = 0.96;
