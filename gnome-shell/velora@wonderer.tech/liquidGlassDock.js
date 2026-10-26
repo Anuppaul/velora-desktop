@@ -1802,6 +1802,15 @@ export class LiquidGlassIntegration {
             '  background-image: none !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
+            // The global white filter must not stack over the genuine
+            // refractive preview card. Keep global shell-card filtering for
+            // every other surface and override this preview only.
+            '.velora-app-preview-card.velora-liquid-shell-card {\n' +
+            '  background-color: transparent !important;\n' +
+            '  background-image: none !important;\n' +
+            '  border-color: transparent !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n' +
             '#panel.velora-liquid-top-panel {\n' +
             '  background-color: rgba(255,255,255,' +
             barFilterOpacity.toFixed(3) +
