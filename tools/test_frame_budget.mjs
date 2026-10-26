@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import {frameDue} from '../gnome-shell/velora@wonderer.tech/frameBudget.js';
+import {readFile} from 'node:fs/promises';
+
+// GJS loads .js as ES modules; Node on CI may default to CommonJS.
+// Load the exact shipped helper source as an ESM data URL for this test.
+const source = await readFile(new URL(
+    '../gnome-shell/velora@wonderer.tech/frameBudget.js', import.meta.url
+), 'utf8');
+const {frameDue} = await import(
+    `data:text/javascript,${encodeURIComponent(source)}`
+);
 
 // First paint is always due, including on a newly mapped glass actor.
 assert.equal(frameDue(1000000, 0, 24), true);
