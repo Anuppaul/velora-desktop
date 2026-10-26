@@ -2,6 +2,7 @@
 // Follows the established ShellCardSurface architecture, NOT the fullscreen
 // DashManager FBO that caused PR #35's whole-screen black regression.
 import GLib from 'gi://GLib';
+import {frameDue} from './frameBudget.js';
 
 import {
     VELORA_GLASS_ROLES,
@@ -23,6 +24,7 @@ export class PanelGlassSurface {
         this._lastSceneUs = 0;
         this._lastCapture = null;
         this._lastPaint = null;
+        this._boundsDirty = true;
         this._destroyed = false;
     }
 
@@ -140,16 +142,21 @@ export class PanelGlassSurface {
             // Defense-in-depth. The caller verifies native panel thickness
             // against its monitor before reaching this layer.
             Math.min(width, height) > 240) {
-            if (actor.opacity !== 0)
+            if (actor.opacity !== 0) {
                 actor.opacity = 0;
+                this._boundsDirty = true;
+            }
             return;
         }
-        if (Math.abs(actor.x - x) > 0.1 || Math.abs(actor.y - y) > 0.1)
+        if (Math.abs(actor.x - x) > 0.1 || Math.abs(actor.y - y) > 0.1) {
             actor.set_position(x, y);
+            this._boundsDirty = true;
+        }
         if (Math.abs(actor.width - width) > 0.1 ||
             Math.abs(actor.height - height) > 0.1) {
             actor.set_size(width, height);
             this._lastPaint = null;
+            this._boundsDirty = true;
         }
         if (!actor.visible)
             actor.show?.();
@@ -160,8 +167,10 @@ export class PanelGlassSurface {
     }
 
     hide() {
-        if (this._material && this._material.opacity !== 0)
+        if (this._material && this._material.opacity !== 0) {
             this._material.opacity = 0;
+            this._boundsDirty = true;
+        }
     }
 
     get ready() {
@@ -198,6 +207,14 @@ export class PanelGlassSurface {
         if (width <= 1 || height <= 1)
             return;
 
+        // The common stationary-panel path runs on every stage frame.
+        // Avoid a GObject transformed-position query until the next actual
+        // clone-sync deadline. A moving panel bypasses the budget immediately.
+        const nowUs = GLib.get_monotonic_time();
+        if (!this._boundsDirty &&
+            !frameDue(nowUs, this._lastSceneUs, SCENE_FPS))
+            return;
+
         const [absX, absY] =
             this._material.get_transformed_position?.() ?? [NaN, NaN];
         if (!Number.isFinite(absX) || !Number.isFinite(absY))
@@ -206,9 +223,7 @@ export class PanelGlassSurface {
         const rectangle = [absX, absY, width, height];
         const changed = !this._lastCapture ||
             rectangle.some((v, i) => this._lastCapture[i] !== v);
-        const nowUs = GLib.get_monotonic_time();
-        if (!changed && this._lastSceneUs &&
-            nowUs - this._lastSceneUs < 1000000 / SCENE_FPS)
+        if (!changed && !frameDue(nowUs, this._lastSceneUs, SCENE_FPS))
             return;
 
         // Same scene mapping as ShellCardSurface: screen-coordinate window
@@ -227,6 +242,7 @@ export class PanelGlassSurface {
         this._sceneManager.sync?.();
         this._lastCapture = rectangle;
         this._lastSceneUs = nowUs;
+        this._boundsDirty = false;
     }
 
     destroy() {
