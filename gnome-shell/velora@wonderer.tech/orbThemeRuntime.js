@@ -34,12 +34,13 @@ const MAX_VISIBLE_ORB_APPS = 63;
 // Retain at most two detached pages while Orb is open.
 const MAX_CACHED_INACTIVE_ORB_PAGES = 2;
 const APP_PREVIEW_MAX_WINDOWS = 4;
-// A larger glass frame and live native thumbnails, shared by Orb and Ubuntu
-// Dock app previews. The monitor-fit constraint below keeps these usable
-// even with the user's existing 50–180% size preference.
-const APP_PREVIEW_SIZE_BOOST = 1.25;
-const APP_PREVIEW_GAP = 10;
-const APP_PREVIEW_PADDING = 14;
+// Larger edge-to-edge native window previews for Orb and Ubuntu Dock.
+// Keep just a narrow hit-target-safe gap around the live thumbnail, not a
+// second decorative side frame. The monitor-fit guard below prevents overflow
+// even at the user's full 50–180% Preview Size preference.
+const APP_PREVIEW_SIZE_BOOST = 1.65;
+const APP_PREVIEW_GAP = 8;
+const APP_PREVIEW_PADDING = 6;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
@@ -2577,8 +2578,11 @@ export default class VeloraRuntime extends Extension {
         preview.layout_manager = previewLayout;
 
         const frame = window.get_frame_rect();
-        const maxWidth = Math.max(1, tileWidth - 12);
-        const maxHeight = Math.max(1, tileHeight - 12);
+        // The thumbnail is the content, not a postcard inside another card.
+        // Keep 2px breathing room per side for clean antialiasing, while the
+        // surrounding Liquid Glass provides the only decorative surface.
+        const maxWidth = Math.max(1, tileWidth - 4);
+        const maxHeight = Math.max(1, tileHeight - 4);
         const frameWidth = Math.max(1, frame.width);
         const frameHeight = Math.max(1, frame.height);
         const scale = Math.min(

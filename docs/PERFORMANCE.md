@@ -169,3 +169,31 @@ Run `node tools/test_preview_layout.mjs` for layout, size preference and
 multi-monitor fit checks, and verify actual Orb/Dock previews visually on
 GNOME Shell 50. Larger rectangles paint more pixels, so real GPU usage and
 glass refresh timing should be measured before making performance claims.
+
+## Edge-to-edge preview revision — larger, without side layers
+
+Window preview cards (Orb radial launcher and native Ubuntu Dock hover) now
+use a **1.65×** tile multiplier at the existing App Preview Size preference
+instead of 1.25×. Their v10 Liquid Glass outer surface remains one material;
+the duplicate painted CSS border/shadow and each native thumbnail's frosted
+tile plate/border have been removed. Only a minimal neutral fallback remains
+if the shader has not attached, and a faint hover highlight retains
+clickability feedback. The padding is 6px instead of 14px, the inter-tile gap
+8px instead of 10px, and the native live screenshot has only 2px breathing
+room per side instead of 6px.
+
+At 100% App Preview Size and a sufficiently large monitor:
+
+| Windows | Previous size | Edge-to-edge size |
+| --- | --- | --- |
+| 1 | 378 × 248 px | 474 × 302 px |
+| 2 | 588 × 203 px | 746 × 243 px |
+| 3–4 | 514 × 338 px | 648 × 416 px |
+
+App Preview Size remains fully adjustable (50–180%). Existing monitor-fit
+limits, fixed GNOME `Shell.WindowPreviewLayout` click targets, opening and
+closing transitions, one existing LiquidEffect per open preview, and lifetime
+cleanup are preserved. Run `node tools/test_preview_layout.mjs` and
+`node tools/test_preview_glass.mjs` to check the source implementation.
+Visual acceptance on GNOME Shell 50 should focus on actual layered rims,
+hover and focus visibility, screen-edge fit and larger-preview GPU budget.

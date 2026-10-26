@@ -120,24 +120,23 @@
 }
 
 
-/* Orb and native Ubuntu Dock running-window previews. A light, neutral
- * fallback stays visible if the optional GPU glass renderer is unavailable.
- * Never let a black 94%-opaque rectangle cover the wallpaper. */
+/* The v10 refractive body is the ONE outer preview material: remove the
+ * extra painted perimeter, side border and CSS drop-shadow layer. When the
+ * shader is unavailable, retain only a neutral translucent fallback. */
 .velora-app-preview-card {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
     border-radius: 16px;
-    background-color: rgba(246, 249, 255, 0.16);
+    background-color: rgba(246, 249, 255, 0.12);
     background-image: none;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 8px 24px 0 rgba(16, 28, 48, 0.12);
+    border: 0;
+    box-shadow: none;
 }
 
-/* ShellCardSurface supplies true live-scene refraction and the single optical
- * rim. Avoid painting a second opaque layer or a duplicate CSS border over it.
- * Keep a ~2% neutral veil while the asynchronous shader warms up. */
+/* ShellCardSurface supplies the single optical rim. No second side layer,
+ * extra opaque chrome or duplicate shadow is drawn over the refracted scene. */
 .velora-app-preview-card.velora-liquid-shell-card {
     background-color: rgba(255, 255, 255, 0.025);
     background-image: none;
@@ -145,22 +144,27 @@
     box-shadow: none;
 }
 
+/* Native Shell.WindowPreviewLayout thumbnails float directly above the one
+ * glass surface. The old per-tile frosted plate/border was a visible
+ * second layer around every preview, especially along its left/right sides.
+ * Keep only a quiet pointer/focus affordance for the clickable St.Button. */
 .velora-window-preview-tile {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
     border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.035);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    background-color: transparent;
+    background-image: none;
+    border: 0;
     box-shadow: none;
     transition-duration: 110ms;
 }
 
 .velora-window-preview-tile:hover,
 .velora-window-preview-tile:focus {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.24);
+    background-color: rgba(255, 255, 255, 0.055);
+    border: 0;
     box-shadow: none;
 }
 
