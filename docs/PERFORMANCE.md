@@ -86,3 +86,36 @@ For visual acceptance on GNOME Shell 50, compare the exact same wallpaper and wi
 node tools/test_liquid_optics.mjs
 ```
 This verifies migration and custom-setting preservation, not on-screen rendering.
+
+## Liquid optics v10 — deeper liquid material
+
+PR #42's v9 look is the baseline. v10 increases the visual liquidity by
+tuning the same GPU material uniforms and hover response, not by changing the
+render pipeline. The glass remains clear and the accepted milky shade, grain,
+blur radius, tint, panel geometry, and Orb/App Grid animation remain intact.
+
+| Optical parameter | v9 | v10 |
+| --- | ---: | ---: |
+| Lens depth (max_z) | 132 | 144 |
+| Refraction (displacement_scale) | 50 | 58 |
+| IOR | 1.68 | 1.78 |
+| Edge chroma | 1.6 | 1.85 |
+| Specular | 0.69 | 0.78 |
+| Shininess | 70 | 74 |
+| Rim width | 3.3 | 3.7 |
+| Rim intensity | 1.07 | 1.15 |
+| Fresnel rim power | 2.15 | 2.05 |
+| Rim light color intensity | 1.24 | 1.28 |
+| Sheen | 0.15 | 0.21 |
+
+Orb hover optical response is 0.48 → 0.62; Spotlight hover/focus is
+0.40/0.20 → 0.52/0.28; the shared engagement response is slightly stronger
+and smoother. Material v9 migration targets are pinned to their historical
+values, so older installs can advance through v9 to v10 deterministically.
+Manual Advanced renderer overrides remain untouched.
+
+No additional blur/capture/refraction pass, framebuffer allocation or timer
+is introduced. **This is a source-level design claim, not an FPS or GPU power
+benchmark.** Check real GNOME Shell 50 transitions, all glass surfaces,
+readability and GPU usage before concluding visually or operationally perfect.
+Run `node tools/test_liquid_optics.mjs` to verify migration behavior.

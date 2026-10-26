@@ -1210,28 +1210,27 @@ export class LiquidGlassIntegration {
             // advanced preferences the user customized remain untouched.
             // MaterialSettings owns these uniforms and its live GSettings
             // bindings propagate the migrated values to all glass surfaces.
-            const optics = VELORA_GLASS_ROLES.innerCard.optics;
+            // Historical targets must not move as the current role evolves.
             const seededOptics = [
-                ['glass-max-z', 118.0, 'max_z'],
-                ['glass-displacement-scale', 42.0, 'displacement_scale'],
-                ['glass-chroma-strength', 1.4, 'chroma_strength'],
-                ['glass-specular-intensity', 0.55, 'specular_intensity'],
-                ['glass-shininess', 62.0, 'shininess'],
-                ['glass-rim-width', 2.8, 'rim_width'],
-                ['glass-rim-intensity', 0.90, 'rim_intensity'],
-                ['glass-rim-power', 2.3, 'rim_power'],
+                ['glass-max-z', 118.0, 132.0],
+                ['glass-displacement-scale', 42.0, 50.0],
+                ['glass-chroma-strength', 1.4, 1.6],
+                ['glass-specular-intensity', 0.55, 0.69],
+                ['glass-shininess', 62.0, 70.0],
+                ['glass-rim-width', 2.8, 3.3],
+                ['glass-rim-intensity', 0.90, 1.07],
+                ['glass-rim-power', 2.3, 2.15],
                 [
                     'glass-rim-light-color-intensity',
                     1.18,
-                    'rim_light_color_intensity',
+                    1.24,
                 ],
-                ['glass-sheen-intensity', 0.10, 'sheen_intensity'],
+                ['glass-sheen-intensity', 0.10, 0.15],
             ];
 
-            for (const [key, previous, name] of seededOptics) {
+            for (const [key, previous, target] of seededOptics) {
                 try {
                     const current = this._settings.get_double(key);
-                    const target = optics[name];
                     if (Number.isFinite(target) &&
                         Math.abs(current - previous) < 0.0001) {
                         this._settings.set_double(key, target);
@@ -1262,6 +1261,62 @@ export class LiquidGlassIntegration {
             console.log(
                 '[Velora][LiquidGlass] richer liquid optics v9 seeded'
             );
+        }
+
+        if (version < 10) {
+            // v10 liquid-lens tuning: existing material uniforms only.
+            // Respect custom renderer controls, including explicitly disabled
+            // chromatic aberration and manual IOR/refraction values.
+            const optics = VELORA_GLASS_ROLES.innerCard.optics;
+            const seeds = [
+                ['glass-max-z', 132.0, 'max_z'],
+                ['glass-displacement-scale', 50.0, 'displacement_scale'],
+                ['glass-ior', 1.68, 'ior'],
+                ['glass-chroma-strength', 1.6, 'chroma_strength'],
+                ['glass-specular-intensity', 0.69, 'specular_intensity'],
+                ['glass-shininess', 70.0, 'shininess'],
+                ['glass-rim-width', 3.3, 'rim_width'],
+                ['glass-rim-intensity', 1.07, 'rim_intensity'],
+                ['glass-rim-power', 2.15, 'rim_power'],
+                ['glass-rim-light-color-intensity', 1.24, 'rim_light_color_intensity'],
+                ['glass-sheen-intensity', 0.15, 'sheen_intensity'],
+            ];
+            let complete = true;
+            for (const [key, previous, name] of seeds) {
+                try {
+                    const current = this._settings.get_double(key);
+                    const target = optics[name];
+                    if (Number.isFinite(target) &&
+                        Math.abs(current - previous) < 0.0001)
+                        this._settings.set_double(key, target);
+                } catch (error) {
+                    complete = false;
+                    console.warn(
+                        '[Velora][LiquidGlass] v10 key skipped ' +
+                        key + ': ' + error
+                    );
+                }
+            }
+
+            // A schema/load error cannot silently mark a partial upgrade
+            // successful. Never touch blur, tint, glass actors or geometry.
+            if (complete) {
+                try {
+                    this._veloraSettings.set_int(
+                        'glass-optics-profile-version', 10
+                    );
+                    version = 10;
+                } catch (error) {
+                    console.warn(
+                        '[Velora][LiquidGlass] v10 migration incomplete: ' +
+                        error
+                    );
+                }
+            }
+            if (version === 10)
+                console.log(
+                    '[Velora][LiquidGlass] richer liquid optics v10 seeded'
+                );
         }
     }
 

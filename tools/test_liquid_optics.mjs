@@ -1,106 +1,128 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-// The actual GJS source is evaluated with only its imports removed. This
-// tests the shipped migration method rather than a second implementation.
+// Run the shipped GNOME GJS method, not a second implementation of the
+// migration. The mock settings also catch unknown/misspelled schema keys.
 async function loadSource(path) {
     return (await readFile(new URL(path, import.meta.url), 'utf8'))
         .replace(/^import[\s\S]*?;\s*$/gm, '')
         .replace(/^export\s+/gm, '');
 }
-
-const systemSource = await loadSource(
-    '../gnome-shell/velora@wonderer.tech/glassMaterialSystem.js'
-);
-const roles = new Function(systemSource + '\nreturn VELORA_GLASS_ROLES;')();
-const adapter = new Function(systemSource + '\nreturn VELORA_GLASS_ADAPTERS;')();
-
-const runtimeSource = await loadSource(
-    '../gnome-shell/velora@wonderer.tech/liquidGlassDock.js'
-);
-const Integration = new Function(
-    'VELORA_GLASS_ROLES',
-    runtimeSource + '\nreturn LiquidGlassIntegration;'
-)(roles);
-
-const optics = roles.innerCard.optics;
-const seeded = new Map([
-    ['glass-max-z', [118.0, 'max_z']],
-    ['glass-displacement-scale', [42.0, 'displacement_scale']],
-    ['glass-chroma-strength', [1.4, 'chroma_strength']],
-    ['glass-specular-intensity', [0.55, 'specular_intensity']],
-    ['glass-shininess', [62.0, 'shininess']],
-    ['glass-rim-width', [2.8, 'rim_width']],
-    ['glass-rim-intensity', [0.90, 'rim_intensity']],
-    ['glass-rim-power', [2.3, 'rim_power']],
-    ['glass-rim-light-color-intensity', [1.18, 'rim_light_color_intensity']],
-    ['glass-sheen-intensity', [0.10, 'sheen_intensity']],
+const roleSource = await loadSource('../gnome-shell/velora@wonderer.tech/glassMaterialSystem.js');
+const roles = new Function(roleSource + '\nreturn VELORA_GLASS_ROLES;')();
+const adapters = new Function(roleSource + '\nreturn VELORA_GLASS_ADAPTERS;')();
+const runtimeSource = await loadSource('../gnome-shell/velora@wonderer.tech/liquidGlassDock.js');
+const Integration = new Function('VELORA_GLASS_ROLES',
+    runtimeSource + '\nreturn LiquidGlassIntegration;')(roles);
+const keys = new Map([
+    ['glass-max-z', 'max_z'],
+    ['glass-displacement-scale', 'displacement_scale'],
+    ['glass-ior', 'ior'],
+    ['glass-chroma-strength', 'chroma_strength'],
+    ['glass-specular-intensity', 'specular_intensity'],
+    ['glass-shininess', 'shininess'],
+    ['glass-rim-width', 'rim_width'],
+    ['glass-rim-intensity', 'rim_intensity'],
+    ['glass-rim-power', 'rim_power'],
+    ['glass-rim-light-color-intensity', 'rim_light_color_intensity'],
+    ['glass-sheen-intensity', 'sheen_intensity'],
+]);
+const v8 = new Map([
+    ['glass-max-z', 118], ['glass-displacement-scale', 42],
+    ['glass-ior', 1.68], ['glass-chroma-strength', 1.4],
+    ['glass-specular-intensity', 0.55], ['glass-shininess', 62],
+    ['glass-rim-width', 2.8], ['glass-rim-intensity', 0.90],
+    ['glass-rim-power', 2.3], ['glass-rim-light-color-intensity', 1.18],
+    ['glass-sheen-intensity', 0.10],
+]);
+const v9 = new Map([
+    ['glass-max-z', 132], ['glass-displacement-scale', 50],
+    ['glass-ior', 1.68], ['glass-chroma-strength', 1.6],
+    ['glass-specular-intensity', 0.69], ['glass-shininess', 70],
+    ['glass-rim-width', 3.3], ['glass-rim-intensity', 1.07],
+    ['glass-rim-power', 2.15], ['glass-rim-light-color-intensity', 1.24],
+    ['glass-sheen-intensity', 0.15],
 ]);
 
-function migrate(values, version = 8) {
+function migrate(source, version) {
+    const values = new Map(source);
     const writes = [];
-    const original = new Map(values);
-    const vendorSettings = {
-        get_double: key => values.get(key),
+    const settings = {
+        get_double(key) {
+            if (!values.has(key)) throw new Error('unknown setting: ' + key);
+            return values.get(key);
+        },
         set_double(key, value) {
+            if (!values.has(key)) throw new Error('unknown setting: ' + key);
             writes.push([key, value]);
             values.set(key, value);
         },
     };
-    const veloraSettings = {
+    const canonical = {
         version,
-        get_int: key => {
-            if (key !== 'glass-optics-profile-version')
-                throw new Error('Unexpected canonical get_int: ' + key);
-            return veloraSettings.version;
+        get_int(key) {
+            assert.equal(key, 'glass-optics-profile-version');
+            return this.version;
         },
-        set_int(key, value) {
-            if (key !== 'glass-optics-profile-version')
-                throw new Error('Unexpected canonical set_int: ' + key);
-            veloraSettings.version = value;
+        set_int(key, nextVersion) {
+            assert.equal(key, 'glass-optics-profile-version');
+            this.version = nextVersion;
         },
     };
     Integration.prototype._ensureFullGlassOpticsProfile.call({
-        _settings: vendorSettings,
-        _veloraSettings: veloraSettings,
+        _settings: settings, _veloraSettings: canonical,
     });
-    return {values, original, writes, version: veloraSettings.version};
+    return {values, writes, version: canonical.version};
 }
 
-const baseline = new Map([...seeded].map(([key, [value]]) => [key, value]));
-const migrated = migrate(baseline);
-assert.equal(migrated.version, 9);
-assert.equal(migrated.writes.length, seeded.size);
-for (const [key, [, optic]] of seeded)
-    assert.equal(migrated.values.get(key), optics[optic], key);
+function checkCurrent(map) {
+    for (const [key, uniform] of keys)
+        assert.equal(map.get(key), roles.innerCard.optics[uniform], key);
+}
 
-// Explicitly personalized controls must not be reset.
-const customized = new Map([...seeded].map(([key, [value]]) => [key, value]));
-customized.set('glass-max-z', 156);
-customized.set('glass-rim-intensity', 0.37);
-customized.set('glass-chroma-strength', 0.0);
-const custom = migrate(customized);
-assert.equal(custom.version, 9);
-assert.equal(custom.values.get('glass-max-z'), 156);
-assert.equal(custom.values.get('glass-rim-intensity'), 0.37);
-assert.equal(custom.values.get('glass-chroma-strength'), 0.0);
-assert.equal(custom.writes.length, seeded.size - 3);
+// Fresh v9 -> v10; the previous values were stored by the old profile.
+const fromV9 = migrate(v9, 9);
+assert.equal(fromV9.version, 10);
+assert.equal(fromV9.writes.length, 11);
+checkCurrent(fromV9.values);
 
-// No operation is performed twice on an already migrated profile.
-const repeated = migrate(migrated.values, 9);
-assert.equal(repeated.writes.length, 0);
-assert.equal(repeated.version, 9);
+// Older machines use pinned historical v9 values before advancing to v10.
+const fromV8 = migrate(v8, 8);
+assert.equal(fromV8.version, 10);
+assert.equal(fromV8.writes.length, 21);  // 10 in v9, then 11 in v10
+checkCurrent(fromV8.values);
 
-// User-requested stronger lens/glints without a new blur or capture pass.
-// The previous 24 FPS scene cap and native compositor geometry are unchanged.
-assert.ok(optics.displacement_scale > 42);
-assert.ok(optics.max_z > 118);
-assert.ok(optics.specular_intensity > 0.55);
-assert.ok(optics.sheen_intensity > 0.10);
-assert.ok(adapter.orb.hoverResponse > 0.38);
-assert.equal(adapter.orb.sceneFpsCap, 24);
-assert.equal(roles.innerCard.settingsOwnOptics, true);
-assert.equal(roles.innerCard.blurMethod, 1);
+// Advanced custom user values (even optical off = 0) must survive.
+const customSettings = new Map(v9);
+customSettings.set('glass-max-z', 166);
+customSettings.set('glass-chroma-strength', 0);
+customSettings.set('glass-rim-intensity', 0.34);
+customSettings.set('glass-ior', 1.94);
+const custom = migrate(customSettings, 9);
+assert.equal(custom.version, 10);
+assert.equal(custom.writes.length, 7);
+for (const key of [
+    'glass-max-z', 'glass-chroma-strength', 'glass-rim-intensity',
+    'glass-ior',
+])
+    assert.equal(custom.values.get(key), customSettings.get(key));
+
+// Migration is idempotent; no accidental every-login GSettings writes.
+const secondRun = migrate(fromV9.values, 10);
+assert.equal(secondRun.writes.length, 0);
+assert.equal(secondRun.version, 10);
+
+assert.ok(roles.innerCard.optics.max_z > v9.get('glass-max-z'));
+assert.ok(roles.innerCard.optics.displacement_scale > v9.get('glass-displacement-scale'));
+assert.ok(roles.innerCard.optics.ior > v9.get('glass-ior'));
+assert.ok(roles.innerCard.optics.specular_intensity > v9.get('glass-specular-intensity'));
+assert.ok(adapters.orb.hoverResponse > 0.48);
+assert.ok(adapters.spotlight.hoverResponse > 0.40);
+assert.equal(adapters.orb.sceneFpsCap, 24);
 assert.equal(roles.innerCard.blurMax, 7);
-
-console.log('Liquid optics v9 migration, custom preferences and performance guards PASS.');
+assert.equal(roles.innerCard.blurMethod, 1);
+assert.equal(roles.innerCard.settingsOwnOptics, true);
+assert.equal(roles.innerCard.multiRegion, true);
+assert.ok(roles.innerCard.interaction.damping > 0 &&
+          roles.innerCard.interaction.damping < 1);
+console.log('Liquid v8→v9→v10, custom values, and GPU frame budgets PASS.');
