@@ -42,6 +42,7 @@ RUNTIME_FILES=(
     "sharedAdaptiveText.js"
     "orbGlass.js"
     "panelGlass.js"
+    "frameBudget.js"
 )
 
 RUNTIME_DIRS=(

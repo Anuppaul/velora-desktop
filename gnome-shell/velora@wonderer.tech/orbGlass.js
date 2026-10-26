@@ -2,6 +2,7 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import {frameDue} from './frameBudget.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -17,6 +18,9 @@ const APP_BUTTON_CLASS = 'velora-app-button';
 const PAD = 20;
 const REGIONS_PER_BATCH = 16;
 const MAX_GLASS_BATCHES = 4;
+// Expanded All Apps uses a 24 FPS clone-scene cap; sample 30 FPS to
+// preserve responsive hover while avoiding repeated 60/144 Hz actor scans.
+const EXPANDED_REGION_FPS = 30;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
@@ -78,6 +82,9 @@ export class OrbGlassManager {
         this._scanIdleId = 0;
         this._lastRegionKey = '';
         this._lastSceneSyncUs = 0;
+        this._lastRegionPassUs = 0;
+        this._expandedRegionsActive = false;
+        this._regionMotionActive = false;
 
         this._screenshot = null;
         this._samplePending = false;
@@ -229,12 +236,14 @@ export class OrbGlassManager {
         if (this._batches.length >= wanted)
             return;
 
+        const added = [];
         while (this._batches.length < wanted)
-            this._createBatch(this._batches.length);
+            added.push(this._createBatch(this._batches.length));
 
-        // Initialize the new shader effects before their first visible frame.
-        // Existing batches are invalidated only on an actual new allocation.
-        this._applyAppearance(this._appearance);
+        // Initializing newly allocated shader batches must not re-upload
+        // uniforms to the *already visible* Orb face material, which caused
+        // a visible one-frame pulse on the first expanded menu open.
+        this._applyAppearance(this._appearance, added);
     }
 
     _clearBatch(batch) {
@@ -252,7 +261,8 @@ export class OrbGlassManager {
     }
 
     _applyAppearance(
-        state = this._appearance ?? this._readAppearance()
+        state = this._appearance ?? this._readAppearance(),
+        targets = this._batches
     ) {
         if (!this._batches.length || !state)
             return;
@@ -275,7 +285,7 @@ export class OrbGlassManager {
                 this._settings.get_double('menu-saturation');
         } catch {}
 
-        for (const batch of this._batches) {
+        for (const batch of targets) {
             applyVeloraGlassRole(
                 batch.effect,
                 role,
@@ -304,11 +314,16 @@ export class OrbGlassManager {
             batch.lastRegionGeometry = null;
         }
 
-        this._lastRegionKey = '';
-        this._glyphSampleDirty = true;
-        this._glyphGeometryChangedUs =
-            GLib.get_monotonic_time();
-        this._root?.queue_redraw?.();
+        if (targets === this._batches) {
+            // A user appearance change affects existing batches; creating
+            // additional batches does not invalidate material already shown.
+            this._lastRegionKey = '';
+            this._lastRegionPassUs = 0;
+            this._glyphSampleDirty = true;
+            this._glyphGeometryChangedUs =
+                GLib.get_monotonic_time();
+            this._root?.queue_redraw?.();
+        }
     }
 
     updateAppearance(
@@ -402,6 +417,9 @@ export class OrbGlassManager {
         }
 
         this._buttons = buttons;
+        this._lastRegionPassUs = 0;
+        this._expandedRegionsActive = false;
+        this._regionMotionActive = false;
         this._lastRegionKey = '';
         for (const batch of this._batches) {
             batch.lastRegionKey = '';
@@ -432,6 +450,18 @@ export class OrbGlassManager {
         const nowUs =
             GLib.get_monotonic_time();
 
+        // Expanded pages may have 60+ app actors. GNOME's before-update
+        // signal can run much faster than their 24 FPS Liquid Glass scene.
+        // Skip the full geometry/hover scan only on an already-visible
+        // expanded page, never on the small Orb or initial page reveal.
+        if (this._expandedRegionsActive &&
+            !this._regionMotionActive &&
+            !frameDue(
+                nowUs, this._lastRegionPassUs, EXPANDED_REGION_FPS
+            ))
+            return;
+        this._lastRegionPassUs = nowUs;
+
         this._vendor.setSizeIfChanged(
             this._root,
             width,
@@ -445,6 +475,7 @@ export class OrbGlassManager {
             targets.push(button);
 
         const regions = [];
+        let motionActive = false;
 
         for (const actor of targets) {
             if (
@@ -457,6 +488,20 @@ export class OrbGlassManager {
                 ) <= 0
             ) {
                 continue;
+            }
+
+            // Animated icons must be tracked on every compositor frame.
+            // Skipping frames while the icon moves (translation/scale/opacity)
+            // makes the background glass visibly jump between 30 Hz samples.
+            // Only stationary, expanded pages use the 30 FPS scan cap.
+            if (actor !== this._orbFace && (
+                actor.get_transition?.('translation-x') ||
+                actor.get_transition?.('translation-y') ||
+                actor.get_transition?.('scale-x') ||
+                actor.get_transition?.('scale-y') ||
+                actor.get_transition?.('opacity')
+            )) {
+                motionActive = true;
             }
 
             const rect =
@@ -506,6 +551,9 @@ export class OrbGlassManager {
                         : 0.0,
             });
         }
+
+        this._expandedRegionsActive = regions.length > REGIONS_PER_BATCH;
+        this._regionMotionActive = motionActive;
 
         if (!regions.length) {
             for (const batch of this._batches)

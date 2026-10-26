@@ -1,4 +1,3 @@
-import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
@@ -9,7 +8,6 @@ const APP_GRID_CLASS = 'apps-scroll-view';
 const SEARCH_RESULTS_NAME = 'searchResults';
 const OVERVIEW_WALLPAPER_CLASS = 'velora-overview-wallpaper';
 const BLUR_RADIUS = 36;
-const TRANSITION_BLUR_RADIUS = 0;
 const BLUR_BRIGHTNESS = 0.82;
 
 function classesOf(actor) {
@@ -30,7 +28,6 @@ export class AppGridBackdropManager {
         this._visibilitySignals = [];
         this._monitorsId = 0;
         this._scaleId = 0;
-        this._settleBlurSourceId = 0;
         this._currentBlurRadius = BLUR_RADIUS;
         this._lastAppliedBlurRadius = null;
         this._lastAppliedBlurScale = null;
@@ -292,41 +289,6 @@ export class AppGridBackdropManager {
         );
     }
 
-    _cancelSettledBlur() {
-        if (!this._settleBlurSourceId)
-            return;
-
-        try {
-            GLib.source_remove(
-                this._settleBlurSourceId
-            );
-        } catch {}
-        this._settleBlurSourceId = 0;
-    }
-
-    _scheduleSettledBlur() {
-        this._cancelSettledBlur();
-
-        this._settleBlurSourceId =
-            GLib.idle_add(
-                GLib.PRIORITY_DEFAULT_IDLE,
-                () => {
-                    this._settleBlurSourceId = 0;
-
-                    if (
-                        this._enabled &&
-                        Main.overview?.visible
-                    ) {
-                        this._updateBlur(
-                            BLUR_RADIUS
-                        );
-                    }
-
-                    return GLib.SOURCE_REMOVE;
-                }
-            );
-    }
-
     _syncVisibility(phase = null) {
         if (!this._enabled || !this._layer)
             return;
@@ -348,22 +310,13 @@ export class AppGridBackdropManager {
                 OVERVIEW_WALLPAPER_CLASS
             );
 
-            if (
-                phase === 'showing' ||
-                phase === 'hiding'
-            ) {
-                this._cancelSettledBlur();
-                this._updateBlur(
-                    TRANSITION_BLUR_RADIUS
-                );
-            } else if (phase === 'shown') {
-                this._scheduleSettledBlur();
-            }
-
+            // Keep the already-allocated native BlurEffect at one radius
+            // throughout Showing → App Grid → Hiding. The former 0 → 36
+            // radius jump after the "shown" idle callback caused a visible
+            // flash and invalidated a monitor-sized blur FBO.
             if (!this._layer.visible)
                 this._layer.show?.();
         } else {
-            this._cancelSettledBlur();
             overview?.remove_style_class_name?.(
                 OVERVIEW_WALLPAPER_CLASS
             );
@@ -382,7 +335,6 @@ export class AppGridBackdropManager {
         if (!this._enabled)
             return;
         this._enabled = false;
-        this._cancelSettledBlur();
 
         for (const {object, id} of this._visibilitySignals) {
             try {
