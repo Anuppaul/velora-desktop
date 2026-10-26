@@ -202,9 +202,24 @@ export const LiquidEffect = GObject.registerClass({
         this._pipelines = new ShaderPipelines(logger);
         this._crop = new CropPass(this._pipelines, this._passes, logger);
         this._blur = new BlurRenderer(this._pipelines, this._passes, () => this.queue_repaint(), logger);
+        // The saved Liquid blur radius is immutable across material switches.
+        this._requestedBlurRadius = null;
+        this._frostAmount = 0.0;
         this._uniforms = new UniformState();
         this._geometry = new GlassGeometry(this._uniforms.values);
-        this._material = new MaterialSettings(settings, this._uniforms, this._blur, enabled => { this._diagEnabled = enabled; });
+        this._material = new MaterialSettings(
+            settings,
+            this._uniforms,
+            this._blur,
+            enabled => { this._diagEnabled = enabled; },
+            (amount, initial) => {
+                this._frostAmount = Math.max(0, Math.min(1, amount));
+                if (this._requestedBlurRadius !== null)
+                    this._applyVeloraBlurRadius();
+                if (!initial)
+                    this.queue_repaint();
+            }
+        );
         this._material.initialize();
         this._loadAllShadersAsync();
     }
@@ -1066,7 +1081,22 @@ export const LiquidEffect = GObject.registerClass({
         this._uniforms.set('shadow_max_radius', radius);
     }
     setBlurMethod(method) { this._blur.setBlurMethod(method); }
-    setBlurRadius(radius) { this._blur.setBlurRadius(radius); }
+    _applyVeloraBlurRadius() {
+        const base = this._requestedBlurRadius;
+        if (base === null)
+            return;
+        // Stronger diffusion in the SAME native blur pipeline, not another
+        // render pass. User's explicit zero blur always remains zero.
+        const extra = base > 0
+            ? Math.min(18.0, this._frostAmount * 12.0)
+            : 0;
+        this._blur.setBlurRadius(base + extra);
+    }
+    setBlurRadius(radius) {
+        this._requestedBlurRadius =
+            Number.isFinite(radius) ? Math.max(0, radius) : 0;
+        this._applyVeloraBlurRadius();
+    }
     /**
      * [DEBUG] Forces glass.frag (and the downsample/upsample shaders) to be
      * re-read from disk and recompiled into fresh Cogl.Pipelines on the next
