@@ -129,10 +129,10 @@ function render(frames, {
     return {card, windows, runtime};
 }
 
-assert.equal(planWindowPreview([], 1.65, DEFAULT_MONITOR), null);
+assert.equal(planWindowPreview([], 1.35, DEFAULT_MONITOR), null);
 for (const count of [1, 2, 3, 4]) {
     const {card} = render(sources.slice(0, count));
-    assert.deepEqual([card.width, card.height], [784, 441]);
+    assert.deepEqual([card.width, card.height], [640, 360]);
     // No overlapping 16:9 click targets, including third window centered.
     for (let i = 0; i < card.children.length; i++) {
         for (let j = i + 1; j < card.children.length; j++) {
@@ -146,6 +146,8 @@ for (const count of [1, 2, 3, 4]) {
         }
     }
 }
+// The reduced scale is the only intended visual geometry change;
+ // unchanged 16:9 framing and live thumbnail preservation still apply.
 const terminal = render([sources[0]]).card;
 const files = render([sources[1]]).card;
 assert.deepEqual([terminal.width, terminal.height],
@@ -188,7 +190,7 @@ assert.ok(small.children[0].children[0].children[0].width > 140);
 assert.deepEqual(
     (() => {const c = render([sources[1]], {percent: 50}).card;
         return [c.width, c.height];})(),
-    [384, 216],
+    [320, 180],
 );
 for (const monitor of [
     {x: 0, y: 0, width: 600, height: 360},
