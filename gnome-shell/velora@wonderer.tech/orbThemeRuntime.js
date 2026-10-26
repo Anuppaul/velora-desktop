@@ -2669,10 +2669,12 @@ export default class VeloraRuntime extends Extension {
         // overflow the card or produce asymmetrical empty side areas.
         const maxWidth = Math.max(1, tileWidth - 4);
         const maxHeight = Math.max(1, tileHeight - 4);
+        // GNOME's native preview is a compositor texture: it can be
+        // scaled just like Overview thumbnails. A forced 1:1 cap made small
+        // windows tiny inside a large glass frame even after sizing fixes.
         const scale = Math.min(
             maxWidth / bounds.width,
-            maxHeight / bounds.height,
-            1
+            maxHeight / bounds.height
         );
         const previewWidth = Math.max(
             1, Math.floor(bounds.frame.width * scale)
