@@ -34,8 +34,12 @@ const MAX_VISIBLE_ORB_APPS = 63;
 // Retain at most two detached pages while Orb is open.
 const MAX_CACHED_INACTIVE_ORB_PAGES = 2;
 const APP_PREVIEW_MAX_WINDOWS = 4;
-const APP_PREVIEW_GAP = 8;
-const APP_PREVIEW_PADDING = 10;
+// A larger glass frame and live native thumbnails, shared by Orb and Ubuntu
+// Dock app previews. The monitor-fit constraint below keeps these usable
+// even with the user's existing 50–180% size preference.
+const APP_PREVIEW_SIZE_BOOST = 1.25;
+const APP_PREVIEW_GAP = 10;
+const APP_PREVIEW_PADDING = 14;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
@@ -2407,8 +2411,6 @@ export default class VeloraRuntime extends Extension {
         const columns = count === 1 ? 1 : 2;
         const rows = Math.ceil(count / columns);
 
-        const previewScale =
-            this._settings.get_int('app-preview-size') / 100;
         const baseTileWidth =
             count === 1 ? 280 :
             count === 2 ? 220 :
@@ -2417,8 +2419,48 @@ export default class VeloraRuntime extends Extension {
             count === 1 ? 176 :
             count === 2 ? 140 :
             120;
-        const tileWidth = Math.round(baseTileWidth * previewScale);
-        const tileHeight = Math.round(baseTileHeight * previewScale);
+
+        // Grow both the glass rectangle and its real live thumbnails. Do not
+        // scale the whole actor: native pointer targets and Shell's
+        // WindowPreviewLayout must keep their correct physical dimensions.
+        const requestedScale =
+            this._settings.get_int('app-preview-size') / 100 *
+            APP_PREVIEW_SIZE_BOOST;
+        const [anchorX, anchorY] =
+            anchorActor.get_transformed_position();
+        const [anchorWidth, anchorHeight] =
+            anchorActor.get_transformed_size();
+        const monitor = this._monitorAt(
+            anchorX + anchorWidth / 2,
+            anchorY + anchorHeight / 2
+        );
+
+        const chromeWidth =
+            APP_PREVIEW_PADDING * 2 +
+            Math.max(0, columns - 1) * APP_PREVIEW_GAP;
+        const chromeHeight =
+            APP_PREVIEW_PADDING * 2 +
+            Math.max(0, rows - 1) * APP_PREVIEW_GAP;
+        // Respect both edges of the actual monitor, including multi-monitor
+        // setups and high user-selected preview sizes. Keeping one uniform
+        // scale preserves each tile's aspect ratio and glass geometry.
+        const availableWidth = Math.max(
+            1, monitor.width - SCREEN_MARGIN * 2 - chromeWidth
+        );
+        const availableHeight = Math.max(
+            1, monitor.height - SCREEN_MARGIN * 2 - chromeHeight
+        );
+        const previewScale = Math.min(
+            requestedScale,
+            availableWidth / (columns * baseTileWidth),
+            availableHeight / (rows * baseTileHeight)
+        );
+        const tileWidth = Math.max(
+            1, Math.round(baseTileWidth * previewScale)
+        );
+        const tileHeight = Math.max(
+            1, Math.round(baseTileHeight * previewScale)
+        );
 
         const cardWidth =
             APP_PREVIEW_PADDING * 2 +

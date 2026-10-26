@@ -144,3 +144,28 @@ drag near each screen edge, and check that glass never turns into a
 full-monitor black surface, that the previews remain clickable, and that
 idle resource use returns after closing a preview. Mock tests do not
 replace compositor/GPU measurement.
+
+## Enlarged Orb and Ubuntu Dock window preview rectangle
+
+The shared running-window preview card is now approximately 25% larger:
+both the live native window thumbnails and their surrounding v10 Liquid Glass
+rectangle expand together, rather than scaling a painted bitmap.
+
+| Windows | Previous rectangle | Enlarged rectangle |
+| --- | --- | --- |
+| One | 300 × 196 px | 378 × 248 px |
+| Two | 468 × 160 px | 588 × 203 px |
+| Three or four | 408 × 268 px | 514 × 338 px |
+
+Values above assume the existing **100% App Preview Size** preference
+and adequate display space. Existing 50–180% user preferences continue to
+apply, but the layout fits the actual anchor monitor before allocating tiles.
+That prevents the larger glass card from exceeding the monitor's visible
+bounds on smaller or multi-monitor desktops. Native thumbnail aspect ratios,
+click behavior and composited open/close animation are unchanged; the same
+bounded preview LiquidEffect handles the larger material.
+
+Run `node tools/test_preview_layout.mjs` for layout, size preference and
+multi-monitor fit checks, and verify actual Orb/Dock previews visually on
+GNOME Shell 50. Larger rectangles paint more pixels, so real GPU usage and
+glass refresh timing should be measured before making performance claims.
