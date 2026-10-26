@@ -38,8 +38,14 @@ let nextId = 0;
 const vendor = {
     settings_schema: {has_key: key => values.has(key)},
     get_double(key) {
-        if (!values.has(key))
-            throw new Error('Missing GSettings key: ' + key);
+        // The real vendored schema contains many unrelated numeric Liquid
+        // optics. This focused mock supplies their defaults without hiding
+        // missing Frosted keys (which must always be explicitly present).
+        if (!values.has(key)) {
+            if (key.startsWith('velora-frost-'))
+                throw new Error('Missing Frosted key: ' + key);
+            return 1.0;
+        }
         return values.get(key);
     },
     set_double(key, value) {
