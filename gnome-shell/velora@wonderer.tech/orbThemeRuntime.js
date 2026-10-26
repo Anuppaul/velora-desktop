@@ -1414,13 +1414,17 @@ export default class VeloraRuntime extends Extension {
                 ?.placementsByLength.set(apps.length, placements);
         }
 
+        // Page switches are native, in-place swaps, not a second radial
+        // entrance from the Orb. Replaying the entrance on every page briefly
+        // leaves the scene with zero-opacity icons and looks like a blink.
+        const entranceMs = reusePageSession ? 0 : animationMs;
         this._createGeometryLinks(
             geometry,
             placements,
             centerX,
             centerY,
             iconSize,
-            animationMs
+            entranceMs
         );
 
         for (
@@ -1441,32 +1445,31 @@ export default class VeloraRuntime extends Extension {
                 actor.remove_all_transitions?.();
                 actor.show?.();
             }
-            actor.set_position(
-                centerX - iconSize / 2,
-                centerY - iconSize / 2
-            );
-            actor.opacity = 0;
-            actor.scale_x = 0.35;
-            actor.scale_y = 0.35;
+            // Fix the layout once at the final native slot. Animate the
+            // paint-time transform rather than x/y: Clutter's FixedLayout
+            // reallocation used to lag the glass scene and produce a jump on
+            // the first visible frames of large radial pages.
+            actor.set_position(slot.x, slot.y);
+            actor.translation_x = entranceMs > 0
+                ? centerX - iconSize / 2 - slot.x
+                : 0;
+            actor.translation_y = entranceMs > 0
+                ? centerY - iconSize / 2 - slot.y
+                : 0;
+            actor.opacity = entranceMs > 0 ? 0 : 255;
+            actor.scale_x = entranceMs > 0 ? 0.35 : 1;
+            actor.scale_y = entranceMs > 0 ? 0.35 : 1;
             this._layer.add_child(actor);
             this._radialActors.push(actor);
 
-            if (animationMs <= 0) {
-                actor.set_position(
-                    slot.x,
-                    slot.y
-                );
-                actor.opacity = 255;
-                actor.scale_x = 1;
-                actor.scale_y = 1;
-            } else {
+            if (entranceMs > 0) {
                 actor.ease({
-                    x: slot.x,
-                    y: slot.y,
+                    translation_x: 0,
+                    translation_y: 0,
                     opacity: 255,
                     scale_x: 1,
                     scale_y: 1,
-                    duration: animationMs,
+                    duration: entranceMs,
                     mode:
                         Clutter.AnimationMode
                             .EASE_OUT_QUAD,
@@ -1800,8 +1803,10 @@ export default class VeloraRuntime extends Extension {
 
             this._closingActors.add(actor);
             actor.ease({
-                x: targetX,
-                y: targetY,
+                // Translation avoids a second round of layout invalidations
+                // when a live radial page collapses back to its Orb.
+                translation_x: targetX - actor.x,
+                translation_y: targetY - actor.y,
                 opacity: 0,
                 scale_x: 0.35,
                 scale_y: 0.35,
