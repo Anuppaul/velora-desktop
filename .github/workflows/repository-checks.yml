@@ -36,10 +36,8 @@ jobs:
           node tools/test_liquid_optics.mjs
           node tools/test_frosted_crystal.mjs
           # Validate the modified vendored modules as well as Velora's own JS.
-          node --input-type=module --check <
-            gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
-          node --input-type=module --check <
-            gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
+          node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
+          node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
 
       - name: Validate both GSettings material schemas
         run: |
