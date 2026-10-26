@@ -145,4 +145,51 @@ for (const phase of ['showing', 'shown', null, 'hiding']) {
 }
 assert.deepEqual(blurChanges, [], 'no mid-transition blur invalidation');
 
-console.log('Orb native enter/exit, page switch, and Overview blur tests passed.');
+// Expanding an All Apps page must initialize only its new shader batches;
+// previously the first new batch re-applied appearance to the already visible
+// Orb face, invalidating its texture on the very frame the menu appeared.
+let clock = 5000000;
+const updatedEffects = [];
+const OrbGlass = await loadClass(
+    '../gnome-shell/velora@wonderer.tech/orbGlass.js',
+    'OrbGlassManager', {
+        GLib: {get_monotonic_time: () => clock},
+        frameDue: (now, last, fps) =>
+            !last || now < last || now - last >= 1000000 / fps,
+        VELORA_GLASS_ROLES: {orbCard: {tintStrength: 0}},
+        VELORA_GLASS_ADAPTERS: {orb: {multiRegion: true}},
+        applyVeloraGlassRole: effect => updatedEffects.push(effect.id),
+        global: {stage: {width: 1280, height: 720}},
+    }
+);
+const glass = new OrbGlass({
+    vendor: {setSizeIfChanged() {this.writes++;}, writes: 0},
+    settings: {get_double: () => 1},
+    readAppearance: () => ({r: 255, g: 255, b: 255, blur: 7}),
+});
+glass._appearance = {r: 255, g: 255, b: 255, blur: 7};
+glass._root = {visible: true, queue_redraw() {}, hide() {this.visible = false;}};
+glass._batches = [{effect: {id: 0}}];
+glass._createBatch = function(index) {
+    const batch = {effect: {id: index}};
+    this._batches.push(batch);
+    return batch;
+};
+glass._ensureBatchCount(4);
+assert.deepEqual(updatedEffects, [1, 2, 3], 'do not reset visible glass batch');
+updatedEffects.length = 0;
+glass.updateAppearance();
+assert.deepEqual(updatedEffects, [0, 1, 2, 3], 'appearance settings still refresh every batch');
+
+// For a moving expanded grid, bypass the stationary 30 FPS budget.
+glass._lastRegionPassUs = clock;
+glass._expandedRegionsActive = true;
+glass._regionMotionActive = false;
+glass._buttons = new Set();
+glass._orbFace = null;
+glass._syncRegions();
+assert.equal(glass._vendor.writes, 0, 'stationary grid skips extra scan');
+glass._regionMotionActive = true;
+glass._syncRegions();
+assert.equal(glass._vendor.writes, 1, 'moving grid runs on this frame');
+console.log('Orb native transitions, glass expansion, and Overview blur tests passed.');
