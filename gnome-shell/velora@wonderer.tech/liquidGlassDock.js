@@ -67,13 +67,16 @@ const DOCK_GLASS_BACKGROUND_CLASS =
     'velora-ubuntu-dock-glass-background';
 const DOCK_PANEL_BLUR_EFFECT =
     'velora-ubuntu-dock-panel-blur';
-const DOCK_PANEL_BLUR_RADIUS = 10;
+const DOCK_PANEL_BLUR_RADIUS = 18;
+// Panel-local frosted glass: the blur effect is applied to Ubuntu Dock's
+// native .dash-background only, never to the whole monitor. A thin highlight
+// and the accepted milky tint add depth without another capture pass.
 const DOCK_PANEL_PREMIUM_STYLE =
-    'background-color: rgba(255,255,255,0.085); ' +
-    'background-image: none; ' +
-    'border-color: rgba(255,255,255,0.13); ' +
+    'background-color: rgba(245,248,255,0.15); ' +
+    'background-image: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0.015)); ' +
+    'border-color: rgba(255,255,255,0.21); ' +
     'border-radius: 0px; ' +
-    'box-shadow: none;';
+    'box-shadow: inset 0 1px rgba(255,255,255,0.20);';
 const DOCK_MODE_SETTLE_FRAMES = 2;
 const DOCK_HANDOFF_POLL_MS = 24;
 const DOCK_HANDOFF_MAX_MS = 5000;
