@@ -29,7 +29,7 @@ jobs:
             while IFS= read -r -d '' file; do
               node --input-type=module --check < "$file"
             done
-          node --experimental-default-type=module tools/test_frame_budget.mjs
+          node tools/test_frame_budget.mjs
 
       - name: Validate repository metadata and XML
         run: |
