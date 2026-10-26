@@ -84,6 +84,7 @@ export class OrbGlassManager {
         this._lastSceneSyncUs = 0;
         this._lastRegionPassUs = 0;
         this._expandedRegionsActive = false;
+        this._regionMotionActive = false;
 
         this._screenshot = null;
         this._samplePending = false;
@@ -411,6 +412,7 @@ export class OrbGlassManager {
         this._buttons = buttons;
         this._lastRegionPassUs = 0;
         this._expandedRegionsActive = false;
+        this._regionMotionActive = false;
         this._lastRegionKey = '';
         for (const batch of this._batches) {
             batch.lastRegionKey = '';
@@ -446,6 +448,7 @@ export class OrbGlassManager {
         // Skip the full geometry/hover scan only on an already-visible
         // expanded page, never on the small Orb or initial page reveal.
         if (this._expandedRegionsActive &&
+            !this._regionMotionActive &&
             !frameDue(
                 nowUs, this._lastRegionPassUs, EXPANDED_REGION_FPS
             ))
@@ -465,6 +468,7 @@ export class OrbGlassManager {
             targets.push(button);
 
         const regions = [];
+        let motionActive = false;
 
         for (const actor of targets) {
             if (
@@ -477,6 +481,20 @@ export class OrbGlassManager {
                 ) <= 0
             ) {
                 continue;
+            }
+
+            // Animated icons must be tracked on every compositor frame.
+            // Skipping frames while the icon moves (translation/scale/opacity)
+            // makes the background glass visibly jump between 30 Hz samples.
+            // Only stationary, expanded pages use the 30 FPS scan cap.
+            if (actor !== this._orbFace && (
+                actor.get_transition?.('translation-x') ||
+                actor.get_transition?.('translation-y') ||
+                actor.get_transition?.('scale-x') ||
+                actor.get_transition?.('scale-y') ||
+                actor.get_transition?.('opacity')
+            )) {
+                motionActive = true;
             }
 
             const rect =
@@ -528,6 +546,7 @@ export class OrbGlassManager {
         }
 
         this._expandedRegionsActive = regions.length > REGIONS_PER_BATCH;
+        this._regionMotionActive = motionActive;
 
         if (!regions.length) {
             for (const batch of this._batches)
