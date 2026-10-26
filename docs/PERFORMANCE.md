@@ -45,4 +45,4 @@ Use --pid PID if multiple same-user gnome-shell processes exist, --delay 10 to g
 - Orb's small, single-batch surface still samples every compositor frame. Once the expanded All Apps view has more than 16 visible glass regions, its geometry/hover scan is capped at 30 FPS, while the window-clone scene remains capped at its existing 24 FPS. Newly scanned/revealed regions get an immediate pass.
 - The existing native-Dock 180 px monitor-thickness guard, stage clipping, fallback veil and no-fullscreen-panel-FBO architecture are unchanged. This optimization does not claim measured CPU, GPU, FPS or latency gains: capture the same desktop scenarios and compositor traces before attributing improvements.
 
-Runtime guard checks: `node --experimental-default-type=module tools/test_frame_budget.mjs`; Velora JS modules are syntax-checked on PRs.
+Runtime guard checks: `node tools/test_frame_budget.mjs`; Velora JS modules are syntax-checked on PRs.
