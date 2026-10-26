@@ -265,7 +265,7 @@ Velora's runtime is designed around a few constraints:
 
 Performance-sensitive changes should include reproducible before/after evidence where practical.
 
-Velora's shared Liquid Glass shader uses a subtle **static micro-grain** and a **10% milky-white body shade** in both flat and refractive paths. The shade is applied before the configurable user tint, without changing glass alpha; no extra overlay actors, GPU textures, or render passes are required. Panel-mode Dock, transparent margins and shadow-only pixels stay unchanged. See the [optional performance capture guide](docs/PERFORMANCE.md) for GNOME Shell CPU/RAM and NVIDIA GPU baseline comparisons.
+Velora's shared Liquid Glass shader uses a subtle **static micro-grain** and a **15% milky-white body shade** in both flat and refractive paths. The shade is applied before the configurable user tint, without changing glass alpha; no extra overlay actors, GPU textures, or render passes are required. Panel-mode Dock, transparent margins and shadow-only pixels stay unchanged. See the [optional performance capture guide](docs/PERFORMANCE.md) for GNOME Shell CPU/RAM and NVIDIA GPU baseline comparisons.
 
 ## Development
 
