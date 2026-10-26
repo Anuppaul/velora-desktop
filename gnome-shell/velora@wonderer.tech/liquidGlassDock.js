@@ -530,6 +530,43 @@ export class LiquidGlassIntegration {
         }
     }
 
+    _applyFrostedCrystalSettings() {
+        // The canonical Velora schema is the ONLY source of user intent.
+        // Map style controls into the existing material's uniforms; never
+        // replace or persist over the original v10 refraction, tint, blur or
+        // custom advanced renderer values. New and existing LiquidEffects
+        // receive live changes via their vendored MaterialSettings bindings.
+        if (!this._settings || !this._veloraSettings)
+            return;
+
+        try {
+            const enabled =
+                this._veloraSettings.get_string('glass-style') === 'frosted';
+            const fraction = key =>
+                clampNumber(this._veloraSettings.get_int(key), 0, 100) / 100;
+            const grain = fraction('frost-grain');
+            const edge = fraction('frost-edge-glow');
+            const density = enabled ? fraction('frost-density') : 0;
+
+            // Update grain/edge first, the mode-active blend last: no
+            // transient half-configured material during a live toggle.
+            for (const [key, value] of [
+                ['velora-frost-grain', grain],
+                ['velora-frost-edge-glow', edge],
+                ['velora-frost-amount', density],
+            ]) {
+                if (Math.abs(this._settings.get_double(key) - value) > 0.0001)
+                    this._settings.set_double(key, value);
+            }
+        } catch (error) {
+            // Incompatible external/upstream vendor versions may not have
+            // the new keys; never break the user's running GNOME session.
+            console.warn(
+                '[Velora][FrostedCrystal] mode application skipped: ' + error
+            );
+        }
+    }
+
     async enable() {
         if (this._enabled)
             return;
@@ -540,6 +577,9 @@ export class LiquidGlassIntegration {
         validateVendorApi(this._vendor);
         this._settings = createLiquidGlassSettings();
         this._ensureFullGlassOpticsProfile();
+        // Seed the user-selected mode BEFORE creating any glass effects so
+        // login never flashes Liquid material before Frosted is ready.
+        this._applyFrostedCrystalSettings();
 
         const externalRoot = activeUpstreamExtensionRoot();
         this._externalGlobalStack = Boolean(
@@ -1647,7 +1687,18 @@ export class LiquidGlassIntegration {
                             'date-menu-glass-blur',
                             'date-menu-glass-filter-opacity',
                             'glass-live-scene-fps',
+                            'glass-style',
+                            'frost-density',
+                            'frost-grain',
+                            'frost-edge-glow',
                         ].includes(key)) {
+                            if ([
+                                'glass-style',
+                                'frost-density',
+                                'frost-grain',
+                                'frost-edge-glow',
+                            ].includes(key))
+                                this._applyFrostedCrystalSettings();
                             this._queueSharedCardAppearanceApply();
                         }
                     }
@@ -5381,6 +5432,14 @@ export class LiquidGlassIntegration {
                 glassBlur:
                     this._veloraSettings?.get_int?.(
                         'glass-blur'
+                    ) ?? null,
+                glassStyle:
+                    this._veloraSettings?.get_string?.(
+                        'glass-style'
+                    ) ?? null,
+                frostAmount:
+                    this._settings?.get_double?.(
+                        'velora-frost-amount'
                     ) ?? null,
                 nativeNotificationStyler: Boolean(
                     this._notificationGlassManager
