@@ -115,13 +115,15 @@ function render(count, {
     return {card, tiles, runtime};
 }
 
-// Before: 300 x 196 (1), 468 x 160 (2), 408 x 268 (3–4).
-// Now: 25% larger thumbnail dimensions plus a roomier glass frame.
+// This revision further increases thumbnail size beyond the previous 25%
+// boost but removes the extra wide peripheral glass/inner tile layers.
+// Expected pixels assume 100% user preference and ample monitor space.
+// Previous: 378x248, 588x203, 514x338.
 for (const [count, expectedWidth, expectedHeight] of [
-    [1, 378, 248],
-    [2, 588, 203],
-    [3, 514, 338],
-    [4, 514, 338],
+    [1, 474, 302],
+    [2, 746, 243],
+    [3, 648, 416],
+    [4, 648, 416],
 ]) {
     const {card} = render(count);
     assert.deepEqual([card.width, card.height],
@@ -135,7 +137,7 @@ assert.deepEqual(
         const {card} = render(1, {percent: 50});
         return [card.width, card.height];
     })(),
-    [203, 138],
+    [243, 157],
 );
 
 for (const monitor of [
@@ -152,4 +154,20 @@ for (const monitor of [
     }
 }
 
-console.log('Large preview cards, native thumbnails, preferences and monitor-fit PASS.');
+// The second frosted per-thumbnail plate/side rim must be fully removed.
+// Interactive hover feedback is permitted, but there is no always-on plate.
+const css = await readFile(new URL(
+    '../gnome-shell/velora@wonderer.tech/runtime.css', import.meta.url
+), 'utf8');
+const previewFrameCss = css.match(/\.velora-app-preview-card\s*\{([^}]*)\}/)?.[1];
+const tileCss = css.match(/\.velora-window-preview-tile\s*\{([^}]*)\}/)?.[1];
+assert.ok(previewFrameCss && tileCss);
+assert.match(previewFrameCss, /border:\s*0\s*;/);
+assert.match(previewFrameCss, /box-shadow:\s*none\s*;/);
+assert.match(tileCss, /background-color:\s*transparent\s*;/);
+assert.match(tileCss, /border:\s*0\s*;/);
+assert.match(tileCss, /box-shadow:\s*none\s*;/);
+assert.match(source, /tileWidth - 4/);
+assert.match(source, /tileHeight - 4/);
+
+console.log('Extra-large edge-to-edge Liquid Glass previews, monitor-fit and single layer PASS.');
