@@ -248,11 +248,13 @@
     box-shadow: none !important;
 }
 
-/* The top panel's native solid paint must not cover its Liquid Glass layer. */
+/* Only the GNOME top header is an edge-to-edge square glass strip.
+ * Popup menus, cards and the Dock keep their existing corner geometry. */
 #panel.velora-liquid-top-panel,
 .velora-liquid-top-panel {
     background-color: transparent;
     background-image: none;
+    border-radius: 0px !important;
     box-shadow: none;
 }
 
