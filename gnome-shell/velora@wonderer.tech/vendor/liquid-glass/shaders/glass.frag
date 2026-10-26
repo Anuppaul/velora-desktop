@@ -608,6 +608,12 @@ vec3 sampleBackdrop(vec2 uvc, vec2 ext, vec2 texel, vec2 resolution) {
     return sum * 0.1;
 }
 
+// The subtle milky-white optical body lift is a separate glass-material
+// layer (not a CSS overlay). Applying it ahead of the user tint preserves
+// the tint color/strength and leaves the output alpha exactly unchanged.
+// It is sampled once per pixel, requires no extra texture or render pass.
+const float VELORA_MILKY_WHITE_SHADE = 0.10;
+
 // Velora premium glass grain: fine, screen-static monochrome microtexture.
 // Reuse the existing single hash/dither evaluation, with a subtle but visible
 // ~3% peak-to-peak RGB luminance range (about +/- 0.014 per channel).
@@ -859,6 +865,9 @@ void main() {
 
         flatRgb = applySCB(flatRgb, brightness, contrast, saturation);
         flatRgb = mix(flatRgb, activeTint, activeBaseStrength);
+        // Match the full refractive path: brighten only the glass body,
+        // then apply the existing user-customizable tint on top.
+        flatRgb = mix(flatRgb, vec3(1.0), VELORA_MILKY_WHITE_SHADE);
         flatRgb = mix(flatRgb, vec3(tint_r, tint_g, tint_b), tint_strength);
 
         // Specular and sheen at N = (0, 0, 1). reflect(-L, N) is
@@ -1248,16 +1257,19 @@ void main() {
     //              activeBaseStrength is 0 everywhere else), at
     //              region_base_strength. This is what makes a toggle that
     //              genuinely turns solid white when ON read as white.
-    //   2. CUSTOM — the user's configured tint color, at tint_strength.
+    //   2. MILKY — subtle white body lift without changing transparency.
+    //   3. CUSTOM — the user's configured tint color, at tint_strength.
     //
     // Previously these were a single mix() against one pre-blended color, so
     // tint_strength scaled BOTH: a low custom tint strength also suppressed
     // the element's own color, and the only way to bring an element's own
     // color back was to raise the custom tint too. Layering them keeps each
-    // slider doing exactly one thing, and the legacy path is unchanged
-    // (activeBaseStrength == 0 collapses layer 1 to a no-op, leaving
-    // mix(refracted, tint, tint_strength) exactly as before).
+    // slider doing exactly one thing. The milky-white addition is now a
+    // separate material shade, applied before the original user tint.
     vec3 insideBaseColor = mix(refracted, activeTint, activeBaseStrength);
+    // Exactly the same white shade as the flat-interior early exit.
+    // Keep the user's chosen tint on top and leave glass alpha untouched.
+    insideBaseColor = mix(insideBaseColor, vec3(1.0), VELORA_MILKY_WHITE_SHADE);
     insideBaseColor = mix(insideBaseColor, vec3(tint_r, tint_g, tint_b), tint_strength);
 
     // [FIX] Do NOT multiply by insideMask here. insideMask is the same
