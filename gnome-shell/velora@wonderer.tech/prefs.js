@@ -186,10 +186,82 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'preferences-desktop-appearance-symbolic'
         );
 
-        const glass = new Adw.PreferencesGroup({
-            title: 'System Liquid Glass',
+        // Independent styles: choosing Frosted Crystal never rewrites the
+        // existing Liquid v10 Advanced optics or user tint/blur preferences.
+        // Gio.Settings makes this switch persistent and live while Shell runs.
+        const materialGroup = new Adw.PreferencesGroup({
+            title: 'Glass Material',
             description:
-                'The shared material used by supported GNOME Shell surfaces.',
+                'Choose one material for Velora surfaces. The change applies live without restarting GNOME Shell.',
+        });
+        appearancePage.add(materialGroup);
+
+        const glassStyle = new Adw.ComboRow({
+            title: 'Material style',
+            subtitle:
+                'Liquid Glass retains the glossy v10 optics. Frosted Crystal adds soft diffusion, matte grain and subtle crystal edges.',
+            model: Gtk.StringList.new([
+                'Liquid Glass',
+                'Frosted Crystal',
+            ]),
+        });
+        const glassStyleValues = ['liquid', 'frosted'];
+        let syncingGlassStyle = false;
+        const syncGlassStyle = () => {
+            syncingGlassStyle = true;
+            glassStyle.selected = Math.max(
+                0,
+                glassStyleValues.indexOf(settings.get_string('glass-style'))
+            );
+            syncingGlassStyle = false;
+        };
+        syncGlassStyle();
+        glassStyle.connect('notify::selected', () => {
+            if (!syncingGlassStyle && glassStyle.selected < 2)
+                settings.set_string(
+                    'glass-style',
+                    glassStyleValues[glassStyle.selected]
+                );
+        });
+        settings.connect('changed::glass-style', syncGlassStyle);
+        materialGroup.add(glassStyle);
+
+        const frost = new Adw.PreferencesGroup({
+            title: 'Frosted Crystal',
+            description:
+                'Independent controls for the matte material. Liquid Glass settings are saved separately and are never overwritten.',
+        });
+        appearancePage.add(frost);
+        addIntSpin(
+            frost, settings, 'frost-density',
+            'Frost density',
+            'Diffuses background detail through a satin-matte crystal surface.',
+            0, 100, 2
+        );
+        addIntSpin(
+            frost, settings, 'frost-grain',
+            'Micro-grain',
+            'Screen-static, fine crystalline texture with no extra texture pass.',
+            0, 100, 2
+        );
+        addIntSpin(
+            frost, settings, 'frost-edge-glow',
+            'Crystal edge glow',
+            'Soft glints along the refractive crystal perimeter.',
+            0, 100, 2
+        );
+        const syncFrostControls = () => {
+            frost.set_sensitive(
+                settings.get_string('glass-style') === 'frosted'
+            );
+        };
+        syncFrostControls();
+        settings.connect('changed::glass-style', syncFrostControls);
+
+        const glass = new Adw.PreferencesGroup({
+            title: 'Liquid Glass Controls',
+            description:
+                'Original v10 appearance values are retained when switching to Frosted Crystal.',
         });
         appearancePage.add(glass);
 

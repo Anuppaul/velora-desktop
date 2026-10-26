@@ -186,6 +186,34 @@
       <description>Vertical paint offset in pixels. Positive values move the floating dock upward; negative values move it downward. Panel mode ignores this setting.</description>
     </key>
 
+    <!-- Velora material picker. Liquid remains the installed default. The
+         Frosted Crystal controls are independent: switching must not rewrite
+         the user's existing liquid optics, tint or blur preferences. -->
+    <key name="glass-style" type="s">
+      <default>'liquid'</default>
+      <choices>
+        <choice value="liquid"/>
+        <choice value="frosted"/>
+      </choices>
+      <summary>Velora glass material style</summary>
+      <description>Liquid Glass preserves the v10 refractive material, while Frosted Crystal uses a matte-diffused surface with grain and soft edge light.</description>
+    </key>
+    <key name="frost-density" type="i">
+      <default>78</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal matte diffusion density</summary>
+    </key>
+    <key name="frost-grain" type="i">
+      <default>55</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal microscopic glass grain</summary>
+    </key>
+    <key name="frost-edge-glow" type="i">
+      <default>52</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal edge illumination</summary>
+    </key>
+
     <key name="glass-optics-profile-version" type="i">
       <default>0</default>
       <range min="0" max="100"/>

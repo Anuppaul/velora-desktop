@@ -14,6 +14,12 @@ uniform float edge_smoothing;
 uniform float profile_shape_n;
 uniform float ior;
 uniform float chroma_strength;
+// Velora's two retained material modes. Liquid = 0.0 exactly preserves the
+// proven v10 path; Frosted Crystal softly diffuses the SAME backdrop in the
+// existing composite shader. No extra render pass or texture allocations.
+uniform float velora_frost_amount;
+uniform float velora_frost_grain;
+uniform float velora_frost_edge_glow;
 uniform float blur_strength;
 uniform float tint_strength;
 uniform float tint_r;
@@ -628,6 +634,29 @@ float veloraGlassGrain(vec2 p) {
     return (fract(sin(dot(pixel, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.028;
 }
 
+// Matte crystal body: a diffuse neutral tint with restrained color, preserving
+// the wallpaper's chroma rather than painting a flat white CSS rectangle.
+// Both the full lens path and the fast flat-interior path call this function.
+// Liquid amount=0 is intentionally an identity operation.
+vec3 veloraCrystalBody(vec3 color) {
+    float frost = clamp(velora_frost_amount, 0.0, 1.0);
+    if (frost < 0.0001)
+        return color;
+    float lum = dot(color, vec3(0.299, 0.587, 0.114));
+    vec3 softened = mix(color, vec3(lum), 0.22 * frost);
+    return mix(softened, vec3(0.90, 0.935, 0.965), 0.47 * frost);
+}
+
+// The same existing static monochrome hash, only a modest increase in its
+// amplitude in Frosted mode. No noise texture, animated sampling, or extra
+// texture fetch. Never apply grain outside the physical glass alpha.
+float veloraCrystalGrain(vec2 pixel) {
+    float frost = clamp(velora_frost_amount, 0.0, 1.0);
+    float grain = clamp(velora_frost_grain, 0.0, 1.0);
+    return veloraGlassGrain(pixel) *
+        (1.0 + frost * (0.75 + grain * 1.20));
+}
+
 // [NEW] Adjust color saturation, contrast, brightness
 vec3 applySCB(vec3 color, float b, float c, float s) {
     // 1. 輝度 (Brightness): 単純な乗算
@@ -869,6 +898,7 @@ void main() {
         // then apply the existing user-customizable tint on top.
         flatRgb = mix(flatRgb, vec3(1.0), VELORA_MILKY_WHITE_SHADE);
         flatRgb = mix(flatRgb, vec3(tint_r, tint_g, tint_b), tint_strength);
+        flatRgb = veloraCrystalBody(flatRgb);
 
         // Specular and sheen at N = (0, 0, 1). reflect(-L, N) is
         // (-L.x, -L.y, L.z), so dot(reflectDir, viewDir) is L.z; the sheen's
@@ -880,7 +910,10 @@ void main() {
         float flatResponse = 1.0 + opticalResponse * 0.28;
         float specFlat = pow(facing, max(shininess, 1.0)) * specular_intensity * 0.65 * flatResponse;
         float sheenFlat = pow(facing, 1.65) * sheen_intensity * flatResponse;
+        // A satin-frosted center is matte rather than mirror-like, with just
+        // a little soft directional glow left for dimensional readability.
         vec3 addedFlat = vec3(specFlat + sheenFlat) * surface_light_enabled;
+        addedFlat *= mix(1.0, 0.35, clamp(velora_frost_amount, 0.0, 1.0));
 
         // Screen blend, then the same overflow normalization as the full path.
         vec3 litFlat = flatRgb + addedFlat - (flatRgb * addedFlat);
@@ -892,7 +925,7 @@ void main() {
 
         // The fast path must carry the SAME grain as the full glass path;
         // otherwise a flat interior would turn glossy/smooth abruptly.
-        litFlat = max(litFlat + veloraGlassGrain(pixel_coord), 0.0);
+        litFlat = max(litFlat + veloraCrystalGrain(pixel_coord), 0.0);
 
         // alpha == insideMask == 1, so the shadow and panel terms are both 0.
         cogl_color_out = vec4(litFlat, 1.0) * cogl_color_in;
@@ -1292,7 +1325,7 @@ void main() {
     // below already zeroes the drop shadow correctly at shadow_radius=0);
     // the ring persists even with the drop shadow fully disabled, which is
     // exactly the "Shadow Radius 0, Edge Smoothing >0" symptom reported.
-    vec3 baseColor = insideBaseColor;
+    vec3 baseColor = veloraCrystalBody(insideBaseColor);
 
     // ------------------------------------------------------------------
     // Inner depth effects — make the glass look 3D on LIGHT backgrounds
@@ -1424,6 +1457,19 @@ void main() {
     // (already-independent) outer drop shadow and inner AO darkening in
     // baseColor remain — no rim/specular/sheen glint hugging the edge.
     vec3 addedLight = (vec3(specularLight + finalRimLight + idleRim) + sheenColor) * surface_light_enabled;
+    // Frosted Crystal swaps strong glassy sparkles for a low-energy crystal
+    // edge reflection. This is still in the SAME shader lighting sum.
+    float frostAmount = clamp(velora_frost_amount, 0.0, 1.0);
+    addedLight *= mix(
+        1.0,
+        0.26 + 0.28 * clamp(velora_frost_edge_glow, 0.0, 1.0),
+        frostAmount
+    );
+    addedLight += vec3(
+        edgeBand * lightMask * 0.16 *
+        clamp(velora_frost_edge_glow, 0.0, 1.0) *
+        frostAmount * surface_light_enabled
+    );
 
     // 2. Screen Blend Mode (A + B - A*B)
     // Instead of simply adding lights (which causes intense overexposure and blows out 
@@ -1484,7 +1530,7 @@ void main() {
     // Micro-grain belongs to the GLASS, not its drop shadow or panel fill.
     // Premultiply by insideMask (alpha), never finalAlpha: the latter also
     // includes shadow/panel coverage and would add a noisy exterior halo.
-    finalRgb = max(finalRgb + veloraGlassGrain(pixel_coord) * alpha, 0.0);
+    finalRgb = max(finalRgb + veloraCrystalGrain(pixel_coord) * alpha, 0.0);
 
     // Output with premultiplied alpha format, required by Clutter/Cogl pipeline.
     cogl_color_out = vec4(finalRgb, finalAlpha) * cogl_color_in;

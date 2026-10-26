@@ -1,11 +1,11 @@
 # Velora Desktop
 
 <p align="center">
-  <strong>Liquid Glass for GNOME Shell 50 — without replacing GNOME.</strong>
+  <strong>Liquid Glass + Frosted Crystal for GNOME Shell 50 — without replacing GNOME.</strong>
 </p>
 
 <p align="center">
-  Velora enhances supported GNOME Shell surfaces with a shared refractive glass material, adds a radial launcher and Spotlight-style app search, and keeps native layout, controls, accessibility and interaction intact.
+  Velora gives supported GNOME Shell surfaces two switchable materials—refractive Liquid Glass and matte Frosted Crystal—alongside a radial launcher and Spotlight-style app search, while preserving native layout, controls, accessibility and interaction.
 </p>
 
 <p align="center">
@@ -53,7 +53,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 
 | | |
 | --- | --- |
-| **Liquid Glass system** | Refraction, blur, tint, chromatic dispersion, saturation, rim/specular lighting and optical depth across supported Shell surfaces. |
+| **Two live-switchable materials** | Liquid Glass v10 preserves glossy refraction and highlights. Frosted Crystal adds stronger native backdrop diffusion, matte color, fine static grain and a softer illuminated crystal rim. |
 | **Velora Orb** | Draggable, multi-monitor radial launcher with Dock Apps, Custom Apps and All Apps sources, paging, previews, tooltips and running indicators. |
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and native-style result presentation. |
 | **Ubuntu Dock integration** | Restyles the existing Ubuntu Dock / Dash-to-Dock surface while preserving its native icons, autohide/intellihide and interaction model. |
@@ -61,6 +61,19 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 | **Monitor-safe launcher geometry** | Orbit, Star, Molecule, Spiral and Petal layouts with fit-first placement and paging near monitor edges/corners. |
 | **Adaptive text** | Light/dark foreground treatment where Velora owns the visual layer, without replacing semantic GNOME states. |
 | **Low-overhead design** | Shared sources, compositor-native actors/effects, cached/downscaled blur and event-driven updates instead of permanent JS polling. |
+
+## Choose a Glass Material
+
+Open **GNOME Extensions → Velora Desktop → Preferences → Appearance → Glass Material** and select **Liquid Glass** or **Frosted Crystal**. The mode switches live; it stays selected after logout or restart.
+
+| Material | Appearance | Adjustable controls |
+| --- | --- | --- |
+| **Liquid Glass** (default) | Original v10 refractive lens, chromatic highlights, glossy edge lighting and clear glass body | Existing blur, tint, optics and advanced rendering controls remain untouched. |
+| **Frosted Crystal** | Matte/diffused backdrop with more blur, luminous but understated crystal edges, fine static micro-grain and soft neutral tint | Frost Density, Micro-grain and Crystal Edge Glow |
+
+Switching back to Liquid Glass restores the same saved v10 material, including user-adjusted Advanced optics. Frosted controls are saved separately: no reset or migration of existing preferences is required. Both modes use **one shared LiquidEffect shader and its existing blur pipeline**—no second overlay or noise texture. Frosted blur can cost more GPU work than Liquid; no benchmark claim is made without a compositor trace.
+
+The material picker applies across supported Velora-owned and vendor-native shell surfaces, including the Orb, Spotlight, Dock and top panel glass surfaces, window previews, calendar, Quick Settings and supported popups. Individual native surfaces that intentionally remain non-glass in certain modes (such as Ubuntu Dock's plain panel fallback) keep their established behavior.
 
 ## Gallery
 
