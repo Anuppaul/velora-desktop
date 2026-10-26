@@ -1636,6 +1636,7 @@ export class LiquidGlassIntegration {
             barFilterOpacity.toFixed(3) +
             ') !important;\n' +
             '  background-image: none !important;\n' +
+            '  border-radius: 0px !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
             '#dashtodockDashContainer.liquid-glass-transparent,\n' +
@@ -1774,9 +1775,10 @@ export class LiquidGlassIntegration {
             );
         }
 
-        // A full-width top bar should meet the screen edges cleanly.
-        // Material optics come from the same shared premium role as the
-        // other Velora glass surfaces; geometry remains owned by DashManager.
+        // Only the full-width top header has square corners. Shader
+        // radius stays 0 and static/dynamic CSS resets the native border
+        // radius; other glass surfaces retain their own rounded geometry.
+        // Geometry remains owned by DashManager.
         manager.setMaterialOverride?.(
             () => this._applySharedDashMaterial(
                 manager,
