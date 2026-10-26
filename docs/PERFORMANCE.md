@@ -42,7 +42,22 @@ Use --pid PID if multiple same-user gnome-shell processes exist, --delay 10 to g
 ## Rendering budgets (source-level, not measured benchmarks)
 
 - The native panel follows its geometry every compositor frame. A stationary panel skips repeated transformed-position queries until its existing 24 FPS window-clone deadline; geometry changes (autohide/reveal or mode handoff) bypass the shortcut so capture bounds stay aligned. No extra background GLib timer is installed.
-- Orb's small, single-batch surface still samples every compositor frame. Once the expanded All Apps view has more than 16 visible glass regions, its geometry/hover scan is capped at 30 FPS, while the window-clone scene remains capped at its existing 24 FPS. Newly scanned/revealed regions get an immediate pass.
+- Orb's small, single-batch surface still samples every compositor frame. Expanded, **stationary** All Apps pages (>16 visible regions) cap geometry/hover scans at 30 FPS; while translation/scale/opacity transitions are active, region placement follows **every compositor frame**. The window-clone scene keeps its original 24 FPS cap. Newly scanned/revealed regions get an immediate pass.
 - The existing native-Dock 180 px monitor-thickness guard, stage clipping, fallback veil and no-fullscreen-panel-FBO architecture are unchanged. This optimization does not claim measured CPU, GPU, FPS or latency gains: capture the same desktop scenarios and compositor traces before attributing improvements.
 
 Runtime guard checks: `node tools/test_frame_budget.mjs`; Velora JS modules are syntax-checked on PRs.
+
+## Transition blink / jump regression checklist
+
+The app launcher uses fixed Clutter slot positions and paint-only `translation_x/y` animations to eliminate per-frame FixedLayout invalidation. Orb page changes reuse cached actor pages without replaying the radial entrance. Creating new shader batches updates the new effects only, keeping the existing Orb-face material intact.
+
+GNOME Overview / Home → Applications keeps a single native wallpaper BlurEffect at the same radius throughout showing, shown, and hiding. No deferred zero-blur-to-full-blur switch runs during the first menu-grid paint.
+
+**Manual GNOME 50 acceptance:**
+1. Hover Orb and reveal a short app list; repeat 10 times and verify no initial blink or geometry jump.
+2. Select Orb app source = All and open an expanded list with >16 apps. Test each geometry, then move between available pages via scroll. Check that icon glass and the icon themselves move in sync.
+3. Open/close Home (Activities) → Show Applications repeatedly. Verify no one-frame sharp-to-blurred pulse, black panel, or overlay flash.
+4. Verify dock autohide, native Panel Mode and panel↔dock switching remain unchanged.
+5. Use the performance sampler from above under matching conditions. A CI syntax/unit test alone cannot prove frame-perfect rendering on a real compositor.
+
+CI smoke checks: `node tools/test_frame_budget.mjs` and `node tools/test_orb_transitions.mjs`.
