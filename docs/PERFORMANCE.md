@@ -224,9 +224,11 @@ proportional card, eliminating the old 1:1-size restriction. No new shader
 pass, GPU texture, scene poll, or animation is added. v10 Liquid Glass,
 preview click/hover and side-layer removal are unchanged.
 
-At 100% settings on a large display, a portrait 600×1050 window produces
-approximately **177×302 px** of preview glass instead of **474×302 px**
-while a landscape 1550×980 window produces ~471×302 px. The actual sizes
+At 100% settings on a large display, a portrait 600×1050 window now
+receives a taller native thumbnail and approximately **302×520 px** of glass
+instead of **474×302 px** of largely empty landscape glass. A landscape
+1550×980 window still produces ~471×302 px. Portrait previews get up to a
+2× extra height budget before the shared monitor-fit limiter. The actual sizes
 depend on the source window's buffer and CSD shadow. The original screen
 capture revealed the mismatch; mock tests verify the geometry, but a live
 GNOME Shell 50 visual check is still required for buffer-clipping behavior.
