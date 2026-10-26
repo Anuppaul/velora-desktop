@@ -375,6 +375,15 @@ export class OrbGlassManager {
             if (!actor)
                 return;
 
+            // Preview glass is now a child of the native preview card.
+            // Do not recursively walk the cloned wallpaper/windows inside
+            // its renderer every time a hover preview opens. Only the real
+            // Orb and app buttons belong in this region registry.
+            const name = actor.get_name?.() ?? '';
+            if (name.startsWith('velora-shell-card-') ||
+                name.startsWith('lg-'))
+                return;
+
             const classes = classesOf(actor);
             if (classes.includes(ORB_FACE_CLASS))
                 orbFace = actor;
