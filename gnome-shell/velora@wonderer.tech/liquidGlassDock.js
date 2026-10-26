@@ -4215,6 +4215,23 @@ export class LiquidGlassIntegration {
         }
 
         const effect = entry.manager.effect;
+        // A vendor setting or module reload may replace/remove the effect
+        // while the panel is still in place. Restore the native fallback
+        // instead of leaving the transparent background over no shader.
+        if (
+            entry.panelGlassReady &&
+            (
+                !effect ||
+                effect !== entry.panelGlassEffect ||
+                !effect._shadersLoaded
+            )
+        ) {
+            entry.panelGlassReady = false;
+            entry.panelGlassEffect = null;
+            this._syncDockGlassBackgroundClass(entry, false);
+            this._applyDockPanelPaint(entry, true);
+        }
+
         const ready = Boolean(
             effect?._shadersLoaded &&
             (effect?._diagCompositedPaintCount ?? 0) > 0
@@ -4223,6 +4240,7 @@ export class LiquidGlassIntegration {
             return ready;
 
         entry.panelGlassReady = true;
+        entry.panelGlassEffect = effect;
         // Only after the glass has painted successfully: remove the
         // temporary native blur/fill, exposing the actual refractive layer.
         this._applyDockPanelPaint(entry, true);
@@ -4294,6 +4312,18 @@ export class LiquidGlassIntegration {
 
             if (!this._externalGlobalStack && !entry.manager) {
                 this._attachNativeDashManager(entry, true);
+            }
+
+            // A global dock-glass preference toggle may remove the vendor
+            // effect. Panel Mode independently owns its glass background.
+            if (entry.manager && !entry.manager.effect) {
+                this._syncPanelGlassReady(entry);
+                entry.manager._applyEffect?.();
+                this._applySharedDashMaterial(
+                    entry.manager,
+                    'dockPanel'
+                );
+                this._schedulePanelGlassReveal(entry);
             }
 
             this._syncPanelGlassReady(entry);
@@ -4477,6 +4507,7 @@ export class LiquidGlassIntegration {
         entry.managerTargetActor = null;
         if (wasPanelGlass) {
             entry.panelGlassReady = false;
+            entry.panelGlassEffect = null;
             // If panel mode remains active, the native background is a
             // safe visible fallback while the next shader is prepared.
             if (entry.panelPaintActive)
@@ -4737,6 +4768,7 @@ export class LiquidGlassIntegration {
             entry.managerMode = panelGlass ? 'panel' : 'dock';
             entry.managerTargetActor = target;
             entry.panelGlassReady = false;
+            entry.panelGlassEffect = null;
             entry.manager =
                 new this._vendor.DashManager(
                     this._vendor.root,
@@ -4821,6 +4853,7 @@ export class LiquidGlassIntegration {
                     managerMode: null,
                     managerTargetActor: null,
                     panelGlassReady: false,
+                    panelGlassEffect: null,
                     panelGlassWarmupId: 0,
                     destroyId: 0,
                     mappedId: 0,
