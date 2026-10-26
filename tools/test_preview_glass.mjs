@@ -254,10 +254,44 @@ const liveBlock = css.match(/\.velora-app-preview-card\.velora-liquid-shell-card
 assert.ok(previewBlock && liveBlock);
 assert.doesNotMatch(previewBlock[1], /rgba\(\s*8\s*,\s*9\s*,\s*12\s*,\s*0\.94/);
 assert.match(previewBlock[1], /rgba\(232,\s*243,\s*255,\s*0\.18\)/);
-assert.match(liveBlock[1], /rgba\(255,\s*255,\s*255,\s*0\.085\)/);
+// The preview owns exactly ONE visual material: the refractive LiquidEffect.
+// Non-glass fallback is kept, but any loaded preview glass must not have its
+// own white underlay or a duplicate hover/focus tint.
+assert.match(liveBlock[1],
+    /background-color:\s*transparent\s*!important\s*;/);
+assert.doesNotMatch(liveBlock[1], /rgba\(/);
 assert.match(liveBlock[1], /border-color:\s*transparent/);
+const hoverCss = css.match(
+    /\.velora-window-preview-tile:hover,\s*\.velora-window-preview-tile:focus\s*\{([^}]*)\}/
+)?.[1];
+assert.ok(hoverCss);
+assert.match(hoverCss, /background-color:\s*transparent\s*;/);
+assert.doesNotMatch(hoverCss, /rgba\(/);
+
+const liquidCode = await readFile(new URL(
+    '../gnome-shell/velora@wonderer.tech/liquidGlassDock.js',
+    import.meta.url
+), 'utf8');
+const genericFilterPos = liquidCode.indexOf(
+    "' .velora-liquid-shell-card {"
+) >= 0
+    ? liquidCode.indexOf("' .velora-liquid-shell-card {")
+    : liquidCode.indexOf("'.velora-liquid-shell-card {");
+const previewOverridePos = liquidCode.indexOf(
+    "'.velora-app-preview-card.velora-liquid-shell-card {"
+);
+const panelPos = liquidCode.indexOf("'#panel.velora-liquid-top-panel {");
+assert.ok(
+    genericFilterPos >= 0 &&
+    previewOverridePos > genericFilterPos &&
+    panelPos > previewOverridePos,
+    'global filter must be overridden for preview AFTER the generic !important rule'
+);
+// Dynamic filter remains active for other cards and is not globally removed.
+assert.match(liquidCode, /filterOpacity\.toFixed\(3\)/);
+
 const orbSource = await readFile(new URL(
     '../gnome-shell/velora@wonderer.tech/orbThemeRuntime.js', import.meta.url
 ), 'utf8');
 assert.match(orbSource, /attachPreviewGlass\?\.\(card\)/);
-console.log('Preview Liquid Glass child compositing, fade, bounded shader, teardown and visible fallback PASS.');
+console.log('Preview Liquid Glass-only material, no white/hover layers, scoped global CSS, lifecycle and fallback PASS.');
