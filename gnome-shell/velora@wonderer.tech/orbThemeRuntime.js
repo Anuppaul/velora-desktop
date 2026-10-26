@@ -40,7 +40,9 @@ const APP_PREVIEW_MAX_WINDOWS = 4;
 // even at the user's full 50–180% Preview Size preference.
 const APP_PREVIEW_SIZE_BOOST = 1.65;
 const APP_PREVIEW_GAP = 8;
-const APP_PREVIEW_PADDING = 6;
+// Native 16:9 thumbnail cards keep one clearly visible refractive perimeter.
+// This is inner breathing room, not a second opaque side layer.
+const APP_PREVIEW_PADDING = 16;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
