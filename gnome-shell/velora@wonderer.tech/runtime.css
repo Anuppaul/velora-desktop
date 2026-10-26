@@ -120,25 +120,27 @@
 }
 
 
-/* The v10 refractive body is the ONE outer preview material: remove the
- * extra painted perimeter, side border and CSS drop-shadow layer. When the
- * shader is unavailable, retain only a neutral translucent fallback. */
+/* Preview cards use a fixed native 16:9 shape. One v10 Liquid Glass
+ * material paints beneath real windows as the first child. This slightly
+ * denser neutral fallback stays readable on dark or bright wallpaper while
+ * the asynchronous GPU shader starts; there is NO second frame/border. */
 .velora-app-preview-card {
     min-width: 0;
     min-height: 0;
     padding: 0;
     margin: 0;
     border-radius: 16px;
-    background-color: rgba(246, 249, 255, 0.12);
+    background-color: rgba(232, 243, 255, 0.18);
     background-image: none;
     border: 0;
     box-shadow: none;
 }
 
-/* ShellCardSurface supplies the single optical rim. No second side layer,
- * extra opaque chrome or duplicate shadow is drawn over the refracted scene. */
+/* Active preview keeps a subtle luminous body under LiquidEffect. The
+ * translucent tint is the St.Widget's own backdrop, not a second actor,
+ * shader pass or side frame. */
 .velora-app-preview-card.velora-liquid-shell-card {
-    background-color: rgba(255, 255, 255, 0.025);
+    background-color: rgba(255, 255, 255, 0.085);
     background-image: none;
     border-color: transparent;
     box-shadow: none;
