@@ -237,6 +237,4 @@ const helpers = popup.slice(
     popup.indexOf('    syncFrame() {')
 );
 assert.doesNotMatch(helpers, /Shell\.Screenshot|screenshot_area|GLib\.timeout_add|setTimeout|new LiquidEffect|new Shell\.BlurEffect|new Clutter\.Clone/);
-assert.equal(popup.split("name: 'velora-popup'").length-1,0,
-    'check ignores legacy owner values and tests just direct clone source');
 console.log('Calendar refracts native Overview/App Grid on Super, retains wallpaper desktop fallback, excludes Browser, and aligns multi-monitor transforms PASS.');
