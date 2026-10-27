@@ -118,6 +118,37 @@ Shexli is a static analyzer, not a GNOME Shell/GPU compositor test. The
 dependency pin avoids an incompatible Tree-sitter parser combination.
 Neither venv nor Shexli is shipped in Velora's extension ZIP.
 
+### Shexli review findings observed during PR #64 preflight
+
+The current upload ZIP successfully passes the structural/schema checks and
+Shexli reports **0 errors, 1 warning**:
+
+- **`EGO-P-007` — dynamically loaded JavaScript modules appear unreachable.**
+  Velora's bootstrap loads its installed `runtime.js` using
+  `import(target.moduleFile.get_uri())` and the Liquid Glass bridge loads
+  vendored GJS modules using `import(moduleUri(root, ...))`. This is not a
+  runtime download: all modules reside in the review ZIP, and the packaging
+  preflight verifies ordinary relative import dependencies. The static
+  reachability analyzer does not follow file-URI imports whose paths are
+  computed at runtime.
+
+This finding **requires honest reviewer scrutiny**. It is not appropriate
+to silence Shexli by adding fake static imports or claiming every vendored
+module has been dynamically exercised by CI. The maintainer should be able
+to show the runtime module-loading code, justify the necessary bundled
+renderer modules and describe cleanup for each manager if questioned.
+
+An earlier warning `EGO-X-004` identified a blocking
+`Gio.File.load_contents()` call in the development bootstrap marker
+reader. This was addressed using an asynchronous Gio read with safe
+fallback for Store installs that have no marker. The CI regression
+`tools/test_store_bootstrap_async.mjs` prevents accidentally restoring
+a synchronous Shell read.
+
+`GNOME Store package` workflow success means the ZIP is **built** and
+schema checks pass; Shexli warnings are preserved as review evidence and
+do not imply official approval or guarantee the runtime is bug-free.
+
 ## 4. Upload to GNOME Extensions
 
 1. Sign in (or register) at https://extensions.gnome.org/.
