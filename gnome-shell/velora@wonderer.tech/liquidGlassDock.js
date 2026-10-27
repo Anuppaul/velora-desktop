@@ -2996,29 +2996,90 @@ export class LiquidGlassIntegration {
             return false;
         }
 
-        // Panel mode already has a correct native edge/static-box path. Restore
-        // native ownership there and apply this compatibility layer only to the
-        // floating dock where GNOME 50/v104 lineage can follow the hidden box
-        // off-screen.
-        if (this._dockIsPanelMode()) {
-            const nativeBox =
-                dock._staticBox ??
-                dock.staticBox ??
-                null;
+        // Native Dash-to-Dock *already* computes a stable fully-visible
+        // _staticBox in its own _updateStaticBox() while autohide animates.
+        // The previous Velora override reconstructed the target from the
+        // moving _box, allowing per-frame allocation/hover races to push
+        // intellihide's overlap rectangle away from the visible dock.
+        // Trust the native target at offset=0. If the user deliberately
+        // offsets Velora's dock, clone the stable native geometry and apply
+        // precisely that vertical offset, independently of slide progress.
+        const nativeBox =
+            dock._staticBox ??
+            dock.staticBox ??
+            null;
+        const nativeX = Number(nativeBox?.x1);
+        const nativeY = Number(nativeBox?.y1);
+        const nativeW = Number(nativeBox?.x2) - nativeX;
+        const nativeH = Number(nativeBox?.y2) - nativeY;
+        const nativeValid =
+            nativeBox &&
+            Number.isFinite(nativeX) &&
+            Number.isFinite(nativeY) &&
+            Number.isFinite(nativeW) &&
+            Number.isFinite(nativeH) &&
+            nativeW > 1 && nativeH > 1;
+        const panelMode = this._dockIsPanelMode();
+        const verticalOffset = panelMode
+            ? 0
+            : this._readDockVerticalOffset();
+
+        if (nativeValid && (panelMode || verticalOffset === 0)) {
+            // Clear our temporary target on returning from an offset/panel
+            // transition; otherwise the native actor box owns all subsequent
+            // monitor/layout/hide updates. No duplicate forceUpdate loop.
             if (
-                nativeBox &&
-                entry.nativeIntellihideTargetBox
+                force ||
+                entry.nativeIntellihideRectKey !== 'native'
             ) {
                 try {
-                    intellihide.updateTargetBox?.(
-                        nativeBox
-                    );
-                } catch {}
+                    intellihide.updateTargetBox?.(nativeBox);
+                } catch {
+                    return false;
+                }
             }
+            entry.nativeIntellihideRectKey = 'native';
+            return true;
+        }
+
+        if (panelMode) {
+            // Older dock variants may not expose an allocated static box yet.
+            // Do not inject floating-dock geometry into panel mode.
             entry.nativeIntellihideRectKey = '';
             return false;
         }
 
+        if (nativeValid) {
+            const x = nativeX;
+            const y = nativeY - verticalOffset;
+            const key = [
+                Math.round(x * 100) / 100,
+                Math.round(y * 100) / 100,
+                Math.round(nativeW * 100) / 100,
+                Math.round(nativeH * 100) / 100,
+            ].join(':');
+            if (!force && entry.nativeIntellihideRectKey === key)
+                return true;
+
+            entry.nativeIntellihideTargetBox ??= new Clutter.ActorBox();
+            entry.nativeIntellihideTargetBox.init_rect(
+                x, y, nativeW, nativeH
+            );
+            try {
+                intellihide.updateTargetBox?.(
+                    entry.nativeIntellihideTargetBox
+                );
+                entry.nativeIntellihideRectKey = key;
+                return true;
+            } catch {
+                entry.nativeIntellihideRectKey = '';
+                return false;
+            }
+        }
+
+        // Legacy fallback ONLY when the upstream version has not provided
+        // _staticBox yet. Do not use moving allocation when native geometry
+        // is valid; this path will self-correct on the next allocation event.
         const monitor =
             dock._monitor ??
             Main.layoutManager.monitors?.[
@@ -3055,8 +3116,8 @@ export class LiquidGlassIntegration {
 
         // Intellihide must test the rectangle where the dock WOULD BE fully
         // visible, not its current autohide-translated allocation.
-        const verticalOffset =
-            this._readDockVerticalOffset();
+        // The stable native target branch above already applied this offset.
+        // Only old GNOME forks without _staticBox use the fallback below.
         let x = absX;
         // _box transformed coordinates already include the configured offset.
         // Only monitor-edge reconstruction below needs to apply it explicitly.
@@ -3141,14 +3202,14 @@ export class LiquidGlassIntegration {
                 width,
                 height
             );
-        entry.nativeIntellihideRectKey = key;
-
         try {
             intellihide.updateTargetBox?.(
                 entry.nativeIntellihideTargetBox
             );
+            entry.nativeIntellihideRectKey = key;
             return true;
         } catch {
+            entry.nativeIntellihideRectKey = '';
             return false;
         }
     }
