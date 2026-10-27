@@ -48,6 +48,9 @@ sample.nativeSlider.slide_x = undefined;
 sample.nativeSlider.slideX = undefined;
 sample.nativeSlider.get_property = () => 0.7;
 assert.equal(slide(sample), 0.7);
+sample.nativeSlider.get_property = () => null;
+assert.ok(Number.isNaN(slide(sample)),
+    'missing GObject property must never fabricate a hidden slide');
 sample.nativeSlider.get_property = () => undefined;
 assert.ok(Number.isNaN(slide(sample)));
 
