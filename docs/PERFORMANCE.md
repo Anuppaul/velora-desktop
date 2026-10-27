@@ -495,3 +495,73 @@ on almost-white glass, with substantially greater visibility on dark glass.
 This remains a local shader adjustment: 3px SDF extent, rounded corners,
 premultiplied-alpha coverage, single LiquidEffect and material selection
 remain unchanged. GNOME 50 on-device visuals still need confirmation.
+
+## Ubuntu Dock: native auto-hide repair and Velora Preferences controls
+
+The native Ubuntu Dock (Dash-to-Dock) retains full ownership of edge-hover,
+pressure, `intellihide`, `dock-fixed`, native transitions and click targets.
+Velora neither adds a second dock nor replaces the native state machine.
+
+### Actual autohide regressions fixed
+
+1. **Nullable JS slide override:** `_applyDockVerticalOffset(entry)`
+   previously did `Number(slideOverride)` when the default argument was
+   `null`. JavaScript returns **0**, not `NaN`, so a visible dock was
+   incorrectly positioned as though its reveal animation were fully hidden
+   when Velora refreshed it. An omitted override now reads the current native
+   `DashSlideContainer.slide-x` property. Explicit 0 overrides still work.
+2. **Missing GJS state properties:** the GNOME Shell 50/Ubuntu Dock native
+   APIs vary by version: `slide_x`, `slideX`, `get_property('slide-x')`,
+   `dockState`, and legacy `_dockState`. A missing/null value no longer
+   fabricates `0` (hidden). The true native slider/legacy state is used.
+3. **Intelligent hide target drift:** native Ubuntu Dock already maintains
+   a stable fully-shown `_staticBox` (see its `_updateStaticBox()`); a
+   previously duplicated Velora overlap rectangle depended on a moving
+   `_box` allocation during native hide/reveal. With zero vertical offset,
+   Velora now restores Ubuntu Dock's native ActorBox as the authoritative
+   overlap rectangle. With an explicit offset, Velora copies the stable
+   rectangle and applies only the desired Y shift, independent of the native
+   slide progress. Panel mode also restores the original native rectangle.
+   The old allocation fallback exists only for older native forks without
+   a valid static box. Geometry updates are deduplicated and failed native
+   `updateTargetBox` calls cannot cache invalid rectangles.
+4. **Native settings changes:** changes to Ubuntu Dock's visibility, pressure,
+   timing, edge, or multi-monitor settings now schedule one coalesced GLib
+   idle callback *after* native handlers have processed the change. Velora
+   rebinds actors, corrects position/overlap, calls native `sync_hover()`
+   and `forceUpdate()`, then updates only glass visibility. It never calls
+   native `showDock()/hideDock()` or `_animateIn/_animateOut` and never
+   starts a recurring background worker. Settings handlers and idle source
+   are disconnected/removed on extension disable.
+
+### Settings integration
+
+The new `nativeDockPreferences.js` is a preferences-only helper copied by
+the installer into the canonical and live-register extension directories.
+It resolves the real installed
+`org.gnome.shell.extensions.dash-to-dock` GSettings schema with Gio;
+unsupported individual keys are hidden and an unavailable schema yields a
+clear status row. Native bools, enum positions/modes/actions, integer icon
+sizes and decimal pressure/timing are two-way live bindings. Opening the
+preferences page does **not** write or reset native defaults. The explicit
+**Restore Intelligent Auto-hide** action writes related native keys as
+one `Gio.Settings.delay()/apply()` batch and never runs automatically.
+The existing Velora vertical offset remains a separate control.
+
+### CI / on-device acceptance
+
+`node tools/test_native_dock_autohide.mjs` executes actual shipped source
+methods and verifies null-vs-hidden slide state, legacy enum fallback, native
+staticBox, optional vertical offset, 0/0.5/1 slide transitions, panel restore
+and coalesced visibility update without extra animation calls.
+`node tools/test_native_dock_settings.mjs` verifies the UI's typed two-way
+GSettings binding, no writes at window-open, explicit native restore,
+unsupported key fallback and installer packaging.
+
+**These tests cannot reproduce the real GNOME Shell 50 pointer-pressure
+barrier, active hot-corner, autohide/FBO compositor timing or Ubuntu Dock
+fork-specific hide animations.** After updating, verify both bottom and
+side dock orientations, fixed/auto/intelligent hide, edge pressure ON/OFF,
+show/hide delays, icon visibility during repeated reveals, maximized/fullscreen
+overlap, Overview exit, monitor edges and Panel↔Dock handoff. Record frame
+times before attributing any performance benefit; no GPU speed claim is made.

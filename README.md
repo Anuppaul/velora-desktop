@@ -56,7 +56,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 | **Two live-switchable materials** | Liquid Glass v10 preserves glossy refraction and highlights. Frosted Crystal adds stronger native backdrop diffusion, matte color, fine static grain and a softer illuminated crystal rim. Both now have a subtle adaptive icy-blue edge, readable over dark and light wallpaper. |
 | **Velora Orb** | Draggable, multi-monitor radial launcher with Dock Apps, Custom Apps and All Apps sources, paging, previews, tooltips and running indicators. |
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and native-style result presentation. |
-| **Ubuntu Dock integration** | Restyles the existing Ubuntu Dock / Dash-to-Dock surface while preserving its native icons, autohide/intellihide and interaction model. |
+| **Ubuntu Dock integration & settings** | Restyles the existing Ubuntu Dock and lets you manage its native autohide, intellihide, pressure, delays, position, panel mode, icons, application list and click actions inside Velora Preferences. |
 | **Native Shell surfaces** | Shared glass treatment for Quick Settings, Date/Calendar, notifications, panel/status popups and supported Shell-owned cards. |
 | **Monitor-safe launcher geometry** | Orbit, Star, Molecule, Spiral and Petal layouts with fit-first placement and paging near monitor edges/corners. |
 | **Adaptive text** | Light/dark foreground treatment where Velora owns the visual layer, without replacing semantic GNOME states. |
@@ -147,6 +147,46 @@ The original Liquid Glass refraction and Frosted Crystal matte finish still diff
 | Panel / status popups | `PopupMenu` / `BoxPointer` ownership | shared glass material |
 
 Velora deliberately leaves GTK/libadwaita application interiors, GNOME accessibility ownership, native hit targets and native animation semantics alone.
+
+## Manage Ubuntu Dock from Velora
+
+Open **GNOME Extensions → Velora Desktop → Preferences → Dock**. Velora
+detects the installed Ubuntu Dock settings schema and provides its native
+controls directly, without copying or replacing the dock.
+
+The Dock page includes:
+
+- **Visibility:** Always visible, Intelligent hide (window overlap), Auto-hide
+  (pointer at the screen edge), pressure-to-reveal, pressure threshold,
+  show/hide delays, native slide animation, fullscreen reveal and manual hide.
+- **Layout:** native position (top/right/bottom/left), Panel mode, icon size,
+  fixed icon size, dock length, center icons, multi-monitor and compact spacing.
+- **Content and interactions:** favorites, running apps, Trash/drives, Show
+  Applications, native window previews, workspace/monitor filtering,
+  click action, wheel action, running indicator style and keyboard shortcuts.
+- **Restore Intelligent Auto-hide:** an explicit action to unpin Ubuntu Dock,
+  re-enable overlap avoidance and pointer-edge reveal, disable manual hide and
+  disable the pressure barrier. It never changes settings just from opening
+  the Dock page. Your original custom values remain until you edit them.
+
+**Native ownership:** the controls write to the existing
+`org.gnome.shell.extensions.dash-to-dock` GSettings schema, so Ubuntu Dock's
+own settings and Velora stay in sync. On unsupported installations the page
+shows an unavailable message instead of inventing a separate dock. Velora
+does not call Ubuntu Dock's hide/show animations itself.
+
+**Auto-hide repair:** the GNOME 50 bridge now reads the actual native slider
+when no slide override is supplied (the earlier JS `Number(null) === 0`
+coercion incorrectly treated the dock as hidden). Intelligent-hide overlap
+checks anchor to Ubuntu Dock's stable fully-visible `_staticBox`, instead of
+the moving hidden allocation. Velora-only vertical offsets adjust that box
+consistently. Native preference changes cause one coalesced hover/overlap
+reconciliation, not a new polling or hide/show loop.
+
+The existing Velora-specific **vertical dock offset** remains at the bottom
+of this page and is ignored in Panel mode. Ubuntu Dock and GNOME still own
+icons, native edge detection, pressure barriers, window-overlap decisions and
+accessibility.
 
 ## Velora Orb
 
