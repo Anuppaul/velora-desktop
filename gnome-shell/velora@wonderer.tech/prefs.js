@@ -10,21 +10,49 @@ const LIQUID_GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
 function createLiquidGlassSettings(extensionDir) {
-    const schemaDir = extensionDir
-        .get_child('vendor')
-        .get_child('liquid-glass')
-        .get_child('schemas');
+    // Store packages place both Velora and renderer schema XML in the
+    // *top-level* schemas/ directory so EGO can compile them together.
+    // Development installs may still keep an additional compiled vendor
+    // schema directory. Always prefer the Store-compatible source.
+    const directories = [
+        extensionDir.get_child('schemas'),
+        extensionDir.get_child('vendor')
+            .get_child('liquid-glass')
+            .get_child('schemas'),
+    ];
 
-    const source = Gio.SettingsSchemaSource.new_from_directory(
-        schemaDir.get_path(),
-        Gio.SettingsSchemaSource.get_default(),
-        false
+    for (const folder of directories) {
+        const compiled =
+            folder.get_child('gschemas.compiled');
+        if (!compiled.query_exists(null))
+            continue;
+        try {
+            const source = Gio.SettingsSchemaSource.new_from_directory(
+                folder.get_path(),
+                Gio.SettingsSchemaSource.get_default(),
+                false
+            );
+            const schema = source.lookup(LIQUID_GLASS_SCHEMA, true);
+            if (schema)
+                return new Gio.Settings({settings_schema: schema});
+        } catch (error) {
+            console.warn(
+                '[Velora][Store] preferences schema source unavailable: ' +
+                error
+            );
+        }
+    }
+
+    const fallback =
+        Gio.SettingsSchemaSource.get_default()?.lookup?.(
+            LIQUID_GLASS_SCHEMA, true
+        ) ?? null;
+    if (fallback)
+        return new Gio.Settings({settings_schema: fallback});
+
+    throw new Error(
+        'Liquid Glass schema missing; reinstall Velora from a complete ZIP.'
     );
-    const schema = source.lookup(LIQUID_GLASS_SCHEMA, true);
-    if (!schema)
-        throw new Error('Vendored Liquid Glass schema not found');
-
-    return new Gio.Settings({settings_schema: schema});
 }
 
 function addPage(window, title, iconName, description = null) {
