@@ -297,53 +297,94 @@ This is especially important with **All Apps** near monitor edges and corners.
 
 ### Requirements
 
-- **GNOME Shell 50**
-- Ubuntu / GNOME environment running GNOME Shell 50
-- extension UUID: `velora@wonderer.tech`
+- **GNOME Shell 50** (the only currently declared supported Shell release).
+- A compatible Linux desktop running GNOME Shell 50; our primary manual
+  testing target is Ubuntu.
+- **Ubuntu Dock** is necessary only for its own native Dock-specific options
+  and material integration. Velora does not ship or install a second Dock.
+- GPU compositing for Liquid/Frosted glass and optional Atmosphere effects.
 
-### 1. Clone
+### Install the Store review ZIP (before GNOME publication)
+
+Velora is **not yet listed as an approved GNOME extension**. You can test the
+same self-contained package we intend to submit for official review:
+
+1. Open [Actions → GNOME Store package](https://github.com/Anuppaul/velora-desktop/actions/workflows/gnome-store-package.yml).
+2. Select a successful **`main` branch** run and download the
+   **`velora-gnome-store-upload-zip`** artifact.
+3. Extract the artifact wrapper once. Its **inner ZIP** named
+   `velora@wonderer.tech.shell-extension.zip` is the actual GNOME
+   extension package.
+4. Install the inner ZIP using a GNOME extension manager or:
+
+```bash
+gnome-extensions install --force velora@wonderer.tech.shell-extension.zip
+```
+
+Enable **Velora Desktop** in the GNOME Extensions app. On Wayland, a
+**Log Out → Log In** is the recommended way to discover new extensions.
+
+**Do not run the developer installer for a Store/review ZIP.** The upload
+package contains standard top-level GSettings XML schemas and all required
+runtime files without bundling build scripts or compiled schema binaries.
+
+### Install from source (development / contributors)
 
 ```bash
 git clone https://github.com/Anuppaul/velora-desktop.git
 cd velora-desktop
-```
-
-### 2. Install
-
-```bash
 bash gnome-shell/install.sh
 ```
 
-> [!IMPORTANT]
-> A clean first install normally requires **one Log Out → Log In** so the running GNOME Shell session can discover the new local extension. If the installer reports that Velora is already active, you can skip the logout.
+This is Velora's **developer installer** with local hot-update support.
+A clean first install can require **one Log Out → Log In**.
 
-### 3. Verify
+Verify the extension and open Preferences:
 
 ```bash
 gnome-extensions list --active | grep velora@wonderer.tech
-```
-
-Expected:
-
-```text
-velora@wonderer.tech
-```
-
-### 4. Open Preferences
-
-```bash
 gnome-extensions prefs velora@wonderer.tech
 ```
 
-## Update
+### Updating
 
-```bash
-cd velora-desktop
-git pull --ff-only origin main
-bash gnome-shell/install.sh
-```
+- **Official GNOME Store installation after approval:** use GNOME's normal
+  extension update mechanism. The real Store listing will be linked **only
+  after GNOME publishes Velora**.
+- **Store-review ZIP:** install the inner ZIP from a newer successful
+  `main` package run, then log out/in if needed.
+- **Developer/source installation:** update the source checkout and rerun
+  `bash gnome-shell/install.sh`. Hot updates are a developer workflow; a
+  Store package must not require them.
 
-Normal runtime-only revisions use Velora's hot-swap path and normally do **not** require another logout. A session refresh is expected only when GNOME must discover changed bootstrap/schema state.
+## GNOME Extensions Store submission
+
+Velora is preparing a first submission to
+[extensions.gnome.org](https://extensions.gnome.org/)—**not yet approved**.
+A green CI badge is not GNOME reviewer approval.
+
+The `GNOME Store package` workflow creates a **reproducible review ZIP**
+containing runtime-only, readable GJS JavaScript, shaders, CSS, icons, both
+standard GSettings XML files and retained MIT license/provenance notices.
+Development tools, redundant upstream extension entrypoints, npm files,
+TypeScript source, compiled schemas, binaries and the developer installer
+are intentionally excluded.
+
+The same workflow runs the
+[Shexli analyzer](https://pypi.org/project/shexli/) and publishes its findings
+separately. **Any review warning or manual-review finding still requires
+maintainer inspection**; static checks cannot replace a live GNOME Shell 50
+installation test.
+
+Read the
+[GNOME Store submission and reviewer checklist](docs/GNOME_STORE_SUBMISSION.md)
+before uploading. It covers ZIP selection, checksums, review findings, GNOME
+50 acceptance testing and the account/upload procedure.
+
+Official references:
+[Review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
+· [Upload extension](https://extensions.gnome.org/upload/)
+· [Release build artifacts](https://github.com/Anuppaul/velora-desktop/actions/workflows/gnome-store-package.yml).
 
 ## Architecture
 
@@ -455,7 +496,7 @@ If you are changing Shell integration behavior, preserve the core contract:
 | **Community** | [Community Hub](COMMUNITY.md) · [Contributing](CONTRIBUTING.md) · [Contributors](CONTRIBUTORS.md) |
 | **Development** | [Docs Index](docs/README.md) · [Development Guide](docs/DEVELOPMENT.md) · [Contributor Map](docs/CONTRIBUTOR_MAP.md) |
 | **Direction** | [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md) |
-| **Maintenance** | [Governance](GOVERNANCE.md) · [Support](SUPPORT.md) · [Release Process](docs/RELEASE_PROCESS.md) · [Triage](docs/TRIAGE.md) |
+| **Maintenance** | [Governance](GOVERNANCE.md) · [Support](SUPPORT.md) · [Release Process](docs/RELEASE_PROCESS.md) · [GNOME Store Checklist](docs/GNOME_STORE_SUBMISSION.md) · [Triage](docs/TRIAGE.md) |
 | **Policies** | [Security](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Third-Party Notices](THIRD_PARTY_NOTICES.md) |
 
 ## Security
