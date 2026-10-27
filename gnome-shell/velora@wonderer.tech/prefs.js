@@ -4,6 +4,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import {addUbuntuDockPreferences} from './nativeDockPreferences.js';
+import {addWallpaperAtmospherePreferences} from './wallpaperAtmospherePreferences.js';
 
 const LIQUID_GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
@@ -363,6 +364,19 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'White filter',
             'Date Menu neutral white veil only.',
             0, 20, 1
+        );
+
+        // -----------------------------------------------------------------
+        // Wallpaper — Velora Atmosphere
+        // -----------------------------------------------------------------
+        const wallpaperPage = addPage(
+            window,
+            'Wallpaper',
+            'preferences-desktop-wallpaper-symbolic',
+            'Premium native wallpaper grading; Original keeps GNOME intact.'
+        );
+        addWallpaperAtmospherePreferences(
+            wallpaperPage, settings, Adw, Gtk
         );
 
         // -----------------------------------------------------------------
