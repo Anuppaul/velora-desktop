@@ -672,6 +672,41 @@ float veloraCrystalGrain(vec2 pixel) {
     return micro + facet;
 }
 
+// Mac-style icy card silhouette, adaptive across black and white wallpaper.
+// Use the backdrop ALREADY sampled by the existing material (no extra texel
+// fetch, capture pass or layered CSS stroke). Over bright wallpapers the line
+// becomes a cool darker steel-blue; on dark scenes it becomes a pale ice-blue.
+// A dense matte crystal is brighter than its backdrop, so prefer its actual
+// surface luminance when determining contrast with the inside of that card.
+vec3 veloraAdaptiveCardEdgeColor(
+    vec3 backdrop, vec3 body, float frost
+) {
+    float backdropLuma = dot(backdrop, vec3(0.2126, 0.7152, 0.0722));
+    float bodyLuma = dot(body, vec3(0.2126, 0.7152, 0.0722));
+    float matteWeight = smoothstep(
+        0.15, 0.75, clamp(frost, 0.0, 1.0)
+    ) * 0.82;
+    float contextLuma = mix(backdropLuma, bodyLuma, matteWeight);
+    float lightBackdrop = smoothstep(0.32, 0.75, contextLuma);
+    return mix(
+        vec3(0.76, 0.88, 1.00), // ice blue visible on black
+        vec3(0.24, 0.49, 0.75), // steel blue visible on white
+        lightBackdrop
+    );
+}
+
+// Inside-the-glass rim only. Two gently overlapping SDF bands read as one
+// soft 1-3px edge, not as a duplicate rectangular border or exterior halo.
+// The signed distance is negative inside the native rounded glass shape.
+// All smoothstep intervals are strictly increasing (avoids GNOME/GLES driver
+// bugs previously encountered in this shader).
+float veloraAdaptiveCardEdgeCoverage(float signedDistance) {
+    float depth = max(-signedDistance, 0.0);
+    float hairline = 1.0 - smoothstep(0.12, 1.48, depth);
+    float innerFeather = 1.0 - smoothstep(0.70, 3.10, depth);
+    return clamp(hairline * 0.46 + innerFeather * 0.08, 0.0, 0.56);
+}
+
 // [NEW] Adjust color saturation, contrast, brightness
 vec3 applySCB(vec3 color, float b, float c, float s) {
     // 1. 輝度 (Brightness): 単純な乗算
@@ -1518,6 +1553,32 @@ void main() {
     }
     // マイナス値への侵入を防ぐ
     litColor = max(litColor, 0.0);
+
+    // Single adaptive ice-blue optical rim for native GNOME cards.
+    // Existing gloss/refraction/specular remain intact; this thin cool band
+    // only makes their contour readable over both white and dark wallpaper.
+    // Because surface_light_enabled is 0 for real application windows, those
+    // windows retain their original shadow-only appearance.
+    //
+    // No extra actor, new sampler or CSS border: tint only the *existing*
+    // glass body within ~3px of its signed-distance boundary. Composite
+    // later multiplies by insideMask ONCE, preventing exterior blue halos,
+    // opaque frames and the old fullscreen-darkening regression.
+    if (surface_light_enabled > 0.5 &&
+        d > -3.10 && d < edgeFeather) {
+        vec3 edgeBlue = veloraAdaptiveCardEdgeColor(
+            adjustedRefracted, litColor, velora_frost_amount
+        );
+        float edgeCoverage = veloraAdaptiveCardEdgeCoverage(d);
+        // Frosted uses a calmer contrast contour; its Crystal Edge Glow
+        // slider still controls the separate broad luminous highlight.
+        edgeCoverage *= mix(
+            1.0,
+            0.87,
+            clamp(velora_frost_amount, 0.0, 1.0)
+        );
+        litColor = mix(litColor, edgeBlue, edgeCoverage);
+    }
 
     // Composite the glass OVER the shadow, in PREMULTIPLIED-alpha space.
     //

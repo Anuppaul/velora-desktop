@@ -53,7 +53,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 
 | | |
 | --- | --- |
-| **Two live-switchable materials** | Liquid Glass v10 preserves glossy refraction and highlights. Frosted Crystal adds stronger native backdrop diffusion, matte color, fine static grain and a softer illuminated crystal rim. |
+| **Two live-switchable materials** | Liquid Glass v10 preserves glossy refraction and highlights. Frosted Crystal adds stronger native backdrop diffusion, matte color, fine static grain and a softer illuminated crystal rim. Both now have a subtle adaptive icy-blue edge, readable over dark and light wallpaper. |
 | **Velora Orb** | Draggable, multi-monitor radial launcher with Dock Apps, Custom Apps and All Apps sources, paging, previews, tooltips and running indicators. |
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and native-style result presentation. |
 | **Ubuntu Dock integration** | Restyles the existing Ubuntu Dock / Dash-to-Dock surface while preserving its native icons, autohide/intellihide and interaction model. |
@@ -76,6 +76,12 @@ At the default Frost Density, the frosted material now masks most fine wallpaper
 Switching back to Liquid Glass restores the saved v10 lens, tint and Advanced optics, together with the **new stronger Liquid backdrop blur**. At the default Frost Density (88%), the two modes have comparable background diffusion; Liquid still bends the image at the edges, while Frosted stays matte and nearly achromatic. The original blur slider value is never rewritten. Setting Blur to **0** disables blur in both modes; other slider values are applied through the shared existing blur pipeline with a material-specific boost. Frosted controls are saved separately; neither mode introduces a second overlay or noise texture. Stronger blur can cost more GPU work in **either** mode, so no performance claim is made without a compositor trace.
 
 The material picker applies across supported Velora-owned and vendor-native shell surfaces, including the Orb, Spotlight, Dock and top panel glass surfaces, window previews, calendar, Quick Settings and supported popups. Individual native surfaces that intentionally remain non-glass in certain modes (such as Ubuntu Dock's plain panel fallback) keep their established behavior.
+
+### Adaptive icy-blue edges
+
+Velora's glass cards use a thin, rounded, icy-blue optical contour rather than a CSS border. The color adapts to the *actual backdrop* (and to the matte body in Frosted Crystal): **soft pale-blue on dark backgrounds** and **restrained steel-blue on bright backgrounds**. The effect is contained entirely within the existing glass shader's 1–3px rim, with no second layer, no halo outside the card, and no new GPU texture or capture pass.
+
+The original Liquid Glass refraction and Frosted Crystal matte finish still differ; the contour only improves the legibility of both surfaces against contrasting wallpapers. Preview cards retain their compact 480×270 fixed 16:9 layout, and native controls and input remain unchanged.
 
 ## Gallery
 
