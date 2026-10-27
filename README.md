@@ -148,17 +148,27 @@ The original Liquid Glass refraction and Frosted Crystal matte finish still diff
 
 Velora deliberately leaves GTK/libadwaita application interiors, GNOME accessibility ownership, native hit targets and native animation semantics alone.
 
-**Calendar backdrop:** Date/Calendar glass follows the visual context.
-While **Super / GNOME Overview / App Grid is visible**, Calendar samples a
-native clone of the actual `overviewGroup`: app icons, search/overview content
-and Velora's existing blurred Overview background are refracted together.
-When Overview is closed, Calendar uses its safe shared-wallpaper backdrop.
-It **never** captures original full-size Browser/window actors through the
-Date Menu source. The Overview clone is a sibling (not an ancestor) of the
-popup, preventing a cyclic capture of the Calendar itself. Liquid/Frosted
-glass, native Date content and the 480×270 running-window preview are
-unchanged. Quick Settings and other supported popups retain their ordinary
-live-window backdrop.
+**Every native popup follows the real background.** Date/Calendar,
+Quick Settings and supported panel/context menus now use **the same
+scene-selection policy**, with no wallpaper-only Calendar exception:
+
+- **Super / GNOME Overview / App Grid visible:** the actual native
+  `overviewGroup` content, including its icons, workspace/search UI and
+  Velora's existing blurred background, is captured inside the popup glass.
+  The original full-size desktop Browser window is not duplicated.
+- **Normal desktop with open apps:** the live, correctly stacked desktop
+  windows (Browser, editor, terminal) are rendered over the shared wallpaper,
+  so Calendar and Quick Settings both refract **the actual window behind
+  them**, not wallpaper alone.
+- **Desktop with no overlapping window:** the same shared wallpaper remains
+  underneath.
+
+The Overview source is a separate GNOME actor subtree, never the full stage
+or the popup's own ancestor, avoiding a self-capture cycle. Source changes
+happen in the existing popup frame sync, retain cached-window fallback
+compatibility, and use one Liquid/Frosted composite shader. Native input,
+Date-menu cards, Quick Settings controls, Dock and 480×270 window previews
+remain unchanged.
 
 
 ## Manage Ubuntu Dock from Velora
