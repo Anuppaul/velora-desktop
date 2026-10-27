@@ -1571,23 +1571,14 @@ void main() {
             adjustedRefracted, litColor, velora_frost_amount
         );
         float edgeCoverage = veloraAdaptiveCardEdgeCoverage(d);
-        // On light surfaces, the saturated blue stroke was too strong even
-        // though the dark-wallpaper edge was already correct. Use the same
-        // sampled background/body luminance as the edge color selection to
-        // attenuate ONLY the bright side, without extra texture fetches.
-        float edgeBackdropLuma = dot(
-            adjustedRefracted, vec3(0.2126, 0.7152, 0.0722)
+        // White backgrounds need a quieter blue-gray stroke; dark edges
+        // must remain unchanged. The selected edge color ALREADY encodes
+        // context brightness in its red channel (0.76 dark → 0.54 light).
+        // Recover that interpolation instead of repeating the backdrop/body
+        // luminance calculations and adding work at every edge pixel.
+        float brightEdge = clamp(
+            (0.76 - edgeBlue.r) / (0.76 - 0.54), 0.0, 1.0
         );
-        float edgeBodyLuma = dot(
-            litColor, vec3(0.2126, 0.7152, 0.0722)
-        );
-        float frostContext = smoothstep(
-            0.15, 0.75, clamp(velora_frost_amount, 0.0, 1.0)
-        ) * 0.82;
-        float edgeContext = mix(
-            edgeBackdropLuma, edgeBodyLuma, frostContext
-        );
-        float brightEdge = smoothstep(0.32, 0.75, edgeContext);
         edgeCoverage *= mix(1.0, 0.58, brightEdge);
         // Frosted uses a calmer contrast contour; its Crystal Edge Glow
         // slider still controls the separate broad luminous highlight.
