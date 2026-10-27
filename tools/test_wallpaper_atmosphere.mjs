@@ -26,12 +26,12 @@ assert.deepEqual(config.ATMOSPHERE_PRESETS.map(x => x.id), [
     'original', 'natural', 'cinematic', 'atmosphere', 'custom',
 ]);
 assert.deepEqual(config.ATMOSPHERE_PRESETS
-    .find(x => x.id === 'atmosphere').values, [14,8,6,2,14]);
+    .find(x => x.id === 'atmosphere').values, [62,52,54,3,56]);
 assert.match(schema, /<key name="wallpaper-style" type="s">\s*<default>'original'<\/default>/);
 for (const key of config.ATMOSPHERE_KEYS)
     assert.match(schema, new RegExp('<key name="' + key + '"'));
 const defaultValues = Object.fromEntries(
-    config.ATMOSPHERE_KEYS.map((key,i) => [key,[14,8,6,2,14][i]])
+    config.ATMOSPHERE_KEYS.map((key,i) => [key,[62,52,54,3,56][i]])
 );
 
 class Emitter {
@@ -89,6 +89,15 @@ const Meta = {BackgroundActor,BackgroundContent};
 const Main={layoutManager:{_backgroundGroup:desktop,uiGroup}};
 const idleTasks=new Map();
 let idleId=0;
+function drainIdles() {
+    let ticks=0;
+    while(idleTasks.size){
+        assert.ok(++ticks<100, 'status refresh must be bounded');
+        const [id,cb]=idleTasks.entries().next().value;
+        idleTasks.delete(id);
+        assert.equal(cb(), false);
+    }
+}
 const GLib={
     PRIORITY_DEFAULT_IDLE:200,
     SOURCE_REMOVE:false,
@@ -118,10 +127,13 @@ const Type=new Function('GLib','Meta','Main','ATMOSPHERE_KEYS',
 );
 class Settings extends Emitter {
     constructor(){super();this.data=new Map(Object.entries({
-        'wallpaper-style':'original',...defaultValues,
+        'wallpaper-style':'original',
+        'wallpaper-runtime-status':'Not initialized — install or reload Velora',
+        ...defaultValues,
     }));}
     get_string(k){return this.data.get(k);}
     get_int(k){return this.data.get(k);}
+    set_string(k,v){this.change(k,v);}
     change(key,value){this.data.set(key,value);this.emit('changed',key);}
 }
 const settings=new Settings();
@@ -133,6 +145,10 @@ assert.equal(native.effects.size,0,
     'Original does not even register a shader/effect');
 assert.equal(unloaded.effects.size,0);
 assert.equal(registerCount,0);
+drainIdles();
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Original: no Atmosphere GPU effect attached/,
+    'live status makes disabled Original mode explicit');
 
 // The Liquid Glass shared wallpaper mirror can be created AFTER Atmosphere
 // startup. Its children must be graded once, using the same profile.
@@ -154,10 +170,12 @@ assert.equal(gridBg.effects.size,0);
 settings.change('wallpaper-filmic',18);
 settings.change('wallpaper-vignette',10);
 settings.change('wallpaper-style','atmosphere');
-assert.equal(idleTasks.size,1);
-const [id,cb]=[...idleTasks.entries()][0];
-idleTasks.delete(id);
-assert.equal(cb(),GLib.SOURCE_REMOVE);
+assert.equal(idleTasks.size,1,
+    'multiple GSettings changes produce one apply idle');
+drainIdles();
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Shader attached to 3\/3 loaded wallpaper sources/,
+    'live UI reports verified actor attachments after apply');
 assert.equal(registerCount,1,
     'single effect class for all independent wallpaper actors');
 assert.equal(native.effects.size,1);
@@ -166,7 +184,8 @@ assert.equal(gridBg.effects.size,1);
 assert.equal(unloaded.effects.size,0,'never render a null background');
 const effectOf=actor=>actor.effects.get('velora-atmosphere-wallpaper');
 for(const actor of [native,mirror,gridBg])
-    assert.deepEqual(effectOf(actor).profiles.at(-1),[18,10,6,2,14]);
+    assert.deepEqual(effectOf(actor).profiles.at(-1),[62,52,54,3,56],
+        'named Atmosphere must upgrade from stale pre-PR #62 slider values');
 assert.notEqual(effectOf(native),effectOf(mirror),
     'separate native paint sources own distinct instances');
 
@@ -175,13 +194,20 @@ assert.notEqual(effectOf(native),effectOf(mirror),
 unloaded.content.load();
 assert.equal(unloaded.effects.size,1);
 assert.equal(registerCount,1);
+drainIdles();
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Shader attached to 4\/4 loaded wallpaper sources/);
 
-// Changing a preset intensity configures existing effects, not new actors.
+// While a *named* preset is active, stale saved sliders may change but the
+// visible preset stays canonical. Switching to Custom intentionally uses
+// the saved values, with no duplicate GObject class.
 settings.change('wallpaper-ambient',11);
-const [nextId,nextCb]=[...idleTasks.entries()].at(-1);
-idleTasks.delete(nextId);nextCb();
+drainIdles();
 assert.equal(native.adds,1);
-assert.deepEqual(effectOf(native).profiles.at(-1),[18,10,11,2,14]);
+assert.deepEqual(effectOf(native).profiles.at(-1),[62,52,54,3,56]);
+settings.change('wallpaper-style','custom');
+drainIdles();
+assert.deepEqual(effectOf(native).profiles.at(-1),[18,10,11,3,56]);
 
 // A GNOME wallpaper change replaces the background actor; old effects and
 // event watchers must be cleaned without ever editing the picture file.
@@ -194,13 +220,14 @@ assert.equal(replacement.effects.size,1);
 
 // Turning Original ON is a true zero-GPU mode, without resetting controls.
 settings.change('wallpaper-style','original');
-const [offId,offCb]=[...idleTasks.entries()].at(-1);
-idleTasks.delete(offId);offCb();
+drainIdles();
 for(const actor of [replacement,unloaded,mirror,gridBg])
     assert.equal(actor.effects.size,0);
 assert.equal(registerCount,1);
 assert.equal(settings.get_int('wallpaper-filmic'),18);
 assert.equal(settings.get_int('wallpaper-ambient'),11);
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Original: no Atmosphere GPU effect attached/);
 
 // Watchers track mirror source removal and monitor/App Grid rebuilds.
 uiGroup.remove_child(mirrorGroup);
@@ -215,6 +242,8 @@ assert.equal(manager._actors.size,0);
 assert.equal(manager._containers.size,0);
 assert.equal(desktop.get_children().length,3);
 assert.equal(uiGroup.get_children().length,0);
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Inactive: Velora Atmosphere runtime stopped/);
 
 // Packaging and runtime integration must be real, not just mock tests.
 assert.match(integration,/new WallpaperAtmosphereManager\(this\._veloraSettings\)/);
@@ -230,4 +259,4 @@ assert.match(effectSource,/vfunc_build_pipeline/);
 assert.match(effectSource,/vfunc_get_static_snippet/);
 assert.match(effectSource,/Shell\.GLSLEffect \?\? Clutter\.ShaderEffect/);
 assert.doesNotMatch(effectSource,/GLib\.timeout_add|Shell\.Screenshot|new Gio\.File/);
-console.log('Wallpaper Atmosphere original safe default, source isolation, delayed BG, GNOME/App Grid/mirror, cleanup, presets and packaging PASS.');
+console.log('Atmosphere visible named presets from old saved values, Original safety, real source count/status, wallpaper loading, Custom fidelity and cleanup PASS.');
