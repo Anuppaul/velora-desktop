@@ -183,8 +183,11 @@ assert.equal(clone.visible,false);
 // When native Overview actor is unmapped, fallback to wallpaper even if
 // overview.visibleTarget temporarily stays true during transitions.
 overviewGroup.mapped=false;Main.overview.visibleTarget=true;
-assert.equal(capture.call(dateSurface),false);
-assert.equal(clone.visible,false);
+assert.equal(capture.call(dateSurface),true,
+    'unmapped Overview transition hides the old Browser source');
+assert.equal(browserVisible,false);
+assert.equal(clone.visible,false,
+    'unmapped native scene falls back to wallpaper instead of a stale image');
 overviewGroup.mapped=true;
 assert.equal(capture.call(dateSurface),true);
 assert.equal(clone.visible,true);
