@@ -47,6 +47,11 @@ jobs:
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
 
+      - name: Validate GNOME Store runtime-only release manifest
+        run: |
+          python3 -m py_compile tools/build_ego_release.py
+          python3 tools/build_ego_release.py --check-only
+
       - name: Validate both GSettings material schemas
         run: |
           glib-compile-schemas --strict --dry-run gnome-shell/velora@wonderer.tech/schemas
