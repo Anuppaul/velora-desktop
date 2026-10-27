@@ -275,8 +275,10 @@ class PopupGlassSurface {
         this._root = null;
         this._liquidBox = null;
         this._sceneManager = null;
-        // Calendar can refract the real Overview/App Grid, not Browser web
-        // clones. This is a sibling source, never an ancestor of this popup.
+        // Every native popup uses the same scene-selection pipeline:
+        // Overview/App Grid when present, otherwise real desktop windows
+        // above the shared wallpaper. This source is always a sibling,
+        // never an ancestor of this popup.
         this._overviewSceneClone = null;
         this._overviewSceneSource = null;
         this._lastOverviewSceneGeometryKey = '';
@@ -486,9 +488,19 @@ class PopupGlassSurface {
         liquidBox.set_size(1, 1);
         root.add_child(liquidBox);
 
-        // GPU-native source: shared wallpaper for Date/Calendar, plus live
-        // Meta.WindowActor clones for the other native popup surfaces. No
-        // CPU screenshot/readback or extra compositor texture.
+        // One scene-selection policy for ALL native popups:
+        // - desktop: live Meta.WindowActor clones over shared wallpaper;
+        // - Overview/App Grid: GNOME's actual native overviewGroup pixels,
+        //   including Velora's existing blurred Overview backdrop/icons;
+        // - empty desktop: just the shared wallpaper.
+        //
+        // Do NOT clone Main.uiGroup/global.stage: those contain popup
+        // roots and would create recursive offscreen captures. The
+        // overviewGroup is a separate subtree (a sibling of our popup root).
+        // The existing WindowCloneManager and its wallpaper mirror remain
+        // the sole source owner; one native Overview Clutter.Clone is an
+        // additional source *within the same LiquidEffect*, not a new
+        // rendering effect or a CSS overlay.
         const sceneManager =
             new this._vendor.WindowCloneManager(
                 liquidBox,
@@ -496,60 +508,46 @@ class PopupGlassSurface {
                 'velora-popup-scene'
             );
 
-        // Date/Calendar must NEVER expose a full-size Browser/web window
-        // as its glass scene after a Super/Overview handoff. GNOME can
-        // close Overview *before* showing the Date Menu, so the old
-        // Main.overview.visible/visibleTarget-only fix re-enabled Browser
-        // clones right before the first Calendar paint. Use the shared
-        // GPU wallpaper mirror as the persistent Date Menu source instead.
-        //
-        // Apply before creating the LiquidEffect or painting the popup,
-        // including when an already-running GNOME Shell has older cached
-        // vendored WindowCloneManager classes from a live hot-swap.
-        if (this._isDateMenu)
-            this._setSceneWindowCapture(false, sceneManager);
-
-        // OverviewGroup is GNOME's actual App Grid / Overview UI with its
-        // native blurred wallpaper. Clone only that group: cloning uiGroup
-        // or the stage would include this popup and recurse.
         let overviewSceneClone = null;
         let overviewSceneSource = null;
-        if (this._isDateMenu) {
-            const overview = Main.layoutManager.overviewGroup ?? null;
-            let ancestor = liquidBox;
-            let recursive = false;
-            while (ancestor) {
-                if (ancestor === overview) {
-                    recursive = true;
-                    break;
-                }
-                ancestor = ancestor.get_parent?.() ?? null;
+        const overview =
+            Main.layoutManager.overviewGroup ?? null;
+        let ancestor = liquidBox;
+        let recursive = false;
+        while (ancestor) {
+            if (ancestor === overview) {
+                recursive = true;
+                break;
             }
-            if (overview && !recursive) {
-                try {
-                    overviewSceneClone = new Clutter.Clone({
-                        source: overview,
-                        reactive: false,
-                    });
-                    overviewSceneClone.set_name?.(
-                        'velora-calendar-native-overview-scene'
-                    );
-                    overviewSceneClone.set_no_layout?.(true);
-                    overviewSceneClone.set_position(0, 0);
-                    overviewSceneClone.set_size(1, 1);
-                    overviewSceneClone.hide();
-                    // Above the shared wallpaper mirror; below the existing
-                    // single LiquidEffect. Browser source stays excluded.
-                    liquidBox.add_child(overviewSceneClone);
-                    overviewSceneSource = overview;
-                } catch (error) {
-                    try { overviewSceneClone?.destroy?.(); } catch {}
-                    overviewSceneClone = null;
-                    console.warn(
-                        '[Velora][Calendar] Overview clone unavailable: ' +
-                        error
-                    );
-                }
+            ancestor = ancestor.get_parent?.() ?? null;
+        }
+
+        if (overview && !recursive) {
+            try {
+                overviewSceneClone = new Clutter.Clone({
+                    source: overview,
+                    reactive: false,
+                });
+                overviewSceneClone.set_name?.(
+                    'velora-popup-native-overview-scene'
+                );
+                overviewSceneClone.set_no_layout?.(true);
+                overviewSceneClone.set_position(0, 0);
+                overviewSceneClone.set_size(1, 1);
+                overviewSceneClone.hide();
+                // WindowCloneManager already placed the wallpaper first,
+                // windows second. The native Overview clone stays above
+                // both but is visible ONLY when GNOME paints Overview.
+                // At that point live desktop-window clones are hidden.
+                liquidBox.add_child(overviewSceneClone);
+                overviewSceneSource = overview;
+            } catch (error) {
+                try { overviewSceneClone?.destroy?.(); } catch {}
+                overviewSceneClone = null;
+                console.warn(
+                    '[Velora][PopupGlass] Overview scene clone unavailable: ' +
+                    error
+                );
             }
         }
 
@@ -725,11 +723,11 @@ class PopupGlassSurface {
                         return;
                     }
 
-                    // The Date Menu's persistent wallpaper-only policy also
-                    // survives cached vendor module swaps and reopened
-                    // Calendar menus without accidentally reviving Browser.
-                    if (this._isDateMenu)
-                        this._setSceneWindowCapture(false);
+                    // On every reopen, use the ACTUAL scene currently
+                    // behind GNOME's native popup. This also repairs
+                    // older cached vendor managers that have rebuilt their
+                    // window-clone subtree while the menu was closed.
+                    this._syncOverviewWindowCapture();
 
                     // Reopening a popup must not destroy and recreate the live
                     // capture tree. WindowCloneManager.sync() already heals
@@ -2105,18 +2103,17 @@ class PopupGlassSurface {
     _syncOverviewSceneVisibility() {
         const clone = this._overviewSceneClone;
         const overview = this._overviewSceneSource;
-        if (!this._isDateMenu || !clone || !overview)
+        if (!clone || !overview)
             return false;
 
-        // A Super/Overview scene includes the actual App Grid actors and
-        // Velora's existing native wallpaper blur. Unlike the full-size
-        // Browser's Meta.WindowActor, this is precisely what GNOME paints
-        // behind the Calendar while Overview is shown.
+        // This actual native Overview/App Grid subtree contains the icons,
+        // workspace/search views and Velora's existing background blur.
+        // All popups use it when GNOME paints Overview. Desktop Browser
+        // clones are excluded ONLY in that context, not forever as the
+        // previous Calendar-only workaround did.
         //
-        // Do NOT show it outside Overview: GNOME can retain its actor tree
-        // mapped/allocated after closing, but the native stage behind the
-        // Date Menu then returns to the normal desktop. The safe wallpaper
-        // fallback is restored automatically, without reviving Browser.
+        // GNOME can keep the overviewGroup allocated after leaving it:
+        // both native Overview state and group visibility must agree.
         const active = Boolean(
             (Main.overview?.visible ||
                 Main.overview?.visibleTarget) &&
@@ -2193,21 +2190,20 @@ class PopupGlassSurface {
     }
 
     _syncOverviewWindowCapture() {
-        // Date Menu NEVER captures desktop Browser windows. On actual
-        // Overview/App Grid it uses a second, safe native Overview actor
-        // source; otherwise it keeps the shared wallpaper mirror. The
-        // prior Overview-state gate missed the common case where GNOME
-        // dismisses Overview just before it opens Calendar: Browser became
-        // eligible again and appeared as the original full-size web page.
+        // Unified backdrop for Date/Calendar, Quick Settings and ALL
+        // supported PopupMenus. Capture actual live desktop windows over
+        // wallpaper when Overview is not visible. When native Overview is
+        // painted, hide those full-size Browser clones and show the real
+        // GNOME overviewGroup scene instead.
         //
-        // Other popup menus and Quick Settings keep their prior live-scene
-        // behavior, excluding hidden desktop windows only during Overview.
-        const captureWindows =
-            !this._isDateMenu &&
-            !Boolean(
-                Main.overview?.visible ||
-                Main.overview?.visibleTarget
-            );
+        // If Overview is active but its group/clone is unavailable, keep
+        // desktop windows hidden and show the shared wallpaper safely;
+        // never silently substitute a full-size Browser under App Grid.
+        const overviewActive = Boolean(
+            Main.overview?.visible ||
+            Main.overview?.visibleTarget
+        );
+        const captureWindows = !overviewActive;
 
         // Always check the actual actor visibility, even if our requested
         // mode is unchanged: old cached vendors may rebuild the clone
@@ -2224,10 +2220,9 @@ class PopupGlassSurface {
         if (!windowChanged && !overviewChanged)
             return false;
 
-        // A just-entered Overview may still have wallpaper-only pixels
-        // cached in the glass FBO (or old full-size Browser pixels from a
-        // prior revision). Invalidate the single existing scene/composite
-        // ONCE on actual source changes. Do not screenshot the Browser,
+        // A prior native scene may still be cached in the glass FBO.
+        // Invalidate the single existing scene/composite ONCE when either
+        // source changes (Overview → Desktop or Desktop → App Grid). Do not screenshot the Browser,
         // rebuild the scene, add a CSS backdrop, or poll in the background.
         this._lastSceneSyncUs = 0;
         this._lastFullSyncUs = 0;
@@ -2876,8 +2871,9 @@ class PopupGlassSurface {
         this._lastShadowMaxRadius = NaN;
         this._sceneCaptureRect = null;
         this._overviewWindowCaptureEnabled = null;
-        // _root owns the clone as a child, so destroying the existing popup
-        // root releases it. Do not destroy the source Overview actor.
+        // _root owns its one optional native Overview clone as a child;
+        // deleting the popup root releases it without deleting GNOME's
+        // actual overviewGroup actor.
         this._overviewSceneClone = null;
         this._overviewSceneSource = null;
         this._lastOverviewSceneGeometryKey = '';
