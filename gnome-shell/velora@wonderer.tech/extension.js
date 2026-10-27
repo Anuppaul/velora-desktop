@@ -14,19 +14,30 @@ export default class VeloraBootstrap extends Extension {
     async enable() {
         this._enabled = true;
         this._settings = this.getSettings();
+        this._runtime = null;
+        this._runtimeStyle = null;
+        this._runtimeRevision = null;
+        this._reloadGeneration = 1;
+        this._reloadPromise = Promise.resolve();
+        this._revisionChangedId = 0;
+
+        // A Store installation may not have the development revision
+        // marker. The optional file read must NOT block Shell startup:
+        // synchronous Gio.File.load_contents() triggers EGO-X-004.
+        const bootstrapRevision = await this._readBootstrapRevision();
+        // GNOME may disable the extension while the asynchronous GIO
+        // request is outstanding. Never touch settings after disable().
+        if (!this._enabled || !this._settings)
+            return;
+
         this._settings.set_string(
             'bootstrap-loaded-generation',
             VELORA_BOOTSTRAP_GENERATION
         );
         this._settings.set_string(
             'bootstrap-loaded-revision',
-            this._readBootstrapRevision()
+            bootstrapRevision
         );
-        this._runtime = null;
-        this._runtimeStyle = null;
-        this._runtimeRevision = null;
-        this._reloadGeneration = 1;
-        this._reloadPromise = Promise.resolve();
 
         this._revisionChangedId = this._settings.connect(
             'changed::runtime-revision',
@@ -167,23 +178,38 @@ export default class VeloraBootstrap extends Extension {
         }
     }
 
-    _readBootstrapRevision() {
+    async _readBootstrapRevision() {
         const marker = this.dir.get_child(BOOTSTRAP_REVISION_FILE);
+        if (!marker.query_exists(null))
+            return VELORA_BOOTSTRAP_GENERATION;
 
-        try {
-            const [success, contents] = marker.load_contents(null);
-            if (success) {
-                const revision = new TextDecoder()
-                    .decode(contents)
-                    .trim();
-                if (revision)
-                    return revision;
+        // Use GIO's callback form to remain compatible with GNOME 50's
+        // async introspection API without assuming Gio._promisify() was
+        // called. No synchronous file reads in the Shell paint process.
+        return await new Promise(resolve => {
+            try {
+                marker.load_contents_async(
+                    null,
+                    (file, result) => {
+                        try {
+                            const returned = file.load_contents_finish(result);
+                            const bytes = Array.isArray(returned)
+                                ? returned.find(value => value instanceof Uint8Array)
+                                : null;
+                            const revision = bytes
+                                ? new TextDecoder().decode(bytes).trim()
+                                : '';
+                            resolve(revision || VELORA_BOOTSTRAP_GENERATION);
+                        } catch {
+                            resolve(VELORA_BOOTSTRAP_GENERATION);
+                        }
+                    }
+                );
+            } catch {
+                // Store installs need no bootstrap marker at all.
+                resolve(VELORA_BOOTSTRAP_GENERATION);
             }
-        } catch {
-            // Older installs may not have a bootstrap revision marker.
-        }
-
-        return VELORA_BOOTSTRAP_GENERATION;
+        });
     }
 
     _canonicalExtensionDir() {
