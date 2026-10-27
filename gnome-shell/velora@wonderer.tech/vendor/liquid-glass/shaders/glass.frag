@@ -674,8 +674,9 @@ float veloraCrystalGrain(vec2 pixel) {
 
 // Mac-style icy card silhouette, adaptive across black and white wallpaper.
 // Use the backdrop ALREADY sampled by the existing material (no extra texel
-// fetch, capture pass or layered CSS stroke). Over bright wallpapers the line
-// becomes a cool darker steel-blue; on dark scenes it becomes a pale ice-blue.
+// fetch, capture pass or layered CSS stroke). On bright wallpaper the line
+// is a *quiet* blue-gray (not a saturated blue outline); on dark wallpaper
+// it stays a pale icy blue. The bright-side blend is also reduced below.
 // A dense matte crystal is brighter than its backdrop, so prefer its actual
 // surface luminance when determining contrast with the inside of that card.
 vec3 veloraAdaptiveCardEdgeColor(
@@ -689,8 +690,8 @@ vec3 veloraAdaptiveCardEdgeColor(
     float contextLuma = mix(backdropLuma, bodyLuma, matteWeight);
     float lightBackdrop = smoothstep(0.32, 0.75, contextLuma);
     return mix(
-        vec3(0.76, 0.88, 1.00), // ice blue visible on black
-        vec3(0.24, 0.49, 0.75), // steel blue visible on white
+        vec3(0.76, 0.88, 1.00), // preserve icy-blue edge on black
+        vec3(0.54, 0.62, 0.70), // restrained neutral blue-gray on white
         lightBackdrop
     );
 }
@@ -1570,6 +1571,24 @@ void main() {
             adjustedRefracted, litColor, velora_frost_amount
         );
         float edgeCoverage = veloraAdaptiveCardEdgeCoverage(d);
+        // On light surfaces, the saturated blue stroke was too strong even
+        // though the dark-wallpaper edge was already correct. Use the same
+        // sampled background/body luminance as the edge color selection to
+        // attenuate ONLY the bright side, without extra texture fetches.
+        float edgeBackdropLuma = dot(
+            adjustedRefracted, vec3(0.2126, 0.7152, 0.0722)
+        );
+        float edgeBodyLuma = dot(
+            litColor, vec3(0.2126, 0.7152, 0.0722)
+        );
+        float frostContext = smoothstep(
+            0.15, 0.75, clamp(velora_frost_amount, 0.0, 1.0)
+        ) * 0.82;
+        float edgeContext = mix(
+            edgeBackdropLuma, edgeBodyLuma, frostContext
+        );
+        float brightEdge = smoothstep(0.32, 0.75, edgeContext);
+        edgeCoverage *= mix(1.0, 0.58, brightEdge);
         // Frosted uses a calmer contrast contour; its Crystal Edge Glow
         // slider still controls the separate broad luminous highlight.
         edgeCoverage *= mix(
