@@ -41,6 +41,9 @@ export function addUbuntuDockPreferences(
 
     const schema = native.settings_schema ??
         native.get_property?.('settings-schema') ??
+        Gio.SettingsSchemaSource.get_default()?.lookup?.(
+            UBUNTU_DOCK_SCHEMA, true
+        ) ??
         null;
     const has = key => Boolean(schema?.has_key?.(key));
     const bindSwitch = (g, key, title, subtitle) => {
@@ -130,14 +133,9 @@ export function addUbuntuDockPreferences(
         return row;
     };
 
-    group(
-        'Ubuntu Dock — native settings',
-        'Direct controls for your installed Ubuntu Dock. Changes are immediately shared with the Ubuntu Dock extension and system Settings; Velora retains the native dock and its autohide engine.'
-    );
-
     const visibility = group(
-        'Visibility & Intelligent Auto-hide',
-        'Both intelligent hide (window overlap) and edge auto-hide may be enabled. Always visible takes priority. Native Ubuntu Dock handles reveal, hover, pressure and animations.'
+        'Native Ubuntu Dock — Visibility & Auto-hide',
+        'These are Ubuntu Dock’s real settings, shared with system Settings. Intelligent hide (window overlap) and edge auto-hide can both be on. Always visible takes priority; native Ubuntu Dock handles reveal/pressure/animation.'
     );
     const fixed = bindSwitch(
         visibility, 'dock-fixed', 'Always visible',
@@ -168,10 +166,10 @@ export function addUbuntuDockPreferences(
     const threshold = nativeSpin(
         visibility, 'pressure-threshold', 'Pressure threshold',
         'Sensitivity of native edge-pressure reveal.',
-        1, 400, 10, 0
+        1, 400, 10, 1
     );
-    // The native pressure threshold is a double, not an integer.
-    // Treat the slider value as an integer-looking double in Preferences.
+    // Native pressure-threshold is a double; preserving that type is more
+    // important than suppressing its one decimal place.
     bindSwitch(
         visibility, 'autohide-in-fullscreen',
         'Allow reveal in fullscreen',
@@ -231,20 +229,21 @@ export function addUbuntuDockPreferences(
 
     // Dynamic sensitivity only; reading this page never writes a key.
     const syncVisibility = () => {
-        const always = has('dock-fixed') && native.get_boolean('dock-fixed');
-        const hidden = has('manualhide') && native.get_boolean('manualhide');
+        const flag = key => has(key) && native.get_boolean(key);
+        const always = flag('dock-fixed');
+        const hidden = flag('manualhide');
         const canHide = !always && !hidden;
         if (intelligent) intelligent.sensitive = canHide;
         if (auto) auto.sensitive = canHide;
         if (intelligentMode) intelligentMode.sensitive =
-            canHide && native.get_boolean('intellihide');
+            canHide && flag('intellihide');
         if (pressure) pressure.sensitive =
-            canHide && native.get_boolean('autohide');
+            canHide && flag('autohide');
         if (threshold) threshold.sensitive =
-            canHide && native.get_boolean('autohide') &&
-            native.get_boolean('require-pressure-to-show');
+            canHide && flag('autohide') &&
+            flag('require-pressure-to-show');
         if (showDelay) showDelay.sensitive =
-            canHide && native.get_boolean('autohide');
+            canHide && flag('autohide');
         if (hideDelay) hideDelay.sensitive = canHide;
         if (animate) animate.sensitive = true;
         if (fixed) fixed.sensitive = !hidden;
