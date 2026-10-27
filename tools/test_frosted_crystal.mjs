@@ -143,8 +143,9 @@ assert.equal(uniformValues.get('velora_frost_amount'), 0.34);
 material.clear();
 assert.equal(handlers.size, 0, 'material must disconnect mode listeners');
 
-// Test the actual LiquidEffect.blur method, not a reimplementation. Frost
-// adds blur only if the user has blur ON; Liquid restores the exact base.
+// Exercise the actual LiquidEffect.blur setter, not an invented model.
+// Liquid now has Frosted-like strong native diffusion, while the users'
+// saved base radius and advanced optics remain intact. Both modes respect 0.
 const blurBegin = effectSource.indexOf('    _applyVeloraBlurRadius() {');
 const blurEnd = effectSource.indexOf('\n    /**', blurBegin);
 assert.ok(blurBegin >= 0 && blurEnd > blurBegin);
@@ -163,20 +164,59 @@ const fx = {
     ...methods,
 };
 fx.setBlurRadius(7);
-assert.equal(blurRadii.at(-1), 7);
+assert.equal(blurRadii.at(-1), 28,
+    'Liquid adds a strong 21px diffusion to the saved base');
+assert.equal(fx._requestedBlurRadius, 7,
+    'stronger Liquid blur must never overwrite the saved slider value');
 fx._frostAmount = 0.78;
 fx._applyVeloraBlurRadius();
 assert.ok(Math.abs(blurRadii.at(-1) - 25.72) < 0.0001,
-    'dense Frosted must use a clearly stronger native blur');
+    'Frosted still tracks its independently selected density');
 fx._frostAmount = 0;
 fx._applyVeloraBlurRadius();
-assert.equal(blurRadii.at(-1), 7, 'Liquid blur restored exactly');
-fx._frostAmount = 0.78;
+assert.equal(blurRadii.at(-1), 28,
+    'returning to Liquid restores strong blur without touching base radius');
+
+// The two modes have closely matched blur at the new Frosted default.
+// They must stay *optically distinct* via the original Liquid shader, not
+// by adding a CSS overlay, extra FBO or mutating refraction/edge settings.
+fx._frostAmount = 0.88;
+fx._applyVeloraBlurRadius();
+assert.ok(Math.abs(blurRadii.at(-1) - 28.12) < 0.0001,
+    'default Frosted and Liquid background diffusion should be comparable');
+fx._frostAmount = 0;
+fx._applyVeloraBlurRadius();
+assert.equal(blurRadii.at(-1), 28);
+assert.equal(fx._requestedBlurRadius, 7);
+
+// The Blur slider stays live and its explicit OFF state works in both modes.
+fx.setBlurRadius(14);
+assert.equal(blurRadii.at(-1), 35, 'Liquid blur tracks slider changes');
+assert.equal(fx._requestedBlurRadius, 14);
+fx._frostAmount = 1;
+fx._applyVeloraBlurRadius();
+assert.equal(blurRadii.at(-1), 38, 'max Frosted density adds up to 24');
+fx._frostAmount = 0;
+fx._applyVeloraBlurRadius();
+assert.equal(blurRadii.at(-1), 35);
+
 fx.setBlurRadius(0);
-assert.equal(blurRadii.at(-1), 0, 'explicit blur off is respected');
+assert.equal(blurRadii.at(-1), 0, 'Liquid blur=0 disables the effect');
+fx._frostAmount = 0.88;
+fx._applyVeloraBlurRadius();
+assert.equal(blurRadii.at(-1), 0, 'Frosted blur=0 also disables the effect');
 fx._frostAmount = 0;
 fx._applyVeloraBlurRadius();
 assert.equal(blurRadii.at(-1), 0);
+assert.equal(fx._requestedBlurRadius, 0);
+
+// A zero-amount toggle cannot create a second renderer or change v10 optics.
+assert.match(effectSource, /const liquidExtra = 21\.0;/);
+assert.match(effectSource, /const frostedExtra = Math\.min\(24\.0, this\._frostAmount \* 24\.0\)/);
+assert.doesNotMatch(
+    effectSource.slice(blurBegin, blurEnd),
+    /setGlassGeometry\(|add_effect\(|new BlurRenderer|setTintColor\(/,
+    'blur boost must stay inside existing blur pipeline');
 
 // Test wiring and safety contracts: no hidden second layer/GL pass,
 // Liquid has an identity path, all shader paths use same matte+grain.
@@ -241,4 +281,4 @@ assert.match(integration, /this\._applyFrostedCrystalSettings\(\)/);
 assert.match(integration, /'frost-density',\s*'frost-grain',\s*'frost-edge-glow'/);
 assert.doesNotMatch(method, /glass-displacement-scale|glass-chroma-strength|glass-rim-intensity/);
 
-console.log('Full Frosted Crystal visual separation, live mode, dense diffusion, unchanged Liquid optics and reversible blur PASS.');
+console.log('Strong Liquid/Frosted native blur, preserved refractive optics, mode switching, slider OFF and regression checks PASS.');

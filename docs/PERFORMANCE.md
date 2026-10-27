@@ -408,3 +408,37 @@ curve and identity at frostAmount=0. Existing preview, optics and frame-budget
 checks remain. On-device GNOME Shell 50 acceptance remains mandatory for
 color/contrast, GPU cost, readability, transition flicker, multi-monitor
 and panel/dock visuals.
+
+## Liquid Glass: Frosted-level backdrop blur (later material update)
+
+The Liquid Glass material now retains its original v10 **refraction,
+chromatic dispersion, glossy rim and highlights**, while receiving nearly
+the same *background diffusion* as Frosted Crystal v2. This is a change to
+**effective blur radius only**, not the shader's refractive optics or any
+saved user setting.
+
+- When the existing base blur radius is nonzero, **Liquid adds 21px** inside
+  the same existing Gaussian/Dual Kawase renderer.
+- Frosted continues to add **24px × Frost Density** (at default 88%,
+  **21.12px**), so the two modes now have similarly soft backdrops while
+  their optical styles remain conspicuously distinct.
+- Switching `Liquid → Frosted → Liquid` changes only the effective radius
+  and existing per-material shader uniforms; the base blur slider and
+  Advanced optics values are preserved. **Blur = 0 remains completely off**
+  in either mode.
+- Example with an existing base radius of 7: Liquid **28**, Frosted at 88%
+  **28.12**, and Frosted at 78% **25.72**. After returning to Liquid, the
+  effective radius is still 28 and the saved base radius remains 7.
+- Implementation changes only `LiquidEffect._applyVeloraBlurRadius()` and
+  its source-based regression tests. No added material actor, blur pass,
+  shader uniform, framebuffer, texture, timer or scene-sampling loop.
+- **Performance caveat:** a larger radius can select more levels in the
+  *existing* Kawase pipeline. Previously light Liquid-only surfaces may
+  consume more GPU time. On-device GNOME Shell 50 measurements of normal
+  Dock/Panel, Orb hover, Spotlight, Quick Settings, Calendar and window
+  previews are still required before claiming equivalent performance.
+
+This section supersedes earlier notes claiming that re-selecting Liquid
+restores the **unboosted** effective blur radius. The Liquid user's stored
+blur slider value is still restored exactly; only the actual displayed blur
+is now deliberately stronger.

@@ -1089,16 +1089,25 @@ export const LiquidEffect = GObject.registerClass({
         const base = this._requestedBlurRadius;
         if (base === null)
             return;
-        // Stronger diffusion in the SAME native blur pipeline, not another
-        // render pass. User's explicit zero blur always remains zero.
-        // Full crystal diffusion needs a genuinely blurred backdrop, not
-        // just the v1 +9px haze. The existing Kawase/Gaussian chain already
-        // supports this radius; no second compositor effect is allocated.
-        // Higher radii may select an additional *existing* blur pyramid level,
-        // so GNOME GPU performance still needs real-device validation.
+        // Liquid Glass now gets the same strong *background diffusion*
+        // as default-density Frosted Crystal, while keeping its original
+        // refractive shader (lens, chromatic fringe, glossy rim, specular).
+        // Preserve the user's saved blur slider value: this is an effective
+        // renderer-only radius, not a GSettings migration or a new layer.
+        //
+        // Frosted at the shipped density 88% adds 0.88 * 24 = 21.12px;
+        // Liquid uses a comparable +21px. Selecting Frosted still changes
+        // only the material appearance and its density-dependent blur.
+        // Explicit blur=0 remains OFF in both modes.
+        const liquidExtra = 21.0;
+        const frostedExtra = Math.min(24.0, this._frostAmount * 24.0);
         const extra = base > 0
-            ? Math.min(24.0, this._frostAmount * 24.0)
+            ? (this._frostAmount > 0 ? frostedExtra : liquidExtra)
             : 0;
+        // Reuse the existing Gaussian/Dual Kawase chain: no new effect,
+        // shader pass, capture actor, framebuffer or polling loop. Some
+        // radii can increase that chain's pass count (up to its existing
+        // bound), so real GNOME GPU measurements are still necessary.
         this._blur.setBlurRadius(base + extra);
     }
     setBlurRadius(radius) {
