@@ -68,12 +68,12 @@ Open **GNOME Extensions → Velora Desktop → Preferences → Appearance → Gl
 
 | Material | Appearance | Adjustable controls |
 | --- | --- | --- |
-| **Liquid Glass** (default) | Original v10 refractive lens, chromatic highlights, glossy edge lighting and clear glass body | Existing blur, tint, optics and advanced rendering controls remain untouched. |
+| **Liquid Glass** (default) | Original v10 refractive lens, chromatic highlights and glossy edge lighting, now with **strong Frosted-like backdrop blur** | Existing Blur slider still controls the stored base radius; tint and Advanced optics remain untouched. |
 | **Frosted Crystal** | Dense pearl-white satin diffusion, strongly softened backdrop, subtle 4px micro-etched crystal texture, near-zero rainbow fringe and broad ice-blue edge glow | Frost Density, Micro-grain and Crystal Edge Glow |
 
 At the default Frost Density, the frosted material now masks most fine wallpaper detail instead of resembling a lightly tinted Liquid surface. Its diffuse crystal texture is spatially stable rather than animated. Selecting Liquid restores the original sharp refractive lens and chromatic optics without resetting any Advanced settings. Increasing Frost Density increases matte coverage; lowering it lets more wallpaper detail through.
 
-Switching back to Liquid Glass restores the same saved v10 material, including user-adjusted Advanced optics. Frosted controls are saved separately: no reset or migration of existing preferences is required. Both modes use **one shared LiquidEffect shader and its existing blur pipeline**—no second overlay or noise texture. Frosted blur can cost more GPU work than Liquid; no benchmark claim is made without a compositor trace.
+Switching back to Liquid Glass restores the saved v10 lens, tint and Advanced optics, together with the **new stronger Liquid backdrop blur**. At the default Frost Density (88%), the two modes have comparable background diffusion; Liquid still bends the image at the edges, while Frosted stays matte and nearly achromatic. The original blur slider value is never rewritten. Setting Blur to **0** disables blur in both modes; other slider values are applied through the shared existing blur pipeline with a material-specific boost. Frosted controls are saved separately; neither mode introduces a second overlay or noise texture. Stronger blur can cost more GPU work in **either** mode, so no performance claim is made without a compositor trace.
 
 The material picker applies across supported Velora-owned and vendor-native shell surfaces, including the Orb, Spotlight, Dock and top panel glass surfaces, window previews, calendar, Quick Settings and supported popups. Individual native surfaces that intentionally remain non-glass in certain modes (such as Ubuntu Dock's plain panel fallback) keep their established behavior.
 
