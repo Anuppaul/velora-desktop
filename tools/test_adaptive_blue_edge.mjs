@@ -28,8 +28,8 @@ assert.equal(shader.split('veloraAdaptiveCardEdgeCoverage(d);').length - 1, 1,
 
 assert.match(helpers, /vec3\(0\.76, 0\.88, 1\.00\)/,
     'icy blue on dark surfaces');
-assert.match(helpers, /vec3\(0\.24, 0\.49, 0\.75\)/,
-    'steel blue on bright surfaces');
+assert.match(helpers, /vec3\(0\.54, 0\.62, 0\.70\)/,
+    'desaturated blue-gray rather than saturated steel-blue on white');
 assert.match(helpers, /dot\(backdrop, vec3\(0\.2126, 0\.7152, 0\.0722\)\)/);
 assert.match(helpers, /dot\(body, vec3\(0\.2126, 0\.7152, 0\.0722\)\)/);
 assert.match(helpers, /float lightBackdrop = smoothstep\(0\.32, 0\.75, contextLuma\)/);
@@ -38,6 +38,10 @@ assert.match(helpers, /smoothstep\(0\.70, 3\.10, depth\)/);
 assert.match(helpers, /hairline \* 0\.46 \+ innerFeather \* 0\.08/);
 assert.match(shader, /if \(surface_light_enabled > 0\.5 &&\s*d > -3\.10 && d < edgeFeather\)/,
     'no accidental edge treatment on application windows or full-screen FBO');
+assert.match(shader, /edgeCoverage \*= mix\(1\.0, 0\.58, brightEdge\);/,
+    'bright backgrounds must have less color coverage than dark backgrounds');
+assert.match(shader, /\(0\.76 - edgeBlue\.r\) \/ \(0\.76 - 0\.54\)/,
+    'reuse already-selected edge color without repeated luminance sampling');
 assert.match(shader, /edgeCoverage \*= mix\(\s*1\.0,\s*0\.87,/,
     'Frosted has a calmer optical contour without losing contrast');
 assert.match(shader, /float insideMask = 1\.0 - outsideTransition;/);
@@ -70,14 +74,15 @@ function opticalEdge(backdrop, body, frost, signedDistance = -0.2) {
     );
     const lightBackdrop = smoothstep(0.32, 0.75, context);
     const color = [0.76, 0.88, 1.0].map((v, i) =>
-        mix(v, [0.24, 0.49, 0.75][i], lightBackdrop)
+        mix(v, [0.54, 0.62, 0.70][i], lightBackdrop)
     );
     const depth = Math.max(-signedDistance, 0);
     const hairline = 1 - smoothstep(0.12, 1.48, depth);
     const feather = 1 - smoothstep(0.70, 3.10, depth);
+    const brightEdge = clamp((0.76 - color[0]) / (0.76 - 0.54));
     const coverage = Math.min(
         0.56, Math.max(0, hairline * 0.46 + feather * 0.08)
-    ) * mix(1, 0.87, clamp(frost));
+    ) * mix(1, 0.58, brightEdge) * mix(1, 0.87, clamp(frost));
     return {
         color,
         coverage,
@@ -88,17 +93,26 @@ const white = [0.98, 0.98, 0.98];
 const black = [0.05, 0.06, 0.075];
 const whiteEdge = opticalEdge(white, white, 0);
 const blackEdge = opticalEdge(black, black, 0);
-assert.ok(rgbLuma(white) - rgbLuma(whiteEdge.final) > 0.17,
-    'white wallpaper still gets a clearly distinguishable darker blue edge');
+const whiteContrast = rgbLuma(white) - rgbLuma(whiteEdge.final);
+assert.ok(whiteContrast > 0.08 && whiteContrast < 0.15,
+    'white wallpaper needs a quiet but distinguishable gray-blue hairline');
+assert.ok(whiteEdge.final[2] - whiteEdge.final[0] < 0.075,
+    'white edge must be neutral blue-gray, not a saturated blue stroke');
+assert.ok(whiteEdge.coverage < blackEdge.coverage * 0.65,
+    'white coverage must be substantially lighter than dark coverage');
 assert.ok(rgbLuma(blackEdge.final) - rgbLuma(black) > 0.25,
     'dark wallpaper still gets a distinguishable pale blue edge');
+assert.ok(Math.abs(blackEdge.coverage - 0.5354121717891309) < 0.000001,
+    'dark-side alpha must be unchanged from the accepted blue-edge release');
 assert.ok(whiteEdge.color[0] < blackEdge.color[0],
     'light/dark backgrounds must select contrasting bluish shades');
 assert.ok(whiteEdge.coverage <= 0.56 && blackEdge.coverage <= 0.56,
     'inside color mix stays bounded');
 const frosted = opticalEdge(black, [0.93, 0.95, 0.98], 0.88);
-assert.ok(rgbLuma([0.93, 0.95, 0.98]) - rgbLuma(frosted.final) > 0.10,
-    'bright frosted-matte card stays visibly edged over dark wallpaper');
+const frostedContrast =
+    rgbLuma([0.93, 0.95, 0.98]) - rgbLuma(frosted.final);
+assert.ok(frostedContrast > 0.065 && frostedContrast < 0.14,
+    'bright frosted card stays outlined without a heavy blue ring');
 assert.ok(opticalEdge(white, white, 0, -3.1).coverage < 0.0001,
     'no accidental inner plate beyond the 3.1px contour');
 
@@ -106,4 +120,4 @@ assert.ok(opticalEdge(white, white, 0, -3.1).coverage < 0.0001,
 // window previews and zero extra actors/passes (CI also runs their own tests).
 assert.match(shader, /multi_region_mode > 0\.5/);
 assert.match(shader, /vec4\(finalRgb, finalAlpha\) \* cogl_color_in/);
-console.log('Contrast-adaptive ice-blue glass edge on bright/dark wallpaper, bounded SDF, no extra layer PASS.');
+console.log('Subtle neutral blue-gray on white, unchanged icy-blue on dark, frosted contrast and single shader rim PASS.');

@@ -79,7 +79,7 @@ The material picker applies across supported Velora-owned and vendor-native shel
 
 ### Adaptive icy-blue edges
 
-Velora's glass cards use a thin, rounded, icy-blue optical contour rather than a CSS border. The color adapts to the *actual backdrop* (and to the matte body in Frosted Crystal): **soft pale-blue on dark backgrounds** and **restrained steel-blue on bright backgrounds**. The effect is contained entirely within the existing glass shader's 1–3px rim, with no second layer, no halo outside the card, and no new GPU texture or capture pass.
+Velora's glass cards use a thin, rounded, icy-blue optical contour rather than a CSS border. The color adapts to the *actual backdrop* (and to the matte body in Frosted Crystal): **soft pale-blue on dark backgrounds** and **very light, low-saturation blue-gray on bright/white backgrounds**. The bright-side color coverage is also reduced, so it reads as a thin premium contour rather than a blue outline. The effect is contained entirely within the existing glass shader's 1–3px rim, with no second layer, no halo outside the card, and no new GPU texture or capture pass.
 
 The original Liquid Glass refraction and Frosted Crystal matte finish still differ; the contour only improves the legibility of both surfaces against contrasting wallpapers. Preview cards retain their compact 480×270 fixed 16:9 layout, and native controls and input remain unchanged.
 

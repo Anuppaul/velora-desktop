@@ -674,8 +674,9 @@ float veloraCrystalGrain(vec2 pixel) {
 
 // Mac-style icy card silhouette, adaptive across black and white wallpaper.
 // Use the backdrop ALREADY sampled by the existing material (no extra texel
-// fetch, capture pass or layered CSS stroke). Over bright wallpapers the line
-// becomes a cool darker steel-blue; on dark scenes it becomes a pale ice-blue.
+// fetch, capture pass or layered CSS stroke). On bright wallpaper the line
+// is a *quiet* blue-gray (not a saturated blue outline); on dark wallpaper
+// it stays a pale icy blue. The bright-side blend is also reduced below.
 // A dense matte crystal is brighter than its backdrop, so prefer its actual
 // surface luminance when determining contrast with the inside of that card.
 vec3 veloraAdaptiveCardEdgeColor(
@@ -689,8 +690,8 @@ vec3 veloraAdaptiveCardEdgeColor(
     float contextLuma = mix(backdropLuma, bodyLuma, matteWeight);
     float lightBackdrop = smoothstep(0.32, 0.75, contextLuma);
     return mix(
-        vec3(0.76, 0.88, 1.00), // ice blue visible on black
-        vec3(0.24, 0.49, 0.75), // steel blue visible on white
+        vec3(0.76, 0.88, 1.00), // preserve icy-blue edge on black
+        vec3(0.54, 0.62, 0.70), // restrained neutral blue-gray on white
         lightBackdrop
     );
 }
@@ -1570,6 +1571,15 @@ void main() {
             adjustedRefracted, litColor, velora_frost_amount
         );
         float edgeCoverage = veloraAdaptiveCardEdgeCoverage(d);
+        // White backgrounds need a quieter blue-gray stroke; dark edges
+        // must remain unchanged. The selected edge color ALREADY encodes
+        // context brightness in its red channel (0.76 dark → 0.54 light).
+        // Recover that interpolation instead of repeating the backdrop/body
+        // luminance calculations and adding work at every edge pixel.
+        float brightEdge = clamp(
+            (0.76 - edgeBlue.r) / (0.76 - 0.54), 0.0, 1.0
+        );
+        edgeCoverage *= mix(1.0, 0.58, brightEdge);
         // Frosted uses a calmer contrast contour; its Crystal Edge Glow
         // slider still controls the separate broad luminous highlight.
         edgeCoverage *= mix(
