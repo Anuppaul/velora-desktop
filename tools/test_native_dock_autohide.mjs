@@ -184,7 +184,11 @@ const watchers=source.slice(source.indexOf('    _setupDashToDockModeWatch() {'),
     source.indexOf('    _dockIsFixedMode() {'));
 for (const key of ['autohide','intellihide','manualhide','dock-position',
     'require-pressure-to-show','pressure-threshold','dock-fixed']) {
-    assert.ok(watchers.includes("'" + key + "'"),'missing native key '+key);
+    assert.ok(
+        watchers.includes("'" + key + "'") ||
+        watchers.includes("'changed::" + key + "'"),
+        'missing native key ' + key
+    );
 }
 assert.match(watchers,/GLib\.source_remove\(this\._dockAutoHideRefreshId\)/);
 assert.match(watchers,/_dashToDockSettings\.disconnect\(\s*this\._dashToDockVisibilityId/);
