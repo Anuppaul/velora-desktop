@@ -189,6 +189,11 @@
     <!-- Velora Atmosphere is opt-in. Original disables the wallpaper GPU
          shader completely. Slider defaults are the Atmosphere profile and
          remain saved across preset changes and Original toggles. -->
+    <key name="wallpaper-runtime-status" type="s">
+      <default>'Not initialized — install or reload Velora'</default>
+      <summary>Diagnostic status of attached Atmosphere wallpaper shader effects</summary>
+      <description>Updated by the running GNOME Shell extension only; not a user setting. Reports source effects attached, not measured pixel output.</description>
+    </key>
     <key name="wallpaper-style" type="s">
       <default>'original'</default>
       <choices>
@@ -202,27 +207,27 @@
       <description>Original leaves GNOME wallpaper rendering unchanged. Other profiles apply static GPU-native visual grading to wallpaper sources.</description>
     </key>
     <key name="wallpaper-filmic" type="i">
-      <default>14</default>
+      <default>62</default>
       <range min="0" max="100"/>
       <summary>Wallpaper filmic color intensity</summary>
     </key>
     <key name="wallpaper-vignette" type="i">
-      <default>8</default>
+      <default>52</default>
       <range min="0" max="100"/>
       <summary>Wallpaper soft vignette intensity</summary>
     </key>
     <key name="wallpaper-ambient" type="i">
-      <default>6</default>
+      <default>54</default>
       <range min="0" max="100"/>
       <summary>Wallpaper ambient light intensity</summary>
     </key>
     <key name="wallpaper-grain" type="i">
-      <default>2</default>
+      <default>3</default>
       <range min="0" max="100"/>
       <summary>Wallpaper static micro-grain intensity</summary>
     </key>
     <key name="wallpaper-adaptive-contrast" type="i">
-      <default>14</default>
+      <default>56</default>
       <range min="0" max="100"/>
       <summary>Wallpaper adaptive contrast intensity</summary>
     </key>
