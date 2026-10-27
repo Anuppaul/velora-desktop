@@ -214,34 +214,63 @@ function moduleUri(root, relativePath) {
 }
 
 export function createLiquidGlassSettings() {
-    const schemaDir = GLib.build_filenamev([
-        canonicalVendorRoot(),
-        'schemas',
-    ]);
-
-    const compiled = Gio.File.new_for_path(
+    // EGO compiles top-level schemas/ during store installation; our
+    // development installer also compiles the nested upstream vendor schema.
+    // Both may exist. Use whichever compiled source exposes the expected
+    // schema ID, without requiring an external install.sh after Store install.
+    // Do not create/write schema directories from the GNOME Shell process.
+    const candidates = [
         GLib.build_filenamev([
-            schemaDir,
-            'gschemas.compiled',
-        ])
-    );
-    if (!compiled.query_exists(null)) {
-        throw new Error(
-            'Vendored Liquid Glass GSettings schema is not compiled: ' +
-            schemaDir
-        );
+            canonicalExtensionRoot(),
+            'schemas',
+        ]),
+        GLib.build_filenamev([
+            canonicalVendorRoot(),
+            'schemas',
+        ]),
+    ];
+
+    for (const schemaDir of candidates) {
+        try {
+            const compiled = Gio.File.new_for_path(
+                GLib.build_filenamev([
+                    schemaDir,
+                    'gschemas.compiled',
+                ])
+            );
+            if (!compiled.query_exists(null))
+                continue;
+
+            const source = Gio.SettingsSchemaSource.new_from_directory(
+                schemaDir,
+                Gio.SettingsSchemaSource.get_default(),
+                false
+            );
+            const schema = source.lookup(GLASS_SCHEMA, true);
+            if (schema)
+                return new Gio.Settings({settings_schema: schema});
+        } catch (error) {
+            console.warn(
+                '[Velora][Store] could not load compiled GSettings from ' +
+                schemaDir + ': ' + error
+            );
+        }
     }
 
-    const source = Gio.SettingsSchemaSource.new_from_directory(
-        schemaDir,
-        Gio.SettingsSchemaSource.get_default(),
-        false
-    );
-    const schema = source.lookup(GLASS_SCHEMA, true);
-    if (!schema)
-        throw new Error('Vendored Liquid Glass GSettings schema was not found');
+    // A distro may install the schema globally instead of alongside the
+    // extension; do not fail before looking for that supported fallback.
+    const fallback =
+        Gio.SettingsSchemaSource.get_default()?.lookup?.(
+            GLASS_SCHEMA,
+            true
+        ) ?? null;
+    if (fallback)
+        return new Gio.Settings({settings_schema: fallback});
 
-    return new Gio.Settings({settings_schema: schema});
+    throw new Error(
+        'Liquid Glass GSettings schema unavailable. ' +
+        'Install Velora with both schema XML files under schemas/.'
+    );
 }
 
 async function importVendorModules(root) {

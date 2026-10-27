@@ -38,6 +38,7 @@ jobs:
           node tools/test_wallpaper_atmosphere.mjs
           node tools/test_wallpaper_atmosphere_ui.mjs
           node tools/test_wallpaper_atmosphere_visual_strength.mjs
+          node tools/test_store_bootstrap_async.mjs
           node tools/test_preview_glass.mjs
           node tools/test_preview_layout.mjs
           node tools/test_liquid_optics.mjs
@@ -46,6 +47,11 @@ jobs:
           # Validate the modified vendored modules as well as Velora's own JS.
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
+
+      - name: Validate GNOME Store runtime-only release manifest
+        run: |
+          python3 -m py_compile tools/build_ego_release.py
+          python3 tools/build_ego_release.py --check-only
 
       - name: Validate both GSettings material schemas
         run: |

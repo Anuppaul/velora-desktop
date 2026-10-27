@@ -1,7 +1,7 @@
 {
   "uuid": "velora@wonderer.tech",
   "name": "Velora Desktop",
-  "description": "Liquid Glass material layer for GNOME Shell 50 with Velora Orb, Spotlight search, native Dock integration, and themed Shell surfaces.",
+  "description": "Liquid Glass and Frosted Crystal for GNOME Shell 50, with a radial Orb launcher, Spotlight search, optional premium wallpaper effects, and native Ubuntu Dock controls.",
   "shell-version": [
     "50"
   ],
