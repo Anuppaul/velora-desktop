@@ -96,6 +96,7 @@ const GLib={
     source_remove(id){idleTasks.delete(id);},
 };
 let registerCount=0;
+let shaderClass=null;
 class FakeEffect {
     constructor(){this.profiles=[];}
     configure(values){this.profiles.push([...values]);}
@@ -107,7 +108,13 @@ const Type=new Function('GLib','Meta','Main','ATMOSPHERE_KEYS',
     source+'\nreturn WallpaperAtmosphereManager;'
 )(
     GLib,Meta,Main,config.ATMOSPHERE_KEYS,config.readAtmosphereProfile,
-    () => {registerCount++;return FakeEffect;}
+    () => {
+        if (!shaderClass) {
+            shaderClass = FakeEffect;
+            registerCount++;
+        }
+        return shaderClass;
+    }
 );
 class Settings extends Emitter {
     constructor(){super();this.data=new Map(Object.entries({
