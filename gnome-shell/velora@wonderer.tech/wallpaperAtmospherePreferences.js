@@ -1,6 +1,7 @@
 import {
     ATMOSPHERE_KEYS,
     ATMOSPHERE_PRESETS,
+    readAtmosphereProfile,
 } from './wallpaperAtmosphereConfig.js';
 
 // This is the only UI that writes Atmosphere keys. Opening Settings never
@@ -18,7 +19,7 @@ export function addWallpaperAtmospherePreferences(
     const presetRow = new Adw.ComboRow({
         title: 'Wallpaper style',
         subtitle:
-            'Original · Natural · Cinematic · Atmosphere · Custom',
+            'Original is untouched. Natural adds depth; Cinematic is dramatic; Atmosphere is rich and luminous.',
         model: Gtk.StringList.new(
             ATMOSPHERE_PRESETS.map(preset => preset.label)
         ),
@@ -74,7 +75,7 @@ export function addWallpaperAtmospherePreferences(
     const controls = new Adw.PreferencesGroup({
         title: 'Fine Tune',
         description:
-            'Adjust a control to enter Custom. Fine-grain is screen-static; Adaptive Contrast preserves highlights and shadow detail. None of these modifies the wallpaper image on disk.',
+            'Choose a visible style, then fine tune it. Named presets use the latest calibrated strengths even if older slider values were saved; adjusting any control creates Custom. The original wallpaper image stays untouched.',
     });
     page.add(controls);
 
@@ -112,12 +113,15 @@ export function addWallpaperAtmospherePreferences(
                 upper: 100,
                 step_increment: 1,
                 page_increment: 5,
-                value: settings.get_int(key),
+                // A named style now resolves its calibrated canonical
+                // values immediately after upgrading PR #62, without
+                // changing the stored Custom values in GSettings.
+                value: readAtmosphereProfile(settings).values[i],
             }),
         });
         let syncing = false;
         const sync = () => {
-            const next = settings.get_int(key);
+            const next = readAtmosphereProfile(settings).values[i];
             if (row.value === next)
                 return;
             syncing = true;
@@ -135,18 +139,53 @@ export function addWallpaperAtmospherePreferences(
             // A manual slider adjustment is the only thing that changes
             // a selected named style into Custom. GSettings driven
             // sync() above never triggers this branch.
+            const previousStyle = settings.get_string('wallpaper-style');
+            const effective = readAtmosphereProfile(settings).values;
             settings.delay();
             try {
+                // When converting an older named preset to Custom, copy
+                // all its *visible* upgraded intensities, not stale
+                // pre-upgrade GSettings integers. Otherwise the other
+                // four controls would silently jump backward at once.
+                if (previousStyle !== 'custom') {
+                    for (let j = 0; j < ATMOSPHERE_KEYS.length; j++) {
+                        const other = ATMOSPHERE_KEYS[j];
+                        if (settings.get_int(other) !== effective[j])
+                            settings.set_int(other, effective[j]);
+                    }
+                }
                 settings.set_int(key, value);
-                if (settings.get_string('wallpaper-style') !== 'custom')
+                if (previousStyle !== 'custom')
                     settings.set_string('wallpaper-style', 'custom');
             } finally {
                 settings.apply();
             }
         });
         settings.connect('changed::' + key, sync);
+        settings.connect('changed::wallpaper-style', sync);
         controls.add(row);
     }
+
+    // Renderer instrumentation comes from GNOME Shell (not a fabricated
+    // success badge): it reports effects ATTACHED to real wallpaper
+    // actors, which is useful when installing/hot-swapping the extension.
+    // Actor attachment is not proof of correct GPU pixels; direct
+    // Original/Atmosphere comparisons are still required.
+    const renderer = new Adw.PreferencesGroup({
+        title: 'Live Wallpaper Renderer',
+        description:
+            'Shows how many real wallpaper sources currently have the Atmosphere shader attached. If this remains “Not initialized”, reload Velora and check GNOME Shell logs.',
+    });
+    page.add(renderer);
+
+    const statusRow = new Adw.ActionRow({
+        title: 'Shader attachment',
+        subtitle: settings.get_string('wallpaper-runtime-status'),
+    });
+    renderer.add(statusRow);
+    settings.connect('changed::wallpaper-runtime-status', () => {
+        statusRow.subtitle = settings.get_string('wallpaper-runtime-status');
+    });
 
     const reset = new Adw.PreferencesGroup({
         title: 'Wallpaper Safety',
@@ -173,5 +212,5 @@ export function addWallpaperAtmospherePreferences(
     resetRow.activatable_widget = resetButton;
     reset.add(resetRow);
 
-    return {presetRow, controls};
+    return {presetRow, controls, statusRow};
 }
