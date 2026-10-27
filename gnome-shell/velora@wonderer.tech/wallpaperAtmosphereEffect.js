@@ -73,6 +73,15 @@ float highlightGuard = 1.0 - 0.65 * smoothstep(0.78, 1.0, luma);
 color = mix(color, contrastColor, highlightGuard);
 float darkDetail = 1.0 - smoothstep(0.035, 0.28, luma);
 color += vec3(darkDetail * 0.060 * adaptive);
+// Shadow safety floor: cinematic S-curves and adaptive contrast must not
+// turn details in dark wallpapers into undifferentiated black regions.
+color = max(color, original.rgb / max(original.a, 0.0001)
+    * (1.0 - 0.22 * adaptive));
+// Prevent filmic highlights/ambient color from flattening near-white
+// gradients into clipped pure white, while allowing a visible vignette.
+float protectHighlights = smoothstep(0.86, 1.0, luma) * 0.72;
+color = mix(color, original.rgb / max(original.a, 0.0001),
+    protectHighlights);
 
 // Shaped vignette with a wide, clean central plateau; 52% intensity now
 // gives up to ~22% corner depth rather than the old barely visible ~2%.
@@ -108,7 +117,10 @@ color = clamp(color, vec3(0.0), vec3(1.0));
 cogl_color_out = vec4(color * original.a, original.a) * cogl_color_in;
 `;
 
-const CACHE_KEY = Symbol.for('velora.atmosphere.effect.class.v1');
+// The V1 GObject class from PR #62 is immutable inside a running GNOME
+// Shell process. Using a new GTypeName/cache key is REQUIRED for this new
+// GLSL code to take effect on Velora live hot-swaps without logout.
+const CACHE_KEY = Symbol.for('velora.atmosphere.effect.class.v2');
 
 export function getAtmosphereEffectClass() {
     // Velora can hot-reload runtime JS under a fresh module URI without
@@ -201,7 +213,7 @@ export function getAtmosphereEffectClass() {
     }
 
     const Effect = GObject.registerClass(
-        {GTypeName: 'VeloraAtmosphereShaderEffectV1'},
+        {GTypeName: 'VeloraAtmosphereShaderEffectV2'},
         WallpaperAtmosphereEffect
     );
     globalThis[CACHE_KEY] = Effect;
