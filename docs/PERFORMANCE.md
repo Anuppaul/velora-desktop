@@ -612,3 +612,47 @@ window switching, Super transitions and multiple monitors. A popup over
 Overview may show the wallpaper-only fallback; it does not attempt to clone
 the whole Overview actor subtree, since cloning active Shell/Velora glass
 there could create recursive compositor capture or a black rectangle.
+
+## Calendar/browser background leak — full repair after Overview timing race
+
+User acceptance showed the previous Overview-only window capture gate was
+**insufficient**. GNOME Shell can dismiss Overview before the Calendar popup
+opens, so `Main.overview.visible` and `visibleTarget` can both be false
+while the Calendar is being painted. The previous rule then **re-enabled
+Browser/Meta.WindowActor clones**, showing the full-size webpage inside
+Calendar glass. Moreover, the vendored `WindowCloneManager` JS class is
+cached within a running GNOME Shell process across Velora hot-swaps; the
+earlier change to that vendor module could be unavailable until logout.
+
+The robust policy is now **wallpaper-only capture for the native Date/Calendar
+menu**, independently of Overview state. Both native `datemenu-popover` style
+and `Main.panel.statusArea.dateMenu.menu` identity are recognized.
+Before the Calendar's LiquidEffect is constructed, Velora disables only the
+window-clone subtree of its existing WindowCloneManager. The backdrop is
+still the same GPU-rendered, shared wallpaper source; the original outer
+and nested Date-menu Liquid/Frosted glass, blur, native date controls,
+popups, focus/accessibility, single card edge and screen geometry remain
+intact. No CSS painted panel, screenshot, extra shader, frame-buffer,
+actor or new timer is introduced.
+
+`PopupGlassSurface._setSceneWindowCapture()` uses the vendor's optimized
+capture toggle when available **and directly enforces visibility on the
+existing `windowClonesContainer` when the cached vendor is older**.
+The latter is essential: older managers do not know the new API, and their
+cloned children could otherwise continue to render even with the latest
+Velora runtime. The same invariant is checked on each pre-existing popup
+stage sync so an external GNOME scene/monitor rebuild cannot revive browser
+pixels. The fast unchanged-state check does no extra redraw. The existing
+Overview gate continues for Quick Settings and other generic popup surfaces,
+which still use live-window backdrop capture normally.
+
+The tradeoff is deliberate: Calendar glass blurs/refracts **wallpaper**, not
+whatever app window happens to be behind it. This avoids cross-surface
+browser/web content entirely and remains consistent across Super → Calendar
+and normal desktop opens. On GNOME Shell 50, compare Date/Calendar in both
+Liquid and Frosted modes after Browser → Super → Calendar (including when
+Overview has already closed before click), and verify that no web content
+appears. Check Quick Settings still reflects live desktop content, Calendar
+does not flash black or lose its glass edge, and repeated open/close
+transitions do not add hidden actors. The new regression covers old vendor
+caches and the previously missed Overview-closed-before-popup ordering.
