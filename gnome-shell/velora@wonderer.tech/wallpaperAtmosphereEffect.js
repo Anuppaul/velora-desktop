@@ -52,7 +52,7 @@ float shadowWeight = 1.0 - smoothstep(0.06, 0.42, luma);
 float highlightWeight = smoothstep(0.65, 1.0, luma);
 filmic *= 1.0 - shadowWeight * 0.065 * va_filmic;
 filmic = mix(filmic, vec3(luma), 0.055 * va_filmic * highlightWeight);
-color = mix(color, filmic, clamp(va_filmic, 0.0, 1.0));
+color = filmic;
 
 // Adaptive contrast: gently separate midtone values without clipping
 // shadow detail or blowing out whites. Per-pixel luma is sufficient here:
@@ -61,7 +61,7 @@ vec3 contrastColor = mix(
     vec3(0.5), color,
     1.0 + 0.17 * va_adaptive * (1.0 - 0.55 * highlightWeight)
 );
-color = mix(color, contrastColor, clamp(va_adaptive, 0.0, 1.0));
+color = contrastColor;
 float darkDetail = 1.0 - smoothstep(0.035, 0.26, luma);
 color += vec3(darkDetail * 0.035 * va_adaptive);
 
