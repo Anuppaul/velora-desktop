@@ -331,6 +331,7 @@ class PopupGlassSurface {
                         : VELORA_GLASS_ADAPTERS.popupMenu
                 );
         this._lastSceneSyncUs = 0;
+        this._overviewWindowCaptureEnabled = null;
 
         this._lastShaderX = NaN;
         this._lastShaderY = NaN;
@@ -1990,9 +1991,52 @@ class PopupGlassSurface {
         this._dateInnerRoot?.queue_redraw?.();
     }
 
+    _syncOverviewWindowCapture() {
+        // A Browser's Meta.WindowActor may still report visible=true when
+        // Super activates Overview even though the parent desktop window
+        // group is hidden. Capturing those actors into the Calendar glass
+        // paints the ORIGINAL full-size web page behind the Overview UI.
+        //
+        // During Overview, retain only the correctly clipped wallpaper
+        // backdrop in our popup scene. The native GNOME overview continues
+        // to paint on stage, while this popup keeps its real controls, glass
+        // mask, refraction and scene-root stacking. On Overview exit,
+        // restore the live window clones, with no actor/tree recreation.
+        const captureWindows = !Boolean(
+            Main.overview?.visible ||
+            Main.overview?.visibleTarget
+        );
+        if (this._overviewWindowCaptureEnabled === captureWindows)
+            return false;
+        this._overviewWindowCaptureEnabled = captureWindows;
+
+        const changed =
+            this._sceneManager?.setWindowCaptureEnabled?.(
+                captureWindows
+            ) === true;
+        if (!changed)
+            return false;
+
+        // The old web content may already be in Clutter's cached offscreen
+        // FBO. Force one real scene repaint before the next glass composite,
+        // rather than waiting for unrelated window damage or permanently
+        // polling the hidden Browser. This work is transition-only.
+        this._lastSceneSyncUs = 0;
+        this._lastFullSyncUs = 0;
+        this._fullSyncDirty = true;
+        this._root?.queue_redraw?.();
+        this._effect?.queue_repaint?.();
+        this._dateInnerRoot?.queue_redraw?.();
+        return true;
+    }
+
     syncFrame() {
         if (this._destroyed)
             return;
+
+        // Check BEFORE the fixed-FPS frame throttle: opening the Calendar
+        // on Super/Overview must never show one stale browser-web frame.
+        this._syncOverviewWindowCapture();
 
         const nowUs =
             GLib.get_monotonic_time();
@@ -2090,6 +2134,11 @@ class PopupGlassSurface {
     }
 
     _sync(shaderOnly) {
+        // Actor visibility must be changed only during full layout/stage
+        // sync, never from LiquidEffect's paint-time uniforms hook.
+        if (!shaderOnly)
+            this._syncOverviewWindowCapture();
+
         const paintRoot =
             this._paintRoot ??
             this._resolvePaintRoot();
@@ -2611,6 +2660,7 @@ class PopupGlassSurface {
         this._lastFullGeometryH = NaN;
         this._lastShadowMaxRadius = NaN;
         this._sceneCaptureRect = null;
+        this._overviewWindowCaptureEnabled = null;
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = false;
