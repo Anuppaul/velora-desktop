@@ -1,0 +1,99 @@
+name: GNOME Store package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-for-review:
+    name: Build and analyze Store ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure Python for Shexli
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/ego-review-requirements.txt
+
+      - name: Validate source and build review ZIP
+        run: |
+          python3 -m py_compile tools/build_ego_release.py
+          python3 tools/build_ego_release.py --check-only
+          python3 tools/build_ego_release.py
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          archive = Path('dist/ego/velora@wonderer.tech.shell-extension.zip')
+          target = Path('dist/ego/inspect')
+          with ZipFile(archive) as z:
+              assert z.testzip() is None
+              z.extractall(target)
+              names = z.namelist()
+              assert names.count('metadata.json') == 1
+              assert 'schemas/org.gnome.shell.extensions.velora.gschema.xml' in names
+              assert any(n.startswith('schemas/org.gnome.shell.extensions.liquid-glass@')
+                         for n in names)
+              assert not any(n.endswith('gschemas.compiled') for n in names)
+              assert not any('/src/' in n or n.endswith('.ts') for n in names)
+              assert not any('/metadata.json' in n for n in names)
+              assert not any(n.startswith('tools/') or n.endswith('.sh') for n in names)
+          print('Store ZIP unpack/structure PASS')
+          PY
+
+      - name: Validate both packaged schemas together
+        run: |
+          glib-compile-schemas --strict --dry-run dist/ego/inspect/schemas
+          echo "Both Store GSettings XML schemas compile successfully."
+
+      - name: Static review with GNOME Shexli
+        id: shexli
+        continue-on-error: true
+        shell: bash
+        run: |
+          python3 -m pip install -r tools/ego-review-requirements.txt
+          set +e
+          shexli dist/ego/velora@wonderer.tech.shell-extension.zip --format text             > dist/ego/SHEXLI_REPORT.txt 2>&1
+          status=$?
+          set -e
+          cat dist/ego/SHEXLI_REPORT.txt
+          printf 'Shexli exit status: %s\n' "$status"             | tee dist/ego/SHEXLI_EXIT_STATUS.txt
+          # Important: warnings/manual-review findings require developer
+          # inspection. The review workflow still preserves the ZIP for that.
+          # A non-zero Shexli status does not certify or block ZIP creation.
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::Shexli reported findings or a tool error; inspect SHEXLI_REPORT.txt before submission."
+          fi
+
+      - name: Upload actual EGO submission ZIP
+        if: always() && hashFiles('dist/ego/velora@wonderer.tech.shell-extension.zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: velora-gnome-store-upload-zip
+          path: dist/ego/velora@wonderer.tech.shell-extension.zip
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Upload manifest and static-review evidence
+        if: always() && hashFiles('dist/ego/velora-ego-manifest.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: velora-gnome-store-review-evidence
+          path: |
+            dist/ego/velora-ego-manifest.json
+            dist/ego/SHEXLI_REPORT.txt
+            dist/ego/SHEXLI_EXIT_STATUS.txt
+          if-no-files-found: warn
+          retention-days: 30
