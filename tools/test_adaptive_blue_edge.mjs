@@ -35,6 +35,7 @@ assert.match(helpers, /dot\(body, vec3\(0\.2126, 0\.7152, 0\.0722\)\)/);
 assert.match(helpers, /float lightBackdrop = smoothstep\(0\.32, 0\.75, contextLuma\)/);
 assert.match(helpers, /smoothstep\(0\.12, 1\.48, depth\)/);
 assert.match(helpers, /smoothstep\(0\.70, 3\.10, depth\)/);
+assert.match(helpers, /hairline \* 0\.46 \+ innerFeather \* 0\.08/);
 assert.match(shader, /if \(surface_light_enabled > 0\.5 &&\s*d > -3\.10 && d < edgeFeather\)/,
     'no accidental edge treatment on application windows or full-screen FBO');
 assert.match(shader, /edgeCoverage \*= mix\(\s*1\.0,\s*0\.87,/,
@@ -75,7 +76,7 @@ function opticalEdge(backdrop, body, frost, signedDistance = -0.2) {
     const hairline = 1 - smoothstep(0.12, 1.48, depth);
     const feather = 1 - smoothstep(0.70, 3.10, depth);
     const coverage = Math.min(
-        0.78, Math.max(0, hairline * 0.66 + feather * 0.12)
+        0.56, Math.max(0, hairline * 0.46 + feather * 0.08)
     ) * mix(1, 0.87, clamp(frost));
     return {
         color,
@@ -93,7 +94,7 @@ assert.ok(rgbLuma(blackEdge.final) - rgbLuma(black) > 0.25,
     'dark wallpaper still gets a distinguishable pale blue edge');
 assert.ok(whiteEdge.color[0] < blackEdge.color[0],
     'light/dark backgrounds must select contrasting bluish shades');
-assert.ok(whiteEdge.coverage <= 0.78 && blackEdge.coverage <= 0.78,
+assert.ok(whiteEdge.coverage <= 0.56 && blackEdge.coverage <= 0.56,
     'inside color mix stays bounded');
 const frosted = opticalEdge(black, [0.93, 0.95, 0.98], 0.88);
 assert.ok(rgbLuma([0.93, 0.95, 0.98]) - rgbLuma(frosted.final) > 0.10,
