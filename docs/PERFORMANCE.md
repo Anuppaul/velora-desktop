@@ -717,3 +717,65 @@ Liquid and Frosted modes, with Quick Settings and on each monitor. If
 GNOME hides Overview as a result of opening the native Calendar itself,
 there is no longer an on-screen Overview to clone; that state intentionally
 falls back to wallpaper rather than faking a stale App Grid screenshot.
+
+## Unified popup backdrop: Calendar, Quick Settings and native menus
+
+The previous three repairs solved only part of the scene problem:
+PR #59 forced Calendar to capture wallpaper, so it incorrectly hid a real
+Browser behind Calendar on the desktop; PR #60 added native Overview icons
+only for Calendar, leaving Quick Settings and other popup menus on a
+different background. As requested, **one selection policy** now applies to
+every `PopupGlassSurface`.
+
+| Actual GNOME scene behind popup | Scene fed to all supported native popup glasses |
+| --- | --- |
+| Normal desktop with a Browser/editor/terminal | Live Meta.WindowActor clones in Mutter's order, over shared GPU wallpaper mirror |
+| Super → Overview/App Grid is visible/mapped | One native `Main.layoutManager.overviewGroup` clone showing current icons/search/workspaces and its native blurred wallpaper; original full-size desktop Browser clones hidden |
+| Desktop with no app covering the popup | Shared wallpaper |
+| Overview flagged as active but its actor isn't mapped | Wallpaper-only transitional safe fallback; never sample hidden Browser |
+
+Implementation:
+- Every popup uses the same existing `WindowCloneManager`, which manages
+  desktop windows plus shared wallpaper, and ONE optional
+  `Clutter.Clone({source:overviewGroup})` as a sibling scene actor above
+  the mirror in the **same** preexisting LiquidEffect. This is not a second
+  shader, CSS overlay or screenshot layer.
+- The old `if (_isDateMenu) setSceneWindowCapture(false)` shortcut is
+  removed from attachment and reopening. The window-clone gate is now
+  **only** a function of the native Overview visible/visibleTarget state
+  for Calendar, Quick Settings and other popup menus equally.
+- A live Desktop restores `windowClonesContainer` visibility, including
+  cached older vendor modules that do not expose the newer
+  `setWindowCaptureEnabled` method. GNOME rebuilds are corrected by
+  checking the actor's live visibility on each existing frame tick.
+- The Overview scene is visible only when GNOME Overview is active and
+  its group is visible/mapped. A full-root actor is **never** cloned.
+  Coordinate transforms compensate for its animated position and scale
+  and the current monitor origin. The native popup visual remains layered
+  above both inner and outer glass paint actors.
+- Scene switches invalidate one cached source/composite frame; the existing
+  stage `before-update` handler and capture FPS budget remain. No new
+  timers, polling, wallpaper copies or offscreen render pipelines.
+- Liquid Glass, Frosted Crystal, adaptive icy edges, native Calendar cards,
+  Quick Settings nested cards and window-preview geometry are unchanged.
+
+**Verification:** `node tools/test_popup_overview_capture.mjs` now tests
+ALL three popup kinds on desktop Browser → Super/App Grid → Browser,
+including cached vendor fallback, wallpaper fallback and absence of stale
+windows during Overview. `node tools/test_calendar_overview_backdrop.mjs`
+tests native App Grid source visibility/identity, geometry, transform
+changes on two monitors, and Quick Settings source switching with the
+same logic. These are source-level GNOME actor mocks—not proof of the
+actual GNOME Shell 50 compositor's pixels or FPS.
+
+On a real GNOME 50 desktop, verify on the **same** Browser page:
+(1) Calendar and Quick Settings over Browser both show the blurred webpage,
+(2) Super → App Grid → Calendar and Quick Settings both show blurred App
+Grid icons rather than the original full-size webpage,
+(3) closing Overview while leaving Browser open returns both popups to
+the Browser behind them, and (4) with no windows they both show wallpaper.
+Repeat in Liquid/Frosted modes, on secondary monitor, with nested Quick
+toggles, after 10 rapid opens and while video changes behind the popup.
+If a popup open action actually dismisses GNOME Overview first, there is
+no longer an on-screen App Grid to sample; the live desktop/window
+source should be selected instead of showing a stale Overview snapshot.
