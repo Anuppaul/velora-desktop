@@ -24,6 +24,9 @@ import {
     AppGridBackdropManager,
 } from './appGridBackdrop.js';
 import {
+    WallpaperAtmosphereManager,
+} from './wallpaperAtmosphere.js';
+import {
     OverviewCloseGlassManager,
 } from './overviewCloseGlass.js';
 import {
@@ -446,6 +449,7 @@ export class LiquidGlassIntegration {
         this._shellCardGlassManager = null;
         this._previewGlassManager = null;
         this._appGridBackdropManager = null;
+        this._wallpaperAtmosphereManager = null;
         this._overviewCloseGlassManager = null;
         this._sharedAdaptiveTextManager = null;
         this._orbGlassManager = null;
@@ -597,6 +601,27 @@ export class LiquidGlassIntegration {
             this._loadStylesheet();
 
         this._enabled = true;
+
+        // Hook GNOME's existing wallpaper actors before creating Orb/Popup
+        // glass and the shared BackgroundMirror. Original (default) does
+        // not instantiate a ShaderEffect or change the user's wallpaper.
+        try {
+            this._wallpaperAtmosphereManager =
+                new WallpaperAtmosphereManager(this._veloraSettings);
+            this._wallpaperAtmosphereManager.setup();
+            this._managerHealth.wallpaperAtmosphereManager = true;
+        } catch (error) {
+            try {
+                this._wallpaperAtmosphereManager?.cleanup?.();
+            } catch {}
+            this._wallpaperAtmosphereManager = null;
+            this._managerHealth.wallpaperAtmosphereManager = false;
+            console.warn(
+                '[Velora][Atmosphere] native wallpaper effects unavailable: ' +
+                error
+            );
+        }
+
         console.log(
             '[Velora][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
@@ -756,7 +781,9 @@ export class LiquidGlassIntegration {
 
         start('appGridBackdropManager', () => {
             this._appGridBackdropManager =
-                new AppGridBackdropManager();
+                new AppGridBackdropManager({
+                    atmosphereManager: this._wallpaperAtmosphereManager,
+                });
             this._appGridBackdropManager.setup();
         });
 
@@ -5761,6 +5788,12 @@ export class LiquidGlassIntegration {
             this._appGridBackdropManager
         );
         this._appGridBackdropManager = null;
+
+        cleanup(
+            'wallpaperAtmosphereManager',
+            this._wallpaperAtmosphereManager
+        );
+        this._wallpaperAtmosphereManager = null;
 
         cleanup(
             'overviewCloseGlassManager',
