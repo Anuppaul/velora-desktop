@@ -481,8 +481,9 @@ class PopupGlassSurface {
         liquidBox.set_size(1, 1);
         root.add_child(liquidBox);
 
-        // GPU-native scene source: shared wallpaper + live Meta.WindowActor
-        // clones. No CPU screenshot/readback.
+        // GPU-native source: shared wallpaper for Date/Calendar, plus live
+        // Meta.WindowActor clones for the other native popup surfaces. No
+        // CPU screenshot/readback or extra compositor texture.
         const sceneManager =
             new this._vendor.WindowCloneManager(
                 liquidBox,
