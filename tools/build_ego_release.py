@@ -160,8 +160,7 @@ def verify(payload: dict[str, bytes]) -> dict[str, str]:
             continue
         text = content.decode("utf-8")
         rels = re.findall(
-            r"""(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)['"]"
-            r"(\.\.?/[^'"]+)['"]",
+            r"""(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)['"](\.\.?/[^'"]+)['"]""",
             text,
         )
         for rel in rels:
