@@ -69,6 +69,9 @@ function makeSurface({isDate = false, oldVendor = false} = {}) {
         _isDateMenu: isDate,
         _sceneManager: scene,
         _setSceneWindowCapture: popupWrapper,
+        // This unit retains its prior Browser-leak focus; the separate
+        // calendar overview test executes real native Overview clone policy.
+        _syncOverviewSceneVisibility: () => false,
         _overviewWindowCaptureEnabled: null,
         _lastSceneSyncUs: 712,
         _lastFullSyncUs: 724,
