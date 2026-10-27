@@ -3,6 +3,7 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {addUbuntuDockPreferences} from './nativeDockPreferences.js';
 
 const LIQUID_GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
@@ -476,10 +477,15 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'go-bottom-symbolic'
         );
 
+        // Bind directly to Ubuntu Dock's *installed* native GSettings
+        // schema, not a duplicate Velora key or a replacement dock.
+        // Native Dash-to-Dock remains the only hide/show state machine.
+        addUbuntuDockPreferences(dockPage, Gio, Gtk, Adw);
+
         const dock = new Adw.PreferencesGroup({
-            title: 'Floating Dock',
+            title: 'Velora Floating Dock Offset',
             description:
-                'Position tuning for Ubuntu Dock while panel mode is off. Native Intelligent Autohide remains in control.',
+                'Optional Velora-only vertical adjustment of the real Ubuntu Dock. Auto-hide and intellihide continue using the native fully-shown bounds. Panel mode ignores this offset.',
         });
         dockPage.add(dock);
 
