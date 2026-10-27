@@ -116,6 +116,24 @@ jobs:
           print("Release source validation passed.")
           PY
 
+      - name: Build and validate GNOME Extensions Store ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build_ego_release.py --check-only
+          python3 tools/build_ego_release.py
+          python3 tools/test_ego_release.py
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          z = Path("dist/ego/velora@wonderer.tech.shell-extension.zip")
+          assert z.is_file() and z.stat().st_size > 0
+          with ZipFile(z) as archive:
+              assert archive.testzip() is None
+              archive.extractall("dist/ego/release-verify")
+          PY
+          glib-compile-schemas --strict --dry-run dist/ego/release-verify/schemas
+
       - name: Build release artifacts
         shell: bash
         run: |
@@ -124,12 +142,14 @@ jobs:
           ARCHIVE="velora-desktop-${VERSION}.tar.gz"
 
           git archive --format=tar.gz --prefix="velora-desktop-${VERSION}/" --output="${ARCHIVE}" "${TAG_COMMIT}"
-          sha256sum "${ARCHIVE}" > SHA256SUMS
+          cp dist/ego/velora@wonderer.tech.shell-extension.zip .
+          sha256sum "${ARCHIVE}" velora@wonderer.tech.shell-extension.zip > SHA256SUMS
 
           {
             echo "## Release artifact"
             echo
             echo "- \`${ARCHIVE}\` — complete Velora source tree for this tag"
+            echo "- \`velora@wonderer.tech.shell-extension.zip\` — GNOME Extensions Store upload package (GNOME 50)"
             echo "- \`SHA256SUMS\` — SHA-256 checksum"
             echo
             echo "Install after extraction:"
@@ -139,6 +159,7 @@ jobs:
             echo "\`\`\`"
             echo
             echo "Target: **GNOME Shell 50**"
+            echo "GNOME Extensions Store review/approval is separate and is not implied by this GitHub Release."
           } > RELEASE_ARTIFACTS.md
 
       - name: Generate release notes
@@ -163,4 +184,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "SHA256SUMS" --title "Velora Desktop ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "Velora Desktop ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
