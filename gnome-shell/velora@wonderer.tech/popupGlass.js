@@ -315,7 +315,14 @@ class PopupGlassSurface {
         ).split(/\s+/);
 
         this._isDateMenu =
-            popupClasses.includes('datemenu-popover');
+            popupClasses.includes('datemenu-popover') ||
+            // Some GNOME 50 themes do not preserve the canonical style
+            // class throughout an Overview/popup menu handoff. The native
+            // Date Menu object is the authoritative owner in that case.
+            Boolean(
+                this._menu &&
+                this._menu === Main.panel?.statusArea?.dateMenu?.menu
+            );
         this._isQuickSettings =
             popupClasses.includes('quick-settings');
 
@@ -482,6 +489,19 @@ class PopupGlassSurface {
                 null,
                 'velora-popup-scene'
             );
+
+        // Date/Calendar must NEVER expose a full-size Browser/web window
+        // as its glass scene after a Super/Overview handoff. GNOME can
+        // close Overview *before* showing the Date Menu, so the old
+        // Main.overview.visible/visibleTarget-only fix re-enabled Browser
+        // clones right before the first Calendar paint. Use the shared
+        // GPU wallpaper mirror as the persistent Date Menu source instead.
+        //
+        // Apply before creating the LiquidEffect or painting the popup,
+        // including when an already-running GNOME Shell has older cached
+        // vendored WindowCloneManager classes from a live hot-swap.
+        if (this._isDateMenu)
+            this._setSceneWindowCapture(false, sceneManager);
 
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-popup-optimization-breaker',
@@ -651,6 +671,12 @@ class PopupGlassSurface {
                         this._manager?._syncStageLoopState?.();
                         return;
                     }
+
+                    // The Date Menu's persistent wallpaper-only policy also
+                    // survives cached vendor module swaps and reopened
+                    // Calendar menus without accidentally reviving Browser.
+                    if (this._isDateMenu)
+                        this._setSceneWindowCapture(false);
 
                     // Reopening a popup must not destroy and recreate the live
                     // capture tree. WindowCloneManager.sync() already heals
@@ -1991,36 +2017,67 @@ class PopupGlassSurface {
         this._dateInnerRoot?.queue_redraw?.();
     }
 
-    _syncOverviewWindowCapture() {
-        // A Browser's Meta.WindowActor may still report visible=true when
-        // Super activates Overview even though the parent desktop window
-        // group is hidden. Capturing those actors into the Calendar glass
-        // paints the ORIGINAL full-size web page behind the Overview UI.
-        //
-        // During Overview, retain only the correctly clipped wallpaper
-        // backdrop in our popup scene. The native GNOME overview continues
-        // to paint on stage, while this popup keeps its real controls, glass
-        // mask, refraction and scene-root stacking. On Overview exit,
-        // restore the live window clones, with no actor/tree recreation.
-        const captureWindows = !Boolean(
-            Main.overview?.visible ||
-            Main.overview?.visibleTarget
-        );
-        if (this._overviewWindowCaptureEnabled === captureWindows)
+    _setSceneWindowCapture(enabled, scene = this._sceneManager) {
+        if (!scene)
             return false;
-        this._overviewWindowCaptureEnabled = captureWindows;
 
+        // Prefer the newer vendor manager, whose sync() also skips work
+        // while cloned windows are disabled. The canonical vendor modules
+        // are GJS-import cached for the duration of the Shell process;
+        // a Velora hot-swap may still hold the PREVIOUS class without
+        // setWindowCaptureEnabled(), even after replacing vendor files.
+        const nativeChanged =
+            scene.setWindowCaptureEnabled?.(enabled) === true;
+        const windowActors = scene.windowClonesContainer ?? null;
+        let changed = nativeChanged;
+        if (
+            windowActors &&
+            windowActors.visible !== Boolean(enabled)
+        ) {
+            // This fallback is intentional: hiding the parent subscene
+            // works in the old vendored class too, even if its per-frame
+            // sync re-shows a child clone. Do not hide the wallpaper mirror.
+            if (enabled)
+                windowActors.show?.();
+            else
+                windowActors.hide?.();
+            changed = true;
+        }
+        if (changed && !nativeChanged)
+            scene.container?.queue_redraw?.();
+
+        return changed;
+    }
+
+    _syncOverviewWindowCapture() {
+        // Date Menu uses a wallpaper-only glass source at ALL times. The
+        // prior Overview-state gate missed the common case where GNOME
+        // dismisses Overview just before it opens Calendar: Browser became
+        // eligible again and appeared as the original full-size web page.
+        //
+        // Other popup menus and Quick Settings keep their prior live-scene
+        // behavior, excluding hidden desktop windows only during Overview.
+        const captureWindows =
+            !this._isDateMenu &&
+            !Boolean(
+                Main.overview?.visible ||
+                Main.overview?.visibleTarget
+            );
+
+        // Always check the actual actor visibility, even if our requested
+        // mode is unchanged: old cached vendors may rebuild the clone
+        // subtree on an unrelated GNOME layout transition. This is a cheap
+        // read/no-op when the source is already correct (no new frame loop).
         const changed =
-            this._sceneManager?.setWindowCaptureEnabled?.(
-                captureWindows
-            ) === true;
+            this._setSceneWindowCapture(captureWindows);
+        this._overviewWindowCaptureEnabled = captureWindows;
         if (!changed)
             return false;
 
-        // The old web content may already be in Clutter's cached offscreen
-        // FBO. Force one real scene repaint before the next glass composite,
-        // rather than waiting for unrelated window damage or permanently
-        // polling the hidden Browser. This work is transition-only.
+        // The old web page may already be present in Clutter's cached
+        // offscreen FBO. Invalidate the wallpaper scene and both glass
+        // materials ONCE on state changes. Do not screenshot the Browser,
+        // rebuild the scene, add a CSS backdrop, or poll in the background.
         this._lastSceneSyncUs = 0;
         this._lastFullSyncUs = 0;
         this._fullSyncDirty = true;
