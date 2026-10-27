@@ -2192,7 +2192,10 @@ export class LiquidGlassIntegration {
         // Interpolate to zero while hidden so pressure-barrier/autohide behavior
         // remains exactly native at the monitor edge.
         const translationY =
-            -offset * slide;
+            slide <= NATIVE_DOCK_SLIDE_EPSILON ||
+            offset === 0
+                ? 0
+                : -offset * slide;
 
         if (
             Math.abs(
