@@ -2322,11 +2322,46 @@ export class LiquidGlassIntegration {
                             return;
 
                         this._handleDockFixedModeChanged();
+                        this._queueNativeDockAutoHideRefresh();
+                    }
+                );
+
+            // Ubuntu Dock owns the actual hide/show state machine. When the
+            // *native* settings change from Velora Prefs (or Ubuntu Settings),
+            // repair hover, visibility and stable intellihide target exactly
+            // once on the next idle turn AFTER native handlers run. Never
+            // compete with Dash-to-Dock by calling _animateIn/_animateOut.
+            this._dashToDockVisibilityId =
+                this._dashToDockSettings.connect(
+                    'changed',
+                    (_nativeSettings, key) => {
+                        if (
+                            !this._enabled ||
+                            ![
+                                'autohide',
+                                'intellihide',
+                                'intellihide-mode',
+                                'manualhide',
+                                'require-pressure-to-show',
+                                'pressure-threshold',
+                                'show-delay',
+                                'hide-delay',
+                                'animation-time',
+                                'autohide-in-fullscreen',
+                                'dock-position',
+                                'multi-monitor',
+                            ].includes(key)
+                        ) {
+                            return;
+                        }
+                        this._queueNativeDockAutoHideRefresh();
                     }
                 );
         } catch (error) {
             this._dashToDockSettings = null;
             this._dashToDockPanelModeId = 0;
+            this._dashToDockFixedModeId = 0;
+            this._dashToDockVisibilityId = 0;
             console.warn(
                 '[Velora][Dock] Dash-to-Dock panel-mode watch unavailable: ' +
                 error
@@ -2334,7 +2369,45 @@ export class LiquidGlassIntegration {
         }
     }
 
+    _queueNativeDockAutoHideRefresh() {
+        if (!this._enabled || this._dockAutoHideRefreshId)
+            return;
+
+        this._dockAutoHideRefreshId = GLib.idle_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            () => {
+                this._dockAutoHideRefreshId = 0;
+                if (!this._enabled)
+                    return GLib.SOURCE_REMOVE;
+
+                // Native mode/monitor changes can replace the DockDash actor.
+                // Rebind first; then repair only the already-present native
+                // hover/overlap state, without a second hide/show animation.
+                this._findNativeDashToDock();
+                for (const entry of this._nativeDashEntries) {
+                    this._applyDockVerticalOffset(entry);
+                    this._syncNativeIntellihideTarget(entry, true);
+                    try {
+                        entry.nativeBox?.sync_hover?.();
+                    } catch {}
+                    try {
+                        entry.nativeIntellihide?.forceUpdate?.();
+                    } catch {}
+                    this._syncNativeDockVisualState(entry, true);
+                }
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
     _cleanupDashToDockModeWatch() {
+        if (this._dockAutoHideRefreshId) {
+            try {
+                GLib.source_remove(this._dockAutoHideRefreshId);
+            } catch {}
+            this._dockAutoHideRefreshId = 0;
+        }
+
         // Restore the exact dock-glass preference that existed before panel
         // mode temporarily suppressed the renderer.
         this._syncDockGlassPreferenceForPanelMode(false);
@@ -2361,8 +2434,20 @@ export class LiquidGlassIntegration {
             } catch {}
         }
 
+        if (
+            this._dashToDockSettings &&
+            this._dashToDockVisibilityId
+        ) {
+            try {
+                this._dashToDockSettings.disconnect(
+                    this._dashToDockVisibilityId
+                );
+            } catch {}
+        }
+
         this._dashToDockPanelModeId = 0;
         this._dashToDockFixedModeId = 0;
+        this._dashToDockVisibilityId = 0;
         this._cancelDockFixedSettle();
         this._dashToDockSettings = null;
     }
