@@ -30,7 +30,7 @@ const nativeGate = new Function(
 const popupWrapperSource = extractMethod(
     popup,
     '_setSceneWindowCapture(enabled, scene = this._sceneManager)',
-    '\n    _syncOverviewWindowCapture() {'
+    '\n    _syncOverviewSceneVisibility() {'
 );
 const popupWrapper = new Function(
     'return ({' + popupWrapperSource + '})._setSceneWindowCapture;'
