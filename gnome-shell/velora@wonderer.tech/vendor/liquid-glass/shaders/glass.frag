@@ -704,7 +704,7 @@ float veloraAdaptiveCardEdgeCoverage(float signedDistance) {
     float depth = max(-signedDistance, 0.0);
     float hairline = 1.0 - smoothstep(0.12, 1.48, depth);
     float innerFeather = 1.0 - smoothstep(0.70, 3.10, depth);
-    return clamp(hairline * 0.66 + innerFeather * 0.12, 0.0, 0.78);
+    return clamp(hairline * 0.46 + innerFeather * 0.08, 0.0, 0.56);
 }
 
 // [NEW] Adjust color saturation, contrast, brightness
