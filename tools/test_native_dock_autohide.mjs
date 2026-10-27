@@ -34,7 +34,9 @@ const state = shipped('_readNativeDockState', {NATIVE_DOCK_STATE: STATE});
 const normalize = shipped('_normalizeLegacyNativeDockState', {
     NATIVE_DOCK_STATE: STATE, NATIVE_DOCK_SLIDE_EPSILON: 0.002,
 });
-const position = shipped('_applyDockVerticalOffset', {clampNumber});
+const position = shipped('_applyDockVerticalOffset', {
+    clampNumber, NATIVE_DOCK_SLIDE_EPSILON: 0.002,
+});
 const target = shipped('_syncNativeIntellihideTarget', {
     Clutter, St, Main, clampNumber, NATIVE_DOCK_STATE: STATE,
 });
