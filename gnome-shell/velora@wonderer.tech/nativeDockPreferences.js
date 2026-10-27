@@ -66,14 +66,17 @@ export function addUbuntuDockPreferences(
         const read = () => isInt
             ? native.get_int(key)
             : native.get_double(key);
+        const current = read();
         const row = new Adw.SpinRow({
             title, subtitle,
             adjustment: new Gtk.Adjustment({
-                lower: min,
-                upper: max,
+                // Existing upstream/native values may exceed our preferred
+                // UI range. Never clamp/write them just by opening Velora.
+                lower: Math.min(min, current),
+                upper: Math.max(max, current),
                 step_increment: step,
                 page_increment: step * 5,
-                value: read(),
+                value: current,
             }),
             digits,
         });
