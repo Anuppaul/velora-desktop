@@ -45,48 +45,62 @@ vec4 original = texture2D(cogl_sampler0, uv);
 vec3 color = original.rgb / max(original.a, 0.0001);
 float luma = va_luminance(color);
 
-// Filmic grading: retain original hue, soften digital saturation and the
-// harshest highlights, and add a little weight to deep shadows.
-vec3 filmic = mix(color, vec3(luma), 0.18 * va_filmic);
-float shadowWeight = 1.0 - smoothstep(0.06, 0.42, luma);
-float highlightWeight = smoothstep(0.65, 1.0, luma);
-filmic *= 1.0 - shadowWeight * 0.065 * va_filmic;
-filmic = mix(filmic, vec3(luma), 0.055 * va_filmic * highlightWeight);
+// Filmic color: stronger but restrained photographic tonality rather than
+// PR #62's visually imperceptible 0.18 * 14% saturation adjustment.
+// Saturation expands modestly (never hard grayscale or neon colors); a
+// shoulder-preserving S-curve separates shadows and midtones with the
+// original wallpaper hue intact. At Velora Atmosphere (62%) these changes
+// are intentionally apparent in a direct Original/Atmosphere comparison.
+float filmicStrength = clamp(va_filmic, 0.0, 1.0);
+vec3 filmic = mix(vec3(luma), color, 1.0 + 0.27 * filmicStrength);
+vec3 sCurve = filmic * filmic * (3.0 - 2.0 * filmic);
+filmic = mix(filmic, sCurve, 0.68 * filmicStrength);
+float shadowWeight = 1.0 - smoothstep(0.05, 0.52, luma);
+float highlightWeight = smoothstep(0.42, 0.91, luma);
+// Cool photographic shadows / natural warm highlights. Both are bounded
+// by luminance so white wallpapers do not turn into blue-white glows.
+filmic += filmicStrength * shadowWeight * vec3(-0.014, 0.006, 0.045);
+filmic += filmicStrength * highlightWeight * vec3(0.024, 0.010, -0.020);
 color = filmic;
 
-// Adaptive contrast: gently separate midtone values without clipping
-// shadow detail or blowing out whites. Per-pixel luma is sufficient here:
-// wallpaper-image readback and CPU histograms are deliberately avoided.
-vec3 contrastColor = mix(
-    vec3(0.5), color,
-    1.0 + 0.17 * va_adaptive * (1.0 - 0.55 * highlightWeight)
-);
-color = contrastColor;
-float darkDetail = 1.0 - smoothstep(0.035, 0.26, luma);
-color += vec3(darkDetail * 0.035 * va_adaptive);
+// Adaptive contrast: a perceptible but softly rolled-off tonal expansion.
+// Preserve whites using the highlight guard and lift very deep shadows
+// instead of crushing them to black.
+float adaptive = clamp(va_adaptive, 0.0, 1.0);
+vec3 contrastColor = (color - vec3(0.5)) * (1.0 + 0.35 * adaptive)
+    + vec3(0.5);
+float highlightGuard = 1.0 - 0.65 * smoothstep(0.78, 1.0, luma);
+color = mix(color, contrastColor, highlightGuard);
+float darkDetail = 1.0 - smoothstep(0.035, 0.28, luma);
+color += vec3(darkDetail * 0.060 * adaptive);
 
-// Soft per-monitor lens vignette. No hard corners, opaque radial gradient,
-// second St.Widget, animated effect or blur radius change.
-vec2 centered = (uv - vec2(0.5)) * vec2(1.85, 1.55);
-float outerEdge = smoothstep(0.53, 1.30, length(centered));
-color *= 1.0 - outerEdge * 0.27 * clamp(va_vignette, 0.0, 1.0);
+// Shaped vignette with a wide, clean central plateau; 52% intensity now
+// gives up to ~22% corner depth rather than the old barely visible ~2%.
+// Keep it in the same fragment pass: no second screen overlay.
+vec2 centered = (uv - vec2(0.5)) * vec2(1.88, 1.70);
+float outerEdge = smoothstep(0.38, 1.25, length(centered));
+color *= 1.0 - outerEdge * 0.42 * clamp(va_vignette, 0.0, 1.0);
 
-// Adaptive local ambient color. Pixel warmth/coolness is inferred from
-// the existing wallpaper sample: no additional scene capture.
+// Ambient color adapts to the existing wallpaper pixel (no CPU sampling):
+// restrained cool-blue shading for cooler pictures, warm-gold for warmer
+// pictures. Vignette is computed above so edges receive a softer glow.
 float warmth = clamp(0.5 + (color.r - color.b) * 0.90, 0.0, 1.0);
 vec3 ambientColor = mix(
-    vec3(0.80, 0.90, 1.00),
-    vec3(1.00, 0.94, 0.82),
+    vec3(0.84, 0.96, 1.12),
+    vec3(1.13, 1.02, 0.86),
     warmth
 );
-float ambientRoom = 1.0 - 0.68 * smoothstep(0.75, 1.0, luma);
-color += ambientColor * 0.095 * clamp(va_ambient, 0.0, 1.0)
-    * ambientRoom * (1.0 - 0.35 * outerEdge);
+float ambientRoom = 1.0 - 0.55 * smoothstep(0.75, 1.0, luma);
+float ambientStrength = 0.62 * clamp(va_ambient, 0.0, 1.0)
+    * ambientRoom * (1.0 - 0.22 * outerEdge);
+color *= mix(vec3(1.0), ambientColor, ambientStrength);
 
-// Static dust: subtle monochrome texture instead of television-style
-// color noise. Grain follows source pixels and never requests a new frame.
+// Very fine deterministic 1px grain. It does NOT animate, re-sample the
+// wallpaper, write a texture or request another compositor frame. Retain
+// a conservative ceiling here: visibility should come from COLOR/LIGHT,
+// not from grain making text or wallpaper details dirty.
 float dust = va_static_noise(uv * max(va_resolution, vec2(1.0)));
-color += vec3(dust * 0.48 * clamp(va_grain, 0.0, 1.0));
+color += vec3(dust * 0.18 * clamp(va_grain, 0.0, 1.0));
 
 color = clamp(color, vec3(0.0), vec3(1.0));
 // Offscreen Cogl uses premultiplied-alpha compositing; preserve the wallpaper
