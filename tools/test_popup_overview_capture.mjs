@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-// Reproduce: Browser foreground → Super (Overview) → Calendar.
-// Mutter's window actor may remain individually visible even though its
-// ancestor desktop windowGroup is hidden; the popup must never sample it.
-// Execute the SHIPPED methods rather than a copy of their logic.
+// Reproduce the missed real-world sequence:
+// Browser → Super/Overview → Calendar. GNOME can close Overview BEFORE
+// opening Calendar, so checking only Main.overview.visible is insufficient.
+// Exercise the actual shipped popup and vendor methods with GNOME mocks.
 const popup = await readFile(new URL(
     '../gnome-shell/velora@wonderer.tech/popupGlass.js',
     import.meta.url
@@ -16,168 +16,203 @@ const clones = await readFile(new URL(
 
 function extractMethod(source, signature, nextMarker) {
     const begin = source.indexOf('    ' + signature + ' {');
-    assert.ok(begin >= 0, 'missing real method ' + signature);
+    assert.ok(begin >= 0, 'missing shipped method ' + signature);
     const end = source.indexOf(nextMarker, begin);
-    assert.ok(end > begin, 'missing real end marker for ' + signature);
+    assert.ok(end > begin, 'missing method end marker ' + signature);
     return source.slice(begin, end);
 }
-
-const setCaptureCode = extractMethod(
+const nativeSource = extractMethod(
     clones, 'setWindowCaptureEnabled(enabled)', '\n    /**'
 );
-const setCapture = new Function(
-    'return ({' + setCaptureCode + '}).setWindowCaptureEnabled;'
+const nativeGate = new Function(
+    'return ({' + nativeSource + '}).setWindowCaptureEnabled;'
 )();
-const Main = {overview: {visible: false, visibleTarget: false}};
-const popupMethodCode = extractMethod(
+const popupWrapperSource = extractMethod(
+    popup,
+    '_setSceneWindowCapture(enabled, scene = this._sceneManager)',
+    '\n    _syncOverviewWindowCapture() {'
+);
+const popupWrapper = new Function(
+    'return ({' + popupWrapperSource + '})._setSceneWindowCapture;'
+)();
+const overview = {visible: false, visibleTarget: false};
+const Main = {overview};
+const popupCaptureSource = extractMethod(
     popup, '_syncOverviewWindowCapture()', '\n    syncFrame() {'
 );
 const syncOverview = new Function(
-    'Main',
-    'return ({' + popupMethodCode + '})._syncOverviewWindowCapture;'
+    'Main', 'return ({' + popupCaptureSource +
+        '})._syncOverviewWindowCapture;'
 )(Main);
 
-// Native windows and wallpaper remain allocated across the Overview
-// transition; only the dedicated scene window subtree toggles visibility.
-const observations = [];
-const mirror = {name: 'wallpaper-background-mirror', visible: true};
-const windowContainer = {
-    visible: true,
-    show() {this.visible = true; observations.push('windows-show');},
-    hide() {this.visible = false; observations.push('windows-hide');},
-};
-const sceneActor = {
-    queue_redraw() {observations.push('scene-redraw');},
-};
-const scene = {
-    _windowCaptureEnabled: true,
-    windowClonesContainer: windowContainer,
-    bgClone: mirror,
-    container: sceneActor,
-    setWindowCaptureEnabled: setCapture,
-};
-const glassRoot = {queue_redraw() {observations.push('root-redraw');}};
-const effect = {queue_repaint() {observations.push('effect-repaint');}};
-const inner = {queue_redraw() {observations.push('inner-redraw');}};
-const popupSurface = {
-    _sceneManager: scene,
-    _overviewWindowCaptureEnabled: null,
-    _lastSceneSyncUs: 712,
-    _lastFullSyncUs: 723,
-    _fullSyncDirty: false,
-    _root: glassRoot,
-    _effect: effect,
-    _dateInnerRoot: inner,
-};
+function makeScene({oldVendor = false} = {}) {
+    const events = [];
+    const background = {visible: true, id: 'wallpaper-mirror'};
+    const windows = {
+        visible: true,
+        show() {this.visible = true; events.push('windows-show');},
+        hide() {this.visible = false; events.push('windows-hide');},
+    };
+    const scene = {
+        _windowCaptureEnabled: true,
+        windowClonesContainer: windows,
+        bgClone: background,
+        container: {queue_redraw() {events.push('scene-redraw');}},
+    };
+    if (!oldVendor)
+        scene.setWindowCaptureEnabled = nativeGate;
+    return {scene, events, background, windows};
+}
+function makeSurface({isDate = false, oldVendor = false} = {}) {
+    const {scene, events, background, windows} = makeScene({oldVendor});
+    const surface = {
+        _isDateMenu: isDate,
+        _sceneManager: scene,
+        _setSceneWindowCapture: popupWrapper,
+        _overviewWindowCaptureEnabled: null,
+        _lastSceneSyncUs: 712,
+        _lastFullSyncUs: 724,
+        _fullSyncDirty: false,
+        _root: {queue_redraw() {events.push('root-redraw');}},
+        _effect: {queue_repaint() {events.push('effect-repaint');}},
+        _dateInnerRoot: {queue_redraw() {events.push('inner-redraw');}},
+    };
+    return {surface, scene, events, background, windows};
+}
 
-// Browser on normal desktop: native live clones remain enabled.
-assert.equal(syncOverview.call(popupSurface), false);
-assert.equal(windowContainer.visible, true);
-assert.equal(mirror.visible, true);
-assert.deepEqual(observations, [],
-    'normal Calendar still displays live background windows');
-
-// Super opens Overview, before the user clicks the calendar clock.
-Main.overview.visibleTarget = true;
-assert.equal(syncOverview.call(popupSurface), true);
-assert.equal(scene._windowCaptureEnabled, false);
-assert.equal(windowContainer.visible, false,
-    'do not render full-size Browser web contents in Calendar glass');
-assert.equal(mirror.visible, true, 'wallpaper remains paintable');
-assert.deepEqual(observations, [
+// Calendar: even with Overview ALREADY CLOSED before its first paint,
+// Browser's unscaled window is never an eligible backdrop source.
+const date = makeSurface({isDate: true});
+assert.equal(overview.visible, false);
+assert.equal(overview.visibleTarget, false);
+assert.equal(syncOverview.call(date.surface), true);
+assert.equal(date.windows.visible, false,
+    'Calendar never clones the Browser on a normal desktop');
+assert.equal(date.background.visible, true, 'retain real wallpaper');
+assert.deepEqual(date.events, [
     'windows-hide', 'scene-redraw', 'root-redraw',
     'effect-repaint', 'inner-redraw',
-], 'source FBO and nested Date Material repaint exactly once');
-assert.equal(popupSurface._lastSceneSyncUs, 0);
-assert.equal(popupSurface._lastFullSyncUs, 0);
-assert.equal(popupSurface._fullSyncDirty, true);
-const cached = observations.length;
+]);
+assert.equal(date.surface._lastSceneSyncUs, 0);
+assert.equal(date.surface._lastFullSyncUs, 0);
+assert.equal(date.surface._fullSyncDirty, true);
+const previous = date.events.length;
+
+// Super/Overview visibility transitions cannot re-enable web content in
+// Calendar, including the brief closing phase immediately before click.
+overview.visibleTarget = true;
+assert.equal(syncOverview.call(date.surface), false);
+overview.visible = true;
+overview.visibleTarget = false;
+assert.equal(syncOverview.call(date.surface), false);
+overview.visibleTarget = false;
+overview.visible = false;
+assert.equal(syncOverview.call(date.surface), false);
 for (let i = 0; i < 120; i++)
-    assert.equal(syncOverview.call(popupSurface), false);
-assert.equal(observations.length, cached,
-    'no repeated redraw or new polling when Overview is stationary');
+    assert.equal(syncOverview.call(date.surface), false);
+assert.equal(date.windows.visible, false);
+assert.equal(date.events.length, previous,
+    'no ongoing repaint loop after the one source change');
 
-// During Overview opening GNOME can flip visibleTarget / visible separately.
-Main.overview.visible = true;
-Main.overview.visibleTarget = false;
-assert.equal(syncOverview.call(popupSurface), false);
-assert.equal(windowContainer.visible, false);
-assert.equal(observations.length, cached);
+// A stale cached vendor JS module lacking the method shipped by the
+// previous fix MUST still hide the cloned browser subtree. This is
+// important for Velora's live hot-swap installer, whose module cache
+// survives installation until GNOME Shell restarts.
+const stale = makeSurface({isDate: true, oldVendor: true});
+assert.equal(syncOverview.call(stale.surface), true);
+assert.equal(stale.windows.visible, false);
+assert.equal(stale.background.visible, true);
+assert.deepEqual(stale.events.slice(0, 2), [
+    'windows-hide', 'scene-redraw',
+]);
+const beforeOld = stale.events.length;
+assert.equal(syncOverview.call(stale.surface), false);
+assert.equal(stale.events.length, beforeOld);
 
-// Once Overview hides, restore the SAME live clone subtree, no rebuild
-// or black-first-frame wallpaper loss.
-Main.overview.visible = false;
-assert.equal(syncOverview.call(popupSurface), true);
-assert.equal(scene._windowCaptureEnabled, true);
-assert.equal(windowContainer.visible, true);
-assert.equal(scene.bgClone, mirror);
-assert.equal(observations.at(-5), 'windows-show');
-assert.equal(observations.at(-4), 'scene-redraw');
-assert.equal(observations.at(-3), 'root-redraw');
-assert.equal(observations.at(-2), 'effect-repaint');
-assert.equal(observations.at(-1), 'inner-redraw');
-assert.equal(syncOverview.call(popupSurface), false);
-
-// If Calendar is first opened WHILE Super/Overview is already active,
-// discard the Browser source before the first full scene capture/paint.
-const startupEvents = [];
-const newScene = {
-    _windowCaptureEnabled: true,
-    windowClonesContainer: {
-        show() {startupEvents.push('show');},
-        hide() {startupEvents.push('hide');},
-    },
-    container: {queue_redraw() {startupEvents.push('redraw');}},
-    setWindowCaptureEnabled: setCapture,
+// If an old vendored manager replaces its windowClonesContainer on a
+// scene/monitor rebuild, our same stage check heals it before capture.
+const replacement = {
+    visible: true,
+    show() {this.visible = true; stale.events.push('new-show');},
+    hide() {this.visible = false; stale.events.push('new-hide');},
 };
-Main.overview.visibleTarget = true;
-const prewarm = {
-    _sceneManager: newScene,
-    _overviewWindowCaptureEnabled: null,
-    _lastSceneSyncUs: 9,
-    _lastFullSyncUs: 9,
-    _fullSyncDirty: false,
-};
-assert.equal(syncOverview.call(prewarm), true);
-assert.deepEqual(startupEvents, ['hide', 'redraw']);
-assert.equal(prewarm._lastSceneSyncUs, 0);
+stale.scene.windowClonesContainer = replacement;
+assert.equal(syncOverview.call(stale.surface), true);
+assert.equal(replacement.visible, false);
+assert.ok(stale.events.includes('new-hide'));
+assert.equal(stale.background.visible, true);
 
-// Fallback should be harmless if GNOME changes its Overview properties,
-// vendor manager is missing, or an already-destroyed popup is syncing.
-const disconnected = {
-    _sceneManager: null,
-    _overviewWindowCaptureEnabled: null,
-};
-assert.equal(syncOverview.call(disconnected), false);
-assert.equal(disconnected._overviewWindowCaptureEnabled, false);
+// With the newer vendor cache, the same source manager's mode gate also
+// suppresses the per-window clone sync (no expensive hidden browser work).
+assert.match(clones,
+    /sync\(\) \{\s*if \(!this\._windowCaptureEnabled\)/);
 
-// The popup source must check before the FPS gate, and also on first full
-// layout. NEVER mutate actor subtrees from the paint-time uniform path.
-const syncFrame = popup.slice(
+// Quick Settings and generic popup menus must retain their ORIGINAL
+// live window glass when not in Overview. Only Calendar is wallpaper-only.
+const quick = makeSurface({isDate: false});
+assert.equal(syncOverview.call(quick.surface), false);
+assert.equal(quick.windows.visible, true);
+overview.visibleTarget = true;
+assert.equal(syncOverview.call(quick.surface), true);
+assert.equal(quick.windows.visible, false);
+assert.equal(quick.background.visible, true);
+overview.visibleTarget = false;
+assert.equal(syncOverview.call(quick.surface), true);
+assert.equal(quick.windows.visible, true);
+assert.equal(syncOverview.call(quick.surface), false);
+
+// Check that a real Date Menu is detected by *both* the GNOME style
+// class and direct menu identity (GNOME 50 theming/hierarchy variants).
+assert.match(popup, /popupClasses\.includes\('datemenu-popover'\)/);
+assert.match(popup,
+    /this\._menu === Main\.panel\?\.statusArea\?\.dateMenu\?\.menu/);
+
+// The wallpaper-only policy must be established at scene CREATION,
+// before any LiquidEffect pipeline can capture Browser content.
+const createAt = popup.indexOf(
+    "new this._vendor.WindowCloneManager("
+);
+const disableAt = popup.indexOf(
+    'this._setSceneWindowCapture(false, sceneManager);'
+);
+const effectAt = popup.indexOf(
+    'const effect = new this._vendor.LiquidEffect('
+);
+assert.ok(createAt >= 0 && createAt < disableAt && disableAt < effectAt,
+    'Calendar disables Browser clones before its first material creation');
+
+// The same policy is enforced on reopen and before each throttled frame,
+// including when the scene actor was rebuilt by older cached vendor code.
+assert.match(popup,
+    /if \(this\._isDateMenu\)\s*this\._setSceneWindowCapture\(false\)/);
+const frame = popup.slice(
     popup.indexOf('    syncFrame() {'),
     popup.indexOf('    _measure() {')
 );
-const beforeThrottle = syncFrame.indexOf('this._syncOverviewWindowCapture()');
-const afterThrottle = syncFrame.indexOf('this._lastFullSyncUs > 0');
-assert.ok(beforeThrottle >= 0 && beforeThrottle < afterThrottle,
-    'Overview changes bypass the scene-FPS throttle');
+assert.ok(
+    frame.indexOf('this._syncOverviewWindowCapture()') >= 0 &&
+    frame.indexOf('this._syncOverviewWindowCapture()') <
+        frame.indexOf('this._lastFullSyncUs > 0'),
+    'Calendar must revalidate the backdrop before the FPS throttle'
+);
 const syncFull = popup.slice(
     popup.indexOf('    _sync(shaderOnly) {'),
     popup.indexOf('    _syncShaderGeometry() {')
 );
 assert.match(syncFull,
     /if \(!shaderOnly\)\s*this\._syncOverviewWindowCapture\(\)/,
-    'full layout gate is set before the first scene sync');
-assert.match(clones,
-    /sync\(\) \{\s*if \(!this\._windowCaptureEnabled\)/,
-    'native clone sync must not wake hidden Browser/web content');
-assert.match(clones,
-    /if \(!this\._windowCaptureEnabled\)\s*this\.windowClonesContainer\?\.hide\?\.\(\);/,
-    'a scene rebuild cannot flash web contents during Overview');
-assert.doesNotMatch(setCaptureCode,
-    /new Clutter|rebuildClones\(|texture2D|setTimeout|GLib\.timeout_add/,
-    'mode switch has no new capture/repaint pipeline or polling timer');
-assert.match(popup, /this\._overviewWindowCaptureEnabled = null;/,
-    'Overview capture state is cleared when popup is destroyed');
+    'never change Clutter actor visibility during paint-time shader sync');
+assert.doesNotMatch(popupWrapperSource,
+    /rebuildClones\(|new Clutter|GLib\.timeout_add|new Shell\.Screenshot/,
+    'wallpaper-only switch must reuse current scene and remain event-driven');
 
-console.log('Calendar after Super/Overview excludes stale Browser web capture, restores windows, and keeps wallpaper/glass/lifecycle PASS.');
+// Keep the 16:9 preview, Liquid/Frosted shader, native shell components
+// and Quick Settings unchanged. A popup-specific opt-out is sufficient.
+assert.match(popup,
+    /this\._dateInnerClone = dateInnerClone;/);
+assert.match(popup,
+    /this\._sceneManager\?\.applyBgCloneClip\?\.\(captureRect\)/);
+
+console.log(
+    'Calendar wallpaper-only after Browser/Super (including Overview already closed), cached vendor fallback, Quick Settings live windows, restore and no extra layers PASS.'
+);

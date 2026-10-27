@@ -148,6 +148,14 @@ The original Liquid Glass refraction and Frosted Crystal matte finish still diff
 
 Velora deliberately leaves GTK/libadwaita application interiors, GNOME accessibility ownership, native hit targets and native animation semantics alone.
 
+**Calendar backdrop:** Date/Calendar glass deliberately samples the shared
+wallpaper rather than cloning the active Browser or other app window. This
+avoids displaying full-size webpages inside Calendar when GNOME transitions
+through Super/Overview, including when Overview closes just before Calendar
+opens. Liquid/Frosted shaders and native Calendar content are unchanged;
+Quick Settings and other supported popups retain their live window backdrop.
+
+
 ## Manage Ubuntu Dock from Velora
 
 Open **GNOME Extensions → Velora Desktop → Preferences → Dock**. Velora
