@@ -442,3 +442,39 @@ This section supersedes earlier notes claiming that re-selecting Liquid
 restores the **unboosted** effective blur radius. The Liquid user's stored
 blur slider value is still restored exactly; only the actual displayed blur
 is now deliberately stronger.
+
+## Contrast-adaptive icy-blue contour on every native glass card
+
+Glass cards now use one **thin bluish optical rim** within their existing
+LiquidEffect composite shader. It is not a separate CSS border or overlay,
+and does not add a repaint loop, frame capture, texture lookup or FBO pass.
+
+- On a **light/white backdrop**, existing sampled backdrop luminance chooses
+  a restrained darker **steel-blue** (RGB 0.24, 0.49, 0.75).
+- On a **dark/black backdrop**, it chooses a soft **ice blue** (0.76, 0.88, 1.0).
+- Both shades are smoothly interpolated using existing blurred backdrop and
+  material-body luminance, so Frosted Crystal's white matte surface also gets
+  a readable edge without drawing a dark border outside its native geometry.
+- A bounded signed-distance band (0–3.1px inward) produces one hairline plus
+  soft falloff. No exterior halo: Clutter/Cogl's existing premultiplied-alpha
+  `insideMask` still gates output once; the shadow and transparent margin do
+  not inherit the edge color. Rounded corners and multi-region shapes remain
+  defined by their original SDF rather than a rectangle drawn around a widget.
+- The rim is gated by existing `surface_light_enabled`, so real application
+  windows that intentionally disable glass highlights remain untouched.
+  Liquid mode keeps its original refraction and specular lens. Frosted
+  Crystal has a slightly calmer outline and retains its separate user
+  `Crystal Edge Glow` control for the broader diffuse glint.
+- Full-path rim work is conditional on being within the ~3px boundary.
+  The existing flat-interior fast path and large exterior early-out
+  are unaffected; no new shader uniform or CPU setting lookup is required.
+
+The source/contrast regression is `node tools/test_adaptive_blue_edge.mjs`.
+It checks estimated luminance separation on both white and dark backdrops,
+Frosted-matte body contrast, existing edge geometry and masking, and absence
+of a second CSS frame. It does **not** prove final GPU pixels. On GNOME 50,
+inspect the Dock, Orb, Spotlight, Calendar, Quick Settings, notifications
+and the mini 480×270 running-window preview on both bright and dark wallpapers.
+Look for invisible white edges, over-bold blue strokes, corner seams,
+shadow halos and FPS regressions; measure GPU frame time before claiming
+that the additional arithmetic has no material cost.
