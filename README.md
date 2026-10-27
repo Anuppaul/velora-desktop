@@ -75,14 +75,30 @@ shader attached. Existing desktops are unchanged until a preset is chosen.
 | Wallpaper style | Look | Filmic · Vignette · Ambient · Grain · Contrast |
 | --- | --- | --- |
 | **Original** (default) | GNOME wallpaper exactly as provided, no extra GPU effect | Off |
-| **Velora Natural** | Clean balanced colors and gentle depth | 10 · 5 · 3 · 1 · 8 |
-| **Velora Cinematic** | More filmic contrast, restrained darker corners | 22 · 13 · 5 · 2 · 16 |
-| **Velora Atmosphere** | Harmonious filmic color, soft ambient lift and texture | 14 · 8 · 6 · 2 · 14 |
+| **Velora Natural** | Visibly cleaner tones and light corner depth | 38 · 24 · 22 · 2 · 34 |
+| **Velora Cinematic** | Rich filmic contrast, noticeably deeper corners and tonal separation | 78 · 70 · 34 · 4 · 72 |
+| **Velora Atmosphere** | Premium filmic lighting, cool/warm ambiance and visible depth | 62 · 52 · 54 · 3 · 56 |
 | **Custom** | Adjust each of the five effects independently | Your saved intensities |
 
 A manual slider change automatically selects **Custom**; returning to
 **Original** detaches all added Atmosphere effects *without deleting your saved
 Custom values*. The grain is deterministic and screen-static, not animated.
+The new calibrated presets are **substantially more visible** than the weak
+initial PR #62 profiles: for example, Atmosphere's maximum corner vignette
+is now approximately **22%**, not **2.2%**. Natural stays subtle; Cinematic
+provides a stronger side-by-side comparison without changing the source
+wallpaper file. Named profiles automatically use the latest calibration,
+even if the previous low-intensity slider numbers were saved in GSettings.
+
+**Visual check:** With your wallpaper in view, switch between **Original**
+and **Velora Atmosphere**, then between **Original** and **Velora Cinematic**.
+Look at the outer corners, shadow/midtone depth and warm/cool colors. In
+**Wallpaper → Live Wallpaper Renderer**, the *Shader attachment* status
+shows the number of actual wallpaper actors that received an effect. A
+message such as **Not initialized** or **Not attached** means you should
+reload the extension or check GNOME Shell logs, rather than assuming a
+shader rendered. **Attached** confirms actor attachment, not final GPU
+pixels; device-side visual verification remains required.
 
 ### Wallpaper-first scene consistency
 

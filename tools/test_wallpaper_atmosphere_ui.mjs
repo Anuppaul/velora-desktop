@@ -12,10 +12,12 @@ const [uiSource,configSource,effectSource,prefs] = await Promise.all([
 const config = new Function(configSource.replace(/^export\s+/gm,'')+
     '\nreturn {ATMOSPHERE_KEYS,ATMOSPHERE_PRESETS,readAtmosphereProfile};')();
 const ui = new Function('ATMOSPHERE_KEYS','ATMOSPHERE_PRESETS',
+    'readAtmosphereProfile',
     uiSource.replace(/^import[\s\S]*?;\s*$/gm,'')
         .replace(/^export\s+/gm,'')+
     '\nreturn addWallpaperAtmospherePreferences;'
-)(config.ATMOSPHERE_KEYS,config.ATMOSPHERE_PRESETS);
+)(config.ATMOSPHERE_KEYS,config.ATMOSPHERE_PRESETS,
+    config.readAtmosphereProfile);
 
 class Actor {
     constructor(o={}) {Object.assign(this,o);this.listeners=new Map();}
@@ -56,8 +58,9 @@ class Settings {
     constructor(){
         this.data=new Map([
             ['wallpaper-style','original'],
+            ['wallpaper-runtime-status','Not initialized'],
             ...config.ATMOSPHERE_KEYS.map((k,i)=>
-                [k,[14,8,6,2,14][i]]),
+                [k,[62,52,54,3,56][i]]),
         ]);
         this.listeners=new Map();
         this.changes=[];
@@ -92,28 +95,35 @@ class Settings {
 }
 const settings=new Settings();
 const page={groups:[],add(group){this.groups.push(group);}};
-const {presetRow,controls}=ui(page,settings,Adw,Gtk);
+const {presetRow,controls,statusRow}=ui(page,settings,Adw,Gtk);
 assert.equal(settings.changes.length,0,
     'opening Wallpaper Prefs NEVER changes wallpaper or style');
 assert.equal(settings.get_string('wallpaper-style'),'original');
 assert.equal(presetRow.selected,0);
 assert.equal(controls.rows.length,5);
+assert.equal(statusRow.title,'Shader attachment');
+assert.equal(statusRow.subtitle,'Not initialized');
+settings.set_string('wallpaper-runtime-status',
+    'Shader attached to 3/3 loaded wallpaper sources');
+assert.equal(statusRow.subtitle,
+    'Shader attached to 3/3 loaded wallpaper sources',
+    'diagnostic reflects actual runtime status via GSettings');
 const values=()=>config.ATMOSPHERE_KEYS.map(k=>settings.get_int(k));
 
 // Presets are atomic native GSettings writes, not five fast GPU flashes.
 presetRow.selected=1; // Natural
 assert.equal(settings.get_string('wallpaper-style'),'natural');
-assert.deepEqual(values(),[10,5,3,1,8]);
+assert.deepEqual(values(),[38,24,22,2,34]);
 assert.equal(settings.delayed,false);
 assert.equal(presetRow.selected,1);
-assert.equal(page.groups.length,3);
+assert.equal(page.groups.length,4);
 
 presetRow.selected=2; // Cinematic
 assert.equal(settings.get_string('wallpaper-style'),'cinematic');
-assert.deepEqual(values(),[22,13,5,2,16]);
+assert.deepEqual(values(),[78,70,34,4,72]);
 presetRow.selected=3; // Atmosphere
 assert.equal(settings.get_string('wallpaper-style'),'atmosphere');
-assert.deepEqual(values(),[14,8,6,2,14]);
+assert.deepEqual(values(),[62,52,54,3,56]);
 
 // A user's manual changes choose Custom, but external/native changes
 // reflect in spin rows and do not create a second GSettings write.
@@ -136,7 +146,7 @@ presetRow.selected=0;
 assert.equal(settings.get_string('wallpaper-style'),'original');
 assert.deepEqual(values(),saved);
 assert.equal(config.readAtmosphereProfile(settings).active,false);
-const reset=page.groups[2].rows[0];
+const reset=page.groups[3].rows[0];
 assert.equal(reset.title,'Return to Original');
 assert.match(reset.subtitle,/without resetting saved Custom levels/);
 
@@ -154,6 +164,30 @@ for(const key of config.ATMOSPHERE_KEYS) settings.set_int(key,0);
 settings.set_string('wallpaper-style','custom');
 assert.equal(config.readAtmosphereProfile(settings).active,false);
 settings.set_string('wallpaper-style','original');
+
+// Existing users with PR #62's invisible numeric values still get the
+// new canonical Atmosphere strengths when the named preset is selected.
+// This must NOT rewrite previously saved Custom values by merely opening
+// the page, and manually adjusting a named profile must inherit all five
+// *visible* values rather than reverting to legacy stored intensities.
+const old = new Settings();
+const oldValues = [14,8,6,2,14];
+old.data.set('wallpaper-style','atmosphere');
+config.ATMOSPHERE_KEYS.forEach((key,i)=>
+    old.data.set(key,oldValues[i]));
+const oldPage={groups:[],add(group){this.groups.push(group);}};
+const oldUi=ui(oldPage,old,Adw,Gtk);
+assert.equal(old.changes.length,0,
+    'opening older named profile must not write/migrate user settings');
+assert.deepEqual(
+    oldUi.controls.rows.map(row=>row.value),[62,52,54,3,56],
+    'display and shader use calibrated named profile, not saved weak numbers');
+assert.deepEqual(config.readAtmosphereProfile(old).values,[62,52,54,3,56]);
+oldUi.controls.rows[1].value=61;
+assert.equal(old.get_string('wallpaper-style'),'custom');
+assert.deepEqual(config.ATMOSPHERE_KEYS.map(k=>old.get_int(k)),
+    [62,61,54,3,56],
+    'one manual tweak snapshots all canonical strengths before Custom');
 
 // Shader/source-level GPU contracts.
 const shaderDecl=effectSource.slice(
@@ -173,8 +207,18 @@ assert.doesNotMatch(shaderDecl,
 assert.match(shaderDecl,/vec4\(color \* original\.a, original\.a\) \* cogl_color_in/,
     'alpha must stay premultiplied during wallpaper crossfades');
 assert.match(shaderDecl,/color = filmic;/);
-assert.match(shaderDecl,/color = contrastColor;/);
-assert.match(shaderDecl,/smoothstep\(0\.53, 1\.30, length\(centered\)\)/);
+assert.match(shaderDecl,/color = mix\(color, contrastColor, highlightGuard\);/);
+assert.match(shaderDecl,/smoothstep\(0\.38, 1\.25, length\(centered\)\)/);
+assert.match(shaderDecl,/0\.42 \* clamp\(va_vignette/);
+assert.match(shaderDecl,/0\.68 \* filmicStrength/);
+assert.match(shaderDecl,/0\.35 \* adaptive/);
+assert.match(shaderDecl,/0\.62 \* clamp\(va_ambient/);
+assert.match(shaderDecl,/color = max\(color, original\.rgb/,
+    'strong grading preserves dark wallpaper details');
+assert.match(shaderDecl,/float protectHighlights = smoothstep\(0\.86, 1\.0, luma\) \* 0\.72/,
+    'near-white wallpapers retain original highlight detail');
+assert.match(effectSource,/const CACHE_KEY = Symbol\.for\('velora\.atmosphere\.effect\.class\.v2'\)/,
+    'fresh GObject shader type avoids V1 live-import cache');
 
 // GObject type is registered only ONCE across live runtime imports.
 let typeRegistrations=0;
@@ -196,11 +240,11 @@ const Shell={GLSLEffect:Base};
 const Clutter={ShaderEffect:class{}};
 const Cogl={SnippetHook:{FRAGMENT:1}};
 const GObject={registerClass(options,klass){
-    assert.equal(options.GTypeName,'VeloraAtmosphereShaderEffectV1');
+    assert.equal(options.GTypeName,'VeloraAtmosphereShaderEffectV2');
     typeRegistrations++;return klass;
 }};
 const symbols=Object.getOwnPropertySymbols(globalThis);
-const cacheKey=Symbol.for('velora.atmosphere.effect.class.v1');
+const cacheKey=Symbol.for('velora.atmosphere.effect.class.v2');
 const oldType=globalThis[cacheKey];
 delete globalThis[cacheKey];
 try{

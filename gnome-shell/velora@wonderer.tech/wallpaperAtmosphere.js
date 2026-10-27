@@ -36,6 +36,8 @@ export class WallpaperAtmosphereManager {
         this._uiAddedId = 0;
         this._uiRemovedId = 0;
         this._pendingUpdateId = 0;
+        this._statusUpdateId = 0;
+        this._lastStatus = null;
         this._warnings = new Set();
     }
 
@@ -81,6 +83,7 @@ export class WallpaperAtmosphereManager {
             'changed', onChange
         ) ?? 0;
         this._applyNow();
+        this._queueStatus();
     }
 
     _warnOnce(phase, error) {
@@ -133,11 +136,15 @@ export class WallpaperAtmosphereManager {
             // moment. Mutter 50 can crash while drawing a null BG.
             record.backgroundId = content.connect(
                 'notify::background',
-                () => this._syncActor(actor)
+                () => {
+                    this._syncActor(actor);
+                    this._queueStatus();
+                }
             );
         } catch {}
 
         this._syncActor(actor);
+        this._queueStatus();
     }
 
     _hasLoadedBackground(record) {
@@ -159,6 +166,7 @@ export class WallpaperAtmosphereManager {
 
         if (!active) {
             this._detachActor(actor, record);
+            this._queueStatus();
             return;
         }
 
@@ -178,6 +186,7 @@ export class WallpaperAtmosphereManager {
             this._warnOnce('wallpaper shader disabled for one actor', error);
             this._detachActor(actor, record);
         }
+        this._queueStatus();
     }
 
     _detachActor(actor, record) {
@@ -198,6 +207,7 @@ export class WallpaperAtmosphereManager {
             return;
         this._actors.delete(actor);
         this._detachActor(actor, record);
+        this._queueStatus();
         if (record.destroyId) {
             try {
                 actor.disconnect(record.destroyId);
@@ -264,6 +274,61 @@ export class WallpaperAtmosphereManager {
         return true;
     }
 
+    _queueStatus() {
+        if (!this._enabled || this._statusUpdateId)
+            return;
+        this._statusUpdateId = GLib.idle_add(
+            GLib.PRIORITY_DEFAULT_IDLE,
+            () => {
+                this._statusUpdateId = 0;
+                if (this._enabled)
+                    this._publishStatus();
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+    }
+
+    _publishStatus() {
+        if (!this._settings)
+            return;
+        let loaded = 0;
+        let attached = 0;
+        for (const record of this._actors.values()) {
+            if (this._hasLoadedBackground(record))
+                loaded++;
+            if (record.effect)
+                attached++;
+        }
+        // Report the real state of Clutter actor attachments, NOT that
+        // shader pixels are known-good. A machine that has the style
+        // selected but no effect will say so instead of silently claiming
+        // a successful visual treatment.
+        const message = !this._profile.active
+            ? 'Original: no Atmosphere GPU effect attached'
+            : attached > 0
+                ? 'Shader attached to ' + attached + '/' + loaded +
+                    ' loaded wallpaper sources (GPU pixels not verified)'
+                : loaded === 0
+                    ? 'Waiting for GNOME wallpaper background actors'
+                    : 'Not attached: ' + loaded +
+                        ' loaded wallpaper sources; inspect GNOME Shell logs';
+
+        if (this._lastStatus === message)
+            return;
+        this._lastStatus = message;
+        try {
+            if (this._settings.get_string('wallpaper-runtime-status') !==
+                message) {
+                this._settings.set_string(
+                    'wallpaper-runtime-status', message
+                );
+            }
+            console.log('[Velora][Atmosphere] ' + message);
+        } catch (error) {
+            this._warnOnce('runtime status unavailable', error);
+        }
+    }
+
     _scheduleApply() {
         if (!this._enabled || this._pendingUpdateId)
             return;
@@ -282,6 +347,7 @@ export class WallpaperAtmosphereManager {
         this._profile = readAtmosphereProfile(this._settings);
         for (const actor of this._actors.keys())
             this._syncActor(actor);
+        this._queueStatus();
     }
 
     cleanup() {
@@ -294,6 +360,12 @@ export class WallpaperAtmosphereManager {
                 GLib.source_remove(this._pendingUpdateId);
             } catch {}
             this._pendingUpdateId = 0;
+        }
+        if (this._statusUpdateId) {
+            try {
+                GLib.source_remove(this._statusUpdateId);
+            } catch {}
+            this._statusUpdateId = 0;
         }
         if (this._settingsId) {
             try {
@@ -320,6 +392,12 @@ export class WallpaperAtmosphereManager {
         // safety cleanup handles any that were detached unexpectedly.
         for (const actor of [...this._actors.keys()])
             this._untrack(actor);
+        try {
+            this._settings?.set_string?.(
+                'wallpaper-runtime-status',
+                'Inactive: Velora Atmosphere runtime stopped'
+            );
+        } catch {}
         this._settings = null;
     }
 }
