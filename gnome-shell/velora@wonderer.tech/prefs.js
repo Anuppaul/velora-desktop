@@ -268,7 +268,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         addIntSpin(
             glass, settings, 'glass-blur',
             'Blur',
-            'Backdrop blur radius.',
+            'Base backdrop blur. Both materials apply extra diffusion when above zero; zero disables it.',
             0, 80, 1
         );
         addIntSpin(
