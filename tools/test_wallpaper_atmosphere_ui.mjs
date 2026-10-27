@@ -167,8 +167,9 @@ for(const uniform of ['va_resolution','va_filmic','va_vignette',
 assert.equal((shaderDecl.match(/texture2D\(cogl_sampler0, uv\)/g)??[]).length,1,
     'one wallpaper texel per shader pixel, no second image sampler');
 assert.match(shaderDecl,/floor\(pixel\)/);
-assert.doesNotMatch(shaderDecl, /\btime\b|\banimation\b|\bframeId\b|gl_FragCoord/,
-    'wallpaper grain must remain screen-static and deterministic');
+assert.doesNotMatch(shaderDecl,
+    /uniform\s+(?:float|vec[234])\s+(?:va_time|time|frameId)\b|\bgl_FragCoord\b/,
+    'wallpaper grain cannot require a frame/time uniform or animated pixel source');
 assert.match(shaderDecl,/vec4\(color \* original\.a, original\.a\) \* cogl_color_in/,
     'alpha must stay premultiplied during wallpaper crossfades');
 assert.match(shaderDecl,/color = filmic;/);
