@@ -565,3 +565,50 @@ side dock orientations, fixed/auto/intelligent hide, edge pressure ON/OFF,
 show/hide delays, icon visibility during repeated reveals, maximized/fullscreen
 overlap, Overview exit, monitor edges and Panel↔Dock handoff. Record frame
 times before attributing any performance benefit; no GPU speed claim is made.
+
+## Calendar glass after Browser → Super → Overview
+
+The reported bug: **Browser → press Super → open Calendar** could make the
+Calendar glass show the underlying Browser's original *full-size web page*,
+even though GNOME had already hidden desktop windowGroup to present Overview.
+GNOME's individual `Meta.WindowActor.visible` can remain `true` while its
+ancestor group is no longer the painted stage backdrop. The generic window
+clone capture checked only the per-window flag, so the popup cloned a Browser
+that was not actually behind the Calendar in the on-screen Overview.
+
+**Fix:** `PopupGlassSurface` now checks `Main.overview.visible` and
+`visibleTarget` on stage before-update and before its first full capture.
+While Overview is active it temporarily disables only the WindowCloneManager
+**desktop-window subtree**. The shared wallpaper mirror and all glass actors
+remain allocated and repaintable. The stale Browser pixels are explicitly
+invalidated in the existing offscreen source/composite; when Overview closes,
+the same clone subtree is made visible and its current window contents
+resynchronized. The native Calendar layout, Date-menu inner liquid cards,
+adaptive text, keyboard/mouse input, frame budget and popup opening/closing
+remain unmodified.
+
+The new `WindowCloneManager.setWindowCaptureEnabled()` defaults to `true`
+for **all other consumers** (Dock, Orb, Spotlight, notifications and other
+instances) and retains clones in memory, so an Overview transition does not
+force a tear-down/recreate or black-first-frame. The gate is a state-change
+operation, not a new polling loop, screenshot request or GPU texture. It
+switches during `before-update`, never mutates Clutter child actor visibility
+from the shader's paint-time geometry hook.
+
+**Test:** `node tools/test_popup_overview_capture.mjs` executes the actual
+capture gate and Calendar viewport mode method with mocked GNOME stages.
+It checks null-to-Overview transitions, no browser-content paints, the
+wallpaper source remaining intact, no repeated work while Overview is stable,
+quick restore on Overview exit, clean prewarm and pre-throttle switching.
+Run it alongside native Popup/Calendar, preview, material, frame-budget and
+package tests.
+
+**Real GNOME 50 acceptance needed:** in a browser with a distinct colored
+webpage, press Super, open Calendar while Overview remains visible, and verify
+the *original full-size* browser page does not show through the Calendar.
+Then close Overview and reopen the Calendar on the desktop: live windows must
+again be visible through translucent glass. Repeat with Quick Settings,
+window switching, Super transitions and multiple monitors. A popup over
+Overview may show the wallpaper-only fallback; it does not attempt to clone
+the whole Overview actor subtree, since cloning active Shell/Velora glass
+there could create recursive compositor capture or a black rectangle.

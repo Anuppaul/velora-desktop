@@ -13,6 +13,12 @@ export class WindowCloneManager {
     // [PERF ①b] See setCullRect(). Null until a manager hands one over, so a
     // caller that never calls setCullRect() keeps the old behaviour exactly.
     _cullRect = null;
+    // A popup opened over Overview must not capture the original unscaled
+    // Browser/Web window behind GNOME's overviewGroup. This opt-in gate
+    // temporarily hides only the live-window subtree, while retaining the
+    // wallpaper mirror and allocated clones for cheap instant restoration.
+    // All existing consumers stay enabled by default.
+    _windowCaptureEnabled = true;
     windowClonesContainer = null;
     _windowClones;
     // [nested-glass] MetaWindowActor::damaged handlers on the cloned windows
@@ -85,6 +91,10 @@ export class WindowCloneManager {
             this.container.add_child(this.windowClonesContainer);
         }
         this.container.insert_child_at_index(this.bgClone, 0);
+        // Rebuild can occur while Overview is showing. Never flash the
+        // Browser source for one frame before the popup gets a stage tick.
+        if (!this._windowCaptureEnabled)
+            this.windowClonesContainer?.hide?.();
         this.sync();
     }
     // Shifts the entire clone subtree within the full-screen FBO.
@@ -118,6 +128,34 @@ export class WindowCloneManager {
      */
     setCullRect(rect) {
         this._cullRect = rect;
+    }
+    /**
+     * Disable cloned desktop windows while a GNOME popup is presented above
+     * Overview. Mutter's original Meta.WindowActor can remain "visible"
+     * even when its ancestor windowGroup is hidden during Super/Overview:
+     * checking only w.visible therefore painted the unscaled Browser/web
+     * content behind Calendar. Keep the background mirror rendered and
+     * leave clones allocated to avoid black-first-frame on restoration.
+     *
+     * The default remains enabled for Dock, Orb, Spotlight and all other
+     * existing callers; the popup alone toggles this from stage before-update.
+     */
+    setWindowCaptureEnabled(enabled) {
+        const next = Boolean(enabled);
+        if (this._windowCaptureEnabled === next)
+            return false;
+        this._windowCaptureEnabled = next;
+        if (this.windowClonesContainer) {
+            if (next)
+                this.windowClonesContainer.show?.();
+            else
+                this.windowClonesContainer.hide?.();
+        }
+        // Important: repaint the scene source, not merely the composite
+        // shader. Otherwise its existing offscreen FBO keeps showing the
+        // stale Browser snapshot until unrelated window damage arrives.
+        this.container?.queue_redraw?.();
+        return true;
     }
     /**
      * [PERF ①] Clips the wallpaper clone.
@@ -180,6 +218,14 @@ export class WindowCloneManager {
         releaseDamageHooks(this._damageHooks);
     }
     sync() {
+        if (!this._windowCaptureEnabled) {
+            // With the subtree hidden, do not re-enable child clones via
+            // setActorVisible() or poll every Meta.WindowActor while Overview
+            // is active. On restoration the normal sync repairs additions,
+            // removals, transforms and z-order in one frame.
+            this._releaseDamageHooks();
+            return;
+        }
         this._syncDamageHooks();
         // [window-clone-clip] Keep the cull opt-out in step with what we clone.
         // reportClonedWindowActors() diffs first, so this is a set comparison over
