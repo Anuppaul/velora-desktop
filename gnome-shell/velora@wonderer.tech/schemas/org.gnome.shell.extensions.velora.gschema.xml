@@ -186,6 +186,47 @@
       <description>Vertical paint offset in pixels. Positive values move the floating dock upward; negative values move it downward. Panel mode ignores this setting.</description>
     </key>
 
+    <!-- Velora Atmosphere is opt-in. Original disables the wallpaper GPU
+         shader completely. Slider defaults are the Atmosphere profile and
+         remain saved across preset changes and Original toggles. -->
+    <key name="wallpaper-style" type="s">
+      <default>'original'</default>
+      <choices>
+        <choice value="original"/>
+        <choice value="natural"/>
+        <choice value="cinematic"/>
+        <choice value="atmosphere"/>
+        <choice value="custom"/>
+      </choices>
+      <summary>Velora Atmosphere wallpaper treatment</summary>
+      <description>Original leaves GNOME wallpaper rendering unchanged. Other profiles apply static GPU-native visual grading to wallpaper sources.</description>
+    </key>
+    <key name="wallpaper-filmic" type="i">
+      <default>14</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper filmic color intensity</summary>
+    </key>
+    <key name="wallpaper-vignette" type="i">
+      <default>8</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper soft vignette intensity</summary>
+    </key>
+    <key name="wallpaper-ambient" type="i">
+      <default>6</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper ambient light intensity</summary>
+    </key>
+    <key name="wallpaper-grain" type="i">
+      <default>2</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper static micro-grain intensity</summary>
+    </key>
+    <key name="wallpaper-adaptive-contrast" type="i">
+      <default>14</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper adaptive contrast intensity</summary>
+    </key>
+
     <!-- Velora material picker. Liquid remains the installed default. The
          Frosted Crystal controls are independent: switching must not rewrite
          the user's existing liquid optics, tint or blur preferences. -->

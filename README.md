@@ -54,6 +54,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 | | |
 | --- | --- |
 | **Two live-switchable materials** | Liquid Glass v10 preserves glossy refraction and highlights. Frosted Crystal adds stronger native backdrop diffusion, matte color, fine static grain and a softer illuminated crystal rim. Both now have a subtle adaptive icy-blue edge, readable over dark and light wallpaper. |
+| **Velora Atmosphere** | Five wallpaper styles including Original, Natural, Cinematic, Atmosphere and Custom. GPU-native filmic grading, vignette, subtle ambient color, static grain and adaptive contrast, applied to actual wallpaper sources—not browser windows. |
 | **Velora Orb** | Draggable, multi-monitor radial launcher with Dock Apps, Custom Apps and All Apps sources, paging, previews, tooltips and running indicators. |
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and native-style result presentation. |
 | **Ubuntu Dock integration & settings** | Restyles the existing Ubuntu Dock and lets you manage its native autohide, intellihide, pressure, delays, position, panel mode, icons, application list and click actions inside Velora Preferences. |
@@ -61,6 +62,46 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 | **Monitor-safe launcher geometry** | Orbit, Star, Molecule, Spiral and Petal layouts with fit-first placement and paging near monitor edges/corners. |
 | **Adaptive text** | Light/dark foreground treatment where Velora owns the visual layer, without replacing semantic GNOME states. |
 | **Low-overhead design** | Shared sources, compositor-native actors/effects, cached/downscaled blur and event-driven updates instead of permanent JS polling. |
+
+## Velora Atmosphere — Premium Wallpaper
+
+Open **GNOME Extensions → Velora Desktop → Preferences → Wallpaper**.
+
+Atmosphere changes the wallpaper's material and depth without changing
+GNOME's wallpaper files, image URI or desktop color scheme. It is deliberately
+**opt-in**: a fresh installation starts at **Original**, with no Atmosphere
+shader attached. Existing desktops are unchanged until a preset is chosen.
+
+| Wallpaper style | Look | Filmic · Vignette · Ambient · Grain · Contrast |
+| --- | --- | --- |
+| **Original** (default) | GNOME wallpaper exactly as provided, no extra GPU effect | Off |
+| **Velora Natural** | Clean balanced colors and gentle depth | 10 · 5 · 3 · 1 · 8 |
+| **Velora Cinematic** | More filmic contrast, restrained darker corners | 22 · 13 · 5 · 2 · 16 |
+| **Velora Atmosphere** | Harmonious filmic color, soft ambient lift and texture | 14 · 8 · 6 · 2 · 14 |
+| **Custom** | Adjust each of the five effects independently | Your saved intensities |
+
+A manual slider change automatically selects **Custom**; returning to
+**Original** detaches all added Atmosphere effects *without deleting your saved
+Custom values*. The grain is deterministic and screen-static, not animated.
+
+### Wallpaper-first scene consistency
+
+GNOME keeps its own wallpaper actor, Velora's Liquid Glass uses a distinct
+shared wallpaper mirror, and App Grid has its own native blurred wallpaper
+actors. Atmosphere hooks **each of these real wallpaper actors once**. It
+does **not** tint live Browser windows, App Grid icons, the entire GNOME
+`uiGroup`, or the final glass composite. Therefore the same wallpaper
+treatment is present on the desktop, in glass wallpaper reflections and in
+the App Grid's existing native blur, without stacking Atmosphere twice on
+a single source. Native multi-monitor and GNOME wallpaper changes remain
+owned by GNOME.
+
+**Performance:** Each active wallpaper paint source receives one static
+GPU shader effect (one extra color pass on that source). No CPU screenshots,
+texture uploads, timers, frame-based grain or additional App Grid blur layers
+are used. It can increase GPU cost versus **Original**; the final GNOME 50
+GPU time and color fidelity must be validated on a real device. Previous
+Liquid/Frosted glass controls and native popup scene selection are untouched.
 
 ## Choose a Glass Material
 

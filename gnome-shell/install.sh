@@ -20,6 +20,8 @@ BOOTSTRAP_FILES=(
 HOT_AUX_FILES=(
     "prefs.js"
     "nativeDockPreferences.js"
+    "wallpaperAtmospherePreferences.js"
+    "wallpaperAtmosphereConfig.js"
     "schemas/org.gnome.shell.extensions.velora.gschema.xml"
 )
 
@@ -35,6 +37,9 @@ RUNTIME_FILES=(
     "popupGlass.js"
     "shellCards.js"
     "appGridBackdrop.js"
+    "wallpaperAtmosphere.js"
+    "wallpaperAtmosphereEffect.js"
+    "wallpaperAtmosphereConfig.js"
     "overviewSearchGlass.js"
     "overviewCloseGlass.js"
     "searchSurface.js"
@@ -716,7 +721,7 @@ record_bootstrap_identity
 refresh_prefs_process
 
 for installed_file in \
-    metadata.json extension.js prefs.js nativeDockPreferences.js stylesheet.css \
+    metadata.json extension.js prefs.js nativeDockPreferences.js wallpaperAtmospherePreferences.js wallpaperAtmosphereConfig.js stylesheet.css \
     runtime.js orbThemeRuntime.js runtime.css apps.js geometry.js \
     liquidGlassDock.js notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||

@@ -19,8 +19,10 @@ function classesOf(actor) {
 }
 
 export class AppGridBackdropManager {
-    constructor() {
+    constructor({atmosphereManager = null} = {}) {
         this._enabled = false;
+        this._atmosphereManager = atmosphereManager;
+        this._atmosphereWallpaperContainers = [];
         this._layer = null;
         this._backgroundManagers = [];
         this._appGrid = null;
@@ -135,6 +137,15 @@ export class AppGridBackdropManager {
     }
 
     _rebuildBackgrounds() {
+        // Attach Atmosphere to GNOME's actual per-monitor background
+        // actors INSIDE each existing Shell.BlurEffect widget. This
+        // grades wallpaper before the established App Grid blur but not
+        // the Overview icons/cards layered above those widgets.
+        // Drop observers first; old wallpaper actors are about to die.
+        for (const widget of this._atmosphereWallpaperContainers)
+            this._atmosphereManager?.unwatchContainer(widget);
+        this._atmosphereWallpaperContainers = [];
+
         for (const manager of this._backgroundManagers) {
             try {
                 manager.destroy();
@@ -184,6 +195,8 @@ export class AppGridBackdropManager {
 
             this._backgroundManagers.push(manager);
             this._layer.add_child(widget);
+            if (this._atmosphereManager?.watchContainer(widget))
+                this._atmosphereWallpaperContainers.push(widget);
         }
 
         this._updateBlur();
@@ -363,6 +376,10 @@ export class AppGridBackdropManager {
                 OVERVIEW_WALLPAPER_CLASS
             );
 
+        for (const widget of this._atmosphereWallpaperContainers)
+            this._atmosphereManager?.unwatchContainer(widget);
+        this._atmosphereWallpaperContainers = [];
+
         for (const manager of this._backgroundManagers) {
             try {
                 manager.destroy();
@@ -376,6 +393,7 @@ export class AppGridBackdropManager {
         this._layer = null;
         this._appGrid = null;
         this._searchResults = null;
+        this._atmosphereManager = null;
 
         console.log(
             '[Velora][OverviewBackdrop] stopped'
