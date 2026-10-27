@@ -2951,11 +2951,12 @@ export class LiquidGlassIntegration {
         }
 
         try {
-            const n = Number(
-                slider.get_property?.(
-                    'slide-x'
-                )
-            );
+            const property =
+                slider.get_property?.('slide-x');
+            const n = property === null ||
+                property === undefined
+                    ? NaN
+                    : Number(property);
             if (Number.isFinite(n)) {
                 return Math.max(
                     0,
