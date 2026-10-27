@@ -275,6 +275,11 @@ class PopupGlassSurface {
         this._root = null;
         this._liquidBox = null;
         this._sceneManager = null;
+        // Calendar can refract the real Overview/App Grid, not Browser web
+        // clones. This is a sibling source, never an ancestor of this popup.
+        this._overviewSceneClone = null;
+        this._overviewSceneSource = null;
+        this._lastOverviewSceneGeometryKey = '';
         this._filterLayer = null;
         this._effect = null;
 
@@ -504,6 +509,50 @@ class PopupGlassSurface {
         if (this._isDateMenu)
             this._setSceneWindowCapture(false, sceneManager);
 
+        // OverviewGroup is GNOME's actual App Grid / Overview UI with its
+        // native blurred wallpaper. Clone only that group: cloning uiGroup
+        // or the stage would include this popup and recurse.
+        let overviewSceneClone = null;
+        let overviewSceneSource = null;
+        if (this._isDateMenu) {
+            const overview = Main.layoutManager.overviewGroup ?? null;
+            let ancestor = liquidBox;
+            let recursive = false;
+            while (ancestor) {
+                if (ancestor === overview) {
+                    recursive = true;
+                    break;
+                }
+                ancestor = ancestor.get_parent?.() ?? null;
+            }
+            if (overview && !recursive) {
+                try {
+                    overviewSceneClone = new Clutter.Clone({
+                        source: overview,
+                        reactive: false,
+                    });
+                    overviewSceneClone.set_name?.(
+                        'velora-calendar-native-overview-scene'
+                    );
+                    overviewSceneClone.set_no_layout?.(true);
+                    overviewSceneClone.set_position(0, 0);
+                    overviewSceneClone.set_size(1, 1);
+                    overviewSceneClone.hide();
+                    // Above the shared wallpaper mirror; below the existing
+                    // single LiquidEffect. Browser source stays excluded.
+                    liquidBox.add_child(overviewSceneClone);
+                    overviewSceneSource = overview;
+                } catch (error) {
+                    try { overviewSceneClone?.destroy?.(); } catch {}
+                    overviewSceneClone = null;
+                    console.warn(
+                        '[Velora][Calendar] Overview clone unavailable: ' +
+                        error
+                    );
+                }
+            }
+        }
+
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-popup-optimization-breaker',
             reactive: false,
@@ -654,6 +703,9 @@ class PopupGlassSurface {
         this._root = root;
         this._liquidBox = liquidBox;
         this._sceneManager = sceneManager;
+        this._overviewSceneClone = overviewSceneClone;
+        this._overviewSceneSource = overviewSceneSource;
+        this._lastOverviewSceneGeometryKey = '';
         this._filterLayer = filterLayer;
         this._effect = effect;
         this._dateInnerRoot = dateInnerRoot;
