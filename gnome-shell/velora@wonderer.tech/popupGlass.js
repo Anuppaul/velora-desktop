@@ -275,6 +275,11 @@ class PopupGlassSurface {
         this._root = null;
         this._liquidBox = null;
         this._sceneManager = null;
+        // Calendar can refract the real Overview/App Grid, not Browser web
+        // clones. This is a sibling source, never an ancestor of this popup.
+        this._overviewSceneClone = null;
+        this._overviewSceneSource = null;
+        this._lastOverviewSceneGeometryKey = '';
         this._filterLayer = null;
         this._effect = null;
 
@@ -504,6 +509,50 @@ class PopupGlassSurface {
         if (this._isDateMenu)
             this._setSceneWindowCapture(false, sceneManager);
 
+        // OverviewGroup is GNOME's actual App Grid / Overview UI with its
+        // native blurred wallpaper. Clone only that group: cloning uiGroup
+        // or the stage would include this popup and recurse.
+        let overviewSceneClone = null;
+        let overviewSceneSource = null;
+        if (this._isDateMenu) {
+            const overview = Main.layoutManager.overviewGroup ?? null;
+            let ancestor = liquidBox;
+            let recursive = false;
+            while (ancestor) {
+                if (ancestor === overview) {
+                    recursive = true;
+                    break;
+                }
+                ancestor = ancestor.get_parent?.() ?? null;
+            }
+            if (overview && !recursive) {
+                try {
+                    overviewSceneClone = new Clutter.Clone({
+                        source: overview,
+                        reactive: false,
+                    });
+                    overviewSceneClone.set_name?.(
+                        'velora-calendar-native-overview-scene'
+                    );
+                    overviewSceneClone.set_no_layout?.(true);
+                    overviewSceneClone.set_position(0, 0);
+                    overviewSceneClone.set_size(1, 1);
+                    overviewSceneClone.hide();
+                    // Above the shared wallpaper mirror; below the existing
+                    // single LiquidEffect. Browser source stays excluded.
+                    liquidBox.add_child(overviewSceneClone);
+                    overviewSceneSource = overview;
+                } catch (error) {
+                    try { overviewSceneClone?.destroy?.(); } catch {}
+                    overviewSceneClone = null;
+                    console.warn(
+                        '[Velora][Calendar] Overview clone unavailable: ' +
+                        error
+                    );
+                }
+            }
+        }
+
         const breaker = new this._vendor.UnpickableActor({
             name: 'velora-popup-optimization-breaker',
             reactive: false,
@@ -654,6 +703,9 @@ class PopupGlassSurface {
         this._root = root;
         this._liquidBox = liquidBox;
         this._sceneManager = sceneManager;
+        this._overviewSceneClone = overviewSceneClone;
+        this._overviewSceneSource = overviewSceneSource;
+        this._lastOverviewSceneGeometryKey = '';
         this._filterLayer = filterLayer;
         this._effect = effect;
         this._dateInnerRoot = dateInnerRoot;
@@ -2050,8 +2102,100 @@ class PopupGlassSurface {
         return changed;
     }
 
+    _syncOverviewSceneVisibility() {
+        const clone = this._overviewSceneClone;
+        const overview = this._overviewSceneSource;
+        if (!this._isDateMenu || !clone || !overview)
+            return false;
+
+        // A Super/Overview scene includes the actual App Grid actors and
+        // Velora's existing native wallpaper blur. Unlike the full-size
+        // Browser's Meta.WindowActor, this is precisely what GNOME paints
+        // behind the Calendar while Overview is shown.
+        //
+        // Do NOT show it outside Overview: GNOME can retain its actor tree
+        // mapped/allocated after closing, but the native stage behind the
+        // Date Menu then returns to the normal desktop. The safe wallpaper
+        // fallback is restored automatically, without reviving Browser.
+        const active = Boolean(
+            (Main.overview?.visible ||
+                Main.overview?.visibleTarget) &&
+            overview.visible &&
+            overview.mapped
+        );
+        if (clone.visible === active)
+            return false;
+
+        if (active)
+            clone.show?.();
+        else
+            clone.hide?.();
+        return true;
+    }
+
+    _syncOverviewSceneGeometry(monitorX, monitorY) {
+        const clone = this._overviewSceneClone;
+        const source = this._overviewSceneSource;
+        if (!clone?.visible || !source)
+            return false;
+
+        // Clutter.Clone re-paints its SOURCE in local coordinates. The
+        // original Overview group may be offset/scaled during GNOME's
+        // slide/zoom transition. Match its actual stage transform, then
+        // subtract this popup's monitor origin. Otherwise app icons appear
+        // offset or incorrectly scaled inside the glass on multi-monitor
+        // setups, even when the clone source itself is correct.
+        let bounds = null;
+        try {
+            bounds = this._vendor.getTransformedRect(source);
+        } catch {}
+        if (!bounds || !finiteRect(bounds))
+            return false;
+
+        const sourceW = Number(source.width) || global.stage.width;
+        const sourceH = Number(source.height) || global.stage.height;
+        if (
+            !Number.isFinite(sourceW) ||
+            !Number.isFinite(sourceH) ||
+            sourceW <= 1 || sourceH <= 1
+        ) {
+            return false;
+        }
+        const scaleX = bounds[2] / sourceW;
+        const scaleY = bounds[3] / sourceH;
+        const tx = bounds[0] - monitorX;
+        const ty = bounds[1] - monitorY;
+        if (
+            !Number.isFinite(scaleX) ||
+            !Number.isFinite(scaleY) ||
+            scaleX <= 0 || scaleY <= 0
+        ) {
+            return false;
+        }
+        const key = [sourceW, sourceH, tx, ty, scaleX, scaleY]
+            .map(n => Math.round(n * 1000) / 1000)
+            .join(':');
+        if (key === this._lastOverviewSceneGeometryKey)
+            return false;
+        this._lastOverviewSceneGeometryKey = key;
+
+        this._vendor.setSizeIfChanged(clone, sourceW, sourceH);
+        this._vendor.setTranslationIfChanged(clone, tx, ty);
+        if (
+            Math.abs((clone.scale_x ?? 1) - scaleX) > 0.0001 ||
+            Math.abs((clone.scale_y ?? 1) - scaleY) > 0.0001
+        ) {
+            clone.set_scale?.(scaleX, scaleY);
+        }
+        // The existing popup-root clip contains the entire source to the
+        // necessary Date glass/blur margin. No fullscreen opaque overlay.
+        return true;
+    }
+
     _syncOverviewWindowCapture() {
-        // Date Menu uses a wallpaper-only glass source at ALL times. The
+        // Date Menu NEVER captures desktop Browser windows. On actual
+        // Overview/App Grid it uses a second, safe native Overview actor
+        // source; otherwise it keeps the shared wallpaper mirror. The
         // prior Overview-state gate missed the common case where GNOME
         // dismisses Overview just before it opens Calendar: Browser became
         // eligible again and appeared as the original full-size web page.
@@ -2069,15 +2213,21 @@ class PopupGlassSurface {
         // mode is unchanged: old cached vendors may rebuild the clone
         // subtree on an unrelated GNOME layout transition. This is a cheap
         // read/no-op when the source is already correct (no new frame loop).
-        const changed =
+        // Do BOTH checks independently: short-circuiting would leave
+        // the real App Grid scene hidden if a cached vendor just changed its
+        // window-capture state in the same compositor frame.
+        const windowChanged =
             this._setSceneWindowCapture(captureWindows);
+        const overviewChanged =
+            this._syncOverviewSceneVisibility();
         this._overviewWindowCaptureEnabled = captureWindows;
-        if (!changed)
+        if (!windowChanged && !overviewChanged)
             return false;
 
-        // The old web page may already be present in Clutter's cached
-        // offscreen FBO. Invalidate the wallpaper scene and both glass
-        // materials ONCE on state changes. Do not screenshot the Browser,
+        // A just-entered Overview may still have wallpaper-only pixels
+        // cached in the glass FBO (or old full-size Browser pixels from a
+        // prior revision). Invalidate the single existing scene/composite
+        // ONCE on actual source changes. Do not screenshot the Browser,
         // rebuild the scene, add a CSS backdrop, or poll in the background.
         this._lastSceneSyncUs = 0;
         this._lastFullSyncUs = 0;
@@ -2260,6 +2410,12 @@ class PopupGlassSurface {
             1,
             monitor.height ?? global.stage.height
         );
+
+        // Full actor writes happen only in the stage's full-sync path, not
+        // inside LiquidEffect's paint-time geometry hook. At 100% or under
+        // GNOME's animated overview transforms, preserve stage alignment.
+        const overviewGeometryChanged = !shaderOnly &&
+            this._syncOverviewSceneGeometry(monitorX, monitorY);
 
         // Date/Quick Settings need optical headroom for inner card shadows.
         // Generic indicator/context PopupMenu surfaces do not: expanding them
@@ -2540,6 +2696,7 @@ class PopupGlassSurface {
         const sceneDue =
             geometryChanged ||
             rootChanged ||
+            overviewGeometryChanged ||
             this._lastSceneSyncUs === 0 ||
             nowUs - this._lastSceneSyncUs >= intervalUs;
 
@@ -2719,6 +2876,11 @@ class PopupGlassSurface {
         this._lastShadowMaxRadius = NaN;
         this._sceneCaptureRect = null;
         this._overviewWindowCaptureEnabled = null;
+        // _root owns the clone as a child, so destroying the existing popup
+        // root releases it. Do not destroy the source Overview actor.
+        this._overviewSceneClone = null;
+        this._overviewSceneSource = null;
+        this._lastOverviewSceneGeometryKey = '';
         this._dateScreenshot = null;
         this._lastQuickOverlayOpen = false;
         this._quickRegionDirty = false;
