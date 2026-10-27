@@ -81,7 +81,7 @@ const vendor = {
         }
     },
 };
-let browserVisible = false;
+let browserVisible = true;
 let sourceRedraws = 0;
 const dateSurface = {
     _isDateMenu:true,
@@ -92,8 +92,6 @@ const dateSurface = {
     _sceneManager: {
         windowClonesContainer:{visible:false},
         setWindowCaptureEnabled(enabled){
-            assert.equal(enabled,false,
-                'never re-enable full-size Browser pixels inside Calendar');
             if(browserVisible!==enabled) {
                 browserVisible=enabled;
                 return true;
@@ -102,8 +100,9 @@ const dateSurface = {
         },
     },
     _setSceneWindowCapture(enabled){
-        assert.equal(enabled,false);
-        return false;
+        if (browserVisible === enabled) return false;
+        browserVisible = enabled;
+        return true;
     },
     _syncOverviewSceneVisibility:visible,
     _overviewWindowCaptureEnabled:false,
@@ -113,10 +112,10 @@ const dateSurface = {
     _dateInnerRoot:{queue_redraw(){sourceRedraws++;}},
 };
 
-// Normal desktop: Calendar retains safe wallpaper-only backdrop.
+// Normal desktop with an open Browser must capture that actual webpage.
 assert.equal(capture.call(dateSurface),false);
 assert.equal(clone.visible,false);
-assert.equal(browserVisible,false);
+assert.equal(browserVisible,true);
 
 // Enter native Overview with the Super key. The real App Grid actor is
 // already visible/mapped; the same source is used inside Calendar glass.
@@ -167,13 +166,12 @@ assert.equal(clone.translation_y,22);
 assert.ok(Math.abs(clone.scale_x-.9)<.00001);
 assert.ok(Math.abs(clone.scale_y-.9)<.00001);
 
-// On exiting Overview, revert to original wallpaper mirror. Do NOT
-// start cloning Browser just because Overview becomes hidden.
+// After Overview exits, return to the actual desktop Browser+wallpaper.
 Main.overview.visible=false;
 Main.overview.visibleTarget=false;
 assert.equal(capture.call(dateSurface),true);
 assert.equal(clone.visible,false);
-assert.equal(browserVisible,false);
+assert.equal(browserVisible,true);
 assert.equal(geometry.call(dateSurface,1920,0),false);
 
 // GNOME's actor can remain mapped/allocated after closing Overview.
@@ -191,20 +189,39 @@ overviewGroup.mapped=true;
 assert.equal(capture.call(dateSurface),true);
 assert.equal(clone.visible,true);
 
-// Quick Settings and other ordinary popups must not get an Overview clone.
+// Quick Settings must now behave identically to the Calendar in both
+// visible App Grid and ordinary Browser desktop contexts.
+const quickClone = {
+    visible:false,
+    show(){this.visible=true;},
+    hide(){this.visible=false;},
+};
+let quickCapture=true;
 const quick = {
     ...dateSurface,
     _isDateMenu:false,
-    _overviewSceneClone:null,
-    _overviewSceneSource:null,
-    _setSceneWindowCapture(enabled){this.lastWindowEnabled=enabled;return true;},
+    _isQuickSettings:true,
+    _overviewSceneClone:quickClone,
+    _overviewSceneSource:overviewGroup,
+    _setSceneWindowCapture(enabled){
+        const changed=quickCapture!==enabled;
+        quickCapture=enabled;
+        return changed;
+    },
     _syncOverviewSceneVisibility:visible,
 };
-assert.equal(visible.call(quick),false);
 Main.overview.visible=false;Main.overview.visibleTarget=false;
+assert.equal(capture.call(quick),false);
+assert.equal(quickCapture,true);
+Main.overview.visibleTarget=true;
 assert.equal(capture.call(quick),true);
-assert.equal(quick.lastWindowEnabled,true,
-    'Quick Settings retains native live-window background');
+assert.equal(quickCapture,false);
+assert.equal(quickClone.visible,true,
+    'Quick Settings refracts the real Overview instead of wallpaper');
+Main.overview.visibleTarget=false;
+assert.equal(capture.call(quick),true);
+assert.equal(quickCapture,true);
+assert.equal(quickClone.visible,false);
 
 // SOURCE hierarchy and rendering guards: only overviewGroup is cloned.
 // It is a sibling of popup roots, never the full stage/UI group that
@@ -237,4 +254,4 @@ const helpers = popup.slice(
     popup.indexOf('    syncFrame() {')
 );
 assert.doesNotMatch(helpers, /Shell\.Screenshot|screenshot_area|GLib\.timeout_add|setTimeout|new LiquidEffect|new Shell\.BlurEffect|new Clutter\.Clone/);
-console.log('Calendar refracts native Overview/App Grid on Super, retains wallpaper desktop fallback, excludes Browser, and aligns multi-monitor transforms PASS.');
+console.log('Calendar and Quick Settings use actual Browser desktop/App Grid backdrops, correct geometry, and no recursive capture PASS.');
