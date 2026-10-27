@@ -656,3 +656,64 @@ appears. Check Quick Settings still reflects live desktop content, Calendar
 does not flash black or lose its glass edge, and repeated open/close
 transitions do not add hidden actors. The new regression covers old vendor
 caches and the previously missed Overview-closed-before-popup ordering.
+
+## Calendar: mirror the actual GNOME App Grid while Super/Overview is visible
+
+The prior Calendar wallpaper-only repair (PR #59) correctly stopped the
+full-size Browser web page from leaking through its glass, but **lost the
+actual foreground App Grid** when Super was held/Overview remained open.
+The Date Menu now selects its visual backdrop based on *what GNOME itself
+has currently painted*:
+
+- **Super / Overview / App Grid visible:** use ONE lazily visible
+  `Clutter.Clone({source: Main.layoutManager.overviewGroup})` inside the
+  existing Calendar LiquidEffect's scene tree, **above** its shared wallpaper
+  mirror. This captures the original App Grid/Overview content—including
+  GNOME's icons and Velora's existing native blurred Overview backdrop—
+  instead of the original full-size desktop Browser window.
+- **Overview closed:** hide that clone; the pre-existing wallpaper mirror
+  is the safe Calendar backdrop. Date Menu's live desktop-window clones
+  stay disabled regardless of transition timing or old vendored GJS cache.
+- **Quick Settings/other popups:** unchanged, retaining normal live-window
+  backdrop and the earlier Overview-specific exclusion rule.
+
+The overview source actor is a **sibling** of Calendar's popup root under
+the GNOME UI; it is **not** `Main.uiGroup`, the full stage, or any ancestor
+of the popup. The code checks the intended source relationship before
+attaching it, avoiding recursive self-capture. The cloned Overview content
+runs *inside* the existing per-popup LiquidEffect pipeline (same outer
+and nested Date-card optics; no additional shader/material/filter actor).
+A dedicated stage-coordinate transform matches the real native Overview
+group's animated position and scale and accounts for multi-monitor origins.
+The popup's existing optical ROI clip still bounds the rendered glass.
+
+The source clone is allocated only once per Date Menu and becomes visible
+only when native Overview is both shown (or showing) and mapped. It is
+hidden again when GNOME exits Overview, with one compositor scene/FBO
+invalidation at each source switch. The established popup `before-update`
+loop handles changes; no extra timer or CPU readback is introduced.
+
+**Cost:** a live Overview `Clutter.Clone` asks GNOME to repaint that source
+within Calendar's existing scene. This **can** increase GPU cost when both
+Overview and Calendar are visible, especially with nested native effects.
+No parity claim is made without a real GNOME 50 compositor frame trace.
+
+**Regression:** `node tools/test_calendar_overview_backdrop.mjs` runs the
+shipped scene-visibility and monitor-transform methods with GNOME stage
+mocks: Super/Overview → Calendar, mapped/unmapped fallback, transition
+from visibleTarget→visible, stage scaling and a secondary monitor.
+`node tools/test_popup_overview_capture.mjs` separately verifies original
+Browser content is never captured by the Date Menu and compatibility with
+cached older vendor modules. The existing Liquid/Frosted, preview, Dock,
+JS/GSettings and frame-budget suites remain mandatory.
+
+**On-device acceptance:** Open a Browser with a distinctive webpage; press
+Super and show the App Grid, then open Calendar **while the grid remains
+visible**. The Calendar should reveal the same App Grid icons and Overview
+backdrop, blurred and refracted—not the original full-screen webpage and not
+wallpaper alone. Close Overview and open Calendar on the desktop: it should
+return to the wallpaper-only source without a black first frame. Repeat in
+Liquid and Frosted modes, with Quick Settings and on each monitor. If
+GNOME hides Overview as a result of opening the native Calendar itself,
+there is no longer an on-screen Overview to clone; that state intentionally
+falls back to wallpaper rather than faking a stale App Grid screenshot.
