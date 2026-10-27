@@ -20,19 +20,19 @@ export const ATMOSPHERE_PRESETS = Object.freeze([
         id: 'natural',
         label: 'Velora Natural',
         description: 'Clean color grading, mild depth and delicate light.',
-        values: Object.freeze([10, 5, 3, 1, 8]),
+        values: Object.freeze([38, 24, 22, 2, 34]),
     }),
     Object.freeze({
         id: 'cinematic',
         label: 'Velora Cinematic',
         description: 'Richer tones, pronounced yet restrained vignette.',
-        values: Object.freeze([22, 13, 5, 2, 16]),
+        values: Object.freeze([78, 70, 34, 4, 72]),
     }),
     Object.freeze({
         id: 'atmosphere',
         label: 'Velora Atmosphere',
         description: 'Balanced filmic depth, soft ambient color and static grain.',
-        values: Object.freeze([14, 8, 6, 2, 14]),
+        values: Object.freeze([62, 52, 54, 3, 56]),
     }),
     Object.freeze({
         id: 'custom',
@@ -54,13 +54,25 @@ export function readAtmosphereProfile(settings) {
     if (!ATMOSPHERE_PRESETS.some(item => item.id === style))
         style = 'original';
 
-    const values = ATMOSPHERE_KEYS.map(key => {
+    const savedValues = ATMOSPHERE_KEYS.map(key => {
         let value = 0;
         try {
             value = settings.get_int(key);
         } catch {}
         return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
     });
+
+    // A named style is defined by its CANONICAL preset, not by sliders last
+    // written by an earlier Velora release. PR #62 shipped intentionally
+    // near-invisible presets: people with 'atmosphere' selected may still
+    // have those old numbers saved. Resolving a named preset here makes
+    // the new filmic profile visible immediately after upgrading, without
+    // silently destroying the user's retained Custom settings. 'original'
+    // does not allocate effects; 'custom' reads exactly the saved numbers.
+    const preset = ATMOSPHERE_PRESETS.find(item => item.id === style);
+    const values = preset?.values
+        ? [...preset.values]
+        : savedValues;
 
     return {
         style,
