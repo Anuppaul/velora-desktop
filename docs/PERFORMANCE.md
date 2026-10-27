@@ -779,3 +779,97 @@ toggles, after 10 rapid opens and while video changes behind the popup.
 If a popup open action actually dismisses GNOME Overview first, there is
 no longer an on-screen App Grid to sample; the live desktop/window
 source should be selected instead of showing a stale Overview snapshot.
+
+## Velora Atmosphere — native wallpaper-only filmic treatment
+
+The new **Wallpaper** preferences page selects Original (default), Natural,
+Cinematic, Atmosphere or Custom. Five user-adjustable 0–100 values control
+filmic color, soft vignette, adaptive per-pixel ambient color, screen-static
+micro-grain and adaptive contrast. The selected preset and slider values
+persist in the canonical Velora GSettings schema. Choosing Original detaches
+all Atmosphere GPU effects without erasing previously selected intensities.
+
+### Source ownership / double-filter prevention
+
+Original GNOME wallpaper and the three Velora wallpaper paint paths must
+be treated as separate **source actors**, not as final desktop UI:
+
+1. **GNOME desktop:** `Main.layoutManager._backgroundGroup` contains
+   native `Meta.BackgroundActor` instances. Atmosphere adds one native
+   `Shell.GLSLEffect` to each loaded wallpaper actor and watches child
+   addition/removal across GNOME wallpaper changes and monitor rebuilds.
+2. **Liquid/Frosted glass:** the vendor's `lg-bg-mirror-source` owns
+   separate mirrored `Meta.BackgroundActor` children with the same shared
+   `Meta.Background` image. The Atmosphere manager watches only those
+   **mirror children**, never the window clones, GlassEffect or `uiGroup`.
+   An existing `BackgroundMirror` is found on setup; new mirrors are
+   attached through `uiGroup::child-added`. No extra wallpaper decode.
+3. **App Grid/Overview:** Velora already creates one native
+   `Shell.BlurEffect` wrapper per monitor, containing its own
+   `Background.BackgroundManager` wallpaper children. Atmosphere watches
+   **the wallpaper actors inside each wrapper**, so the existing blur
+   remains the only blur and its app icons/search/controls are not graded.
+   The App Grid background manager unregisters observers before it
+   destroys/rebuilds the monitor widgets.
+4. **Popup/Calendar native scene:** the current App Grid scene clone or
+   live desktop windows remain selected by the shared `PopupGlassSurface`
+   policy from PR #61. The wallpaper in either scene is graded at its own
+   native source only; the Liquid/Frosted output is never processed again.
+
+This design prevents applying a color filter to the full desktop/browser,
+duplicated translucent borders or the same wallpaper capture two times.
+
+### Shader / compositor compatibility
+
+`wallpaperAtmosphereEffect.js` selects `Shell.GLSLEffect` on GNOME 50
+and supports `Clutter.ShaderEffect` as a future-version fallback. Its
+single GLSL snippet performs one source `cogl_sampler0` sample, filmic color
+grading, adaptive contrast, radial vignette, ambient warm/cool tint from the
+already-sampled wallpaper pixel, and deterministic grain at a fixed pixel
+position. Source alpha is preserved in premultiplied form, including
+cross-fades and wallpaper transparency. There is no time uniform, external
+noise texture, new blur engine, GPU-to-CPU screenshot, image file write or
+separate postprocessing timer.
+
+`getAtmosphereEffectClass()` registers the GObject shader class lazily
+and caches it in a process-global `Symbol.for` slot. Subsequent hot-swap
+runtime imports reuse that type, avoiding GNOME Shell crashes from
+re-registering the same GTypeName. Original mode does not even request a
+shader class. A `Meta.BackgroundActor` added before its content has a
+real Meta.Background is observed but **not painted through the shader**
+until `notify::background` confirms it is loaded, preventing a known
+Mutter 50 null-background crash.
+
+### Performance and acceptance
+
+The effect adds **one native GPU offscreen color pass per active wallpaper
+actor**. A multi-monitor desktop, an app-grid blur and the shared glass
+mirror can each use an independent pass. Static wallpaper content can be
+cached by the compositor; this is not proof of zero GPU frame cost.
+Enabling Original removes the added effect objects and restores the original
+native paint path without restarting GNOME.
+
+Mandatory automated source-level regressions:
+
+- `node tools/test_wallpaper_atmosphere.mjs` — Original zero-effect default,
+  multi-source isolation, GNOME wallpaper replacement, late loaded image,
+  shared glass-mirror creation/removal, App Grid source rebuild,
+  coalesced GSettings changes, cleanup, installer and integration.
+- `node tools/test_wallpaper_atmosphere_ui.mjs` — preset atomic writes,
+  user Custom adjustments, independent Original reset, single GObject
+  class registration on hot-reload, static shader source, one sampler and
+  premultiplied-alpha transparency.
+- Existing Glass material, popup App Grid, native Dock, preview, frame-budget,
+  JS syntax and GSettings schema validation suites remain mandatory.
+
+**Real GNOME Shell 50 acceptance (not covered by unit tests):** compare
+desktop wallpaper before/after choosing Natural and Atmosphere, switch
+Light/Dark wallpaper, test a pure-white and nearly-black picture, open
+App Grid and verify icons stay unchanged while the background shares the
+same grade, open Liquid/Frosted cards to ensure no double tint, verify
+multi-monitor bounds, change GNOME's wallpaper while Atmosphere is on,
+toggle Original repeatedly and inspect for blank/black first frames,
+and collect CPU/GPU frame times and memory while crossing workspaces and
+using native wallpaper cross-fades. If any shader fails to compile or
+paint, select Original to remove Atmosphere without touching GNOME's
+wallpaper settings.
