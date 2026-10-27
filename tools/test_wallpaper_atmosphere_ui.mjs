@@ -213,6 +213,12 @@ assert.match(shaderDecl,/0\.42 \* clamp\(va_vignette/);
 assert.match(shaderDecl,/0\.68 \* filmicStrength/);
 assert.match(shaderDecl,/0\.35 \* adaptive/);
 assert.match(shaderDecl,/0\.62 \* clamp\(va_ambient/);
+assert.match(shaderDecl,/color = max\(color, original\.rgb/,
+    'strong grading preserves dark wallpaper details');
+assert.match(shaderDecl,/float protectHighlights = smoothstep\(0\.86, 1\.0, luma\) \* 0\.72/,
+    'near-white wallpapers retain original highlight detail');
+assert.match(effectSource,/const CACHE_KEY = Symbol\.for\('velora\.atmosphere\.effect\.class\.v2'\)/,
+    'fresh GObject shader type avoids V1 live-import cache');
 
 // GObject type is registered only ONCE across live runtime imports.
 let typeRegistrations=0;
@@ -234,11 +240,11 @@ const Shell={GLSLEffect:Base};
 const Clutter={ShaderEffect:class{}};
 const Cogl={SnippetHook:{FRAGMENT:1}};
 const GObject={registerClass(options,klass){
-    assert.equal(options.GTypeName,'VeloraAtmosphereShaderEffectV1');
+    assert.equal(options.GTypeName,'VeloraAtmosphereShaderEffectV2');
     typeRegistrations++;return klass;
 }};
 const symbols=Object.getOwnPropertySymbols(globalThis);
-const cacheKey=Symbol.for('velora.atmosphere.effect.class.v1');
+const cacheKey=Symbol.for('velora.atmosphere.effect.class.v2');
 const oldType=globalThis[cacheKey];
 delete globalThis[cacheKey];
 try{
