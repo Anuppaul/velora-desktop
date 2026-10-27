@@ -165,6 +165,10 @@ overviewWidget.add_child(gridBg);
 assert.equal(manager.watchContainer(overviewWidget),true);
 assert.equal(manager.watchContainer(overviewWidget),false);
 assert.equal(gridBg.effects.size,0);
+drainIdles();
+assert.match(settings.get_string('wallpaper-runtime-status'),
+    /Original: no Atmosphere GPU effect attached/,
+    'mirror/App Grid bookkeeping may update diagnostic once without shaders');
 
 // Batch five setting changes into ONE native idle reconfiguration.
 settings.change('wallpaper-filmic',18);
