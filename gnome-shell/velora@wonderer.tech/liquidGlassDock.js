@@ -465,6 +465,8 @@ export class LiquidGlassIntegration {
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
         this._dashToDockFixedModeId = 0;
+        this._dashToDockVisibilityId = 0;
+        this._dockAutoHideRefreshId = 0;
         this._dockVerticalOffsetSettingId = 0;
         this._dockFixedSettleStageId = 0;
         this._dockFixedSettleGeneration = 0;
@@ -2162,8 +2164,16 @@ export class LiquidGlassIntegration {
         const offset =
             this._readDockVerticalOffset();
 
+        // Number(null) is 0 in JS, not NaN. Most call sites pass the
+        // optional override as null, so the old code ALWAYS treated the
+        // otherwise-visible native dock as hidden and reset its offset on
+        // every rescan/hover/appearance sync. That desynchronised the native
+        // hover rectangle, intellihide and slide animation.
         let slide =
-            Number(slideOverride);
+            slideOverride === null ||
+            slideOverride === undefined
+                ? NaN
+                : Number(slideOverride);
         if (!Number.isFinite(slide))
             slide =
                 this._readNativeDockSlide(
@@ -2842,6 +2852,11 @@ export class LiquidGlassIntegration {
             slider.slide_x,
             slider.slideX,
         ]) {
+            // An absent property on a GNOME/Ubuntu Dock variant is not a
+            // hidden slide. Number(null) incorrectly returns 0, hiding
+            // the glass and preventing the second property from being read.
+            if (value === null || value === undefined)
+                continue;
             const n = Number(value);
             if (Number.isFinite(n))
                 return Math.max(
@@ -2891,6 +2906,8 @@ export class LiquidGlassIntegration {
         } catch {}
 
         for (const value of candidates) {
+            if (value === null || value === undefined)
+                continue;
             const state = Number(value);
             if (
                 Number.isFinite(state) &&
@@ -2934,9 +2951,9 @@ export class LiquidGlassIntegration {
         // private-state API; modern GObject dockState builds own their state.
         let publicState = NaN;
         try {
-            publicState = Number(
-                dock.dockState
-            );
+            const value = dock.dockState;
+            if (value !== null && value !== undefined)
+                publicState = Number(value);
         } catch {}
 
         if (Number.isFinite(publicState))
