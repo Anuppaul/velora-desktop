@@ -449,8 +449,11 @@ Glass cards now use one **thin bluish optical rim** within their existing
 LiquidEffect composite shader. It is not a separate CSS border or overlay,
 and does not add a repaint loop, frame capture, texture lookup or FBO pass.
 
-- On a **light/white backdrop**, existing sampled backdrop luminance chooses
-  a restrained darker **steel-blue** (RGB 0.24, 0.49, 0.75).
+- On a **light/white backdrop**, the initial steel-blue contour was
+  visually too saturated. Its shader target is now **neutral blue-gray**
+  (RGB 0.54, 0.62, 0.70), and its coverage is additionally attenuated to
+  **58%** of the dark-side stroke. A near-white preview stays distinguishable
+  without reading as a blue sticker or painted CSS border.
 - On a **dark/black backdrop**, it chooses a soft **ice blue** (0.76, 0.88, 1.0).
 - Both shades are smoothly interpolated using existing blurred backdrop and
   material-body luminance, so Frosted Crystal's white matte surface also gets
@@ -478,3 +481,17 @@ and the mini 480×270 running-window preview on both bright and dark wallpapers.
 Look for invisible white edges, over-bold blue strokes, corner seams,
 shadow halos and FPS regressions; measure GPU frame time before claiming
 that the additional arithmetic has no material cost.
+
+### Bright-background blue calibration (follow-up)
+
+The light-side blue border was too prominent on white wallpapers. The
+follow-up changes **only the bright-side** RGB endpoint and brightness
+weight, while leaving the accepted dark `RGB(0.76,0.88,1.0)` endpoint
+unchanged. Brightness is recovered from the red channel of the already
+selected adaptive color, avoiding duplicate luminance calculations or
+another background sample. The contrast test expects a subtle ~0.08–0.15
+luminance reduction and less than ~0.075 blue-versus-red channel separation
+on almost-white glass, with substantially greater visibility on dark glass.
+This remains a local shader adjustment: 3px SDF extent, rounded corners,
+premultiplied-alpha coverage, single LiquidEffect and material selection
+remain unchanged. GNOME 50 on-device visuals still need confirmation.
