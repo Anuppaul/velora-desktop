@@ -873,3 +873,92 @@ and collect CPU/GPU frame times and memory while crossing workspaces and
 using native wallpaper cross-fades. If any shader fails to compile or
 paint, select Original to remove Atmosphere without touching GNOME's
 wallpaper settings.
+
+## Atmosphere visual-strength repair and live runtime instrumentation
+
+The initial Atmosphere values were too subtle to distinguish:
+at old `wallpaper-vignette=8`, the maximum corner darkening was
+`0.27 × 0.08 = 2.16%`, and at old `wallpaper-ambient=6`, the maximum
+ambient addition was `0.095 × 0.06 = 0.57%`. Even a functioning GPU
+fragment could therefore appear unchanged. This fix recalibrates both the
+**named preset strengths** and the actual filmic/ambient/contrast/vignette
+response, without altering Wallpaper Original or GNOME's wallpaper image.
+
+| Preset | Filmic | Vignette | Ambient | Grain | Adaptive |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Original | OFF | OFF | OFF | OFF | OFF |
+| Natural | 38 | 24 | 22 | 2 | 34 |
+| Atmosphere | 62 | 52 | 54 | 3 | 56 |
+| Cinematic | 78 | 70 | 34 | 4 | 72 |
+
+The shader's vignette scale is now `0.42`, giving at the outer corners
+approximately **10%** darkening for Natural, **22%** for Atmosphere and
+**29%** for Cinematic. Its S-curve/contrast and color temperature are
+stronger but constrained: a floor proportional to the original sample
+retains deep-shadow information; a near-white highlight blend limits
+clipping. All profiles retain alpha/premultiplication and one existing
+Cogl wallpaper sample. The grain remains a deterministic static signal.
+
+Named profiles are resolved from the current canonical catalog, **not**
+from old slider values persistently saved by PR #62. This ensures users
+who selected Atmosphere before upgrading see the new profile immediately
+without resetting their settings. The Wallpaper page displays these
+effective levels. Manually changing any level atomically captures the
+entire effective profile before entering Custom; saved Custom settings
+remain exactly user-owned. Original continues to remove all effects.
+
+### GNOME hot reload: Shader V2
+
+GNOME registers GObject class names for the lifetime of its Shell process.
+The PR #62 effect class was cached as `VeloraAtmosphereShaderEffectV1`.
+Merely changing the GLSL source while retaining that name/key could
+continue using the OLD invisible shader on Velora hot-reload. The
+recalibrated shader now uses **`VeloraAtmosphereShaderEffectV2`** and
+a separate process-global cache key. Running sessions may allocate the
+new type without re-registering V1; GNOME's old effect instances are
+removed by the normal manager cleanup path. The fallback for systems
+without Shell.GLSLEffect remains Clutter.ShaderEffect.
+
+### Visible activation diagnostics
+
+Wallpaper Preferences now includes **Live Wallpaper Renderer → Shader
+attachment**. The GNOME Shell runtime publishes one read-only diagnostic
+GSettings status on actual source-actor changes/preset application:
+- `Original: no Atmosphere GPU effect attached` — intentional zero-effect
+  mode.
+- `Shader attached to X/Y loaded wallpaper sources (GPU pixels not
+  verified)` — one effect instance was attached to X native source actors.
+- `Waiting for GNOME wallpaper background actors` — source lifecycle
+  incomplete.
+- `Not attached: Y loaded wallpaper sources; inspect GNOME Shell logs` —
+  shader was requested but not attached.
+- `Not initialized` — the runtime has not reported yet (possibly
+  extension not refreshed or a startup issue).
+
+The diagnostic does **not** claim GLSL compilation or actual GPU pixels
+were measured. It only reports what the live GNOME actor API says about
+attachment. Status updates are coalesced by a single bounded GLib idle,
+not a per-frame CPU or GPU polling loop. Disabled/Original removes the
+native effect completely. The status key is excluded from the settings
+change handler that recalculates presets, preventing feedback loops.
+
+### Quantitative and real-world acceptance
+
+`tools/test_wallpaper_atmosphere_visual_strength.mjs` reproduces the
+fragment's static tonal equation with representative cool, warm, white
+and near-black wallpaper colors, anchored to shipped GLSL constants.
+It checks a visible Original-versus-Atmosphere color delta, ordered
+Natural < Atmosphere < Cinematic corner depth and preserved white/black
+details. The existing manager/UI regressions cover old preset migration,
+live GSettings statuses, Custom slider values, source grouping, texture
+sampling, GObject V2 hot-reload and zero effects in Original.
+
+**On a GNOME Shell 50 device:** update Velora; select *Velora Atmosphere*
+and ensure the status reads `Shader attached to X/Y`, with X > 0.
+Toggle to Original and back over a colored wallpaper, then switch to
+Cinematic: corner depth/color tone should be immediately identifiable.
+If X stays 0 or status is Not initialized, inspect Shell warnings rather
+than increasing intensity blindly. Even with X > 0, compare actual pixels
+and GPU frame time: attachment and numeric tests do not prove the final
+on-device visual effect. Check normal desktop, Overview/App Grid and
+glass surfaces for incorrect double treatment and performance regressions.
