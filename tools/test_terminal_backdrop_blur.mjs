@@ -282,9 +282,9 @@ assert.match(prefs, /terminal-backdrop-blur-status/);
 assert.match(schema,
     /<key name="terminal-backdrop-blur-enabled" type="b">\s*<default>false<\/default>/);
 assert.match(schema, /<key name="terminal-backdrop-blur-radius" type="i">/);
-assert.doesNotMatch(src, /\\bsigma\\s*:/,
+assert.doesNotMatch(src, /\bsigma\s*:/,
     'never construct a GNOME 50 BlurEffect using the removed sigma property');
-assert.doesNotMatch(src, /effect\\.sigma\\b/,
+assert.doesNotMatch(src, /effect\.sigma\b/,
     'live blur updates must use native radius property');
 assert.match(installer, /"terminalBackdropBlur.js"/);
 assert.match(builder, /"terminalBackdropBlur.js"/);
