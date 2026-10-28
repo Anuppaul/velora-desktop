@@ -12,6 +12,7 @@ import {collectOrbApps} from './apps.js';
 import {LiquidGlassIntegration} from './liquidGlassDock.js';
 import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
+import {TerminalBackdropBlurManager} from './terminalBackdropBlur.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -257,6 +258,7 @@ export default class VeloraRuntime extends Extension {
         this._liquidGlassIntegration = null;
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
+        this._terminalBackdropBlurManager = null;
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
@@ -321,6 +323,18 @@ export default class VeloraRuntime extends Extension {
             });
         this._spotlightSearch.setup();
 
+        // Independent, opt-in compositor-native Ptyxis window blur. Does
+        // not depend on Liquid Glass startup and does not modify text alpha.
+        try {
+            this._terminalBackdropBlurManager =
+                new TerminalBackdropBlurManager(this._settings);
+            this._terminalBackdropBlurManager.setup();
+        } catch (error) {
+            try { this._terminalBackdropBlurManager?.cleanup(); } catch {}
+            this._terminalBackdropBlurManager = null;
+            console.warn('[Velora][TerminalBlur] unavailable: ' + error);
+        }
+
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
         );
@@ -348,6 +362,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._terminalBackdropBlurManager?.cleanup();
+        this._terminalBackdropBlurManager = null;
         this._spotlightSearch?.destroy?.();
         this._spotlightSearch = null;
         this._searchSurfaceManager?.cleanup?.();
