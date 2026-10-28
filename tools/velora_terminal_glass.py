@@ -288,6 +288,10 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
+        if args.action in ("apply", "restore") and os.geteuid() == 0:
+            raise RuntimeError(
+                "Do not use sudo/root: Ptyxis opacity belongs to your user session"
+            )
         path = state_path()
         if args.action == "status":
             status(args.profile, path)
