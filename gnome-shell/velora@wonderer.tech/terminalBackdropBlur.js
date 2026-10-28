@@ -2,13 +2,11 @@
 // GNOME Shell 50 / Wayland. Opt-in; transparent terminal backgrounds are
 // supplied by Ptyxis itself (and retain fully opaque glyphs).
 //
-// We attach one Shell.BlurEffect(BACKGROUND) on a window-sized St.Widget
-// directly beneath the native surface of its Meta.WindowActor. The actor
-// must have a real paint allocation: 'attached' alone proves no pixels.
-// We avoid sampling pixels in JavaScript,
-// changing Meta.WindowActor opacity or inserting a global stage overlay.
+// We attach BACKGROUND blur on a frame-clipped St.Widget beneath the native
+// surface. Meta.WindowActor may include client-side shadows outside the
+// visible frame: a full-buffer blur leaks a halo onto the wallpaper.
+// No screenshots, opacity writes or global overlays; fail closed on geometry.
 // No polling; all signals/effects are removed on disable/hot-swap.
-import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -67,6 +65,51 @@ export function isPtyxisWindow(metaWindow) {
             return false;
         }
     });
+}
+
+/**
+ * Compute visible Meta.Window frame in local buffer/actor coordinates.
+ * frame_rect excludes CSD shadows while buffer_rect includes them.
+ * Scale for fractional displays, rounding inward so blur never spills.
+ */
+export function computeTerminalBlurFrame(metaWindow, actor) {
+    const frame = metaWindow?.get_frame_rect?.();
+    const buffer = metaWindow?.get_buffer_rect?.();
+    const valid = rect => rect && ['x', 'y', 'width', 'height']
+        .every(key => Number.isFinite(rect[key])) &&
+        rect.width > 1 && rect.height > 1;
+    if (!valid(frame) || !valid(buffer))
+        return null;
+
+    const left = Math.max(frame.x, buffer.x);
+    const top = Math.max(frame.y, buffer.y);
+    const right = Math.min(frame.x + frame.width, buffer.x + buffer.width);
+    const bottom = Math.min(frame.y + frame.height, buffer.y + buffer.height);
+    if (right - left < 2 || bottom - top < 2)
+        return null;
+
+    const actorWidth = actor?.get_width?.();
+    const actorHeight = actor?.get_height?.();
+    const scaleX = Number.isFinite(actorWidth) && actorWidth > 1
+        ? actorWidth / buffer.width
+        : 1;
+    const scaleY = Number.isFinite(actorHeight) && actorHeight > 1
+        ? actorHeight / buffer.height
+        : 1;
+    if (
+        !Number.isFinite(scaleX) || !Number.isFinite(scaleY) ||
+        scaleX < 0.25 || scaleY < 0.25 ||
+        scaleX > 4 || scaleY > 4
+    )
+        return null;
+
+    const x1 = Math.ceil((left - buffer.x) * scaleX);
+    const y1 = Math.ceil((top - buffer.y) * scaleY);
+    const x2 = Math.floor((right - buffer.x) * scaleX);
+    const y2 = Math.floor((bottom - buffer.y) * scaleY);
+    if (x2 - x1 < 2 || y2 - y1 < 2)
+        return null;
+    return {x: x1, y: y1, width: x2 - x1, height: y2 - y1};
 }
 
 export class TerminalBackdropBlurManager {
@@ -142,8 +185,7 @@ export class TerminalBackdropBlurManager {
         if (
             typeof Shell.BlurEffect !== 'function' ||
             Shell.BlurMode?.BACKGROUND === undefined ||
-            Clutter.BindCoordinate?.WIDTH === undefined ||
-            Clutter.BindCoordinate?.HEIGHT === undefined
+            typeof St.Widget !== 'function'
         ) {
             this._publishStatus('Unavailable: compositor blur API missing');
             return;
@@ -232,70 +274,69 @@ export class TerminalBackdropBlurManager {
 
         let backdrop = null;
         let destroyedId = 0;
-        let geometryId = 0;
-        let stage = 'create-actor';
+        const geometrySignals = [];
+        let stage = 'frame-geometry';
         try {
-            // Shell.BlurEffect(BACKGROUND) paints a background sample into
-            // the actor carrying it. A bare Clutter.Actor can be allocated
-            // without a paintable UI surface, which made the prior status
-            // report 'Attached' while users saw no glass. Use the window
-            // blur pattern: a St.Widget bound to the *window actor's*
-            // WIDTH/HEIGHT, not to get_texture() (which is not guaranteed
-            // to expose the full window's allocation on GNOME 50).
+            let lastRect = null;
+            const syncGeometry = () => {
+                const next = computeTerminalBlurFrame(metaWindow, actor);
+                if (!next) {
+                    backdrop?.hide();
+                    lastRect = null;
+                    return false;
+                }
+                const changed = !lastRect ||
+                    Object.keys(next).some(key => next[key] !== lastRect[key]);
+                if (changed) {
+                    backdrop.set_position(next.x, next.y);
+                    backdrop.set_size(next.width, next.height);
+                    // Scissor the output: blur can SAMPLE outside the
+                    // frame but must never PAINT outside its rectangle.
+                    backdrop.set_clip(0, 0, next.width, next.height);
+                    lastRect = next;
+                }
+                backdrop.show();
+                return true;
+            };
+            if (!computeTerminalBlurFrame(metaWindow, actor))
+                throw new Error('visible frame/buffer geometry unavailable');
+
+            stage = 'create-actor';
             backdrop = new St.Widget({
                 name: BLUR_ACTOR_NAME,
                 reactive: false,
+                clip_to_allocation: true,
             });
-            stage = 'bind-geometry';
-            try {
-                backdrop.add_constraint(new Clutter.BindConstraint({
-                    source: actor,
-                    coordinate: Clutter.BindCoordinate.WIDTH,
-                }));
-                backdrop.add_constraint(new Clutter.BindConstraint({
-                    source: actor,
-                    coordinate: Clutter.BindCoordinate.HEIGHT,
-                }));
-            } catch (bindError) {
-                // Keep the bounded frame/buffer fallback for Shell builds
-                // that cannot bind to Meta.WindowActor geometry.
-                try { backdrop.clear_constraints?.(); } catch {}
-                const syncGeometry = () => {
-                    const frame = metaWindow.get_frame_rect?.();
-                    const buffer = metaWindow.get_buffer_rect?.();
-                    if (
-                        !frame || !buffer ||
-                        !Number.isFinite(frame.x - buffer.x) ||
-                        !Number.isFinite(frame.y - buffer.y) ||
-                        !Number.isFinite(frame.width) ||
-                        !Number.isFinite(frame.height) ||
-                        frame.width < 2 || frame.height < 2
-                    ) {
-                        throw new Error('native geometry unavailable');
-                    }
-                    backdrop.set_position(
-                        frame.x - buffer.x,
-                        frame.y - buffer.y
-                    );
-                    backdrop.set_size(frame.width, frame.height);
-                };
+            stage = 'frame-geometry';
+            if (!syncGeometry())
+                throw new Error('failed to crop blur to visible frame');
+
+            stage = 'connect-geometry';
+            const onGeometry = () => {
                 try {
-                    syncGeometry();
-                } catch (geometryError) {
-                    throw new Error(
-                        'WindowActor BindConstraint: ' + bindError +
-                        '; fallback: ' + geometryError
-                    );
+                    if (!syncGeometry())
+                        this._publishStatus('Paused: invalid Ptyxis frame geometry');
+                    else
+                        this._publishAttachedCount();
+                } catch (error) {
+                    backdrop.hide();
+                    this._recordAttachFailure('update-geometry', error);
                 }
+            };
+            for (const [source, signal] of [
+                [metaWindow, 'size-changed'],
+                [metaWindow, 'position-changed'],
+                [actor, 'notify::allocation'],
+            ]) {
                 try {
-                    geometryId = actor.connect(
-                        'notify::allocation',
-                        () => {
-                            try { syncGeometry(); } catch {}
-                        }
+                    const id = source.connect(signal, onGeometry);
+                    if (id)
+                        geometrySignals.push({source, id});
+                } catch (error) {
+                    console.warn(
+                        '[Velora][TerminalBlur] optional geometry signal ' +
+                        signal + ' unavailable: ' + error
                     );
-                } catch {
-                    // Initial size is valid; never introduce polling.
                 }
             }
 
@@ -318,20 +359,23 @@ export class TerminalBackdropBlurManager {
             // The original terminal surface stays ABOVE the effect: glyphs,
             // cursor, selection and titlebar never have their alpha changed.
             actor.insert_child_at_index(backdrop, 0);
-            // Explicitly keep the blur below all of the native window
-            // actor's children, including its surface and shadows.
+            // Clip ONLY the blur, not the WindowActor (which owns
+            // legitimate native surface content and compositor shadows).
             actor.set_child_below_sibling?.(backdrop, null);
 
             stage = 'connect-destroy';
             destroyedId = actor.connect('destroy', () => {
                 this._windows.delete(actor);
+                for (const {source, id} of geometrySignals) {
+                    try { source.disconnect(id); } catch {}
+                }
                 this._publishAttachedCount();
             });
             this._windows.set(actor, {
                 backdrop,
                 effect,
                 destroyedId,
-                geometryId,
+                geometrySignals,
             });
             this._lastAttachFailure = '';
             this._publishAttachedCount();
@@ -344,8 +388,8 @@ export class TerminalBackdropBlurManager {
             if (destroyedId) {
                 try { actor.disconnect(destroyedId); } catch {}
             }
-            if (geometryId) {
-                try { actor.disconnect(geometryId); } catch {}
+            for (const {source, id} of geometrySignals) {
+                try { source.disconnect(id); } catch {}
             }
             try { backdrop?.destroy(); } catch {}
             this._recordAttachFailure(stage, error);
@@ -407,12 +451,12 @@ export class TerminalBackdropBlurManager {
         }
         this._windowCreatedId = 0;
 
-        for (const [actor, {backdrop, destroyedId, geometryId}] of this._windows) {
+        for (const [actor, {backdrop, destroyedId, geometrySignals}] of this._windows) {
             if (destroyedId) {
                 try { actor.disconnect(destroyedId); } catch {}
             }
-            if (geometryId) {
-                try { actor.disconnect(geometryId); } catch {}
+            for (const {source, id} of geometrySignals) {
+                try { source.disconnect(id); } catch {}
             }
             try { backdrop.destroy(); } catch {}
         }
