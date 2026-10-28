@@ -74,6 +74,35 @@ Verify visually and compare to the switch OFF state. Some other extensions
 such as Blur My Shell/WinFX may independently own window blur; Velora avoids
 stacking another blur when it detects their known actor names.
 
+### GNOME 50.1: troubleshooting a failed native attachment
+
+If Preferences reports `Unavailable (...)`, the updated diagnostic now
+identifies the failing stage: `find-surface`, `create-actor`,
+`bind-geometry`, `create-blur-effect`, `add-effect`,
+`insert-under-surface`, or `connect-destroy`. A GNOME/Mutter version
+may reject a `Clutter.BindConstraint` to the native surface; in that case,
+Velora attempts a bounded native frame/buffer geometry fallback with
+allocation notifications. It **never** installs a fullscreen blur.
+
+Capture the exact failure without restarting the session:
+
+```bash
+gsettings get org.gnome.shell.extensions.velora terminal-backdrop-blur-status
+journalctl --user -b --no-pager -o cat | grep -F '[Velora][TerminalBlur]' | tail -n 30
+```
+
+If the Shell writes to the system journal instead, use:
+
+```bash
+journalctl -b --no-pager -o cat /usr/bin/gnome-shell | grep -F '[Velora][TerminalBlur]' | tail -n 30
+```
+
+The stage and real GJS exception matter more than a generic "unavailable"
+message. If failure persists, turn **Real backdrop blur** OFF and keep
+Ptyxis's already-working native transparency. Neither the fallback nor
+the tests prove GPU pixels are correctly composited: check live GNOME 50.1
+and, if necessary, share these logs for the next targeted fix.
+
 ## 4. Disable / restore
 
 To remove the GPU effect immediately, switch **Real backdrop blur** OFF.

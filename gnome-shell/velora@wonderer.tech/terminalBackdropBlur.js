@@ -10,7 +10,6 @@
 import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
-import St from 'gi://St';
 
 const BLUR_ACTOR_NAME = 'velora-ptyxis-backdrop-blur';
 // Never stack an extra expensive background pass on another extension's blur.
@@ -79,6 +78,7 @@ export class TerminalBackdropBlurManager {
         this._windowCreatedId = 0;
         this._windows = new Map();
         this._lastStatus = '';
+        this._lastAttachFailure = '';
     }
 
     setup() {
@@ -160,11 +160,7 @@ export class TerminalBackdropBlurManager {
                 }
             );
             this._scan();
-            this._publishStatus(
-                this._windows.size
-                    ? 'Attached: ' + this._windows.size + ' Ptyxis window(s)'
-                    : 'Ready: open a Ptyxis window'
-            );
+            this._publishAttachedCount();
         } catch (error) {
             this._stop();
             this._publishStatus('Unavailable: cannot track Shell windows');
@@ -209,7 +205,23 @@ export class TerminalBackdropBlurManager {
             return false;
         }
 
-        const nativeSurface = children[0] ?? actor.get_first_child?.();
+        // Meta.WindowActor.get_texture() is the authoritative native
+        // surface on GNOME 50. A child at index 0 is not guaranteed to be
+        // the actual Wayland surface (e.g. shadow/other effects).
+        let nativeSurface = null;
+        try {
+            nativeSurface =
+                actor.get_texture?.() ??
+                children.find(child =>
+                    child &&
+                    !OTHER_BLUR_ACTORS.has(safeName(child)) &&
+                    safeName(child) !== BLUR_ACTOR_NAME
+                ) ??
+                actor.get_first_child?.();
+        } catch (error) {
+            this._recordAttachFailure('find-surface', error);
+            return false;
+        }
         if (!nativeSurface || nativeSurface === actor) {
             this._publishStatus('Unavailable: Ptyxis native surface not mapped');
             return false;
@@ -217,46 +229,127 @@ export class TerminalBackdropBlurManager {
 
         let backdrop = null;
         let destroyedId = 0;
+        let geometryId = 0;
+        let stage = 'create-actor';
         try {
-            backdrop = new St.Widget({
+            // Clutter.Actor is the compositor-native blur carrier also used
+            // by established GNOME window-blur integrations. St.Widget can
+            // depend on Shell UI layout/theme ownership not present inside
+            // Meta.WindowActor.
+            backdrop = new Clutter.Actor({
                 name: BLUR_ACTOR_NAME,
                 reactive: false,
             });
-            backdrop.set_clip_to_allocation?.(true);
-            backdrop.add_constraint(new Clutter.BindConstraint({
-                source: nativeSurface,
-                coordinate: Clutter.BindCoordinate.ALL,
-            }));
+            stage = 'bind-geometry';
+            try {
+                backdrop.add_constraint(new Clutter.BindConstraint({
+                    source: nativeSurface,
+                    coordinate: Clutter.BindCoordinate.ALL,
+                }));
+            } catch (bindError) {
+                // GNOME/Mutter combinations may reject binding to a sibling
+                // Meta.SurfaceActor. Fall back to the actual Meta frame and
+                // buffer dimensions, never a fullscreen compositor quad.
+                const syncGeometry = () => {
+                    const frame = metaWindow.get_frame_rect?.();
+                    const buffer = metaWindow.get_buffer_rect?.();
+                    if (
+                        !frame || !buffer ||
+                        !Number.isFinite(frame.x - buffer.x) ||
+                        !Number.isFinite(frame.y - buffer.y) ||
+                        !Number.isFinite(frame.width) ||
+                        !Number.isFinite(frame.height) ||
+                        frame.width < 2 || frame.height < 2
+                    ) {
+                        throw new Error('native geometry unavailable');
+                    }
+                    backdrop.set_position(
+                        frame.x - buffer.x,
+                        frame.y - buffer.y
+                    );
+                    backdrop.set_size(frame.width, frame.height);
+                };
+                try {
+                    syncGeometry();
+                } catch (geometryError) {
+                    throw new Error(
+                        'BindConstraint: ' + bindError +
+                        '; fallback: ' + geometryError
+                    );
+                }
+                // Only follow native layout notifications, never poll.
+                try {
+                    geometryId = actor.connect(
+                        'notify::allocation',
+                        () => {
+                            try { syncGeometry(); } catch {}
+                        }
+                    );
+                } catch {
+                    // Initial geometry is valid. GTK window redraw/resize
+                    // may require a reopen on older GNOME versions.
+                }
+            }
 
+            stage = 'create-blur-effect';
             const effect = new Shell.BlurEffect({
                 sigma: this._radius(),
                 brightness: 1.0,
                 mode: Shell.BlurMode.BACKGROUND,
             });
-            backdrop.add_effect(effect);
+            stage = 'add-effect';
+            backdrop.add_effect_with_name(
+                'velora-terminal-background-blur',
+                effect
+            );
 
-            // Directly behind the REAL Wayland surface, not above native
-            // terminal text, not a screenshot, not a stage-wide overlay.
+            stage = 'insert-under-surface';
+            // The original terminal surface stays ABOVE the effect: glyphs,
+            // cursor, selection and titlebar never have their alpha changed.
             actor.insert_child_at_index(backdrop, 0);
+
+            stage = 'connect-destroy';
             destroyedId = actor.connect('destroy', () => {
                 this._windows.delete(actor);
                 this._publishAttachedCount();
             });
-            this._windows.set(actor, {backdrop, effect, destroyedId});
+            this._windows.set(actor, {
+                backdrop,
+                effect,
+                destroyedId,
+                geometryId,
+            });
+            this._lastAttachFailure = '';
             this._publishAttachedCount();
-            console.log('[Velora][TerminalBlur] attached native Ptyxis backdrop');
+            console.log(
+                '[Velora][TerminalBlur] attached native Ptyxis backdrop'
+            );
             return true;
         } catch (error) {
             if (destroyedId) {
                 try { actor.disconnect(destroyedId); } catch {}
             }
+            if (geometryId) {
+                try { actor.disconnect(geometryId); } catch {}
+            }
             try { backdrop?.destroy(); } catch {}
-            this._publishStatus('Unavailable: native backdrop attach failed');
-            console.warn(
-                '[Velora][TerminalBlur] native blur fallback: ' + error
-            );
+            this._recordAttachFailure(stage, error);
             return false;
         }
+    }
+
+    _recordAttachFailure(stage, error) {
+        const reason = String(error?.message ?? error ?? 'unknown')
+            .replace(/\s+/g, ' ')
+            .slice(0, 100);
+        this._lastAttachFailure = stage + ': ' + reason;
+        this._publishStatus(
+            'Unavailable (' + this._lastAttachFailure + ')'
+        );
+        console.warn(
+            '[Velora][TerminalBlur] native blur attach ' +
+            stage + ' failed: ' + (error?.stack ?? error)
+        );
     }
 
     _publishAttachedCount() {
@@ -265,7 +358,9 @@ export class TerminalBackdropBlurManager {
         this._publishStatus(
             this._windows.size
                 ? 'Attached: ' + this._windows.size + ' Ptyxis window(s)'
-                : 'Ready: open a Ptyxis window'
+                : this._lastAttachFailure
+                    ? 'Unavailable (' + this._lastAttachFailure + ')'
+                    : 'Ready: open a Ptyxis window'
         );
     }
 
@@ -296,13 +391,17 @@ export class TerminalBackdropBlurManager {
         }
         this._windowCreatedId = 0;
 
-        for (const [actor, {backdrop, destroyedId}] of this._windows) {
+        for (const [actor, {backdrop, destroyedId, geometryId}] of this._windows) {
             if (destroyedId) {
                 try { actor.disconnect(destroyedId); } catch {}
+            }
+            if (geometryId) {
+                try { actor.disconnect(geometryId); } catch {}
             }
             try { backdrop.destroy(); } catch {}
         }
         this._windows.clear();
+        this._lastAttachFailure = '';
     }
 
     cleanup() {

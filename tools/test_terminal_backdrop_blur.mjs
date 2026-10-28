@@ -43,13 +43,29 @@ class Widget {
     set_clip_to_allocation(v) {this.clip = v;}
     add_constraint(v) {this.constraints.push(v);}
     add_effect(v) {this.effects.push(v);}
+    add_effect_with_name(name, effect) {
+        this.effectName = name;
+        this.add_effect(effect);
+    }
+    set_position(x, y) {this.position = [x, y];}
+    set_size(w, h) {this.size = [w, h];}
     destroy() {this.destroyed = true;}
 }
+let failBindConstraint = false;
+let failBlurEffect = false;
 class BindConstraint {
-    constructor(props) {Object.assign(this, props);}
+    constructor(props) {
+        if (failBindConstraint)
+            throw new Error('Cannot bind to Meta.SurfaceActor');
+        Object.assign(this, props);
+    }
 }
 class BlurEffect {
-    constructor(props) {Object.assign(this, props);}
+    constructor(props) {
+        if (failBlurEffect)
+            throw new Error('GJS Shell.BlurEffect construction failed');
+        Object.assign(this, props);
+    }
 }
 
 const Shell = {
@@ -58,6 +74,7 @@ const Shell = {
 };
 const Meta = {WindowType: {NORMAL: 0, DIALOG: 1}};
 const Clutter = {
+    Actor: Widget,
     BindConstraint,
     BindCoordinate: {ALL: 'ALL'},
 };
@@ -85,6 +102,8 @@ function meta(name, type = Meta.WindowType.NORMAL) {
         get_wm_class: () => name,
         get_wm_class_instance: () => null,
         get_gtk_application_id: () => null,
+        get_frame_rect: () => ({x: 18, y: 24, width: 800, height: 600}),
+        get_buffer_rect: () => ({x: 10, y: 20, width: 816, height: 620}),
     };
 }
 class WindowActor extends Signals {
@@ -98,6 +117,7 @@ class WindowActor extends Signals {
         this.opacity = 255;
     }
     get_meta_window() {return this.metaWindow;}
+    get_texture() {return this.surface;}
     get_first_child() {return this.children[0];}
     get_children() {return this.children;}
     insert_child_at_index(child, index) {
@@ -164,6 +184,7 @@ assert.equal(effect.mode, 'BACKGROUND');
 assert.equal(effect.sigma, 18);
 assert.equal(backdrop.constraints[0].source, terminal.surface);
 assert.equal(backdrop.constraints[0].coordinate, 'ALL');
+assert.equal(backdrop.effectName, 'velora-terminal-background-blur');
 assert.equal(terminal.opacity, 255, 'never fade glyphs/window actor');
 assert.equal(firefox.opacity, 255, 'never touch unrelated windows');
 assert.equal(windowManager.count(), 1);
@@ -175,18 +196,44 @@ assert.equal(terminal.children.length, 2);
 m._scan();
 assert.equal(m._windows.size, 1, 'repeated scan is idempotent');
 
+// GNOME 50 compatibility: a Meta.SurfaceActor may reject a sibling
+// BindConstraint. Fall back to frame/buffer bounds, then track native
+// allocation changes without a CPU screenshot or timer.
+failBindConstraint = true;
+const fallbackWindow = new WindowActor(meta('ptyxis'));
+windowManager.emit('map', fallbackWindow);
+assert.equal(m._windows.size, 2);
+const fallback = m._windows.get(fallbackWindow);
+assert.deepEqual(fallback.backdrop.position, [8, 4]);
+assert.deepEqual(fallback.backdrop.size, [800, 600]);
+assert.equal(fallback.backdrop.constraints.length, 0);
+assert.equal(fallbackWindow.count(), 2, 'destroy + allocation signals');
+failBindConstraint = false;
+
+// Failure is now actionable, not the former generic "native attach
+// failed" message. A failed actor must be destroyed immediately and never
+// cause Shell-side listeners to leak.
+failBlurEffect = true;
+const failedWindow = new WindowActor(meta('ptyxis'));
+windowManager.emit('map', failedWindow);
+assert.equal(m._windows.has(failedWindow), false);
+assert.match(m._lastAttachFailure, /create-blur-effect:.*construction failed/);
+assert.equal(failedWindow.children.length, 1);
+assert.equal(failedWindow.count(), 0);
+failBlurEffect = false;
+
 const added = new WindowActor(meta('ptyxis'));
 windowManager.emit('map', added);
-assert.equal(m._windows.size, 2, 'new window gets native blur');
+assert.equal(m._windows.size, 3, 'new window gets native blur');
 assert.equal(added.children.length, 2);
 const fromDisplay = new WindowActor(meta('org.gnome.Ptyxis'));
 display.emit('window-created', {
     get_compositor_private: () => fromDisplay,
 });
-assert.equal(m._windows.size, 3);
+assert.equal(m._windows.size, 4);
 
 added.emit('destroy');
-assert.equal(m._windows.size, 2, 'native destroy removes ownership');
+assert.equal(m._windows.size, 3, 'native destroy removes ownership');
 settings.set_boolean('terminal-backdrop-blur-enabled', false);
 assert.equal(backdrop.destroyed, true, 'effect destroyed on disable');
 assert.equal(m._windows.size, 0);
