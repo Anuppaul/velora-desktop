@@ -2922,6 +2922,14 @@ export class PopupGlassManager {
         this._panelHoverSwitchTarget = null;
         this._panelHoverSettingId = 0;
         this._panelHoverDelaySettingId = 0;
+
+        // GNOME Shell app/background context menus can be opened through
+        // subclass-specific entrypoints that bypass PopupMenu.prototype.open.
+        // Discover their real BoxPointer actor once, then watch its native
+        // open-state signal. No glass allocation until a menu actually opens.
+        this._uiGroupDiscoveryId = 0;
+        this._discoveredPopups = new Map();
+        this._attachFailuresLogged = new WeakSet();
     }
 
     setup() {
@@ -3020,6 +3028,7 @@ export class PopupGlassManager {
         prototype.destroy = this._patchedDestroy;
 
         this._installPanelHoverSwitchDebounce();
+        this._installNativePopupDiscovery();
         this._scheduleSystemPopupPrewarm();
 
         // Frame work is armed only while at least one managed popup is open.
@@ -3030,6 +3039,114 @@ export class PopupGlassManager {
         console.log(
             '[Velora][PopupGlass] global PopupMenu adapter active'
         );
+    }
+
+    _findNativePopupMenu(actor) {
+        // A native PopupMenu BoxPointer exposes its owner through _delegate.
+        // Never inspect or alter GTK/DING/application windows: those are not
+        // GNOME Shell actors and cannot use the Shell LiquidEffect.
+        const candidates = [actor];
+        const child = actor?.get_first_child?.() ?? null;
+        if (child)
+            candidates.push(child);
+
+        for (const candidate of candidates) {
+            const menu = candidate?._delegate ?? null;
+            if (
+                menu?.box &&
+                menu?._boxPointer &&
+                (menu.actor === candidate ||
+                    menu._boxPointer === candidate) &&
+                typeof menu.connect === 'function'
+            ) {
+                return menu;
+            }
+        }
+        return null;
+    }
+
+    _watchNativePopupActor(actor) {
+        if (!this._enabled || !actor)
+            return;
+
+        const menu = this._findNativePopupMenu(actor);
+        if (!menu || this._discoveredPopups.has(menu))
+            return;
+
+        let openId = 0;
+        let destroyId = 0;
+        try {
+            openId = menu.connect('open-state-changed', (_menu, isOpen) => {
+                if (!this._enabled || !isOpen)
+                    return;
+                // First explicit context-menu opening, including subclasses
+                // whose own open() method did not call PopupMenu.open().
+                this.attach(menu);
+            });
+            destroyId = actor.connect('destroy', () => {
+                this._unwatchNativePopup(menu);
+            });
+        } catch (error) {
+            try {
+                if (openId)
+                    menu.disconnect(openId);
+            } catch {}
+            try {
+                if (destroyId)
+                    actor.disconnect(destroyId);
+            } catch {}
+            console.warn(
+                '[Velora][PopupGlass] native menu signal discovery failed: ' +
+                error
+            );
+            return;
+        }
+
+        this._discoveredPopups.set(menu, {actor, openId, destroyId});
+        if (menu.isOpen)
+            this.attach(menu);
+    }
+
+    _unwatchNativePopup(menu) {
+        const entry = this._discoveredPopups.get(menu);
+        if (!entry)
+            return;
+        this._discoveredPopups.delete(menu);
+        try {
+            if (entry.openId)
+                menu.disconnect(entry.openId);
+        } catch {}
+        try {
+            if (entry.destroyId)
+                entry.actor.disconnect(entry.destroyId);
+        } catch {}
+    }
+
+    _installNativePopupDiscovery() {
+        const root = Main.layoutManager?.uiGroup ?? null;
+        if (!root || this._uiGroupDiscoveryId)
+            return;
+
+        // The same stage parent used by PopupGlassSurface. This is event-
+        // driven actor discovery, not a permanent stage or screenshot loop.
+        this._uiGroupDiscoveryId = root.connect(
+            'child-added',
+            (_parent, actor) => this._watchNativePopupActor(actor)
+        );
+        for (const actor of root.get_children?.() ?? [])
+            this._watchNativePopupActor(actor);
+    }
+
+    _uninstallNativePopupDiscovery() {
+        const root = Main.layoutManager?.uiGroup ?? null;
+        if (this._uiGroupDiscoveryId) {
+            try {
+                root?.disconnect(this._uiGroupDiscoveryId);
+            } catch {}
+            this._uiGroupDiscoveryId = 0;
+        }
+        for (const menu of [...this._discoveredPopups.keys()])
+            this._unwatchNativePopup(menu);
     }
 
     _isPanelHoverMenu(menu) {
@@ -3800,8 +3917,17 @@ export class PopupGlassManager {
             return existing;
 
         const surface = new PopupGlassSurface(this, menu);
-        if (!surface.attach())
+        if (!surface.attach()) {
+            if (!this._attachFailuresLogged.has(menu)) {
+                this._attachFailuresLogged.add(menu);
+                console.warn(
+                    '[Velora][PopupGlass] native popup material not attached: ' +
+                    this.describeMenu(menu) +
+                    ' (unsupported BoxPointer/bin or actor hierarchy)'
+                );
+            }
             return null;
+        }
 
         this._surfaces.set(menu, surface);
         this._syncStageLoopState();
@@ -3834,6 +3960,7 @@ export class PopupGlassManager {
 
         this._stopStageSync();
         this._cancelSystemPopupPrewarm();
+        this._uninstallNativePopupDiscovery();
         this._uninstallPanelHoverSwitchDebounce();
 
         for (const [menu, sourceId] of this._pendingAttachSources) {
