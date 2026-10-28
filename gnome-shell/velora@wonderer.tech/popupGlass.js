@@ -2944,9 +2944,14 @@ export class PopupGlassManager {
 
         this._patchedOpen = function (...args) {
             const animation = args[0];
+            // Only panel-to-panel pointer switching needs the 120ms
+            // allocation debounce. App Grid / Ubuntu Dock right-click menus
+            // can also open with FADE; delaying those paints a stock opaque
+            // card before the glass material appears.
             const hoverSwitch =
                 animation ===
-                BoxPointer.PopupAnimation.FADE;
+                    BoxPointer.PopupAnimation.FADE &&
+                manager._isPanelHoverMenu(this);
             const confirmedPanelHover =
                 this._veloraPanelHoverConfirmed === true;
 
@@ -2975,7 +2980,7 @@ export class PopupGlassManager {
                 !manager._surfaces.has(this) &&
                 hoverSwitch
             ) {
-                // Non-panel FADE users keep the material-only debounce.
+                // Only panel-owned FADE transitions are debounced.
                 const result =
                     manager._originalOpen.apply(
                         this,
@@ -3025,6 +3030,19 @@ export class PopupGlassManager {
         console.log(
             '[Velora][PopupGlass] global PopupMenu adapter active'
         );
+    }
+
+    _isPanelHoverMenu(menu) {
+        // The native panel manager owns only top-panel indicators. Other
+        // PopupMenu instances (notably AppIconMenu right-click actions)
+        // must receive glass synchronously, even if GNOME opens with FADE.
+        // Work with either an Array or iterable Set without assuming
+        // ownership from an animation enum alone.
+        for (const panelMenu of this._panelMenuManager?._menus ?? []) {
+            if (panelMenu === menu)
+                return true;
+        }
+        return false;
     }
 
     _panelHoverSwitchEnabled() {
