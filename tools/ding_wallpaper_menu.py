@@ -135,8 +135,10 @@ def run(command: str, explicit: str | None) -> None:
             print('Already applied (no change).')
             return
         if backup.exists():
-            raise RuntimeError('Backup already exists without active markers; refusing overwrite')
-        shutil.copy2(target, backup)
+            if backup.read_bytes() != target.read_bytes():
+                raise RuntimeError('DING CSS changed since the last backup; refusing to reuse it')
+        else:
+            shutil.copy2(target, backup)
         write_atomic(target, (original.rstrip() + '\n\n' + STYLE + '\n').encode('utf-8'))
         print('Added DING-only GTK3 frosted context-menu styling. Original backed up.')
     elif command == 'restore':
