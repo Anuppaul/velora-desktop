@@ -1,108 +1,126 @@
-# Velora Terminal Glass — native Ptyxis appearance (opt-in)
+# Velora Terminal Glass — native Ptyxis on GNOME Shell 50
 
-**Stage 1: translucent terminal, not compositor-level Liquid Glass.** This
-developer utility changes only the **selected native Ptyxis profile's**
-background opacity through its existing GSettings key. It does not install
-fonts, alter GTK globally, replace the terminal, change GNOME Shell, or add a
-second GPU capture layer. It is excluded from the official GNOME Store ZIP.
+Velora supports **two separate, optional effects** on native Ptyxis:
 
-The terminal process matters: \`xterm-256color\` is a TERM capability string,
-**not** the terminal app name. On Ubuntu 26.04, the default terminal is often
-Ptyxis, but do not assume that for every user.
+1. **Phase 1: Ptyxis translucent background.** The profile opacity setting
+   changes only the terminal's background transparency. Text stays sharp.
+2. **Phase 2: compositor-native GPU backdrop blur (experimental).** GNOME
+   Shell 50 inserts a single `Shell.BlurEffect` in `BACKGROUND` mode
+   underneath each matched Ptyxis window's *native* surface. Actual windows
+   and wallpaper behind the terminal can be blurred in real time. The blur
+   does not require a separate extension or per-frame JavaScript capture.
 
-## Check first (read-only)
+Phase 2 is **OFF by default**. It does **not** put the full Velora Liquid
+Glass lens shader into Ptyxis, replace GTK theming, inject a global window
+overlay, fade window text, or alter other programs. Each rendered window costs
+an additional GPU blur pass. This integration is still subject to real GNOME
+50.1/Wayland testing and GNOME Extensions reviewer acceptance.
 
-\`\`\`bash
+## 1. Verify your terminal and existing transparency
+
+```bash
 cd ~/Documents/code/velora-desktop
 git pull origin main
 python3 tools/velora_terminal_glass.py status
-\`\`\`
+```
 
-The script displays the best-effort terminal process ancestry, whether a
-**native Ptyxis profile with the opacity key** exists, its current opacity
-and whether there is a Velora backup to restore. If the schema/key is not
-present, stop; the utility refuses to change anything. If process detection
-returns unknown or another terminal, the profile output refers to Ptyxis
-installed on your system, **not proof that your current window is Ptyxis**.
+The status tool is **read-only**. `TERM=xterm-256color` indicates a
+terminal capability, not which terminal application is running.
 
-You can also inspect your shell's immediate parent without the nested \`ps\`
-command that previously failed:
+Your existing Ptyxis opacity value (for example **0.88**) is preserved.
+If transparency isn't enabled, explicitly opt in:
 
-\`\`\`bash
-ps -p "$PPID" -o pid=,ppid=,comm=
-\`\`\`
+```bash
+python3 tools/velora_terminal_glass.py apply --opacity 0.88
+```
 
-Process ancestry may show a shell or wrapper; use Velora's diagnostic as an
-additional hint. You can also open the terminal's About dialog.
+This developer utility saves the original Ptyxis opacity under
+`~/.local/state/velora-desktop/terminal-glass.json`, with restrictive
+permissions, and supports full restoration. **Never use sudo.**
 
-## Apply (explicit user action)
+## 2. Install the new native blur runtime
 
-\`\`\`bash
-python3 tools/velora_terminal_glass.py apply
-\`\`\`
+After updating the repo, run the existing developer installer:
 
-This sets the default native Ptyxis profile to **0.88 opacity**
-(12% transparency), while preserving the previous setting in:
+```bash
+bash gnome-shell/install.sh
+```
 
-\`\`\`text
-~/.local/state/velora-desktop/terminal-glass.json
-\`\`\`
+This is necessary **once per source update** to hot-swap Velora's new
+`terminalBackdropBlur.js` module and compile the updated Velora GSettings
+schema. When the bootstrap is compatible and active, it reports:
 
-If \`XDG_STATE_HOME\` is set, the backup lives under that directory instead.
-The file is written with permissions 0600. **Do not use sudo**: these are
-your own per-user GSettings.
+```text
+Velora runtime hot-swap succeeded.
+No logout is required.
+```
 
-For a slightly stronger treatment:
+No new OS packages or additional GNOME extensions are installed.
 
-\`\`\`bash
-python3 tools/velora_terminal_glass.py apply --opacity 0.82
-\`\`\`
+## 3. Turn on blur (opt-in)
 
-Allowed values are 0.65–0.98 to protect text legibility. Multiple applies
-retain the original pre-Velora opacity. If the user or another tool changes
-opacity independently, Velora refuses to overwrite it without explicit
-recovery. Default profile only; use \`--profile UUID\` to target an existing
-Ptyxis profile deliberately.
+Open **GNOME Extensions → Velora Desktop → Preferences → Terminal**.
 
-Ptyxis may require closing and reopening the terminal window to repaint a
-changed alpha surface. GNOME logout/login and \`gnome-shell/install.sh\` are
-**not** required because no GNOME Shell code was changed.
+- Turn on **Real backdrop blur**.
+- The default strength is **18** (native Shell sigma), adjustable from 4–36.
+- Check **Live compositor attachment** for `Attached: N Ptyxis window(s)`.
+- Start with a small floating Ptyxis window over a wallpaper or another
+  application, then drag it over contrasting content to visually check blur.
+- Keep the native Ptyxis background partly transparent to see the backdrop.
 
-## Restore
+**Important:** Attachment status only proves that a GPU blur actor was added.
+It does not prove that the compositor has rendered the desired visual result.
+Verify visually and compare to the switch OFF state. Some other extensions
+such as Blur My Shell/WinFX may independently own window blur; Velora avoids
+stacking another blur when it detects their known actor names.
 
-\`\`\`bash
+## 4. Disable / restore
+
+To remove the GPU effect immediately, switch **Real backdrop blur** OFF.
+This removes all Velora-added blur actors and disconnects compositor window
+listeners. It leaves Ptyxis opacity alone.
+
+To restore the original Ptyxis opacity as well:
+
+```bash
 python3 tools/velora_terminal_glass.py restore
-\`\`\`
+```
 
-This restores the original value and, where detected from dconf, restores the
-unset/default state rather than pinning an unnecessary override. If another
-app changed the same opacity after your last Velora apply, restoration
-refuses to overwrite that change. Deliberately override with:
+If another application has changed the opacity meanwhile, the restore
+command refuses to overwrite it. Review the conflict before using
+`restore --force`.
 
-\`\`\`bash
-python3 tools/velora_terminal_glass.py restore --force
-\`\`\`
+## Architecture / constraints
 
-Do not delete the backup file until restoration is complete.
+- **Window match:** native Ptyxis WM class / GTK app ID only; no title,
+  command-line or PID guessing, no other terminal brands by default.
+- **Lifecycle:** initially scans already mapped windows, then listens only
+  for GNOME window map/create events. No timeout polling, screenshots or CPU
+  readbacks. Actor destruction and extension disable free owned resources.
+- **Rendering:** a `St.Widget` carrying `Shell.BlurEffect(BACKGROUND)` is
+  inserted directly beneath the original Meta.WindowActor surface, sized and
+  positioned with `Clutter.BindConstraint(ALL)`. Native terminal content
+  remains higher in paint order. Mutter samples already painted content.
+- **Compatibility:** GNOME Shell 50 only; depends on private compositor actor
+  APIs that may change. Unsupported API branches fail closed. Physical GNOME
+  50.1/Wayland, multiple monitor, minimization/overview, tiling/fullscreen,
+  resize, light/dark readability, and hot-swap cleanup still require QA.
+- **Performance:** one GPU background blur pass per matching Ptyxis window.
+  Higher radius and larger windows increase GPU cost. Effects are never
+  constructed with the switch OFF.
+- **Distribution:** module is bundled as readable JavaScript in Velora's
+  GNOME Store review ZIP; the standalone Python transparency utility and
+  tests are **not** shipped inside the extension ZIP.
+- **Not Liquid Glass v10:** this uses GNOME's native background diffusion,
+  not Velora's refractive displacement/rim/chroma rendering.
 
-## Appearance and real limitations
+## Implementation references
 
-- Translucent backgrounds may show wallpaper/window content through the
-  terminal. Native text remains rendered by Ptyxis.
-- GTK/Ptyxis does **not** gain Velora's refractive GPU shader or
-  backdrop-blur through this setting. It is **not** frosted diffusion, and
-  no application-window screenshot/blur loop was added.
-- Color palette, font settings, window decorations, other terminal profiles,
-  other apps, GTK theme and GNOME Shell extensions are untouched.
-- Physical GNOME 50.1 + Wayland visual testing is still required. Test
-  readability over light/dark backgrounds and text on an overlapping window.
-- A separate optional compositor/window-manager integration would be needed
-  for true backdrop blur, with proper security, lifetime and performance QA.
-  Do not inject arbitrary Shell overlays over app windows.
-
-**Maintainer notes:** Sources for Ptyxis opacity include upstream Ptyxis
-documentation at https://github.com/kreed/ptyxis and the settings key
-\`org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/UUID/ opacity\`.
-The utility only attempts to read/write this key after validating the
-installed schema and selected profile. Flatpak Ptyxis uses an app-specific
-GSettings environment and is not modified by this first native-only version.
+- GNOME Shell's `Shell.BlurEffect` BACKGROUND mode as used in GNOME 50
+  window-effect projects.
+- winfx effects documentation:
+  https://winfx.readthedocs.io/en/latest/guide/effects/
+- Blur My Shell application effects implementation:
+  https://github.com/aunetx/blur-my-shell
+- Native Ptyxis profiles and transparency:
+  https://github.com/kreed/ptyxis
