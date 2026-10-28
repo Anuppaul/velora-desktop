@@ -45,6 +45,7 @@ RUNTIME_FILES=(
     "searchSurface.js"
     "spotlightGlass.js"
     "spotlightSearch.js"
+    "terminalBackdropBlur.js"
     "sharedAdaptiveText.js"
     "orbGlass.js"
     "panelGlass.js"
@@ -656,6 +657,7 @@ if command -v unzip >/dev/null 2>&1; then
         "stylesheet.css"
         "runtime.js"
         "orbThemeRuntime.js"
+        "terminalBackdropBlur.js"
         "runtime.css"
         "apps.js"
         "geometry.js"
@@ -722,7 +724,7 @@ refresh_prefs_process
 
 for installed_file in \
     metadata.json extension.js prefs.js nativeDockPreferences.js wallpaperAtmospherePreferences.js wallpaperAtmosphereConfig.js stylesheet.css \
-    runtime.js orbThemeRuntime.js runtime.css apps.js geometry.js \
+    runtime.js orbThemeRuntime.js terminalBackdropBlur.js runtime.css apps.js geometry.js \
     liquidGlassDock.js notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
         fail "Installed extension is incomplete: ${installed_file} is missing."
