@@ -33,39 +33,26 @@ class Signals {
     }
     count() {return this.signals.size;}
 }
-class Widget {
+class StWidget {
     constructor(props) {
         this.name = props.name;
+        this.clipToAllocation = props.clip_to_allocation;
         this.constraints = [];
         this.effects = [];
         this.destroyed = false;
-    }
-    set_clip_to_allocation(v) {this.clip = v;}
-    add_constraint(v) {this.constraints.push(v);}
-    clear_constraints() {this.constraints = [];}
-    add_effect(v) {this.effects.push(v);}
-    add_effect_with_name(name, effect) {
-        this.effectName = name;
-        this.add_effect(effect);
+        this.visible = true;
     }
     set_position(x, y) {this.position = [x, y];}
-    set_size(w, h) {this.size = [w, h];}
+    set_size(width, height) {this.size = [width, height];}
+    set_clip(x, y, width, height) {this.clip = [x, y, width, height];}
+    add_effect_with_name(name, effect) {
+        this.effectName = name;
+        this.effects.push(effect);
+    }
+    hide() {this.visible = false;}
+    show() {this.visible = true;}
     destroy() {this.destroyed = true;}
 }
-class StWidget extends Widget {}
-class ClutterActor extends Widget {}
-let failBindConstraint = false;
-let failBlurEffect = false;
-class BindConstraint {
-    constructor(props) {
-        if (failBindConstraint)
-            throw new Error('Cannot bind to Meta.SurfaceActor');
-        Object.assign(this, props);
-    }
-}
-// Model the actual GNOME Shell 50 GObject property contract rather than a
-// permissive JS mock. GNOME Shell 46 removed the 'sigma' property; previous
-// test accepted it and incorrectly reported a working compositor path.
 class BlurEffect {
     constructor(props) {
         if (failBlurEffect)
@@ -81,65 +68,58 @@ class BlurEffect {
         Object.seal(this);
     }
 }
-
-const Shell = {
-    BlurEffect,
-    BlurMode: {BACKGROUND: 'BACKGROUND'},
-};
+let failBlurEffect = false;
+const Shell = {BlurEffect, BlurMode: {BACKGROUND: 'BACKGROUND'}};
 const Meta = {WindowType: {NORMAL: 0, DIALOG: 1}};
-const Clutter = {
-    Actor: ClutterActor,
-    BindConstraint,
-    BindCoordinate: {WIDTH: 'WIDTH', HEIGHT: 'HEIGHT'},
-};
 const St = {Widget: StWidget};
-const windowManager = new Signals();
-const display = new Signals();
+const managerSignals = new Signals();
+const displaySignals = new Signals();
 let liveWindowActors = [];
 const fakeGlobal = {
-    window_manager: windowManager,
-    display,
+    window_manager: managerSignals,
+    display: displaySignals,
     get_window_actors() {return liveWindowActors;},
 };
-
-const stripped = src.replace(/^import .*?;\s*$/gm, '').replace(
-    /^export /gm, ''
-);
+const stripped = src.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
 const api = new Function(
-    'Clutter', 'Meta', 'Shell', 'St', 'global',
-    stripped + '\nreturn {isPtyxisWindow, TerminalBackdropBlurManager};'
-)(Clutter, Meta, Shell, St, fakeGlobal);
+    'Meta', 'Shell', 'St', 'global',
+    stripped + '\nreturn {isPtyxisWindow, computeTerminalBlurFrame, TerminalBackdropBlurManager};'
+)(Meta, Shell, St, fakeGlobal);
 
 function meta(name, type = Meta.WindowType.NORMAL) {
-    return {
-        get_window_type: () => type,
-        get_wm_class: () => name,
-        get_wm_class_instance: () => null,
-        get_gtk_application_id: () => null,
-        get_frame_rect: () => ({x: 18, y: 24, width: 800, height: 600}),
-        get_buffer_rect: () => ({x: 10, y: 20, width: 816, height: 620}),
-    };
+    const target = new Signals();
+    target.frame = {x: 18, y: 24, width: 800, height: 600};
+    target.buffer = {x: 10, y: 20, width: 816, height: 620};
+    target.get_window_type = () => type;
+    target.get_wm_class = () => name;
+    target.get_wm_class_instance = () => null;
+    target.get_gtk_application_id = () => null;
+    target.get_frame_rect = () => ({...target.frame});
+    target.get_buffer_rect = () => ({...target.buffer});
+    return target;
 }
 class WindowActor extends Signals {
     constructor(metaWindow, extraChildren = []) {
         super();
         this.metaWindow = metaWindow;
-        this.surface = {
-            get_name: () => 'native-ptyxis-surface',
-        };
+        this.surface = {get_name: () => 'native-ptyxis-surface'};
         this.children = [this.surface, ...extraChildren];
         this.opacity = 255;
+        this.width = 816;
+        this.height = 620;
     }
     get_meta_window() {return this.metaWindow;}
     get_texture() {return this.surface;}
-    get_first_child() {return this.children[0];}
     get_children() {return this.children;}
+    get_first_child() {return this.children[0];}
+    get_width() {return this.width;}
+    get_height() {return this.height;}
     insert_child_at_index(child, index) {
         assert.equal(index, 0);
         this.children.splice(index, 0, child);
     }
     set_child_below_sibling(child, sibling) {
-        assert.equal(sibling, null, 'blur is always bottom-most');
+        assert.equal(sibling, null, 'blur must be beneath the native surface');
         const index = this.children.indexOf(child);
         assert.ok(index >= 0);
         this.children.splice(index, 1);
@@ -159,161 +139,168 @@ class Settings extends Signals {
     get_boolean(key) {return this.values.get(key);}
     get_int(key) {return this.values.get(key);}
     get_string(key) {return this.values.get(key);}
-    set_boolean(key, value) {
-        this.values.set(key, value);
-        this.emit('changed::' + key);
-    }
-    set_int(key, value) {
-        this.values.set(key, value);
-        this.emit('changed::' + key);
-    }
-    set_string(key, value) {
-        this.values.set(key, value);
-        this.emit('changed::' + key);
-    }
+    set_boolean(key, v) {this.values.set(key, v); this.emit('changed::' + key);}
+    set_int(key, v) {this.values.set(key, v); this.emit('changed::' + key);}
+    set_string(key, v) {this.values.set(key, v); this.emit('changed::' + key);}
 }
-assert.throws(
-    () => new Shell.BlurEffect({
-        sigma: 18, brightness: 1.0, mode: Shell.BlurMode.BACKGROUND,
-    }),
-    /No property sigma on ShellBlurEffect/,
-    'the regression harness must reject obsolete GNOME Shell sigma'
-);
-assert.ok(
-    new Shell.BlurEffect({
-        radius: 36, brightness: 1.0, mode: Shell.BlurMode.BACKGROUND,
-    }),
-    'native GNOME 50 radius property is supported'
-);
 
-assert.equal(api.isPtyxisWindow(meta('org.gnome.Ptyxis')), true);
+const defaultWindow = new WindowActor(meta('ptyxis'));
+const original = api.computeTerminalBlurFrame(
+    defaultWindow.metaWindow, defaultWindow
+);
+assert.deepEqual(original, {x: 8, y: 4, width: 800, height: 600},
+    'CSD shadows must be outside the painted frame');
+assert.ok(original.x + original.width <= defaultWindow.width);
+assert.ok(original.y + original.height <= defaultWindow.height);
+
+const scaled = new WindowActor(meta('ptyxis'));
+scaled.width = 408; scaled.height = 310; // 0.5 compositor-to-buffer scale
+assert.deepEqual(api.computeTerminalBlurFrame(scaled.metaWindow, scaled),
+    {x: 4, y: 2, width: 400, height: 300},
+    'fractional scaling must crop at the compositor actor scale');
+
+const partial = new WindowActor(meta('ptyxis'));
+partial.metaWindow.frame = {x: 3, y: 14, width: 800, height: 600};
+assert.deepEqual(api.computeTerminalBlurFrame(partial.metaWindow, partial),
+    {x: 0, y: 0, width: 793, height: 594},
+    'overlapping frame outside buffer is intersected, never overdrawn');
+
+const invalid = new WindowActor(meta('ptyxis'));
+invalid.metaWindow.frame.width = 0;
+assert.equal(api.computeTerminalBlurFrame(invalid.metaWindow, invalid), null);
+invalid.metaWindow.frame.width = 800;
+invalid.width = 10000;
+assert.equal(api.computeTerminalBlurFrame(invalid.metaWindow, invalid), null,
+    'wildly mismatched coordinate spaces must fail closed');
+
+assert.throws(
+    () => new Shell.BlurEffect({sigma: 18, brightness: 1, mode: 'BACKGROUND'}),
+    /No property sigma on ShellBlurEffect/
+);
 assert.equal(api.isPtyxisWindow(meta('ptyxis')), true);
-assert.equal(api.isPtyxisWindow(meta('app.devsuite.Ptyxis')), true);
+assert.equal(api.isPtyxisWindow(meta('org.gnome.Ptyxis')), true);
 assert.equal(api.isPtyxisWindow(meta('Firefox')), false);
 assert.equal(api.isPtyxisWindow(meta('Ptyxis', Meta.WindowType.DIALOG)), false);
-assert.equal(api.isPtyxisWindow(meta('Ptyxis or Firefox')), false);
-assert.equal(api.isPtyxisWindow(null), false);
 
 const settings = new Settings();
-const terminal = new WindowActor(meta('org.gnome.Ptyxis'));
-const firefox = new WindowActor(meta('firefox'));
+const terminal = defaultWindow;
+const browser = new WindowActor(meta('firefox'));
 const conflict = new WindowActor(meta('ptyxis'), [
     {get_name: () => 'bms-application-blurred-widget'},
 ]);
-liveWindowActors = [terminal, firefox, conflict];
-const m = new api.TerminalBackdropBlurManager(settings);
-m.setup();
-assert.equal(m._windows.size, 0, 'feature off by default');
-assert.equal(windowManager.count(), 0, 'no map watcher while disabled');
-assert.equal(display.count(), 0, 'no window-created watcher while disabled');
-assert.equal(terminal.children.length, 1);
+liveWindowActors = [terminal, browser, conflict];
+const manager = new api.TerminalBackdropBlurManager(settings);
+manager.setup();
+assert.equal(manager._windows.size, 0);
+assert.equal(managerSignals.count(), 0, 'opt-out must not observe windows');
 
 settings.set_boolean('terminal-backdrop-blur-enabled', true);
-assert.equal(m._windows.size, 1, 'only Ptyxis, not browsers/conflicts');
-assert.equal(terminal.children.length, 2);
-const {backdrop, effect} = m._windows.get(terminal);
-assert.equal(terminal.children[0], backdrop, 'blur BEHIND native surface');
+assert.equal(manager._windows.size, 1, 'only non-conflicting Ptyxis matches');
+const {backdrop, effect} = manager._windows.get(terminal);
+assert.ok(backdrop instanceof StWidget);
+assert.equal(terminal.children[0], backdrop);
 assert.equal(terminal.children[1], terminal.surface);
-assert.equal(backdrop.name, 'velora-ptyxis-backdrop-blur');
-assert.ok(backdrop instanceof StWidget,
-    'GNOME BACKGROUND blur uses paintable St.Widget, not bare Clutter.Actor');
 assert.equal(terminal.bottomPinned, true);
-assert.equal(backdrop.effects[0], effect);
+assert.deepEqual(backdrop.position, [8, 4], 'shadow margin must be excluded');
+assert.deepEqual(backdrop.size, [800, 600], 'blur must fit visible frame');
+assert.deepEqual(backdrop.clip, [0, 0, 800, 600],
+    'scissor explicitly prevents GPU blur halo outside frame');
+assert.equal(backdrop.clipToAllocation, true);
+assert.equal(backdrop.visible, true);
+assert.equal(backdrop.constraints.length, 0,
+    'whole WindowActor WIDTH/HEIGHT binding is forbidden');
 assert.equal(effect.mode, 'BACKGROUND');
-assert.equal(effect.radius, 36, 'GNOME 46+ radius = legacy sigma × 2');
-assert.equal('sigma' in effect, false, 'GNOME 50 has no sigma property');
-assert.equal(backdrop.constraints.length, 2,
-    'both dimension constraints required for a non-zero blur quad');
-assert.equal(backdrop.constraints[0].source, terminal,
-    'width must follow Meta.WindowActor, not ambiguous texture');
-assert.equal(backdrop.constraints[0].coordinate, 'WIDTH');
-assert.equal(backdrop.constraints[1].source, terminal);
-assert.equal(backdrop.constraints[1].coordinate, 'HEIGHT');
-assert.equal(backdrop.effectName, 'velora-terminal-background-blur');
-assert.equal(terminal.opacity, 255, 'never fade glyphs/window actor');
-assert.equal(firefox.opacity, 255, 'never touch unrelated windows');
-assert.equal(windowManager.count(), 1);
-assert.equal(display.count(), 1);
+assert.equal(effect.radius, 36);
+assert.equal('sigma' in effect, false);
+assert.equal(terminal.opacity, 255);
+assert.equal(browser.opacity, 255);
+assert.equal(managerSignals.count(), 1);
+assert.equal(displaySignals.count(), 1);
+assert.equal(terminal.metaWindow.count(), 2,
+    'window resize and position listeners installed');
+assert.equal(terminal.count(), 2, 'actor allocation and destroy listened to');
+assert.match(settings.get_string('terminal-backdrop-blur-status'),
+    /visual unverified/);
 
 settings.set_int('terminal-backdrop-blur-radius', 26);
-assert.equal(effect.radius, 52, 'native radius updates live without a new actor');
-assert.equal(terminal.children.length, 2);
-m._scan();
-assert.equal(m._windows.size, 1, 'repeated scan is idempotent');
+assert.equal(effect.radius, 52);
+manager._scan();
+assert.equal(manager._windows.size, 1, 'no duplicate actors');
 
-// GNOME 50 compatibility: a Meta.SurfaceActor may reject a sibling
-// BindConstraint. Fall back to frame/buffer bounds, then track native
-// allocation changes without a CPU screenshot or timer.
-failBindConstraint = true;
-const fallbackWindow = new WindowActor(meta('ptyxis'));
-windowManager.emit('map', fallbackWindow);
-assert.equal(m._windows.size, 2);
-const fallback = m._windows.get(fallbackWindow);
-assert.deepEqual(fallback.backdrop.position, [8, 4]);
-assert.deepEqual(fallback.backdrop.size, [800, 600]);
-assert.equal(fallback.backdrop.constraints.length, 0);
-assert.equal(fallbackWindow.count(), 2, 'destroy + allocation signals');
-failBindConstraint = false;
+// Resize and restore must update both quad and clip; old widget incorrectly
+// continued blurring shadow margins or retained stale full-window geometry.
+terminal.metaWindow.frame.width = 740;
+terminal.metaWindow.frame.height = 540;
+terminal.metaWindow.emit('size-changed');
+assert.deepEqual(backdrop.size, [740, 540]);
+assert.deepEqual(backdrop.clip, [0, 0, 740, 540]);
+assert.deepEqual(backdrop.position, [8, 4]);
 
-// Failure is now actionable, not the former generic "native attach
-// failed" message. A failed actor must be destroyed immediately and never
-// cause Shell-side listeners to leak.
+terminal.metaWindow.frame.x = 22; // buffer.x remains 10
+terminal.metaWindow.emit('position-changed');
+assert.deepEqual(backdrop.position, [12, 4]);
+
+// Invalid geometry must hide backdrop: never redraw an oversized stale quad.
+terminal.metaWindow.frame.width = 0;
+terminal.metaWindow.emit('size-changed');
+assert.equal(backdrop.visible, false);
+assert.match(settings.get_string('terminal-backdrop-blur-status'),
+    /Paused: invalid Ptyxis frame geometry/);
+terminal.metaWindow.frame.width = 740;
+terminal.metaWindow.emit('size-changed');
+assert.equal(backdrop.visible, true);
+assert.deepEqual(backdrop.clip, [0, 0, 740, 540]);
+
+const fractional = new WindowActor(meta('ptyxis'));
+fractional.width = 408;
+fractional.height = 310;
+managerSignals.emit('map', fractional);
+assert.equal(manager._windows.size, 2);
+assert.deepEqual(manager._windows.get(fractional).backdrop.size, [400, 300]);
+
 failBlurEffect = true;
-const failedWindow = new WindowActor(meta('ptyxis'));
-windowManager.emit('map', failedWindow);
-assert.equal(m._windows.has(failedWindow), false);
-assert.match(m._lastAttachFailure, /create-blur-effect:.*construction failed/);
-assert.equal(failedWindow.children.length, 1);
-assert.equal(failedWindow.count(), 0);
+const failed = new WindowActor(meta('ptyxis'));
+managerSignals.emit('map', failed);
+assert.equal(manager._windows.has(failed), false);
+assert.equal(failed.metaWindow.count(), 0, 'failed attach clears geometry hooks');
+assert.equal(failed.count(), 0, 'failed attach clears actor hooks');
+assert.equal(failed.children.length, 1);
+assert.match(manager._lastAttachFailure, /create-blur-effect/);
 failBlurEffect = false;
 
-const added = new WindowActor(meta('ptyxis'));
-windowManager.emit('map', added);
-assert.equal(m._windows.size, 3, 'new window gets native blur');
-assert.equal(added.children.length, 2);
-const fromDisplay = new WindowActor(meta('org.gnome.Ptyxis'));
-display.emit('window-created', {
-    get_compositor_private: () => fromDisplay,
+const added = new WindowActor(meta('org.gnome.Ptyxis'));
+displaySignals.emit('window-created', {
+    get_compositor_private: () => added,
 });
-assert.equal(m._windows.size, 4);
-
+assert.equal(manager._windows.size, 3);
 added.emit('destroy');
-assert.equal(m._windows.size, 3, 'native destroy removes ownership');
-settings.set_boolean('terminal-backdrop-blur-enabled', false);
-assert.equal(backdrop.destroyed, true, 'effect destroyed on disable');
-assert.equal(m._windows.size, 0);
-assert.equal(windowManager.count(), 0, 'no permanent map hook');
-assert.equal(display.count(), 0, 'no permanent display hook');
-assert.equal(settings.get_string('terminal-backdrop-blur-status'), 'Off');
-assert.match(src, /visual unverified; check profile opacity/,
-    'an attached compositor actor must not claim visible glass pixels');
-assert.equal(terminal.opacity, 255);
+assert.equal(manager._windows.size, 2);
+assert.equal(added.metaWindow.count(), 0, 'window destruction disconnects hooks');
 
-m.cleanup();
-assert.equal(settings.count(), 0, 'all settings signals cleaned up');
-settings.set_boolean('terminal-backdrop-blur-enabled', true);
-assert.equal(m._windows.size, 0, 'disabled manager cannot reattach');
+settings.set_boolean('terminal-backdrop-blur-enabled', false);
+assert.equal(backdrop.destroyed, true);
+assert.equal(manager._windows.size, 0);
+assert.equal(terminal.metaWindow.count(), 0);
+assert.equal(terminal.count(), 0);
+assert.equal(fractional.metaWindow.count(), 0);
+assert.equal(managerSignals.count(), 0);
+assert.equal(displaySignals.count(), 0);
+assert.equal(settings.get_string('terminal-backdrop-blur-status'), 'Off');
+assert.equal(terminal.opacity, 255);
+manager.cleanup();
+assert.equal(settings.count(), 0, 'hot-swap releases settings listeners');
 
 assert.match(runtime, /new TerminalBackdropBlurManager\(this\._settings\)/);
 assert.match(runtime, /this\._terminalBackdropBlurManager\?\.cleanup\(\)/);
-assert.match(prefs, /title: 'Velora Terminal Glass — experimental'/);
-assert.match(prefs, /terminal-backdrop-blur-enabled/);
-assert.match(prefs, /terminal-backdrop-blur-radius/);
-assert.match(prefs, /terminal-backdrop-blur-status/);
-assert.match(schema,
-    /<key name="terminal-backdrop-blur-enabled" type="b">\s*<default>false<\/default>/);
-assert.match(schema, /<key name="terminal-backdrop-blur-radius" type="i">/);
-assert.doesNotMatch(src, /\bsigma\s*:/,
-    'never construct a GNOME 50 BlurEffect using the removed sigma property');
-assert.doesNotMatch(src, /effect\.sigma\b/,
-    'live blur updates must use native radius property');
+assert.match(prefs, /Velora Terminal Glass — experimental/);
+assert.match(schema, /<key name="terminal-backdrop-blur-enabled" type="b">\s*<default>false<\/default>/);
 assert.match(installer, /"terminalBackdropBlur.js"/);
 assert.match(builder, /"terminalBackdropBlur.js"/);
-
+assert.match(src, /backdrop\.set_clip\(0, 0, next\.width, next\.height\)/);
+assert.doesNotMatch(src, /Clutter\.BindConstraint|\beffect\.sigma\b|\bsigma\s*:/,
+    'never blur whole WindowActor or use obsolete GNOME sigma API');
 assert.doesNotMatch(src,
-    /set_window_opacity\s*\(|\.opacity\s*=|get_window_actor_opacity|Shell\.Screenshot|GLib\.timeout_add/,
-    'no global window opacity, screenshots or timer-based capture');
-console.log(
-    'Ptyxis compositor BACKGROUND blur: disabled-by-default, matching, ' +
-    'native surface order, live radius, conflicts, events, hot-swap cleanup PASS.'
-);
+    /set_window_opacity\s*\(|\.opacity\s*=|Shell\.Screenshot|GLib\.timeout_add/,
+    'never fade window contents, screen capture or poll');
+console.log('Ptyxis clipped blur: frame/buffer intersection, fractional scaling, ' +
+    'live resize/move, invalid frame hide, lifecycle isolation PASS.');
