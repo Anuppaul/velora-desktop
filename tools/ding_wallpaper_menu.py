@@ -87,6 +87,12 @@ def detect_ding_gtk3(dir_: Path) -> Path:
     css_loaders = []
     for file in (dir_ / 'app').glob('*.js'):
         source = file.read_text(encoding='utf-8', errors='replace')
+        if (
+            'gi://Gtk?version=4.0' in source or
+            "gi.require_version('Gtk', '4.0')" in source or
+            'Gtk.StyleContext.add_provider_for_display' in source
+        ):
+            raise RuntimeError('GTK4 DING detected; GTK3 menu CSS is not applicable. No change made.')
         if ('stylesheet.css' in source and
                 re.search(r'load_from_(?:file|path)\s*\(', source)):
             css_loaders.append(file.name)
