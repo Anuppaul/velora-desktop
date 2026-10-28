@@ -3777,6 +3777,17 @@ export class PopupGlassManager {
 
         this._cancelDeferredAttach(menu);
 
+        // GNOME App Grid app icons own their AppIconMenu BoxPointer geometry.
+        // Our stage-level popup material can interfere with the Overview's
+        // transformed icon anchor and put the menu at stage (0, 0).
+        // Keep app-well context menus entirely native: no actor reparenting,
+        // visual material, or geometry updates. Other PopupMenu glass remains.
+        if (menu.actor?.has_style_class_name?.('app-well-menu') ||
+            String(menu.actor?.get_style_class_name?.() ?? '')
+                .split(/\\s+/).includes('app-well-menu')) {
+            return null;
+        }
+
         const existing = this._surfaces.get(menu);
         if (existing)
             return existing;
