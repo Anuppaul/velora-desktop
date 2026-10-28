@@ -60,11 +60,22 @@ class BindConstraint {
         Object.assign(this, props);
     }
 }
+// Model the actual GNOME Shell 50 GObject property contract rather than a
+// permissive JS mock. GNOME Shell 46 removed the 'sigma' property; previous
+// test accepted it and incorrectly reported a working compositor path.
 class BlurEffect {
     constructor(props) {
         if (failBlurEffect)
             throw new Error('GJS Shell.BlurEffect construction failed');
+        const allowed = new Set(['radius', 'brightness', 'mode']);
+        for (const key of Object.keys(props)) {
+            if (!allowed.has(key))
+                throw new Error('No property ' + key + ' on ShellBlurEffect');
+        }
+        if (!Number.isInteger(props.radius) || props.radius < 0)
+            throw new Error('Invalid native BlurEffect radius');
         Object.assign(this, props);
+        Object.seal(this);
     }
 }
 
@@ -150,6 +161,20 @@ class Settings extends Signals {
         this.emit('changed::' + key);
     }
 }
+assert.throws(
+    () => new Shell.BlurEffect({
+        sigma: 18, brightness: 1.0, mode: Shell.BlurMode.BACKGROUND,
+    }),
+    /No property sigma on ShellBlurEffect/,
+    'the regression harness must reject obsolete GNOME Shell sigma'
+);
+assert.ok(
+    new Shell.BlurEffect({
+        radius: 36, brightness: 1.0, mode: Shell.BlurMode.BACKGROUND,
+    }),
+    'native GNOME 50 radius property is supported'
+);
+
 assert.equal(api.isPtyxisWindow(meta('org.gnome.Ptyxis')), true);
 assert.equal(api.isPtyxisWindow(meta('ptyxis')), true);
 assert.equal(api.isPtyxisWindow(meta('app.devsuite.Ptyxis')), true);
@@ -181,7 +206,8 @@ assert.equal(terminal.children[1], terminal.surface);
 assert.equal(backdrop.name, 'velora-ptyxis-backdrop-blur');
 assert.equal(backdrop.effects[0], effect);
 assert.equal(effect.mode, 'BACKGROUND');
-assert.equal(effect.sigma, 18);
+assert.equal(effect.radius, 36, 'GNOME 46+ radius = legacy sigma × 2');
+assert.equal('sigma' in effect, false, 'GNOME 50 has no sigma property');
 assert.equal(backdrop.constraints[0].source, terminal.surface);
 assert.equal(backdrop.constraints[0].coordinate, 'ALL');
 assert.equal(backdrop.effectName, 'velora-terminal-background-blur');
@@ -191,7 +217,7 @@ assert.equal(windowManager.count(), 1);
 assert.equal(display.count(), 1);
 
 settings.set_int('terminal-backdrop-blur-radius', 26);
-assert.equal(effect.sigma, 26, 'strength applied live without a new actor');
+assert.equal(effect.radius, 52, 'native radius updates live without a new actor');
 assert.equal(terminal.children.length, 2);
 m._scan();
 assert.equal(m._windows.size, 1, 'repeated scan is idempotent');
@@ -256,6 +282,10 @@ assert.match(prefs, /terminal-backdrop-blur-status/);
 assert.match(schema,
     /<key name="terminal-backdrop-blur-enabled" type="b">\s*<default>false<\/default>/);
 assert.match(schema, /<key name="terminal-backdrop-blur-radius" type="i">/);
+assert.doesNotMatch(src, /\\bsigma\\s*:/,
+    'never construct a GNOME 50 BlurEffect using the removed sigma property');
+assert.doesNotMatch(src, /effect\\.sigma\\b/,
+    'live blur updates must use native radius property');
 assert.match(installer, /"terminalBackdropBlur.js"/);
 assert.match(builder, /"terminalBackdropBlur.js"/);
 
