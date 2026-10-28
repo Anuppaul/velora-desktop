@@ -206,6 +206,9 @@ def status(profile_override: str | None, path: Path) -> None:
 def apply(profile_override: str | None, path: Path, opacity: float) -> None:
     if not 0.65 <= opacity <= 0.98:
         raise RuntimeError("Choose an opacity between 0.65 and 0.98 for readable text")
+    # Persist exactly the same precision that is passed to GSettings so
+    # another apply/restore does not mistake rounding for an external edit.
+    opacity = float(f"{opacity:.3f}")
     profile, spec, current = read_profile(profile_override)
     existing = load_state(path)
     if existing and existing["profile"] != profile:
