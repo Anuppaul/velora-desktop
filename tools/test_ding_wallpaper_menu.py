@@ -39,6 +39,11 @@ class DingThemeTests(unittest.TestCase):
         with redirect_stdout(StringIO()):
             module.run('restore', str(self.root))
         self.assertEqual(self.css.read_bytes(), original)
+        # Reapplying after a clean rollback must reuse the original backup.
+        with redirect_stdout(StringIO()):
+            module.run('apply', str(self.root))
+            module.run('restore', str(self.root))
+        self.assertEqual(self.css.read_bytes(), original)
 
     def test_refuses_different_uuid(self):
         (self.root / 'metadata.json').write_text(json.dumps({'uuid': 'not-ding'}))
