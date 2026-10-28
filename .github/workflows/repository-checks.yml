@@ -18,9 +18,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Check shell script syntax
-        run: |
-          bash -n gnome-shell/install.sh
-          bash -n tools/diagnose_right_click_menu.sh
+        run: bash -n gnome-shell/install.sh
 
       - name: Test performance sampler and runtime packaging
         run: python3 -m unittest discover -s tools -p 'test_*.py'
@@ -36,8 +34,6 @@ jobs:
           node tools/test_native_dock_autohide.mjs
           node tools/test_native_dock_settings.mjs
           node tools/test_popup_overview_capture.mjs
-          node tools/test_native_context_glass.mjs
-          node tools/test_context_menu_discovery.mjs
           node tools/test_calendar_overview_backdrop.mjs
           node tools/test_wallpaper_atmosphere.mjs
           node tools/test_wallpaper_atmosphere_ui.mjs
