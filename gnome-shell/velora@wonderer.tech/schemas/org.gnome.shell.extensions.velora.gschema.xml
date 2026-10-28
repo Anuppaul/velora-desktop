@@ -162,8 +162,8 @@
     <key name="terminal-backdrop-blur-radius" type="i">
       <default>18</default>
       <range min="4" max="36"/>
-      <summary>Native Ptyxis background blur radius</summary>
-      <description>GPU background blur sigma. Stronger values increase the compositor cost per terminal window.</description>
+      <summary>Ptyxis background blur strength (legacy sigma-equivalent)</summary>
+      <description>GNOME Shell 50 uses Shell.BlurEffect.radius, which is twice the stored legacy sigma-equivalent strength. Stronger values increase GPU cost per terminal window.</description>
     </key>
     <key name="terminal-backdrop-blur-status" type="s">
       <default>'Off'</default>
