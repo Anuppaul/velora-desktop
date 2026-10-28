@@ -122,17 +122,29 @@ Note: if the original opacity was 1.0, restore makes it opaque again.
 ### GNOME 50.1: troubleshooting a failed native attachment
 
 If Preferences reports `Unavailable (...)`, the updated diagnostic now
-identifies the failing stage: `find-surface`, `create-actor`,
-`bind-geometry`, `create-blur-effect`, `add-effect`,
-`insert-under-surface`, or `connect-destroy`. A GNOME/Mutter version
-may reject a `Clutter.BindConstraint` to the native surface; in that case,
-Velora attempts a bounded native frame/buffer geometry fallback with
-allocation notifications. It **never** installs a fullscreen blur.
+identifies the failing stage: `find-surface`, `frame-geometry`,
+`create-actor`, `connect-geometry`, `create-blur-effect`,
+`add-effect`, `insert-under-surface`, or `connect-destroy`.
+
+**Frame clipping (October 2026):** A previous version used the full
+Meta.WindowActor width/height and painted blur outside the visible Ptyxis
+window, into Wayland client-side shadow margins. Now the blur is cropped
+to the intersection of `Meta.Window.get_frame_rect()` (visible boundary)
+and `get_buffer_rect()` (Wayland buffer including shadows), mapped into
+the window actor's local coordinate system. Rounded corners may still
+require a separate shape-aware mask: rectangular clipping guarantees
+the blur stays within the frame rectangle, not the precise curved outline.
+
+The blur actor calls `set_clip()` using the exact frame dimensions and
+updates those bounds on native window resize/position/allocation events.
+If geometry is unavailable or invalid, the blur is hidden (no oversized
+fallback). This is not a global fullscreen effect.
 
 Capture the exact failure without restarting the session:
 
 ```bash
-gsettings get org.gnome.shell.extensions.velora terminal-backdrop-blur-status
+GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
+  gsettings get org.gnome.shell.extensions.velora terminal-backdrop-blur-status
 journalctl --user -b --no-pager -o cat | grep -F '[Velora][TerminalBlur]' | tail -n 30
 ```
 
@@ -172,16 +184,24 @@ command refuses to overwrite it. Review the conflict before using
   for GNOME window map/create events. No timeout polling, screenshots or CPU
   readbacks. Actor destruction and extension disable free owned resources.
 - **Rendering:** a paintable `St.Widget` carrying
-  `Shell.BlurEffect(BACKGROUND)` is inserted directly beneath the
-  Meta.WindowActor native surface. It binds **WIDTH and HEIGHT to the
-  Meta.WindowActor**, not to an ambiguously sized texture child; a bounded
-  frame/buffer fallback applies if binding fails. Native terminal glyphs
-  remain higher in paint order. This corrects the earlier zero/incorrect
-  blur-quad sizing risk; compositor pixels still need on-device visual QA.
+  `Shell.BlurEffect(BACKGROUND)` is inserted beneath the native
+  Meta.WindowActor surface. Its position and dimensions are computed
+  from `frame_rect` intersected with `buffer_rect`, including the
+  buffer-to-actor scale where needed. An explicit actor-relative clip
+  prevents the GPU effect painting in CSD shadow margins. Native
+  terminal content and native window shadows remain unchanged.
+  There is **no** fallback to blurring the full WindowActor.
+  The frame is rectangular; pixel-perfect rounded-corner masking still
+  requires on-device verification and possibly separate shape masking.
 - **Compatibility:** GNOME Shell 50 only; depends on private compositor actor
   APIs that may change. Unsupported API branches fail closed. Physical GNOME
   50.1/Wayland, multiple monitor, minimization/overview, tiling/fullscreen,
   resize, light/dark readability, and hot-swap cleanup still require QA.
+- **Safety on geometry changes:** native `size-changed`,
+  `position-changed` and actor allocation notifications recompute
+  the frame clip. Invalid or stale geometry temporarily hides blur;
+  disabling Velora disconnects these signals and destroys only its
+  own backdrop actor.
 - **Performance:** one GPU background blur pass per matching Ptyxis window.
   Higher radius and larger windows increase GPU cost. Effects are never
   constructed with the switch OFF.
