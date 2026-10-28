@@ -99,8 +99,16 @@ def original_is_default(profile: str) -> bool | None:
         return None
     key = f"/org/gnome/Ptyxis/Profiles/{profile}/opacity"
     # Empty output from 'dconf read' means no explicit override existed.
-    raw = run_command(["dconf", "read", key], allow_failure=True)
-    return not bool(raw) if raw or raw == "" else None
+    try:
+        result = subprocess.run(
+            ["dconf", "read", key],
+            check=False, capture_output=True, text=True, timeout=8
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return not bool(result.stdout.strip())
 
 
 def load_state(path: Path) -> dict | None:
