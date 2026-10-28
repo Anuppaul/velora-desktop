@@ -51,6 +51,13 @@ class DingThemeTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             module.run('apply', str(self.root))
 
+    def test_refuses_gtk4_even_if_uses_file_loader(self):
+        (self.root / 'app' / 'gtk4.js').write_text(
+            "import Gtk from 'gi://Gtk?version=4.0';"
+        )
+        with self.assertRaises(RuntimeError):
+            module.run('apply', str(self.root))
+
     def test_preserves_external_css(self):
         with redirect_stdout(StringIO()):
             module.run('apply', str(self.root))
