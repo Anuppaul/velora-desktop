@@ -68,11 +68,56 @@ Open **GNOME Extensions → Velora Desktop → Preferences → Terminal**.
   application, then drag it over contrasting content to visually check blur.
 - Keep the native Ptyxis background partly transparent to see the backdrop.
 
-**Important:** Attachment status only proves that a GPU blur actor was added.
-It does not prove that the compositor has rendered the desired visual result.
-Verify visually and compare to the switch OFF state. Some other extensions
-such as Blur My Shell/WinFX may independently own window blur; Velora avoids
-stacking another blur when it detects their known actor names.
+**Important:** Attachment status only proves that the GPU blur actor was
+added. It does **not** prove that its pixels were painted or that Ptyxis
+actually has alpha. The revised status says **"visual unverified; check
+profile opacity"** to prevent false-positive success reports.
+
+### Why "Attached: 1" may still look opaque
+
+A compositor BACKGROUND blur actor sits **behind** the native terminal surface.
+If Ptyxis paints that surface opaque, no backdrop pixels can show through.
+Ptyxis transparency is *independent* of the Velora blur toggle. At 0.88
+opacity, only 12% of the backdrop is visible: on dark backgrounds this can be
+nearly indistinguishable from an opaque window.
+
+Before debugging the compositor, perform this controlled A/B test:
+
+```bash
+cd ~/Documents/code/velora-desktop
+python3 tools/velora_terminal_glass.py status
+```
+
+The read-only status now reports both **Ptyxis opacity** and (where installed)
+Velora's extension-scoped blur status. It also warns if the default profile is
+opaque or nearly opaque. A Ptyxis tab may use a **non-default profile**; if
+the status disagrees with the visible tab, check its profile in Ptyxis.
+
+To test a visibly translucent background **without losing your original
+backup**, use the existing opt-in tool:
+
+```bash
+python3 tools/velora_terminal_glass.py apply --opacity 0.78
+```
+
+Close all Ptyxis windows and open Ptyxis again if the alpha does not redraw.
+Then put a strongly contrasting Firefox window behind Ptyxis. First compare
+with Velora's **Real backdrop blur OFF** (true native transparency), then ON
+(blur behind the same native background). If OFF is also opaque, fix the
+Ptyxis profile/window itself before changing any compositor code.
+
+Some other extensions (e.g., Blur My Shell/WinFX) may own a window blur.
+Velora avoids stacking known actor names, but cannot detect every external
+extension's modifications. Never change compositor opacity of the **entire**
+Ptyxis window: doing so would fade terminal text as well.
+
+To restore the original background-opacity setting, after testing run:
+
+```bash
+python3 tools/velora_terminal_glass.py restore
+```
+
+Note: if the original opacity was 1.0, restore makes it opaque again.
 
 ### GNOME 50.1: troubleshooting a failed native attachment
 
@@ -126,10 +171,13 @@ command refuses to overwrite it. Review the conflict before using
 - **Lifecycle:** initially scans already mapped windows, then listens only
   for GNOME window map/create events. No timeout polling, screenshots or CPU
   readbacks. Actor destruction and extension disable free owned resources.
-- **Rendering:** a `Clutter.Actor` carrying `Shell.BlurEffect(BACKGROUND)` is
-  inserted directly beneath the original Meta.WindowActor surface, sized and
-  positioned with `Clutter.BindConstraint(ALL)`. Native terminal content
-  remains higher in paint order. Mutter samples already painted content.
+- **Rendering:** a paintable `St.Widget` carrying
+  `Shell.BlurEffect(BACKGROUND)` is inserted directly beneath the
+  Meta.WindowActor native surface. It binds **WIDTH and HEIGHT to the
+  Meta.WindowActor**, not to an ambiguously sized texture child; a bounded
+  frame/buffer fallback applies if binding fails. Native terminal glyphs
+  remain higher in paint order. This corrects the earlier zero/incorrect
+  blur-quad sizing risk; compositor pixels still need on-device visual QA.
 - **Compatibility:** GNOME Shell 50 only; depends on private compositor actor
   APIs that may change. Unsupported API branches fail closed. Physical GNOME
   50.1/Wayland, multiple monitor, minimization/overview, tiling/fullscreen,

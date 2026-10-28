@@ -182,6 +182,42 @@ def identify_terminal() -> str:
     return "unknown (xterm-256color is a terminal capability, not an app name)"
 
 
+def read_velora_compositor_status() -> tuple[str, str] | None:
+    """Read extension-scoped GSettings (not registered system-wide).
+
+    A GNOME extension's compiled schema lives below its own schemas/
+    directory. Plain 'gsettings get org.gnome.shell.extensions.velora ...'
+    therefore normally says 'No such schema'. This does not mean the Shell
+    runtime or blur manager failed. No writes are performed.
+    """
+    schema_dir = (
+        Path.home() / ".local" / "share" / "gnome-shell" /
+        "extensions" / "velora@wonderer.tech" / "schemas"
+    )
+    if not (schema_dir / "gschemas.compiled").is_file():
+        return None
+    if not shutil.which("gsettings"):
+        return None
+    env = dict(os.environ, GSETTINGS_SCHEMA_DIR=str(schema_dir))
+    values = []
+    for key in (
+        "terminal-backdrop-blur-enabled",
+        "terminal-backdrop-blur-status",
+    ):
+        try:
+            result = subprocess.run(
+                ["gsettings", "get", "org.gnome.shell.extensions.velora", key],
+                capture_output=True, text=True, check=False, timeout=8,
+                env=env,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if result.returncode != 0:
+            return None
+        values.append(result.stdout.strip())
+    return values[0], values[1]
+
+
 def status(profile_override: str | None, path: Path) -> None:
     print("Velora Terminal Glass — read-only status")
     print(f"Detected terminal process: {identify_terminal()}")
@@ -195,6 +231,35 @@ def status(profile_override: str | None, path: Path) -> None:
     else:
         print(f"Ptyxis default/selected profile: {profile}")
         print(f"Current opacity: {current:.3f} ({(1-current)*100:.1f}% transparency)")
+        if current >= 0.98:
+            print(
+                "WARNING: This default profile is effectively opaque. "
+                "Blur behind an opaque Ptyxis surface cannot be seen."
+            )
+            print(
+                "To test translucency: python3 tools/velora_terminal_glass.py "
+                "apply --opacity 0.78"
+            )
+        elif current >= 0.85:
+            print(
+                "NOTE: Transparency below 15% may look almost opaque over "
+                "dark backgrounds. For visual A/B testing, try 0.78."
+            )
+        print(
+            "NOTE: Individual Ptyxis tabs can use a non-default profile. "
+            "Check the active tab's profile if this value differs visually."
+        )
+    blur = read_velora_compositor_status()
+    if blur:
+        enabled, attachment = blur
+        print(f"Velora compositor blur enabled: {enabled}")
+        print(f"Velora attachment status: {attachment}")
+        print("Note: attachment status does not verify visible blur pixels.")
+    else:
+        print(
+            "Velora compositor status unavailable here; the Shell extension "
+            "uses a private GSettings schema directory."
+        )
     if backup:
         print(f"Saved original opacity: {backup['before']:.3f}")
         print(f"Last applied opacity: {backup['applied']:.3f}")

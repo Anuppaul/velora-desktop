@@ -159,6 +159,37 @@ class TerminalGlassTests(unittest.TestCase):
                             self.assertEqual(terminal.main(), 1)
                             mutation.assert_not_called()
 
+    def test_opaque_profile_explains_hidden_blur(self):
+        import contextlib
+        import io
+        output = io.StringIO()
+        with patch.object(terminal, "read_velora_compositor_status",
+                          return_value=("true", "'Attached: 1 Ptyxis window(s)'")):
+            with contextlib.redirect_stdout(output):
+                terminal.status(None, self.path)
+        text = output.getvalue()
+        self.assertIn("effectively opaque", text)
+        self.assertIn("Blur behind an opaque", text)
+        self.assertIn("Velora compositor blur enabled: true", text)
+        self.assertIn("attachment status does not verify visible blur", text)
+        self.assertFalse(self.path.exists())
+        self.assertFalse(any(
+            c[1] in ("set", "reset") for c in self.ptyxis.calls
+        ))
+
+    def test_subtle_transparency_warns_without_mutating(self):
+        import contextlib
+        import io
+        self.ptyxis.opacity = 0.88
+        out = io.StringIO()
+        with patch.object(terminal, "read_velora_compositor_status",
+                          return_value=None):
+            with contextlib.redirect_stdout(out):
+                terminal.status(None, self.path)
+        self.assertIn("Transparency below 15%", out.getvalue())
+        self.assertIn("non-default profile", out.getvalue())
+        self.assertFalse(self.path.exists())
+
     def test_status_does_not_write(self):
         with patch.object(terminal, "identify_terminal", return_value="ptyxis"):
             terminal.status(None, self.path)

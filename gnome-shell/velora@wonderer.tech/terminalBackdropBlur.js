@@ -2,14 +2,16 @@
 // GNOME Shell 50 / Wayland. Opt-in; transparent terminal backgrounds are
 // supplied by Ptyxis itself (and retain fully opaque glyphs).
 //
-// We attach one Shell.BlurEffect(BACKGROUND) directly under the *native*
-// window surface as a child of its Meta.WindowActor. This paints the real
-// background below the terminal without sampling pixels in JavaScript,
+// We attach one Shell.BlurEffect(BACKGROUND) on a window-sized St.Widget
+// directly beneath the native surface of its Meta.WindowActor. The actor
+// must have a real paint allocation: 'attached' alone proves no pixels.
+// We avoid sampling pixels in JavaScript,
 // changing Meta.WindowActor opacity or inserting a global stage overlay.
 // No polling; all signals/effects are removed on disable/hot-swap.
 import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 const BLUR_ACTOR_NAME = 'velora-ptyxis-backdrop-blur';
 // Never stack an extra expensive background pass on another extension's blur.
@@ -140,7 +142,8 @@ export class TerminalBackdropBlurManager {
         if (
             typeof Shell.BlurEffect !== 'function' ||
             Shell.BlurMode?.BACKGROUND === undefined ||
-            Clutter.BindCoordinate?.ALL === undefined
+            Clutter.BindCoordinate?.WIDTH === undefined ||
+            Clutter.BindCoordinate?.HEIGHT === undefined
         ) {
             this._publishStatus('Unavailable: compositor blur API missing');
             return;
@@ -232,24 +235,31 @@ export class TerminalBackdropBlurManager {
         let geometryId = 0;
         let stage = 'create-actor';
         try {
-            // Clutter.Actor is the compositor-native blur carrier also used
-            // by established GNOME window-blur integrations. St.Widget can
-            // depend on Shell UI layout/theme ownership not present inside
-            // Meta.WindowActor.
-            backdrop = new Clutter.Actor({
+            // Shell.BlurEffect(BACKGROUND) paints a background sample into
+            // the actor carrying it. A bare Clutter.Actor can be allocated
+            // without a paintable UI surface, which made the prior status
+            // report 'Attached' while users saw no glass. Use the window
+            // blur pattern: a St.Widget bound to the *window actor's*
+            // WIDTH/HEIGHT, not to get_texture() (which is not guaranteed
+            // to expose the full window's allocation on GNOME 50).
+            backdrop = new St.Widget({
                 name: BLUR_ACTOR_NAME,
                 reactive: false,
             });
             stage = 'bind-geometry';
             try {
                 backdrop.add_constraint(new Clutter.BindConstraint({
-                    source: nativeSurface,
-                    coordinate: Clutter.BindCoordinate.ALL,
+                    source: actor,
+                    coordinate: Clutter.BindCoordinate.WIDTH,
+                }));
+                backdrop.add_constraint(new Clutter.BindConstraint({
+                    source: actor,
+                    coordinate: Clutter.BindCoordinate.HEIGHT,
                 }));
             } catch (bindError) {
-                // GNOME/Mutter combinations may reject binding to a sibling
-                // Meta.SurfaceActor. Fall back to the actual Meta frame and
-                // buffer dimensions, never a fullscreen compositor quad.
+                // Keep the bounded frame/buffer fallback for Shell builds
+                // that cannot bind to Meta.WindowActor geometry.
+                try { backdrop.clear_constraints?.(); } catch {}
                 const syncGeometry = () => {
                     const frame = metaWindow.get_frame_rect?.();
                     const buffer = metaWindow.get_buffer_rect?.();
@@ -273,11 +283,10 @@ export class TerminalBackdropBlurManager {
                     syncGeometry();
                 } catch (geometryError) {
                     throw new Error(
-                        'BindConstraint: ' + bindError +
+                        'WindowActor BindConstraint: ' + bindError +
                         '; fallback: ' + geometryError
                     );
                 }
-                // Only follow native layout notifications, never poll.
                 try {
                     geometryId = actor.connect(
                         'notify::allocation',
@@ -286,8 +295,7 @@ export class TerminalBackdropBlurManager {
                         }
                     );
                 } catch {
-                    // Initial geometry is valid. GTK window redraw/resize
-                    // may require a reopen on older GNOME versions.
+                    // Initial size is valid; never introduce polling.
                 }
             }
 
@@ -310,6 +318,9 @@ export class TerminalBackdropBlurManager {
             // The original terminal surface stays ABOVE the effect: glyphs,
             // cursor, selection and titlebar never have their alpha changed.
             actor.insert_child_at_index(backdrop, 0);
+            // Explicitly keep the blur below all of the native window
+            // actor's children, including its surface and shadows.
+            actor.set_child_below_sibling?.(backdrop, null);
 
             stage = 'connect-destroy';
             destroyedId = actor.connect('destroy', () => {
@@ -325,7 +336,8 @@ export class TerminalBackdropBlurManager {
             this._lastAttachFailure = '';
             this._publishAttachedCount();
             console.log(
-                '[Velora][TerminalBlur] attached native Ptyxis backdrop'
+                '[Velora][TerminalBlur] native Ptyxis backdrop actor attached; ' +
+                'visible blur requires a translucent Ptyxis profile and device QA'
             );
             return true;
         } catch (error) {
@@ -360,7 +372,8 @@ export class TerminalBackdropBlurManager {
             return;
         this._publishStatus(
             this._windows.size
-                ? 'Attached: ' + this._windows.size + ' Ptyxis window(s)'
+                ? 'Attached: ' + this._windows.size +
+                    ' Ptyxis window(s) (visual unverified; check profile opacity)'
                 : this._lastAttachFailure
                     ? 'Unavailable (' + this._lastAttachFailure + ')'
                     : 'Ready: open a Ptyxis window'
