@@ -205,7 +205,7 @@ The original Liquid Glass refraction and Frosted Crystal matte finish still diff
 
 Velora deliberately leaves GTK/libadwaita application interiors, GNOME accessibility ownership, native hit targets and native animation semantics alone.
 
-**Right-click menus:** native GNOME Shell App Grid/Dock PopupMenu cards can use Velora glass. Desktop wallpaper/file right-click menus supplied by Desktop Icons NG (DING) are a **separate GTK process** and cannot receive Shell GPU refraction from Velora. See [right-click menu ownership and diagnostics](docs/RIGHT_CLICK_MENU_SCOPE.md).
+**Right-click menus:** native GNOME Shell App Grid/Dock PopupMenu cards can use Velora glass. Desktop wallpaper/file right-click menus supplied by Desktop Icons NG (DING) are a **separate GTK process** and cannot receive Shell GPU refraction from Velora. See [right-click menu ownership and diagnostics](docs/RIGHT_CLICK_MENU_SCOPE.md). For the **desktop wallpaper menu**, an [optional, reversible DING-only GTK frosted appearance](docs/DING_WALLPAPER_CONTEXT_MENU.md) is available (not true LiquidEffect refraction; not bundled in the Store ZIP).
 
 **Every native popup follows the real background.** Date/Calendar,
 Quick Settings and supported panel/context menus now use **the same

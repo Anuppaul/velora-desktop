@@ -48,5 +48,4 @@ GTK windows transparent, or insert Shell overlays above a GTK popup merely
 to force a visual match. Those approaches cannot provide the real backdrop
 to Velora's shader and risk GNOME Store review, desktop input and accessibility.
 
-A true GTK app-menu visual theme would require a separate, explicitly opted-in
-GTK styling project with independent testing and installation lifecycle.
+An [optional, reversible DING GTK3 menu frosted styling helper](DING_WALLPAPER_CONTEXT_MENU.md) is now available for local development. It is **not** the Shell GPU LiquidEffect or a true wallpaper-blur implementation, is never installed by Velora automatically, and must be tested in the actual desktop session.
