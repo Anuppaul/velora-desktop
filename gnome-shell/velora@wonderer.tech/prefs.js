@@ -436,7 +436,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'terminal-backdrop-blur-radius',
             'Background blur strength',
-            'Native Shell.BlurEffect sigma. Higher strength uses more GPU work.',
+            'Strength 4–36 (legacy sigma scale); GNOME 50 uses radius = strength × 2. Higher values cost more GPU work.',
             4, 36, 1
         );
         const syncTerminalSensitivity = () => {
