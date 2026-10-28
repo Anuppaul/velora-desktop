@@ -20,7 +20,6 @@ const methodNames = [
     ['_uninstallNativePopupDiscovery', '_isPanelHoverMenu'],
 ];
 
-const listeners = new Map();
 function emitter() {
     let nextId = 0;
     const signals = new Map();
@@ -54,7 +53,7 @@ const root = Object.assign(emitter(), {
 const Main = {layoutManager: {uiGroup: root}};
 const methodSource = methodNames.map(([name, next]) =>
     shippedMethod(name, next)
-).join('\n');
+).join(',\n');
 const actions = new Function('Main',
     'return ({' + methodSource + '});'
 )(Main);
