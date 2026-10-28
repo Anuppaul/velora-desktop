@@ -42,6 +42,7 @@ class Widget {
     }
     set_clip_to_allocation(v) {this.clip = v;}
     add_constraint(v) {this.constraints.push(v);}
+    clear_constraints() {this.constraints = [];}
     add_effect(v) {this.effects.push(v);}
     add_effect_with_name(name, effect) {
         this.effectName = name;
@@ -51,6 +52,8 @@ class Widget {
     set_size(w, h) {this.size = [w, h];}
     destroy() {this.destroyed = true;}
 }
+class StWidget extends Widget {}
+class ClutterActor extends Widget {}
 let failBindConstraint = false;
 let failBlurEffect = false;
 class BindConstraint {
@@ -85,11 +88,11 @@ const Shell = {
 };
 const Meta = {WindowType: {NORMAL: 0, DIALOG: 1}};
 const Clutter = {
-    Actor: Widget,
+    Actor: ClutterActor,
     BindConstraint,
-    BindCoordinate: {ALL: 'ALL'},
+    BindCoordinate: {WIDTH: 'WIDTH', HEIGHT: 'HEIGHT'},
 };
-const St = {Widget};
+const St = {Widget: StWidget};
 const windowManager = new Signals();
 const display = new Signals();
 let liveWindowActors = [];
@@ -134,6 +137,14 @@ class WindowActor extends Signals {
     insert_child_at_index(child, index) {
         assert.equal(index, 0);
         this.children.splice(index, 0, child);
+    }
+    set_child_below_sibling(child, sibling) {
+        assert.equal(sibling, null, 'blur is always bottom-most');
+        const index = this.children.indexOf(child);
+        assert.ok(index >= 0);
+        this.children.splice(index, 1);
+        this.children.unshift(child);
+        this.bottomPinned = true;
     }
 }
 class Settings extends Signals {
@@ -204,12 +215,20 @@ const {backdrop, effect} = m._windows.get(terminal);
 assert.equal(terminal.children[0], backdrop, 'blur BEHIND native surface');
 assert.equal(terminal.children[1], terminal.surface);
 assert.equal(backdrop.name, 'velora-ptyxis-backdrop-blur');
+assert.ok(backdrop instanceof StWidget,
+    'GNOME BACKGROUND blur uses paintable St.Widget, not bare Clutter.Actor');
+assert.equal(terminal.bottomPinned, true);
 assert.equal(backdrop.effects[0], effect);
 assert.equal(effect.mode, 'BACKGROUND');
 assert.equal(effect.radius, 36, 'GNOME 46+ radius = legacy sigma × 2');
 assert.equal('sigma' in effect, false, 'GNOME 50 has no sigma property');
-assert.equal(backdrop.constraints[0].source, terminal.surface);
-assert.equal(backdrop.constraints[0].coordinate, 'ALL');
+assert.equal(backdrop.constraints.length, 2,
+    'both dimension constraints required for a non-zero blur quad');
+assert.equal(backdrop.constraints[0].source, terminal,
+    'width must follow Meta.WindowActor, not ambiguous texture');
+assert.equal(backdrop.constraints[0].coordinate, 'WIDTH');
+assert.equal(backdrop.constraints[1].source, terminal);
+assert.equal(backdrop.constraints[1].coordinate, 'HEIGHT');
 assert.equal(backdrop.effectName, 'velora-terminal-background-blur');
 assert.equal(terminal.opacity, 255, 'never fade glyphs/window actor');
 assert.equal(firefox.opacity, 255, 'never touch unrelated windows');
@@ -266,6 +285,8 @@ assert.equal(m._windows.size, 0);
 assert.equal(windowManager.count(), 0, 'no permanent map hook');
 assert.equal(display.count(), 0, 'no permanent display hook');
 assert.equal(settings.get_string('terminal-backdrop-blur-status'), 'Off');
+assert.match(src, /visual unverified; check profile opacity/,
+    'an attached compositor actor must not claim visible glass pixels');
 assert.equal(terminal.opacity, 255);
 
 m.cleanup();
