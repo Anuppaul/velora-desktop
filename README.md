@@ -357,13 +357,22 @@ gnome-extensions prefs velora@wonderer.tech
   `bash gnome-shell/install.sh`. Hot updates are a developer workflow; a
   Store package must not require them.
 
-### Optional Terminal glass appearance (native Ptyxis)
+### Terminal Glass — native Ptyxis GPU backdrop blur (experimental)
 
-Velora's developer tools include [**Terminal Glass**](docs/TERMINAL_GLASS.md), a
-**separate opt-in** native Ptyxis opacity preset with read-only status,
-automatic original-value backup and safe restore. It does **not** alter GTK
-globally or install a compositor blur; no terminal changes occur when
-installing Velora or the GNOME Store ZIP. Check terminal ownership first:
+Velora now provides **two independent, opt-in layers** for Ptyxis:
+
+- **Native translucency:** the developer-side
+  [Ptyxis profile utility](docs/TERMINAL_GLASS.md) backs up and sets only
+  background opacity, preserving sharp text.
+- **Real compositor background blur:** Velora Preferences → **Terminal** →
+  **Real backdrop blur**, OFF by default. It uses GNOME's native
+  `Shell.BlurEffect(BACKGROUND)` beneath the original Ptyxis surface,
+  not a global GTK theme or an additional installed extension.
+
+**Not the full Liquid Glass v10 refractive shader.** This experimental
+GPU blur still requires GNOME 50.1 visual/performance testing and reviewer
+validation; it does not change other applications. See the
+[Terminal Glass guide](docs/TERMINAL_GLASS.md).
 
 ```bash
 python3 tools/velora_terminal_glass.py status

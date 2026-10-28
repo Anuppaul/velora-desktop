@@ -408,6 +408,63 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
 
         // -----------------------------------------------------------------
+        // Terminal — native compositor backdrop, not a GTK overlay.
+        // -----------------------------------------------------------------
+        const terminalPage = addPage(
+            window,
+            'Terminal',
+            'utilities-terminal-symbolic',
+            'Native Ptyxis background blur on GNOME Shell 50.'
+        );
+        const terminalGroup = new Adw.PreferencesGroup({
+            title: 'Velora Terminal Glass — experimental',
+            description:
+                'Requires a transparent native Ptyxis background (for example 0.88 opacity). Blur is painted behind the window; text and other applications remain unchanged.',
+        });
+        terminalPage.add(terminalGroup);
+
+        addSwitch(
+            terminalGroup,
+            settings,
+            'terminal-backdrop-blur-enabled',
+            'Real backdrop blur',
+            'Opt in to one native GPU background blur effect per Ptyxis window. Disabled by default.'
+        );
+
+        const terminalRadius = addIntSpin(
+            terminalGroup,
+            settings,
+            'terminal-backdrop-blur-radius',
+            'Background blur strength',
+            'Native Shell.BlurEffect sigma. Higher strength uses more GPU work.',
+            4, 36, 1
+        );
+        const syncTerminalSensitivity = () => {
+            terminalRadius.sensitive = settings.get_boolean(
+                'terminal-backdrop-blur-enabled'
+            );
+        };
+        syncTerminalSensitivity();
+        settings.connect(
+            'changed::terminal-backdrop-blur-enabled',
+            syncTerminalSensitivity
+        );
+
+        const terminalStatus = new Adw.ActionRow({
+            title: 'Live compositor attachment',
+            subtitle: settings.get_string('terminal-backdrop-blur-status'),
+        });
+        terminalGroup.add(terminalStatus);
+        settings.connect(
+            'changed::terminal-backdrop-blur-status',
+            () => {
+                terminalStatus.subtitle = settings.get_string(
+                    'terminal-backdrop-blur-status'
+                );
+            }
+        );
+
+        // -----------------------------------------------------------------
         // Search
         // -----------------------------------------------------------------
         const searchPage = addPage(
