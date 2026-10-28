@@ -357,6 +357,18 @@ gnome-extensions prefs velora@wonderer.tech
   `bash gnome-shell/install.sh`. Hot updates are a developer workflow; a
   Store package must not require them.
 
+### Optional Terminal glass appearance (native Ptyxis)
+
+Velora's developer tools include [**Terminal Glass**](docs/TERMINAL_GLASS.md), a
+**separate opt-in** native Ptyxis opacity preset with read-only status,
+automatic original-value backup and safe restore. It does **not** alter GTK
+globally or install a compositor blur; no terminal changes occur when
+installing Velora or the GNOME Store ZIP. Check terminal ownership first:
+
+```bash
+python3 tools/velora_terminal_glass.py status
+```
+
 ## GNOME Extensions Store submission
 
 Velora is preparing a first submission to
