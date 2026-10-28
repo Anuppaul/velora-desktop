@@ -150,6 +150,15 @@ class TerminalGlassTests(unittest.TestCase):
         terminal.restore(self.path)
         self.assertEqual(self.ptyxis.opacity, 1.0)
 
+    def test_cli_refuses_sudo_for_apply_and_restore(self):
+        for action in ("apply", "restore"):
+            with self.subTest(action=action):
+                with patch.object(terminal.os, "geteuid", return_value=0):
+                    with patch.object(terminal.sys, "argv", ["prog", action]):
+                        with patch.object(terminal, action) as mutation:
+                            self.assertEqual(terminal.main(), 1)
+                            mutation.assert_not_called()
+
     def test_status_does_not_write(self):
         with patch.object(terminal, "identify_terminal", return_value="ptyxis"):
             terminal.status(None, self.path)
