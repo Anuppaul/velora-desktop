@@ -3784,7 +3784,7 @@ export class PopupGlassManager {
         // visual material, or geometry updates. Other PopupMenu glass remains.
         if (menu.actor?.has_style_class_name?.('app-well-menu') ||
             String(menu.actor?.get_style_class_name?.() ?? '')
-                .split(/\\s+/).includes('app-well-menu')) {
+                .split(/\s+/).includes('app-well-menu')) {
             return null;
         }
 
