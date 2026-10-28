@@ -62,7 +62,7 @@ No new OS packages or additional GNOME extensions are installed.
 Open **GNOME Extensions → Velora Desktop → Preferences → Terminal**.
 
 - Turn on **Real backdrop blur**.
-- The default strength is **18** (native Shell sigma), adjustable from 4–36.
+- The default strength is **18** (legacy sigma-equivalent), adjustable from 4–36. GNOME Shell 50 uses **`radius = strength × 2`**, so the native blur radius is 36 at the default value.
 - Check **Live compositor attachment** for `Attached: N Ptyxis window(s)`.
 - Start with a small floating Ptyxis window over a wallpaper or another
   application, then drag it over contrasting content to visually check blur.
@@ -126,7 +126,7 @@ command refuses to overwrite it. Review the conflict before using
 - **Lifecycle:** initially scans already mapped windows, then listens only
   for GNOME window map/create events. No timeout polling, screenshots or CPU
   readbacks. Actor destruction and extension disable free owned resources.
-- **Rendering:** a `St.Widget` carrying `Shell.BlurEffect(BACKGROUND)` is
+- **Rendering:** a `Clutter.Actor` carrying `Shell.BlurEffect(BACKGROUND)` is
   inserted directly beneath the original Meta.WindowActor surface, sized and
   positioned with `Clutter.BindConstraint(ALL)`. Native terminal content
   remains higher in paint order. Mutter samples already painted content.
@@ -145,6 +145,8 @@ command refuses to overwrite it. Review the conflict before using
 
 ## Implementation references
 
+- GNOME Shell 46 migration guide (replace `sigma` with `radius = sigma * 2`):
+  https://gjs.guide/extensions/upgrading/gnome-shell-46.html
 - GNOME Shell's `Shell.BlurEffect` BACKGROUND mode as used in GNOME 50
   window-effect projects.
 - winfx effects documentation:

@@ -293,7 +293,10 @@ export class TerminalBackdropBlurManager {
 
             stage = 'create-blur-effect';
             const effect = new Shell.BlurEffect({
-                sigma: this._radius(),
+                // GNOME Shell 46+ renamed sigma to radius. Preserve the
+                // user's existing sigma-equivalent strength setting:
+                // native radius = legacy sigma * 2.
+                radius: this._radius() * 2,
                 brightness: 1.0,
                 mode: Shell.BlurMode.BACKGROUND,
             });
@@ -367,11 +370,11 @@ export class TerminalBackdropBlurManager {
     _updateRadius() {
         if (!this._enabled)
             return;
-        const sigma = this._radius();
+        const radius = this._radius() * 2;
         for (const {effect} of this._windows.values()) {
             try {
-                if (effect.sigma !== sigma)
-                    effect.sigma = sigma;
+                if (effect.radius !== radius)
+                    effect.radius = radius;
             } catch (error) {
                 console.warn(
                     '[Velora][TerminalBlur] radius change skipped: ' + error
