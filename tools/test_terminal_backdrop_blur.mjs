@@ -49,6 +49,9 @@ class StWidget {
         this.effectName = name;
         this.effects.push(effect);
     }
+    get_effects() {return [...this.effects];}
+    get width() {return this.size?.[0] ?? 0;}
+    get height() {return this.size?.[1] ?? 0;}
     hide() {this.visible = false;}
     show() {this.visible = true;}
     destroy() {this.destroyed = true;}
@@ -69,7 +72,22 @@ class BlurEffect {
     }
 }
 let failBlurEffect = false;
-const Shell = {BlurEffect, BlurMode: {BACKGROUND: 'BACKGROUND'}};
+let failMask = false;
+class TerminalBlurOutputMask {
+    constructor() {this.frames = [];}
+    updateFrame(width, height, radius) {
+        if (failMask)
+            throw new Error('Rounded-output mask unavailable');
+        this.frames.push([width, height, radius]);
+    }
+}
+const MASK_EFFECT_NAME = 'velora-ptyxis-rounded-output-mask';
+const DEFAULT_CORNER_RADIUS = 12;
+const Shell = {
+    BlurEffect,
+    GLSLEffect: class {},
+    BlurMode: {BACKGROUND: 'BACKGROUND'},
+};
 const Meta = {WindowType: {NORMAL: 0, DIALOG: 1}};
 const St = {Widget: StWidget};
 const managerSignals = new Signals();
@@ -83,8 +101,10 @@ const fakeGlobal = {
 const stripped = src.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
 const api = new Function(
     'Meta', 'Shell', 'St', 'global',
-    stripped + '\nreturn {isPtyxisWindow, computeTerminalBlurFrame, TerminalBackdropBlurManager};'
-)(Meta, Shell, St, fakeGlobal);
+    'TerminalBlurOutputMask', 'DEFAULT_CORNER_RADIUS', 'MASK_EFFECT_NAME',
+    stripped + '\nreturn {isPtyxisWindow, computeTerminalBlurFrame, terminalCornerRadius, TerminalBackdropBlurManager};'
+)(Meta, Shell, St, fakeGlobal,
+    TerminalBlurOutputMask, DEFAULT_CORNER_RADIUS, MASK_EFFECT_NAME);
 
 function meta(name, type = Meta.WindowType.NORMAL) {
     const target = new Signals();
@@ -155,9 +175,12 @@ assert.ok(original.y + original.height <= defaultWindow.height);
 
 const scaled = new WindowActor(meta('ptyxis'));
 scaled.width = 408; scaled.height = 310; // 0.5 compositor-to-buffer scale
+assert.equal(api.computeTerminalBlurFrame(scaled.metaWindow, scaled),
+    null, 'GNOME 50 must NOT guess a scale from a transient actor allocation');
+scaled.width = 816; scaled.height = 620;
 assert.deepEqual(api.computeTerminalBlurFrame(scaled.metaWindow, scaled),
-    {x: 4, y: 2, width: 400, height: 300},
-    'fractional scaling must crop at the compositor actor scale');
+    {x: 8, y: 4, width: 800, height: 600},
+    'GNOME 50 frame uses native frame minus buffer without guessed scaling');
 
 const partial = new WindowActor(meta('ptyxis'));
 partial.metaWindow.frame = {x: 3, y: 14, width: 800, height: 600};
@@ -196,8 +219,16 @@ assert.equal(managerSignals.count(), 0, 'opt-out must not observe windows');
 
 settings.set_boolean('terminal-backdrop-blur-enabled', true);
 assert.equal(manager._windows.size, 1, 'only non-conflicting Ptyxis matches');
-const {backdrop, effect} = manager._windows.get(terminal);
+const {backdrop, effect, mask} = manager._windows.get(terminal);
 assert.ok(backdrop instanceof StWidget);
+assert.equal(mask instanceof TerminalBlurOutputMask, true);
+assert.deepEqual(backdrop.get_effects(), [mask, effect],
+    'rounded output mask must process final background blur pixels');
+assert.deepEqual(mask.frames.at(-1), [800, 600, 12]);
+assert.equal(api.terminalCornerRadius(terminal.metaWindow), 12);
+terminal.metaWindow.is_fullscreen = () => true;
+assert.equal(api.terminalCornerRadius(terminal.metaWindow), 0);
+delete terminal.metaWindow.is_fullscreen;
 assert.equal(terminal.children[0], backdrop);
 assert.equal(terminal.children[1], terminal.surface);
 assert.equal(terminal.bottomPinned, true);
@@ -220,7 +251,7 @@ assert.equal(terminal.metaWindow.count(), 2,
     'window resize and position listeners installed');
 assert.equal(terminal.count(), 2, 'actor allocation and destroy listened to');
 assert.match(settings.get_string('terminal-backdrop-blur-status'),
-    /visual unverified/);
+    /Masked: 1.*visual unverified/);
 
 settings.set_int('terminal-backdrop-blur-radius', 26);
 assert.equal(effect.radius, 52);
@@ -234,6 +265,7 @@ terminal.metaWindow.frame.height = 540;
 terminal.metaWindow.emit('size-changed');
 assert.deepEqual(backdrop.size, [740, 540]);
 assert.deepEqual(backdrop.clip, [0, 0, 740, 540]);
+assert.deepEqual(mask.frames.at(-1), [740, 540, 12]);
 assert.deepEqual(backdrop.position, [8, 4]);
 
 terminal.metaWindow.frame.x = 22; // buffer.x remains 10
@@ -255,8 +287,9 @@ const fractional = new WindowActor(meta('ptyxis'));
 fractional.width = 408;
 fractional.height = 310;
 managerSignals.emit('map', fractional);
-assert.equal(manager._windows.size, 2);
-assert.deepEqual(manager._windows.get(fractional).backdrop.size, [400, 300]);
+assert.equal(manager._windows.size, 1);
+assert.equal(manager._windows.has(fractional), false,
+    'transient scaling may NOT attach oversized background blur');
 
 failBlurEffect = true;
 const failed = new WindowActor(meta('ptyxis'));
@@ -268,13 +301,25 @@ assert.equal(failed.children.length, 1);
 assert.match(manager._lastAttachFailure, /create-blur-effect/);
 failBlurEffect = false;
 
+// No blur may be rendered if the rounded post-mask is unavailable. Never
+// fall back to a square or full-buffer blur in a Wayland session.
+failMask = true;
+const missingMask = new WindowActor(meta('ptyxis'));
+managerSignals.emit('map', missingMask);
+assert.equal(manager._windows.has(missingMask), false);
+assert.equal(missingMask.children.length, 1);
+assert.equal(missingMask.metaWindow.count(), 0);
+assert.equal(missingMask.count(), 0);
+assert.match(manager._lastAttachFailure, /create-output-mask:.*mask unavailable/);
+failMask = false;
+
 const added = new WindowActor(meta('org.gnome.Ptyxis'));
 displaySignals.emit('window-created', {
     get_compositor_private: () => added,
 });
-assert.equal(manager._windows.size, 3);
-added.emit('destroy');
 assert.equal(manager._windows.size, 2);
+added.emit('destroy');
+assert.equal(manager._windows.size, 1);
 assert.equal(added.metaWindow.count(), 0, 'window destruction disconnects hooks');
 
 settings.set_boolean('terminal-backdrop-blur-enabled', false);
@@ -297,6 +342,10 @@ assert.match(schema, /<key name="terminal-backdrop-blur-enabled" type="b">\s*<de
 assert.match(installer, /"terminalBackdropBlur.js"/);
 assert.match(builder, /"terminalBackdropBlur.js"/);
 assert.match(src, /backdrop\.set_clip\(0, 0, next\.width, next\.height\)/);
+assert.match(src, /new TerminalBlurOutputMask\(\)/);
+assert.match(src, /order\[0\] !== mask/);
+assert.match(installer, /"terminalBlurMask\.js"/);
+assert.match(builder, /"terminalBlurMask\.js"/);
 assert.doesNotMatch(src, /Clutter\.BindConstraint|\beffect\.sigma\b|\bsigma\s*:/,
     'never blur whole WindowActor or use obsolete GNOME sigma API');
 assert.doesNotMatch(src,
