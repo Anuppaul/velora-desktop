@@ -63,7 +63,9 @@ Open **GNOME Extensions → Velora Desktop → Preferences → Terminal**.
 
 - Turn on **Real backdrop blur**.
 - The default strength is **18** (legacy sigma-equivalent), adjustable from 4–36. GNOME Shell 50 uses **`radius = strength × 2`**, so the native blur radius is 36 at the default value.
-- Check **Live compositor attachment** for `Attached: N Ptyxis window(s)`.
+- Check **Live compositor attachment** for `Masked: N Ptyxis window(s)`:
+  a frame-bounded blur with an outer rounded GPU alpha mask has been
+  attached. This remains **visual-unverified** until tested on GNOME 50.1.
 - Start with a small floating Ptyxis window over a wallpaper or another
   application, then drag it over contrasting content to visually check blur.
 - Keep the native Ptyxis background partly transparent to see the backdrop.
@@ -126,19 +128,38 @@ identifies the failing stage: `find-surface`, `frame-geometry`,
 `create-actor`, `connect-geometry`, `create-blur-effect`,
 `add-effect`, `insert-under-surface`, or `connect-destroy`.
 
-**Frame clipping (October 2026):** A previous version used the full
-Meta.WindowActor width/height and painted blur outside the visible Ptyxis
-window, into Wayland client-side shadow margins. Now the blur is cropped
-to the intersection of `Meta.Window.get_frame_rect()` (visible boundary)
-and `get_buffer_rect()` (Wayland buffer including shadows), mapped into
-the window actor's local coordinate system. Rounded corners may still
-require a separate shape-aware mask: rectangular clipping guarantees
-the blur stays within the frame rectangle, not the precise curved outline.
+**Rounded blur output mask (October 2026):** PR #76 used frame/buffer
+geometry and `Clutter.set_clip()`, but live testing confirmed that blur still
+appeared outside the main Ptyxis window. The old code also guessed the
+compositor scale from actor dimensions, which can shift the blur on GNOME 50.
 
-The blur actor calls `set_clip()` using the exact frame dimensions and
-updates those bounds on native window resize/position/allocation events.
-If geometry is unavailable or invalid, the blur is hidden (no oversized
-fallback). This is not a global fullscreen effect.
+The updated path has two independent bounds:
+
+1. **Native GNOME 50 geometry:** determine frame-local coordinates from
+   `frame_rect - buffer_rect`, intersect with the actual client buffer,
+   and round *inwards*. GNOME 50 uses the framebuffer-scale pipeline; do
+   not apply a second inferred `actorWidth / bufferWidth` scale. If actor
+   geometry contradicts the native buffer size by more than 8%, the blur
+   **fails closed** instead of guessing and spilling outside.
+2. **GPU final output alpha mask:** before adding the background blur, install
+   an outermost `Shell.GLSLEffect` (original Velora code). It masks the
+   *blurred output* after the blur pass to a 12px rounded rectangle, with
+   a 1.5px interior safety inset and antialiased corners. Maximized/fullscreen
+   Terminal windows use square corners. No extra library, system theme,
+   screenshot or full-screen overlay is installed.
+
+If GNOME 50 cannot create the mask, resolve its uniforms or establish the
+expected effect order, Velora **does not show an unmasked blur**. The terminal
+continues using its native Ptyxis transparency. The GObject shader type
+is cached in the Shell process to avoid duplicate registration during
+developer hot-swaps.
+
+The status `Masked: N Ptyxis window(s)` means the two shader effects are
+attached in order—not that their pixels have passed live visual QA.
+The output mask adds a GPU offscreen pass and may increase compositor cost
+on large windows. Rectangular clipping alone was not sufficient for this
+device. GNOME Shell 50 Wayland corner shape, fractional scaling, fullscreen
+and resize still require real-device comparison.
 
 Capture the exact failure without restarting the session:
 
@@ -183,16 +204,14 @@ command refuses to overwrite it. Review the conflict before using
 - **Lifecycle:** initially scans already mapped windows, then listens only
   for GNOME window map/create events. No timeout polling, screenshots or CPU
   readbacks. Actor destruction and extension disable free owned resources.
-- **Rendering:** a paintable `St.Widget` carrying
-  `Shell.BlurEffect(BACKGROUND)` is inserted beneath the native
-  Meta.WindowActor surface. Its position and dimensions are computed
-  from `frame_rect` intersected with `buffer_rect`, including the
-  buffer-to-actor scale where needed. An explicit actor-relative clip
-  prevents the GPU effect painting in CSD shadow margins. Native
-  terminal content and native window shadows remain unchanged.
-  There is **no** fallback to blurring the full WindowActor.
-  The frame is rectangular; pixel-perfect rounded-corner masking still
-  requires on-device verification and possibly separate shape masking.
+- **Rendering:** `St.Widget` carries two effects, ordered
+  `TerminalBlurOutputMask (outer)` then
+  `Shell.BlurEffect(BACKGROUND) (inner)`, underneath the native Ptyxis
+  surface. The outer shader masks final blurred pixels to the visible
+  rounded frame; native text remains sharp and the Mutter window is not
+  reparented or faded. The frame is located via native GNOME 50
+  `frame_rect - buffer_rect` geometry, without guessed fractional
+  scaling. There is **no** full WindowActor blur fallback.
 - **Compatibility:** GNOME Shell 50 only; depends on private compositor actor
   APIs that may change. Unsupported API branches fail closed. Physical GNOME
   50.1/Wayland, multiple monitor, minimization/overview, tiling/fullscreen,
@@ -215,8 +234,11 @@ command refuses to overwrite it. Review the conflict before using
 
 - GNOME Shell 46 migration guide (replace `sigma` with `radius = sigma * 2`):
   https://gjs.guide/extensions/upgrading/gnome-shell-46.html
-- GNOME Shell's `Shell.BlurEffect` BACKGROUND mode as used in GNOME 50
-  window-effect projects.
+- GNOME Shell 50 `Shell.BlurEffect(BACKGROUND)` final-paint behavior:
+  https://github.com/GNOME/gnome-shell/blob/gnome-50/src/shell-blur-effect.c
+- GNOME Shell 50 `Shell.GLSLEffect` fragment pipeline lifecycle, used for
+  Velora's original rounded alpha mask: `vfunc_build_pipeline`,
+  `get_uniform_location`, `set_uniform_float`.
 - winfx effects documentation:
   https://winfx.readthedocs.io/en/latest/guide/effects/
 - Blur My Shell application effects implementation:
