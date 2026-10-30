@@ -96,7 +96,12 @@ let liveWindowActors = [];
 const fakeGlobal = {
     window_manager: managerSignals,
     display: displaySignals,
-    get_window_actors() {return liveWindowActors;},
+    compositor: {
+        get_window_actors() {return liveWindowActors;},
+    },
+    get_window_actors() {
+        throw new Error('Shell 50 must prefer global.compositor window actors');
+    },
 };
 const stripped = src.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
 const api = new Function(
