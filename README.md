@@ -397,10 +397,14 @@ Velora now provides **two independent, opt-in layers** for Ptyxis:
   `Shell.BlurEffect(BACKGROUND)` beneath the original Ptyxis surface,
   not a global GTK theme or an additional installed extension.
 
-**Not the full Liquid Glass v10 refractive shader.** This experimental
-GPU blur still requires GNOME 50.1 visual/performance testing and reviewer
-validation; it does not change other applications. See the
-[Terminal Glass guide](docs/TERMINAL_GLASS.md).
+**Not the full Liquid Glass v10 refractive shader.** Terminal blur
+now uses a GNOME 50-native frame rectangle and an original rounded GPU
+*output* mask. This specifically targets the blur escaping the window
+reported after PR #76, but remains experimental until confirmed on the
+GNOME 50.1 desktop. On missing/mismatched geometry or an unavailable
+mask shader, it fails closed to the already-working native transparency.
+No extra package, GTK global theme or other application is modified. See
+the [Terminal Glass guide](docs/TERMINAL_GLASS.md).
 
 ```bash
 python3 tools/velora_terminal_glass.py status
