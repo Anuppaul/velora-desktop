@@ -240,7 +240,13 @@ export class TerminalBackdropBlurManager {
         if (!this._enabled)
             return;
         try {
-            for (const actor of global.get_window_actors?.() ?? [])
+            // GNOME 48+ exposes window actors through global.compositor.
+            // The old global.get_window_actors() is absent on Shell 50:
+            // opening Preferences after Ptyxis is already mapped must
+            // still apply blur without restarting the Terminal.
+            const actors = global.compositor?.get_window_actors?.() ??
+                global.get_window_actors?.() ?? [];
+            for (const actor of actors)
                 this._attach(actor);
         } catch (error) {
             console.warn('[Velora][TerminalBlur] scan skipped: ' + error);
