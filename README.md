@@ -364,10 +364,12 @@ Velora shows a Brightness slider immediately **under Sound** in GNOME
 Quick Settings. On hardware with a native backlight, it reuses GNOME 50's
 existing control. If GNOME hides that control on desktop/external monitors,
 Velora adds a native-style slider using **software dimming** (30–100%)
-of GNOME's full desktop scene—including windows, wallpaper, top panel and
-Quick Settings—rather than dimming only application windows. This does
-not control the monitor's physical backlight. Default 100% means no visual
-change and no extra compositor GPU pass.
+of GNOME's full desktop scene—including windows, wallpaper, top panel,
+Quick Settings and fullscreen video. When dimming is active, Velora
+temporarily inhibits Mutter direct scanout so fullscreen video cannot bypass
+the brightness effect; this adds GPU compositing work. Brightness 100%
+restores the normal direct-scanout optimisation and removes the extra GPU
+effect. This does not control the monitor's physical backlight.
 
 Enable/disable via **Velora Preferences → Menus → Quick Settings Brightness**.
 Restoring the original GNOME layout removes all Velora-owned dimming effects.

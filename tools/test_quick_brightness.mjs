@@ -116,6 +116,32 @@ class BrightnessContrastEffect {
     }
 }
 
+// GNOME Shell 50's Meta.Compositor uses a ref-counted unredirect inhibit.
+// Native OSD has matching disable_unredirect()/enable_unredirect() calls.
+// Simulate direct scanout bypassing uiGroup brightness when count == 0.
+class Compositor {
+    constructor() {
+        this.inhibitCount = 0;
+        this.disableCalls = 0;
+        this.enableCalls = 0;
+        this.shouldFail = false;
+    }
+    disable_unredirect() {
+        if (this.shouldFail)
+            throw new Error('compositor rejected direct scanout inhibition');
+        this.disableCalls++;
+        this.inhibitCount++;
+    }
+    enable_unredirect() {
+        assert.ok(this.inhibitCount > 0, 'refcount underflow');
+        this.enableCalls++;
+        this.inhibitCount--;
+    }
+    sceneBrightnessVisibleOnFullscreen() {
+        return this.inhibitCount > 0;
+    }
+}
+
 class Host {
     constructor(name = 'host', children = []) {
         this.name = name;
@@ -223,10 +249,12 @@ const uiGroup = new Host('GNOME-uiGroup', [
 ]);
 const stage = new Host('root-stage', [uiGroup]);
 Main.layoutManager = {uiGroup};
+const compositor = new Compositor();
 const global = {
     window_group: windowGroup,
     top_window_group: topWindowGroup,
     stage,
+    compositor,
 };
 const Clutter = {BrightnessContrastEffect};
 
@@ -263,6 +291,10 @@ assert.equal(controller._softwareSlider.slider.accessible_name,
     'Brightness (software dimming)');
 assert.equal(uiGroup.effects.size, 0,
     '100% brightness must not allocate a GPU dimming effect');
+assert.equal(compositor.inhibitCount, 0,
+    '100% must preserve fullscreen direct scanout');
+assert.equal(compositor.disableCalls, 0,
+    'no compositor inhibition until GPU dimming starts');
 assert.equal(windowGroup.effects.size, 0,
     'a windows-only effect must NEVER be used for full-screen dimming');
 assert.equal(menu.items.length, 1, 'only one native-looking fallback created');
@@ -276,6 +308,11 @@ assert.equal(windowGroup.effects.size, 0,
     'do not dim only window_group; that was the reported partial effect');
 assert.equal(stage.effects.size, 0,
     'global.stage root shader may blank the desktop');
+assert.equal(compositor.inhibitCount, 1,
+    'full-screen video must route through uiGroup compositor while dimmed');
+assert.equal(compositor.disableCalls, 1,
+    'one disable_unredirect call per active dimming lease');
+assert.equal(compositor.sceneBrightnessVisibleOnFullscreen(), true);
 const dimEffect = controller._effect;
 assert.ok(dimEffect.brightness < 0);
 assert.ok(dimEffect.brightness > -0.5);
@@ -288,11 +325,26 @@ brightnessManager.emit('changed');
 flushIdle();
 assert.equal(grid.get_children().filter(a =>
     a.name === 'velora-fallback-slider').length, 1);
+assert.equal(compositor.inhibitCount, 1);
+assert.equal(compositor.disableCalls, 1,
+    'slider updates may NEVER accumulate global compositor holds');
+
+// Drag brightness continuously while fullscreen; no ref-count churn.
+controller._softwareSlider.slider.value = 0.45;
+flushIdle();
+assert.equal(compositor.inhibitCount, 1);
+assert.equal(compositor.disableCalls, 1);
+assert.equal(compositor.enableCalls, 0);
+assert.equal(uiGroup.effects.size, 1);
 
 controller._softwareSlider.slider.value = 1;
 flushIdle();
 assert.equal(settings.get_int('quick-soft-brightness'), 100);
 assert.equal(uiGroup.effects.size, 0, '100% removes GPU pass');
+assert.equal(compositor.inhibitCount, 0,
+    '100% must immediately re-enable direct scanout');
+assert.equal(compositor.enableCalls, 1);
+assert.equal(compositor.sceneBrightnessVisibleOnFullscreen(), false);
 assert.equal(uiGroup.removed, 1);
 
 // GNOME 50 hardware backlight appears: switch to the already existing
@@ -305,6 +357,8 @@ brightnessManager.emit('changed');
 flushIdle();
 assert.equal(uiGroup.effects.size, 0,
     'hardware mode removes software GPU effect');
+assert.equal(compositor.inhibitCount, 0,
+    'switching to native hardware restores direct scanout');
 assert.equal(controller._softwareSlider, null,
     'hardware mode destroys fallback widget');
 assert.deepEqual(grid.get_children().map(a => a.name),
@@ -333,6 +387,8 @@ assert.deepEqual(grid.get_children().map(a => a.name),
     ['sound-output', 'sound-input', 'gnome-native-brightness']);
 assert.equal(controller._softwareSlider, null);
 assert.equal(uiGroup.effects.size, 0);
+assert.equal(compositor.inhibitCount, 0,
+    'disabling brightness restores compositor optimisations');
 assert.equal(settings.get_string('quick-brightness-status'), 'Off');
 settings.set_boolean('quick-brightness-enabled', true);
 flushIdle();
@@ -344,6 +400,10 @@ assert.equal(grid.get_children().filter(a =>
 controller.cleanup();
 flushIdle();
 assert.equal(uiGroup.effects.size, 0, 'hot-swap must release GPU dimmer');
+assert.equal(compositor.inhibitCount, 0,
+    'hot-swap must release exactly the acquired fullscreen lease');
+assert.equal(compositor.disableCalls, compositor.enableCalls,
+    'all direct scanout inhibitor reference counts balance');
 assert.equal(grid.count, 0, 'child-added signal must be disconnected');
 assert.equal(settings.count, 0);
 assert.equal(brightnessManager.count, 0);
@@ -392,6 +452,75 @@ assert.equal(stage.effects.size, 0);
 unsafe.cleanup();
 Main.layoutManager.uiGroup = uiGroup;
 
+// Unsupported GNOME compositor: do not introduce a partial brightness
+// effect that falsely claims to dim fullscreen video.
+const originalCompositor = global.compositor;
+global.compositor = {
+    disable_unredirect() {},
+    // Missing enable_unredirect must fail before acquiring anything.
+};
+const noApiSettings = new Settings();
+noApiSettings.data.set('quick-soft-brightness', 70);
+const noApi = new api.QuickBrightnessManager(noApiSettings);
+noApi.setup();
+flushIdle();
+assert.equal(uiGroup.effects.size, 0);
+assert.equal(noApi._effect, null);
+assert.equal(noApi._unredirectHeld, false);
+assert.match(noApiSettings.get_string('quick-brightness-status'),
+    /Unavailable: fullscreen compositing API missing/);
+noApi.cleanup();
+global.compositor = originalCompositor;
+
+// Failure after acquiring direct scanout inhibition (e.g., GPU effect
+// constructor/attachment exception) must release the global counter.
+const originalAddEffect = uiGroup.add_effect_with_name;
+uiGroup.add_effect_with_name = () => {
+    throw new Error('GPU shader attach refused');
+};
+const failedSettings = new Settings();
+failedSettings.data.set('quick-soft-brightness', 65);
+const failed = new api.QuickBrightnessManager(failedSettings);
+failed.setup();
+flushIdle();
+assert.equal(uiGroup.effects.size, 0);
+assert.equal(compositor.inhibitCount, 0, 'failure must release inhibitor');
+assert.equal(failed._unredirectHeld, false);
+assert.match(failedSettings.get_string('quick-brightness-status'),
+    /Unavailable: software dimming failed/);
+failed.cleanup();
+uiGroup.add_effect_with_name = originalAddEffect;
+
+// Mutter's counter is shared with OSK/OSD and other extensions.
+// Releasing Velora's ONE lease must not release another owner's hold.
+compositor.disable_unredirect(); // Native OSD-like external owner
+const nestedSettings = new Settings();
+nestedSettings.data.set('quick-soft-brightness', 60);
+const nested = new api.QuickBrightnessManager(nestedSettings);
+nested.setup();
+flushIdle();
+assert.equal(compositor.inhibitCount, 2);
+nested.cleanup();
+assert.equal(compositor.inhibitCount, 1,
+    'disabling Velora may not decrement the native OSD inhibitor');
+compositor.enable_unredirect(); // OSD releases its own hold
+assert.equal(compositor.inhibitCount, 0);
+assert.equal(compositor.disableCalls, compositor.enableCalls);
+
+// If the running compositor object changes, release exactly the one
+// acquired on the original compositor rather than an unrelated instance.
+const retainedSettings = new Settings();
+retainedSettings.data.set('quick-soft-brightness', 60);
+const retained = new api.QuickBrightnessManager(retainedSettings);
+retained.setup();
+flushIdle();
+assert.equal(compositor.inhibitCount, 1);
+global.compositor = new Compositor();
+retained.cleanup();
+assert.equal(compositor.inhibitCount, 0);
+assert.equal(global.compositor.inhibitCount, 0);
+global.compositor = originalCompositor;
+
 assert.match(runtime, /new QuickBrightnessManager\(this\._settings\)/);
 assert.match(runtime, /this\._quickBrightnessManager\?\.cleanup\(\)/);
 assert.match(prefs, /Brightness below Sound/);
@@ -399,6 +528,12 @@ assert.match(schema, /<key name="quick-brightness-enabled" type="b">\s*<default>
 assert.match(schema, /<key name="quick-soft-brightness" type="i">\s*<default>100<\/default>/);
 assert.match(installer, /"quickBrightness.js"/);
 assert.match(builder, /"quickBrightness.js"/);
+assert.match(src, /compositor\.disable_unredirect\(\)/,
+    'fullscreen video scanout bypass must be inhibited');
+assert.match(src, /compositor\?\.enable_unredirect\?\.\(\)/,
+    'release compositor inhibition on GPU effect teardown');
+assert.doesNotMatch(src, /global\.compositor\.disable_unredirect\(\)/,
+    'direct scanout ref must be owned by controller, not a global call at import');
 assert.match(src, /Main\.layoutManager\?\.uiGroup/,
     'the renderer must target the entire GNOME compositor scene');
 assert.doesNotMatch(src, /const host = global\.window_group/,
@@ -410,5 +545,6 @@ assert.doesNotMatch(src,
     'do not use screenshots, root-stage shaders, DDC access or polling');
 console.log(
     'Quick Settings brightness: full GNOME desktop incl. panel/overlays, ' +
-    'hardware hotplug, async add, no duplicate, cleanup, unavailable API PASS.'
+    'fullscreen video unredirect inhibition (balanced), hardware hotplug, ' +
+    'async add, no duplicate, cleanup, unavailable API PASS.'
 );

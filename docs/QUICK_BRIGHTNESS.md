@@ -66,6 +66,42 @@ Velora fallback otherwise. Input-volume and other Quick Settings entries
 are not replaced. If native hardware support changes while running, Velora
 switches modes and destroys the fallback before showing native brightness.
 
+## Fullscreen video and Mutter direct scanout
+
+When a fullscreen browser/video/game is eligible for **direct scanout**,
+Mutter may send its buffer directly to the monitor, bypassing Shell's
+`uiGroup` compositor pass. That made videos suddenly return to their full
+native brightness while the software brightness slider was still below
+100%, even though windowed apps and the panel were dimmed.
+
+GNOME Shell 50 exposes the same balanced compositor API used by its own
+on-screen-display controls:
+
+- **30–99% software brightness:** Velora calls
+  `global.compositor.disable_unredirect()` exactly once while its
+  `uiGroup` GPU brightness effect is active. Fullscreen video must then
+  pass through the Shell compositor, which applies the same dimming.
+- **100%, hardware-backlight switch, feature OFF, runtime hot-swap or GPU
+  attach failure:** Velora removes its GPU effect and calls
+  `enable_unredirect()` **once** on the *same compositor instance*.
+- **No compositor API:** fail closed with an Unavailable status; never
+  claim to dim fullscreen content while the compositor bypasses the
+  effect. The slider remains safe but cannot enforce software brightness.
+- Other extensions and GNOME OSD controls also hold compositor inhibitors.
+  This method is **reference counted**; Velora releases only its own hold.
+
+**Performance trade-off:** While below 100%, fullscreen video and games
+cannot use direct scanout. They must be composited, which can increase GPU
+activity, latency and power consumption compared with unmodified fullscreen
+rendering. At 100% the restriction is removed. This is required for a
+software-compositor brightness effect to remain visible in fullscreen;
+it is not physical hardware backlight adjustment.
+
+Device QA: compare the same video windowed versus fullscreen at 60%, then
+at 100%. Try Firefox fullscreen video, and check that the brightness effect
+stays active after closing Quick Settings. GNOME 50.1 Wayland multi-monitor,
+HDR and gaming fullscreen paths require on-device verification.
+
 ## GPU / Wayland safety
 
 The software fallback uses one bounded
@@ -83,13 +119,14 @@ overlay. If the GNOME scene tree does not contain both normal and
 top-window groups, Velora fails closed rather than silently reverting to
 partial window-only brightness.
 
-At 100% the effect is removed completely. At 30–99% one GPU brightness
-postprocessing pass is active on uiGroup, clamped to a maximum negative
-brightness offset of -0.5. It does not change actor/window opacity.
+At 100% the effect is removed completely and direct scanout can
+resume. At 30–99% one GPU brightness postprocessing pass is active on
+uiGroup, clamped to a maximum negative brightness offset of -0.5,
+and Mutter's fullscreen direct scanout is explicitly inhibited.
+It does not change actor/window opacity.
 This is compositor software dimming, not hardware backlight control.
-Fullscreen direct-scanout or unusual display/compositor paths may require
-device-specific verification; test GNOME 50.1 with both ordinary and
-fullscreen browser windows.
+Unusual display/compositor/HDR paths still require device-specific
+verification; test GNOME 50.1 with ordinary and fullscreen browser video.
 
 Disable the feature or disable Velora to remove only the GPU effect owned
 by Velora and restore native Quick Settings ordering. Any changes to a
@@ -112,10 +149,10 @@ it is not a hardware backlight control.
 ## Known limits and verification
 
 - **Real GNOME 50.1 / Wayland visual testing is still required.** CI checks
-  that the compositor effect targets uiGroup, containing windows, top
-  windows and Quick Settings, and that disable/100% fully removes it.
-  Mocked tests cannot prove the live screenshot is evenly dimmed.
-  Check fullscreen windows and multi-monitor setups in particular.
+  that the compositor effect targets uiGroup and holds a balanced
+  direct-scanout inhibitor while dimming; disabling/100% releases both.
+  Mocked tests cannot verify real video brightness or GPU frame timings.
+  Check fullscreen Firefox video and multi-monitor setups in particular.
 - The software dimmer processes the compositor's window group rather than
   changing monitor hardware. A maximum brightness of 100% is the original
   monitor output, not an enhancement.
@@ -143,6 +180,11 @@ Velora Preferences. Native Ptyxis background transparency can remain on.
   `js/ui/status/brightness.js` and `js/misc/brightnessManager.js`.
 - GNOME Shell 50 Quick Settings widget/grid:
   `js/ui/quickSettings.js` and `js/ui/panel.js`.
+- GNOME developer confirmation of direct-scanout inhibition:
+  https://discourse.gnome.org/t/my-window-borders-disappear-without-consistency/33951
+- GNOME Shell 50 `js/ui/osdWindow.js` balanced
+  `global.compositor.disable_unredirect()` /
+  `global.compositor.enable_unredirect()` for its native OSD.
 - GNOME Shell 49 brightness migration:
   https://gjs.guide/extensions/upgrading/gnome-shell-49.html
 - `Clutter.BrightnessContrastEffect` (native Mutter effect):

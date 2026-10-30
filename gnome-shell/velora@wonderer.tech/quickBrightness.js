@@ -10,9 +10,13 @@
 //    backed by one Clutter.BrightnessContrastEffect on GNOME's uiGroup.
 //    This dims wallpaper, windows, Shell panel and Quick Settings together.
 //    It is *software dimming*, not DDC/CI, hardware backlight or gamma.
-// 3. The GPU effect exists only below 100%; never modify actor opacity,
+// 3. Fullscreen video can use Mutter direct scanout and BYPASS uiGroup's
+//    shader. While software dimming is active, hold one ref-counted
+//    compositor.disable_unredirect() lease (as GNOME's OSD does).
+//    Release the EXACT same lease on 100%, disable, failure or hot-swap.
+// 4. The GPU effect exists only below 100%; never modify actor opacity,
 //    attach to global.stage, create a fullscreen overlay or poll.
-// 4. Full restore on disable / live runtime hot-swap.
+// 5. Full restore on disable / live runtime hot-swap.
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -97,6 +101,8 @@ export class QuickBrightnessManager {
         this._softwareSliderChangedId = 0;
         this._effect = null;
         this._effectHost = null;
+        this._unredirectCompositor = null;
+        this._unredirectHeld = false;
         this._movedNative = null;
         this._status = '';
     }
@@ -337,6 +343,67 @@ export class QuickBrightnessManager {
         try { item.destroy(); } catch {}
     }
 
+    /**
+     * GNOME Shell 50 / Mutter can scan a fullscreen video's buffer directly
+     * to the monitor, bypassing the UI scene completely. uiGroup's
+     * Clutter.BrightnessContrastEffect will then NOT affect fullscreen
+     * video. GNOME's own OSD calls disable_unredirect()/enable_unredirect()
+     * in balanced pairs. This is a reference-counted compositor inhibition:
+     * own exactly one lease per active software brightness GPU pass.
+     *
+     * Do not acquire in native hardware mode or at 100%. If unsupported,
+     * fail closed rather than letting fullscreen suddenly become bright.
+     */
+    _acquireCompositing() {
+        if (this._unredirectHeld)
+            return true;
+
+        const compositor = global.compositor;
+        if (
+            !compositor ||
+            typeof compositor.disable_unredirect !== 'function' ||
+            typeof compositor.enable_unredirect !== 'function'
+        ) {
+            this._publishStatus(
+                'Unavailable: fullscreen compositing API missing'
+            );
+            return false;
+        }
+
+        try {
+            compositor.disable_unredirect();
+            this._unredirectCompositor = compositor;
+            this._unredirectHeld = true;
+            return true;
+        } catch (error) {
+            this._publishStatus(
+                'Unavailable: cannot keep fullscreen video dimmed'
+            );
+            console.warn(
+                '[Velora][Brightness] disable_unredirect failed: ' + error
+            );
+            return false;
+        }
+    }
+
+    _releaseCompositing() {
+        if (!this._unredirectHeld)
+            return;
+
+        const compositor = this._unredirectCompositor;
+        // Mark released before invoking a foreign GNOME Shell callback so
+        // reentrant teardown cannot accidentally decrement twice.
+        this._unredirectHeld = false;
+        this._unredirectCompositor = null;
+        try {
+            compositor?.enable_unredirect?.();
+        } catch (error) {
+            console.warn(
+                '[Velora][Brightness] enable_unredirect failed: ' + error
+            );
+        }
+    }
+
     _applySoftDim(percent) {
         const value = clampSoftBrightness(percent);
         const dim = softwareDimFactor(value);
@@ -359,10 +426,19 @@ export class QuickBrightnessManager {
         }
 
         // If Shell rebuilt its uiGroup, remove the old effect first:
-        // keeping an effect on a retired window group could leave the
-        // screen unevenly dimmed even though the slider shows one value.
+        // the old compositor inhibition must also be released before a
+        // replacement effect takes ownership.
         if (this._effect && this._effectHost !== host)
             this._removeEffect();
+
+        // Acquire BEFORE adding the scene brightness shader: a fullscreen
+        // video may already be scanned out directly when the slider moves.
+        // Holding the lease across subsequent slider updates prevents
+        // repeated compositor-wide toggle/repaint churn.
+        if (!this._acquireCompositing()) {
+            this._removeEffect();
+            return false;
+        }
 
         if (!this._effect) {
             try {
@@ -406,8 +482,19 @@ export class QuickBrightnessManager {
         this._effect = null;
         this._effectHost = null;
         if (host && effect) {
-            try { host.remove_effect(effect); } catch {}
+            try {
+                host.remove_effect(effect);
+            } catch (error) {
+                console.warn(
+                    '[Velora][Brightness] remove owned GPU effect failed: ' +
+                    error
+                );
+            }
         }
+        // MUST run even when effect creation failed after disabling
+        // direct scanout. Never hold the compositor's global counter after
+        // the shader disappears or on extension hot-swap.
+        this._releaseCompositing();
     }
 
     _sync() {
@@ -465,7 +552,7 @@ export class QuickBrightnessManager {
                 }
                 if (this._applySoftDim(percent)) {
                     this._publishStatus(
-                        'Software dimming: full desktop (external display)'
+                        'Software dimming: desktop + fullscreen video (GPU)'
                     );
                 }
             }
