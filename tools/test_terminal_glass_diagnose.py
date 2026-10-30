@@ -131,7 +131,7 @@ class TerminalGlassDiagnosticsTests(unittest.TestCase):
                           return_value="/usr/bin/journalctl"), \
              patch.object(diag.subprocess, "run",
                 return_value=SimpleNamespace(
-                    returncode=0, stdout="\\n".join(lines))):
+                    returncode=0, stdout="\n".join(lines))):
             self.assertEqual(len(diag.shell_lines(12)), 2)
             self.assertTrue(all(
                 "[Velora][TerminalBlur]" in text
