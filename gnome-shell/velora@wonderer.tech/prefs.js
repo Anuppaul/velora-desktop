@@ -533,6 +533,53 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'open-menu-symbolic'
         );
 
+        const quickBrightnessGroup = new Adw.PreferencesGroup({
+            title: 'Quick Settings Brightness',
+            description:
+                'A Brightness bar immediately below Sound. GNOME hardware backlight is reused when available; desktop monitors without backlight use reversible software dimming.',
+        });
+        menusPage.add(quickBrightnessGroup);
+
+        addSwitch(
+            quickBrightnessGroup,
+            settings,
+            'quick-brightness-enabled',
+            'Brightness below Sound',
+            'Use GNOME’s native slider or a software dimmer for external displays. ON by default.'
+        );
+
+        const softwareBrightnessRow = addIntSpin(
+            quickBrightnessGroup,
+            settings,
+            'quick-soft-brightness',
+            'Software brightness (%)',
+            'Only used without hardware backlight. 100% = original image, no GPU effect. Range 30–100%; cannot boost physical monitor backlight.',
+            30, 100, 1
+        );
+
+        const brightnessStatus = new Adw.ActionRow({
+            title: 'Brightness control mode',
+            subtitle: settings.get_string('quick-brightness-status'),
+        });
+        quickBrightnessGroup.add(brightnessStatus);
+
+        const syncBrightnessControls = () => {
+            softwareBrightnessRow.sensitive =
+                settings.get_boolean('quick-brightness-enabled') &&
+                settings.get_string('quick-brightness-status')
+                    .startsWith('Software');
+            brightnessStatus.subtitle =
+                settings.get_string('quick-brightness-status');
+        };
+        syncBrightnessControls();
+        settings.connect(
+            'changed::quick-brightness-enabled', syncBrightnessControls
+        );
+        settings.connect(
+            'changed::quick-brightness-status', syncBrightnessControls
+        );
+
+
         const panelMenus = new Adw.PreferencesGroup({
             title: 'Panel Menu Behavior',
             description:
