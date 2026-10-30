@@ -13,6 +13,7 @@ import {LiquidGlassIntegration} from './liquidGlassDock.js';
 import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
 import {TerminalBackdropBlurManager} from './terminalBackdropBlur.js';
+import {QuickBrightnessManager} from './quickBrightness.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -259,6 +260,7 @@ export default class VeloraRuntime extends Extension {
         this._searchSurfaceManager = null;
         this._spotlightSearch = null;
         this._terminalBackdropBlurManager = null;
+        this._quickBrightnessManager = null;
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
@@ -323,6 +325,19 @@ export default class VeloraRuntime extends Extension {
             });
         this._spotlightSearch.setup();
 
+        // GNOME 50 Quick Settings brightness directly beneath Sound.
+        // Reuse hardware backlight when available; provide native-looking
+        // software dimming on desktops where GNOME hides brightness.
+        try {
+            this._quickBrightnessManager =
+                new QuickBrightnessManager(this._settings);
+            this._quickBrightnessManager.setup();
+        } catch (error) {
+            try { this._quickBrightnessManager?.cleanup(); } catch {}
+            this._quickBrightnessManager = null;
+            console.warn('[Velora][Brightness] setup skipped: ' + error);
+        }
+
         // Independent, opt-in compositor-native Ptyxis window blur. Does
         // not depend on Liquid Glass startup and does not modify text alpha.
         try {
@@ -362,6 +377,8 @@ export default class VeloraRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._quickBrightnessManager?.cleanup();
+        this._quickBrightnessManager = null;
         this._terminalBackdropBlurManager?.cleanup();
         this._terminalBackdropBlurManager = null;
         this._spotlightSearch?.destroy?.();

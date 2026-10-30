@@ -62,6 +62,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 | **Velora Spotlight** | Centered `Super+Space` application search with adaptive glass and native-style result presentation. |
 | **Ubuntu Dock integration & settings** | Restyles the existing Ubuntu Dock and lets you manage its native autohide, intellihide, pressure, delays, position, panel mode, icons, application list and click actions inside Velora Preferences. |
 | **Native Shell surfaces** | Shared glass treatment for Quick Settings, Date/Calendar, notifications, panel/status popups and supported Shell-owned cards. |
+| **Brightness directly below Sound** | GNOME's original brightness QuickSlider on supported hardware; a matching software-dimming slider (30–100%) on desktop monitors without a native backlight. Original image at 100% costs no extra GPU effect. |
 | **Monitor-safe launcher geometry** | Orbit, Star, Molecule, Spiral and Petal layouts with fit-first placement and paging near monitor edges/corners. |
 | **Adaptive text** | Light/dark foreground treatment where Velora owns the visual layer, without replacing semantic GNOME states. |
 | **Low-overhead design** | Shared sources, compositor-native actors/effects, cached/downscaled blur and event-driven updates instead of permanent JS polling. |
@@ -356,6 +357,20 @@ gnome-extensions prefs velora@wonderer.tech
 - **Developer/source installation:** update the source checkout and rerun
   `bash gnome-shell/install.sh`. Hot updates are a developer workflow; a
   Store package must not require them.
+
+### Quick Settings Brightness — same native slider as Sound
+
+Velora shows a Brightness slider immediately **under Sound** in GNOME
+Quick Settings. On hardware with a native backlight, it reuses GNOME 50's
+existing control. If GNOME hides that control on desktop/external monitors,
+Velora adds a native-style slider using **software dimming** (30–100%);
+this does not control the monitor's physical brightness. Default 100% means
+no visual change and no extra compositor GPU pass.
+
+Enable/disable via **Velora Preferences → Menus → Quick Settings Brightness**.
+Restoring the original GNOME layout removes all Velora-owned dimming effects.
+No external ddcutil, daemon, or extension is required. See
+[Quick Settings Brightness guide](docs/QUICK_BRIGHTNESS.md).
 
 ### Terminal Glass — native Ptyxis GPU backdrop blur (experimental)
 
