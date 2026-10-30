@@ -31,16 +31,27 @@ class MockGLSLEffect {
     }
     queue_repaint() {this.repaintCount++;}
 }
-const api = new Function('Cogl', 'GObject', 'Shell',
+const cacheKey = '__veloraPtyxisBlurOutputMaskClassV1';
+const previousCache = globalThis[cacheKey];
+delete globalThis[cacheKey];
+let registrations = 0;
+const instantiateModule = new Function('Cogl', 'GObject', 'Shell',
     src + '\nreturn {TerminalBlurOutputMask, MASK_CODE, EDGE_INSET, clampCornerRadius};'
-)(
-    {SnippetHook: {FRAGMENT: 'FRAGMENT'}},
-    {registerClass(meta, ctor) {
-        assert.equal(meta.GTypeName, 'VeloraPtyxisBlurOutputMaskV1');
-        return ctor;
-    }},
-    {GLSLEffect: MockGLSLEffect}
 );
+const mockGObject = {registerClass(meta, ctor) {
+    assert.equal(meta.GTypeName, 'VeloraPtyxisBlurOutputMaskV1');
+    registrations++;
+    if (registrations !== 1)
+        throw new Error('native GType was registered twice during hot-swap');
+    return ctor;
+}};
+const mockCogl = {SnippetHook: {FRAGMENT: 'FRAGMENT'}};
+const mockShell = {GLSLEffect: MockGLSLEffect};
+const api = instantiateModule(mockCogl, mockGObject, mockShell);
+const reloaded = instantiateModule(mockCogl, mockGObject, mockShell);
+assert.equal(reloaded.TerminalBlurOutputMask, api.TerminalBlurOutputMask,
+    'Shell runtime revision must reuse the same GObject GType');
+assert.equal(registrations, 1, 'only one native GType registration per session');
 const effect = new api.TerminalBlurOutputMask();
 assert.equal(effect.snippets.length, 1);
 assert.match(effect.snippets[0].declarations, /uniform vec2 velora_mask_size/);
@@ -95,6 +106,10 @@ for(const [x,y] of [[0,0],[800,0],[0,600],[800,600],
         'blur must not paint outside frame edges or rounded corners');
 }
 assert.equal(coverage(400, 300, 800, 600, 0), 1);
+if (previousCache === undefined)
+    delete globalThis[cacheKey];
+else
+    globalThis[cacheKey] = previousCache;
 console.log(
     'Ptyxis GNOME50 rounded output mask: GLSL uniforms, resize, ' +
     'rounded-frame SDF and fail-closed shader errors PASS.'
