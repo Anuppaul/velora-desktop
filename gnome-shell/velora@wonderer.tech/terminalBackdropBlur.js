@@ -10,6 +10,7 @@
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
+import {TerminalBlurOutputMask, DEFAULT_CORNER_RADIUS, MASK_EFFECT_NAME} from './terminalBlurMask.js';
 
 const BLUR_ACTOR_NAME = 'velora-ptyxis-backdrop-blur';
 // Never stack an extra expensive background pass on another extension's blur.
@@ -68,48 +69,67 @@ export function isPtyxisWindow(metaWindow) {
 }
 
 /**
- * Compute visible Meta.Window frame in local buffer/actor coordinates.
- * frame_rect excludes CSD shadows while buffer_rect includes them.
- * Scale for fractional displays, rounding inward so blur never spills.
+ * Native GNOME Shell 50 Wayland frame geometry, in the compositor actor's
+ * unscaled local coordinate system.
+ *
+ * GNOME 50 enables "scale-monitor-framebuffer", so do NOT guess extra
+ * actorWidth/bufferWidth scaling. That was the PR #76 mismatch: a
+ * fractional/animated actor allocation could shift the mask outside the
+ * real Ptyxis window. Prefer no blur over guessed geometry.
+ *
+ * This follows Mutter's frame_rect - buffer_rect formula, and clips its
+ * intersection to the buffer. The output shader separately masks rounded
+ * window corners AFTER background blur, unlike Clutter.set_clip.
  */
 export function computeTerminalBlurFrame(metaWindow, actor) {
     const frame = metaWindow?.get_frame_rect?.();
     const buffer = metaWindow?.get_buffer_rect?.();
     const valid = rect => rect && ['x', 'y', 'width', 'height']
         .every(key => Number.isFinite(rect[key])) &&
-        rect.width > 1 && rect.height > 1;
+        rect.width >= 4 && rect.height >= 4;
     if (!valid(frame) || !valid(buffer))
         return null;
+
+    // Guard against attaching the background to a differently transformed
+    // or transient compositor actor. This is a fail-closed verification only,
+    // NOT a ratio used to stretch the blur into the wrong coordinate space.
+    const actualWidth = actor?.get_width?.();
+    const actualHeight = actor?.get_height?.();
+    if (
+        Number.isFinite(actualWidth) && actualWidth > 1 &&
+        Math.abs(actualWidth - buffer.width) >
+            Math.max(4, buffer.width * 0.08)
+    ) {
+        return null;
+    }
+    if (
+        Number.isFinite(actualHeight) && actualHeight > 1 &&
+        Math.abs(actualHeight - buffer.height) >
+            Math.max(4, buffer.height * 0.08)
+    ) {
+        return null;
+    }
 
     const left = Math.max(frame.x, buffer.x);
     const top = Math.max(frame.y, buffer.y);
     const right = Math.min(frame.x + frame.width, buffer.x + buffer.width);
     const bottom = Math.min(frame.y + frame.height, buffer.y + buffer.height);
-    if (right - left < 2 || bottom - top < 2)
+    const x1 = Math.ceil(left - buffer.x);
+    const y1 = Math.ceil(top - buffer.y);
+    const x2 = Math.floor(right - buffer.x);
+    const y2 = Math.floor(bottom - buffer.y);
+    if (x2 - x1 < 4 || y2 - y1 < 4)
         return null;
 
-    const actorWidth = actor?.get_width?.();
-    const actorHeight = actor?.get_height?.();
-    const scaleX = Number.isFinite(actorWidth) && actorWidth > 1
-        ? actorWidth / buffer.width
-        : 1;
-    const scaleY = Number.isFinite(actorHeight) && actorHeight > 1
-        ? actorHeight / buffer.height
-        : 1;
-    if (
-        !Number.isFinite(scaleX) || !Number.isFinite(scaleY) ||
-        scaleX < 0.25 || scaleY < 0.25 ||
-        scaleX > 4 || scaleY > 4
-    )
-        return null;
-
-    const x1 = Math.ceil((left - buffer.x) * scaleX);
-    const y1 = Math.ceil((top - buffer.y) * scaleY);
-    const x2 = Math.floor((right - buffer.x) * scaleX);
-    const y2 = Math.floor((bottom - buffer.y) * scaleY);
-    if (x2 - x1 < 2 || y2 - y1 < 2)
-        return null;
     return {x: x1, y: y1, width: x2 - x1, height: y2 - y1};
+}
+
+export function terminalCornerRadius(metaWindow) {
+    try {
+        if (metaWindow?.is_fullscreen?.() || metaWindow?.is_maximized?.())
+            return 0;
+    } catch {}
+    return DEFAULT_CORNER_RADIUS;
 }
 
 export class TerminalBackdropBlurManager {
@@ -185,7 +205,8 @@ export class TerminalBackdropBlurManager {
         if (
             typeof Shell.BlurEffect !== 'function' ||
             Shell.BlurMode?.BACKGROUND === undefined ||
-            typeof St.Widget !== 'function'
+            typeof St.Widget !== 'function' ||
+            typeof Shell.GLSLEffect !== 'function'
         ) {
             this._publishStatus('Unavailable: compositor blur API missing');
             return;
@@ -273,6 +294,7 @@ export class TerminalBackdropBlurManager {
         }
 
         let backdrop = null;
+        let mask = null;
         let destroyedId = 0;
         const geometrySignals = [];
         let stage = 'frame-geometry';
@@ -290,9 +312,14 @@ export class TerminalBackdropBlurManager {
                 if (changed) {
                     backdrop.set_position(next.x, next.y);
                     backdrop.set_size(next.width, next.height);
-                    // Scissor the output: blur can SAMPLE outside the
-                    // frame but must never PAINT outside its rectangle.
+                    // Rectangular actor crop is only the first boundary.
+                    // Shell.BlurEffect's GPU output needs its own *outer*
+                    // antialiased mask to exclude CSD rounded corners.
                     backdrop.set_clip(0, 0, next.width, next.height);
+                    mask?.updateFrame(
+                        next.width, next.height,
+                        terminalCornerRadius(metaWindow)
+                    );
                     lastRect = next;
                 }
                 backdrop.show();
@@ -340,6 +367,18 @@ export class TerminalBackdropBlurManager {
                 }
             }
 
+            stage = 'create-output-mask';
+            mask = new TerminalBlurOutputMask();
+            // In Clutter effects, index 0 is outermost/postprocess-last.
+            // Installing the alpha mask FIRST makes it run AFTER the
+            // background blur. If the mask cannot initialize, the
+            // compositor must NOT display an unmasked blur quad.
+            backdrop.add_effect_with_name(MASK_EFFECT_NAME, mask);
+            mask.updateFrame(
+                backdrop.width, backdrop.height,
+                terminalCornerRadius(metaWindow)
+            );
+
             stage = 'create-blur-effect';
             const effect = new Shell.BlurEffect({
                 // GNOME Shell 46+ renamed sigma to radius. Preserve the
@@ -354,6 +393,14 @@ export class TerminalBackdropBlurManager {
                 'velora-terminal-background-blur',
                 effect
             );
+            // Fail closed if effect ordering is reversed or unavailable.
+            // The rounded mask must be outermost so its shader is applied
+            // to Shell.BlurEffect's final pixels, not vice versa.
+            const order = backdrop.get_effects?.();
+            if (!Array.isArray(order) || order[0] !== mask ||
+                order[1] !== effect) {
+                throw new Error('Blur output mask effect ordering unavailable');
+            }
 
             stage = 'insert-under-surface';
             // The original terminal surface stays ABOVE the effect: glyphs,
@@ -374,14 +421,15 @@ export class TerminalBackdropBlurManager {
             this._windows.set(actor, {
                 backdrop,
                 effect,
+                mask,
                 destroyedId,
                 geometrySignals,
             });
             this._lastAttachFailure = '';
             this._publishAttachedCount();
             console.log(
-                '[Velora][TerminalBlur] native Ptyxis backdrop actor attached; ' +
-                'visible blur requires a translucent Ptyxis profile and device QA'
+                '[Velora][TerminalBlur] rounded output mask attached ' +
+                'over native Ptyxis backdrop; real pixel QA still required'
             );
             return true;
         } catch (error) {
@@ -416,7 +464,7 @@ export class TerminalBackdropBlurManager {
             return;
         this._publishStatus(
             this._windows.size
-                ? 'Attached: ' + this._windows.size +
+                ? 'Masked: ' + this._windows.size +
                     ' Ptyxis window(s) (visual unverified; check profile opacity)'
                 : this._lastAttachFailure
                     ? 'Unavailable (' + this._lastAttachFailure + ')'
