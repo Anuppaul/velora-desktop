@@ -117,11 +117,14 @@ class BrightnessContrastEffect {
 }
 
 class Host {
-    constructor() {
+    constructor(name = 'host', children = []) {
+        this.name = name;
+        this.children = children;
         this.effects = new Map();
         this.added = 0;
         this.removed = 0;
     }
+    contains(actor) {return this.children.includes(actor);}
     get_effect(name) {return this.effects.get(name) ?? null;}
     add_effect_with_name(name, effect) {
         assert.equal(this.get_effect(name), null);
@@ -209,20 +212,41 @@ const Main = {
     },
     brightnessManager,
 };
-const windowGroup = new Host();
-const global = {window_group: windowGroup};
+// GNOME Shell 50 uiGroup owns the normal window group, top-window group,
+// panel, Quick Settings and system overlays. window_group alone did NOT
+// cover the entire desktop; this fixture catches that original regression.
+const windowGroup = new Host('windows');
+const topWindowGroup = new Host('top-windows');
+const panelScene = new Host('panel-and-quick-settings');
+const uiGroup = new Host('GNOME-uiGroup', [
+    windowGroup, topWindowGroup, panelScene,
+]);
+const stage = new Host('root-stage', [uiGroup]);
+Main.layoutManager = {uiGroup};
+const global = {
+    window_group: windowGroup,
+    top_window_group: topWindowGroup,
+    stage,
+};
 const Clutter = {BrightnessContrastEffect};
 
 const executable = src.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
 const api = new Function(
     'Clutter', 'GLib', 'Main', 'QuickSlider', 'global',
-    executable + '\nreturn {QuickBrightnessManager, clampSoftBrightness, softwareDimFactor, getQuickBrightnessActors};'
+    executable + '\nreturn {QuickBrightnessManager, clampSoftBrightness, softwareDimFactor, getQuickBrightnessActors, getFullDesktopBrightnessHost};'
 )(Clutter, GLib, Main, QuickSlider, global);
 
 assert.equal(api.clampSoftBrightness(10), 30);
 assert.equal(api.clampSoftBrightness(120), 100);
 assert.equal(api.clampSoftBrightness(Number.NaN), 100);
 assert.equal(api.softwareDimFactor(100), 0);
+assert.equal(api.getFullDesktopBrightnessHost(), uiGroup,
+    'compositor effect must target GNOME uiGroup with windows and shell');
+assert.ok(uiGroup.contains(windowGroup));
+assert.ok(uiGroup.contains(topWindowGroup));
+assert.ok(uiGroup.contains(panelScene));
+assert.notEqual(api.getFullDesktopBrightnessHost(), global.stage,
+    'root-stage effects are forbidden');
 assert.equal(api.softwareDimFactor(30), -0.5);
 assert.ok(api.softwareDimFactor(70) < 0);
 
@@ -237,19 +261,25 @@ assert.deepEqual(grid.get_children().map(a => a.name),
 assert.match(settings.get_string('quick-brightness-status'), /^Software/);
 assert.equal(controller._softwareSlider.slider.accessible_name,
     'Brightness (software dimming)');
-assert.equal(windowGroup.effects.size, 0,
+assert.equal(uiGroup.effects.size, 0,
     '100% brightness must not allocate a GPU dimming effect');
+assert.equal(windowGroup.effects.size, 0,
+    'a windows-only effect must NEVER be used for full-screen dimming');
 assert.equal(menu.items.length, 1, 'only one native-looking fallback created');
 
 controller._softwareSlider.slider.value = 0.70;
 flushIdle();
 assert.equal(settings.get_int('quick-soft-brightness'), 70);
-assert.equal(windowGroup.effects.size, 1,
-    'software brightness dimming is applied to compositor window group');
+assert.equal(uiGroup.effects.size, 1,
+    'software dimming must include panel, Quick Settings and windows');
+assert.equal(windowGroup.effects.size, 0,
+    'do not dim only window_group; that was the reported partial effect');
+assert.equal(stage.effects.size, 0,
+    'global.stage root shader may blank the desktop');
 const dimEffect = controller._effect;
 assert.ok(dimEffect.brightness < 0);
 assert.ok(dimEffect.brightness > -0.5);
-assert.equal(controller._effectHost, windowGroup);
+assert.equal(controller._effectHost, uiGroup);
 assert.equal(menu.items.length, 1, 'never duplicate slider during settings updates');
 
 // Slider stays stable on Quick Settings reconnect and duplicate signals.
@@ -262,18 +292,18 @@ assert.equal(grid.get_children().filter(a =>
 controller._softwareSlider.slider.value = 1;
 flushIdle();
 assert.equal(settings.get_int('quick-soft-brightness'), 100);
-assert.equal(windowGroup.effects.size, 0, '100% removes GPU pass');
-assert.equal(windowGroup.removed, 1);
+assert.equal(uiGroup.effects.size, 0, '100% removes GPU pass');
+assert.equal(uiGroup.removed, 1);
 
 // GNOME 50 hardware backlight appears: switch to the already existing
 // native BrightnessItem and never build a second native slider.
 settings.set_int('quick-soft-brightness', 55);
 flushIdle();
-assert.equal(windowGroup.effects.size, 1);
+assert.equal(uiGroup.effects.size, 1);
 brightnessManager.globalScale = {value: 0.6};
 brightnessManager.emit('changed');
 flushIdle();
-assert.equal(windowGroup.effects.size, 0,
+assert.equal(uiGroup.effects.size, 0,
     'hardware mode removes software GPU effect');
 assert.equal(controller._softwareSlider, null,
     'hardware mode destroys fallback widget');
@@ -294,7 +324,7 @@ assert.deepEqual(grid.get_children().map(a => a.name),
     ['sound-output', 'velora-fallback-slider',
      'sound-input', 'gnome-native-brightness']);
 assert.equal(settings.get_int('quick-soft-brightness'), 55);
-assert.equal(windowGroup.effects.size, 1);
+assert.equal(uiGroup.effects.size, 1);
 
 // Disable restores GNOME actors and GPU state; re-enable is reversible.
 settings.set_boolean('quick-brightness-enabled', false);
@@ -302,7 +332,7 @@ flushIdle();
 assert.deepEqual(grid.get_children().map(a => a.name),
     ['sound-output', 'sound-input', 'gnome-native-brightness']);
 assert.equal(controller._softwareSlider, null);
-assert.equal(windowGroup.effects.size, 0);
+assert.equal(uiGroup.effects.size, 0);
 assert.equal(settings.get_string('quick-brightness-status'), 'Off');
 settings.set_boolean('quick-brightness-enabled', true);
 flushIdle();
@@ -313,7 +343,7 @@ assert.equal(grid.get_children().filter(a =>
 // idle, without polling/monkeypatching the GNOME QuickSettings prototype.
 controller.cleanup();
 flushIdle();
-assert.equal(windowGroup.effects.size, 0, 'hot-swap must release GPU dimmer');
+assert.equal(uiGroup.effects.size, 0, 'hot-swap must release GPU dimmer');
 assert.equal(grid.count, 0, 'child-added signal must be disconnected');
 assert.equal(settings.count, 0);
 assert.equal(brightnessManager.count, 0);
@@ -324,8 +354,9 @@ assert.deepEqual(grid.get_children().map(a => a.name),
 // A missing compositor GPU API must NOT create a fake control that cannot
 // actually dim the display.
 const unavailableSettings = new Settings();
-const previousHost = global.window_group;
-global.window_group = null;
+const previousHost = Main.layoutManager.uiGroup;
+// No full desktop scene: absolutely no fallback to the partial window group.
+Main.layoutManager.uiGroup = null;
 const unavailable = new api.QuickBrightnessManager(unavailableSettings);
 unavailable.setup();
 flushIdle();
@@ -333,7 +364,33 @@ assert.equal(unavailable._softwareSlider, null);
 assert.match(unavailableSettings.get_string('quick-brightness-status'),
     /Unavailable/);
 unavailable.cleanup();
-global.window_group = previousHost;
+Main.layoutManager.uiGroup = previousHost;
+
+// A malformed scene (missing top window layer) must also fail closed.
+const missingTop = global.top_window_group;
+global.top_window_group = null;
+const invalidSettings = new Settings();
+const invalid = new api.QuickBrightnessManager(invalidSettings);
+invalid.setup();
+flushIdle();
+assert.equal(invalid._softwareSlider, null);
+assert.equal(uiGroup.effects.size, 0);
+assert.equal(windowGroup.effects.size, 0);
+assert.equal(stage.effects.size, 0);
+invalid.cleanup();
+global.top_window_group = missingTop;
+
+// The root stage must never be accepted as a host, even if it owns both
+// window groups (e.g. after an incompatible Shell layout change).
+Main.layoutManager.uiGroup = stage;
+const unsafeSettings = new Settings();
+const unsafe = new api.QuickBrightnessManager(unsafeSettings);
+unsafe.setup();
+flushIdle();
+assert.equal(unsafe._softwareSlider, null);
+assert.equal(stage.effects.size, 0);
+unsafe.cleanup();
+Main.layoutManager.uiGroup = uiGroup;
 
 assert.match(runtime, /new QuickBrightnessManager\(this\._settings\)/);
 assert.match(runtime, /this\._quickBrightnessManager\?\.cleanup\(\)/);
@@ -342,10 +399,16 @@ assert.match(schema, /<key name="quick-brightness-enabled" type="b">\s*<default>
 assert.match(schema, /<key name="quick-soft-brightness" type="i">\s*<default>100<\/default>/);
 assert.match(installer, /"quickBrightness.js"/);
 assert.match(builder, /"quickBrightness.js"/);
+assert.match(src, /Main\.layoutManager\?\.uiGroup/,
+    'the renderer must target the entire GNOME compositor scene');
+assert.doesNotMatch(src, /const host = global\.window_group/,
+    'do not regress to windows-only brightness');
+assert.doesNotMatch(src, /global\.stage\.add_effect/,
+    'do not attach shader to dangerous root stage');
 assert.doesNotMatch(src,
     /Shell\.Screenshot|global\.stage\.add_effect|Gio\.DBus|GLib\.timeout_add|force\s*push/,
     'do not use screenshots, root-stage shaders, DDC access or polling');
 console.log(
-    'Quick Settings brightness: native order, desktop dimming, 100% GPU off, ' +
+    'Quick Settings brightness: full GNOME desktop incl. panel/overlays, ' +
     'hardware hotplug, async add, no duplicate, cleanup, unavailable API PASS.'
 );

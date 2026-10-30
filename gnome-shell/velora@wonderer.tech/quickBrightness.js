@@ -7,10 +7,11 @@
 // 1. Hardware backlight: keep GNOME's existing BrightnessItem, move it
 //    directly below the sound output slider, never replace its signal path.
 // 2. No supported backlight: add ONE native QuickSlider in the same position,
-//    backed by optional Clutter.BrightnessContrastEffect on window_group.
-//    This is *software dimming*, not DDC/CI, monitor backlight or gamma.
-// 3. The GPU effect exists only below 100%; never touch stage/UI/group
-//    opacity, never add a full-screen overlay, never poll.
+//    backed by one Clutter.BrightnessContrastEffect on GNOME's uiGroup.
+//    This dims wallpaper, windows, Shell panel and Quick Settings together.
+//    It is *software dimming*, not DDC/CI, hardware backlight or gamma.
+// 3. The GPU effect exists only below 100%; never modify actor opacity,
+//    attach to global.stage, create a fullscreen overlay or poll.
 // 4. Full restore on disable / live runtime hot-swap.
 
 import Clutter from 'gi://Clutter';
@@ -48,6 +49,31 @@ export function getQuickBrightnessActors(panel) {
         quick?._volumeInput?.quickSettingsItems?.[0] ?? null;
     const brightness = quick?._brightness?.quickSettingsItems?.[0] ?? null;
     return {quick, menu, grid, output, input, brightness};
+}
+
+/**
+ * GNOME Shell 50 scene topology: uiGroup is the compositor-painted parent
+ * containing window_group, top_window_group, panel and Quick Settings.
+ * A brightness effect on window_group alone does not touch panel/overlays,
+ * producing the reported "not fullscreen" brightness regression.
+ *
+ * Never fall back to window_group (partial dimming) or global.stage
+ * (dangerous root-stage postprocessing). If GNOME reorganizes its scene,
+ * fail closed instead of dimming an unexpected actor.
+ */
+export function getFullDesktopBrightnessHost() {
+    const host = Main.layoutManager?.uiGroup ?? Main.uiGroup ?? null;
+    if (
+        !host || host === global.stage || host === global.window_group ||
+        typeof host.add_effect_with_name !== 'function' ||
+        typeof host.remove_effect !== 'function' ||
+        !global.window_group || !global.top_window_group ||
+        typeof host.contains !== 'function' ||
+        !host.contains(global.window_group) ||
+        !host.contains(global.top_window_group)
+    )
+        return null;
+    return host;
 }
 
 function isChildOf(actor, parent) {
@@ -237,13 +263,13 @@ export class QuickBrightnessManager {
         if (!menu || !grid || typeof QuickSlider !== 'function')
             return;
 
-        const host = global.window_group;
-        if (
-            !host || typeof host.add_effect_with_name !== 'function' ||
-            typeof host.remove_effect !== 'function' ||
+        const host = getFullDesktopBrightnessHost();
+        if (!host ||
             typeof Clutter.BrightnessContrastEffect !== 'function'
         ) {
-            this._publishStatus('Unavailable: software brightness GPU API missing');
+            this._publishStatus(
+                'Unavailable: safe full-desktop dimming host missing'
+            );
             return;
         }
 
@@ -318,26 +344,32 @@ export class QuickBrightnessManager {
         // Never spend a GPU pass at maximum; remove our owned effect.
         if (value >= 100) {
             this._removeEffect();
-            return;
+            return true;
         }
 
-        const host = global.window_group;
-        if (
-            !host ||
-            typeof Clutter.BrightnessContrastEffect !== 'function' ||
-            typeof host.add_effect_with_name !== 'function'
+        const host = getFullDesktopBrightnessHost();
+        if (!host ||
+            typeof Clutter.BrightnessContrastEffect !== 'function'
         ) {
             this._removeEffect();
-            this._publishStatus('Unavailable: software dimmer is unsupported');
-            return;
+            this._publishStatus(
+                'Unavailable: safe full-desktop dimming host missing'
+            );
+            return false;
         }
+
+        // If Shell rebuilt its uiGroup, remove the old effect first:
+        // keeping an effect on a retired window group could leave the
+        // screen unevenly dimmed even though the slider shows one value.
+        if (this._effect && this._effectHost !== host)
+            this._removeEffect();
 
         if (!this._effect) {
             try {
                 // Avoid assuming ownership of another extension's effect.
                 if (host.get_effect?.(SOFTWARE_EFFECT_NAME)) {
                     this._publishStatus('Unavailable: existing brightness effect');
-                    return;
+                    return false;
                 }
                 const effect = new Clutter.BrightnessContrastEffect();
                 effect.set_brightness(dim);
@@ -351,17 +383,21 @@ export class QuickBrightnessManager {
                     '[Velora][Brightness] software GPU effect unavailable: ' +
                     error
                 );
+                return false;
             }
         } else {
             try {
                 this._effect.set_brightness(dim);
             } catch (error) {
                 this._removeEffect();
+                this._publishStatus('Unavailable: software dimming update failed');
                 console.warn(
                     '[Velora][Brightness] dimming update failed: ' + error
                 );
+                return false;
             }
         }
+        return this._effectHost === host && Boolean(this._effect);
     }
 
     _removeEffect() {
@@ -427,10 +463,11 @@ export class QuickBrightnessManager {
                     this._softwareSlider.slider.value = value;
                     this._syncingSlider = false;
                 }
-                this._applySoftDim(percent);
-                this._publishStatus(
-                    'Software dimming: external display / no backlight'
-                );
+                if (this._applySoftDim(percent)) {
+                    this._publishStatus(
+                        'Software dimming: full desktop (external display)'
+                    );
+                }
             }
         } catch (error) {
             this._removeEffect();

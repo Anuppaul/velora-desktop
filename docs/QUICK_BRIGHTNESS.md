@@ -69,16 +69,42 @@ switches modes and destroys the fallback before showing native brightness.
 ## GPU / Wayland safety
 
 The software fallback uses one bounded
-`Clutter.BrightnessContrastEffect` on `global.window_group`, which holds
-desktop wallpaper and application windows; the Shell panel/Quick Settings
-remain legible. No effect is created at the 100% setting. The dimmer runs
-only at 30–99%, clamps to a maximum brightness-offset decrease of -0.5,
-never touches window alpha, and never applies an effect to `global.stage`
-(the root stage shader path can blank displays on Wayland).
+`Clutter.BrightnessContrastEffect` on **`Main.layoutManager.uiGroup`**.
+GNOME Shell 50 groups the normal desktop windows, top/always-on-top
+windows, wallpaper, top panel, Quick Settings and other Shell-owned chrome
+under this actor. Previously Velora attached the effect only to
+`global.window_group`; this left the top panel and Quick Settings undimmed
+and made the effect appear **not fullscreen**.
+
+The new host affects the **whole GNOME desktop scene** at once, including
+fullscreen applications while Mutter composites the scene. It is **not**
+the dangerous root `global.stage`, and it does not create a fullscreen
+overlay. If the GNOME scene tree does not contain both normal and
+top-window groups, Velora fails closed rather than silently reverting to
+partial window-only brightness.
+
+At 100% the effect is removed completely. At 30–99% one GPU brightness
+postprocessing pass is active on uiGroup, clamped to a maximum negative
+brightness offset of -0.5. It does not change actor/window opacity.
+This is compositor software dimming, not hardware backlight control.
+Fullscreen direct-scanout or unusual display/compositor paths may require
+device-specific verification; test GNOME 50.1 with both ordinary and
+fullscreen browser windows.
 
 Disable the feature or disable Velora to remove only the GPU effect owned
 by Velora and restore native Quick Settings ordering. Any changes to a
 native GNOME hardware brightness slider remain managed by GNOME itself.
+
+If the full-screen effect looks wrong, restore normal brightness immediately:
+
+```bash
+GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
+  gsettings set org.gnome.shell.extensions.velora quick-soft-brightness 100
+```
+
+Or use **Velora Preferences → Menus → Quick Settings Brightness → OFF**.
+Both paths remove the Velora-owned GPU effect, leaving the native display
+brightness and other extensions' effects alone.
 
 For accessibility, the software slider's accessible name identifies that
 it is not a hardware backlight control.
@@ -86,8 +112,10 @@ it is not a hardware backlight control.
 ## Known limits and verification
 
 - **Real GNOME 50.1 / Wayland visual testing is still required.** CI checks
-  placement, slider/control behavior and cleanup with a mock Shell scene;
-  they cannot prove the live display actually dims.
+  that the compositor effect targets uiGroup, containing windows, top
+  windows and Quick Settings, and that disable/100% fully removes it.
+  Mocked tests cannot prove the live screenshot is evenly dimmed.
+  Check fullscreen windows and multi-monitor setups in particular.
 - The software dimmer processes the compositor's window group rather than
   changing monitor hardware. A maximum brightness of 100% is the original
   monitor output, not an enhancement.
