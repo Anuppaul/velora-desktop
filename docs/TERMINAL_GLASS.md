@@ -181,6 +181,58 @@ Ptyxis's already-working native transparency. Neither the fallback nor
 the tests prove GPU pixels are correctly composited: check live GNOME 50.1
 and, if necessary, share these logs for the next targeted fix.
 
+## 4. If a new PR makes **no visual difference**
+
+The previous terminal backdrop was intentionally switched OFF while fixing
+Quick Settings brightness. **Updating Velora does not automatically enable
+an opt-in setting.** Even a perfectly installed new renderer changes nothing
+when `terminal-backdrop-blur-enabled=false`.
+
+Run this read-only on-device check before proposing another GPU patch:
+
+```bash
+cd ~/Documents/code/velora-desktop
+python3 tools/velora_terminal_diagnose.py
+```
+
+The diagnostic prints the real GNOME Shell requested/loaded runtime revisions,
+installed shader module fingerprints (current checkout vs loaded runtime),
+the opt-in blur setting, compositor attachment/error status, the default
+Ptyxis profile opacity, and the latest **Velora-owned** TerminalBlur journal
+messages. It does **not** enable blur, alter terminal profiles, change GPU
+settings or install anything.
+
+Distinguish the outcomes carefully:
+
+- **Blur OFF:** enable **Preferences → Terminal → Real backdrop blur**.
+  No installer or code fix is required merely to switch the setting back ON.
+- **Runtime mismatch/error:** verify `git pull origin main`, then rerun
+  `bash gnome-shell/install.sh`; the installer checks that GNOME loaded the
+  requested hot-swap revision. An installed module with a different hash
+  means the Shell may be running old code.
+- **Native Ptyxis opacity 1.0:** the blur effect is entirely hidden behind
+  an opaque app background. Verify the actual open tab uses that profile.
+- **Unavailable/Paused:** capture the stage and GNOME Shell error; do not
+  call the effect visually successful.
+- **Masked/Attached but visibly unchanged:** this only establishes actor
+  bookkeeping, **not rendered backdrop pixels**. The nested
+  `Shell.GLSLEffect` / `Shell.BlurEffect(BACKGROUND)` framebuffer sampling
+  path requires genuine GNOME 50.1 validation; synthetic tests cannot prove
+  the correct background framebuffer is being sampled.
+
+**Important architectural warning:** GNOME Shell 50's background blur
+samples the framebuffer supplied by its Clutter paint context. Applying a
+second *outer* offscreen effect for rounded masking can change that paint
+context, so a mask that passes JavaScript mocks may still sample the wrong
+background or appear unchanged. This is a rendering risk, not a profile
+setting problem. Do not add more stacked offscreen masks to compensate
+without checking live compositor behavior.
+
+The diagnostic does not itself prove successful pixels. For visual
+comparison, place a small Ptyxis window over high-contrast Firefox content
+and compare the exact same window position with blur OFF and ON; do not
+confuse a transparent window with a blurred window.
+
 ## 4. Disable / restore
 
 To remove the GPU effect immediately, switch **Real backdrop blur** OFF.
