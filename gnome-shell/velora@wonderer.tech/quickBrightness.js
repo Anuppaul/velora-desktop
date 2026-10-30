@@ -30,8 +30,11 @@ export function clampSoftBrightness(value) {
 
 export function softwareDimFactor(percent) {
     // Negative brightness reduces colour components. The lower bound keeps
-    // the compositor useable; 100% maps to zero extra GPU work.
-    return -MAX_SOFT_DIM * (100 - clampSoftBrightness(percent)) /
+    // the compositor useable; 100% maps to exact +0 and no GPU effect.
+    const clamped = clampSoftBrightness(percent);
+    if (clamped >= 100)
+        return 0;
+    return -MAX_SOFT_DIM * (100 - clamped) /
         (100 - MIN_SOFT_PERCENT);
 }
 
