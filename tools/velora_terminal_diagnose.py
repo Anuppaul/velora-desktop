@@ -16,6 +16,8 @@ import shutil
 import subprocess
 import sys
 
+# A read-only diagnostic must not create an imported module's __pycache__.
+sys.dont_write_bytecode = True
 from velora_terminal_glass import read_profile
 
 EXTENSION_UUID = "velora@wonderer.tech"
