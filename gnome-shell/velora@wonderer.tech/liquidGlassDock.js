@@ -44,6 +44,7 @@ import {
     applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
 import {PanelGlassSurface} from './panelGlass.js';
+import {FullscreenPanelChromeGuard} from './fullscreenPanelGuard.js';
 
 const UPSTREAM_EXTENSION_UUID =
     'liquid-glass@thinkingcoding1231.gmail.com';
@@ -494,6 +495,7 @@ export class LiquidGlassIntegration {
         this._osdManager = null;
         this._nativeDashEntries = [];
         this._topPanelManager = null;
+        this._fullscreenPanelChromeGuard = null;
         this._topPanelSettingIds = [];
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
@@ -1998,6 +2000,19 @@ export class LiquidGlassIntegration {
             );
             this._applyTopPanelOverrides();
 
+            // GNOME panelBox already tracks fullscreen, but DashManager
+            // inserts an independent glass actor into uiGroup. Coordinate
+            // that actor with native fullscreen visibility so a bright
+            // glass top bar cannot remain on fullscreen video.
+            this._fullscreenPanelChromeGuard =
+                new FullscreenPanelChromeGuard({
+                    layout: Main.layoutManager,
+                    display: global.display,
+                    panel: Main.panel,
+                    panelManager: manager,
+                });
+            this._fullscreenPanelChromeGuard.setup();
+
             for (const key of [
                 'dock-margin-bottom',
                 'dock-glass-expand',
@@ -2022,6 +2037,7 @@ export class LiquidGlassIntegration {
                                                 ._applyEffect?.();
                                         }
                                         this._applyTopPanelOverrides();
+                                        this._fullscreenPanelChromeGuard?.sync();
                                     }
                                     return GLib.SOURCE_REMOVE;
                                 }
@@ -2035,6 +2051,8 @@ export class LiquidGlassIntegration {
                 '[Velora][LiquidGlass] topPanel active'
             );
         } catch (error) {
+            try { this._fullscreenPanelChromeGuard?.cleanup(); } catch {}
+            this._fullscreenPanelChromeGuard = null;
             console.error(
                 '[Velora][LiquidGlass] topPanel setup failed: ' +
                 error +
@@ -2096,6 +2114,8 @@ export class LiquidGlassIntegration {
     }
 
     _cleanupTopPanelGlass() {
+        try { this._fullscreenPanelChromeGuard?.cleanup(); } catch {}
+        this._fullscreenPanelChromeGuard = null;
         for (const id of this._topPanelSettingIds) {
             try {
                 this._settings?.disconnect(id);
@@ -4453,6 +4473,11 @@ export class LiquidGlassIntegration {
             const valid = source.get_stage?.() === global.stage &&
                 source.mapped !== false &&
                 source.visible !== false &&
+                // The native Ubuntu Dock controls real hide/reveal. Its
+                // independent glass backdrop must NEVER remain painted
+                // on top of a fullscreen application while the native
+                // dock's own fullscreen state is settling.
+                monitor?.inFullscreen !== true &&
                 monitor &&
                 [x, y, w, h].every(Number.isFinite) &&
                 w > 1 && h > 1 &&
