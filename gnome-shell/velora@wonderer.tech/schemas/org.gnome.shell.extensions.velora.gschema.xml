@@ -187,6 +187,26 @@
       <description>Search bar position as a percentage from the top of the active monitor.</description>
     </key>
 
+    <!-- GNOME 50 shows the hardware brightness slider only when the
+         brightness manager has a supported backlight. Velora keeps that
+         native slider, or provides a reversible software dim fallback for
+         external desktop monitors that have no hardware backlight. -->
+    <key name="quick-brightness-enabled" type="b">
+      <default>true</default>
+      <summary>Place a native-style Brightness slider immediately below Sound</summary>
+      <description>Use the GNOME native brightness slider if available. Otherwise show a native-style software dimmer for external displays; no DDC access, no external binaries and no changes to monitor hardware.</description>
+    </key>
+    <key name="quick-soft-brightness" type="i">
+      <default>100</default>
+      <range min="30" max="100"/>
+      <summary>Software display brightness percentage for non-backlight monitors</summary>
+      <description>100 means unchanged and uses no extra GPU effect. Values below 100 apply bounded GPU software dimming to desktop windows; it cannot increase hardware brightness above the screen's current maximum.</description>
+    </key>
+    <key name="quick-brightness-status" type="s">
+      <default>'Not initialized'</default>
+      <summary>Diagnostic status of the Quick Settings brightness control</summary>
+    </key>
+
     <key name="panel-menu-hover-switch" type="b">
       <default>false</default>
       <summary>Switch between open panel menus on hover</summary>
