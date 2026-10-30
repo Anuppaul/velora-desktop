@@ -552,7 +552,7 @@ export class QuickBrightnessManager {
                 }
                 if (this._applySoftDim(percent)) {
                     this._publishStatus(
-                        'Software dimming: full desktop (external display)'
+                        'Software dimming: desktop + fullscreen video (GPU)'
                     );
                 }
             }
