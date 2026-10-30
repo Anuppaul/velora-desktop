@@ -46,6 +46,7 @@ export class FullscreenPanelChromeGuard {
         this._syncing = false;
         this._forcedNativeHide = false;
         this._glassSuppressed = false;
+        this._lastFullscreen = null;
     }
 
     setup() {
@@ -103,6 +104,13 @@ export class FullscreenPanelChromeGuard {
         try {
             const fullscreen =
                 primaryPanelIsFullscreen(this._layout, this._display);
+            if (this._lastFullscreen !== fullscreen) {
+                this._lastFullscreen = fullscreen;
+                // A full-desktop BrightnessContrastEffect is an offscreen
+                // postprocessing pass. Invalidate its scene once per state
+                // transition so a cached top-panel glass frame cannot linger.
+                this._layout?.uiGroup?.queue_redraw?.();
+            }
             const box = this._layout?.panelBox;
 
             // GNOME itself normally hides panelBox (trackFullscreen:true).
