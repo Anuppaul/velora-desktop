@@ -56,7 +56,14 @@ export function clampCornerRadius(width, height, requested) {
     ));
 }
 
-export const TerminalBlurOutputMask = GObject.registerClass(
+// Native GTypes cannot be unregistered. Velora developer hot-swap loads
+// runtime revisions from distinct module URIs, so registering V1 again
+// would throw 'Type name is already registered'. Reuse this process-local
+// constructor for the entire GNOME Shell session. If shader code changes,
+// increment both the global cache key and GTypeName before release.
+const MASK_CLASS_CACHE_KEY = '__veloraPtyxisBlurOutputMaskClassV1';
+export const TerminalBlurOutputMask = globalThis[MASK_CLASS_CACHE_KEY] ??=
+    GObject.registerClass(
     {GTypeName: 'VeloraPtyxisBlurOutputMaskV1'},
     class TerminalBlurOutputMask extends Shell.GLSLEffect {
         _locations = null;
