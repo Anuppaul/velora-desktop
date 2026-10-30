@@ -344,7 +344,7 @@ export class QuickBrightnessManager {
         // Never spend a GPU pass at maximum; remove our owned effect.
         if (value >= 100) {
             this._removeEffect();
-            return;
+            return true;
         }
 
         const host = getFullDesktopBrightnessHost();
@@ -355,7 +355,7 @@ export class QuickBrightnessManager {
             this._publishStatus(
                 'Unavailable: safe full-desktop dimming host missing'
             );
-            return;
+            return false;
         }
 
         // If Shell rebuilt its uiGroup, remove the old effect first:
@@ -369,7 +369,7 @@ export class QuickBrightnessManager {
                 // Avoid assuming ownership of another extension's effect.
                 if (host.get_effect?.(SOFTWARE_EFFECT_NAME)) {
                     this._publishStatus('Unavailable: existing brightness effect');
-                    return;
+                    return false;
                 }
                 const effect = new Clutter.BrightnessContrastEffect();
                 effect.set_brightness(dim);
@@ -383,17 +383,21 @@ export class QuickBrightnessManager {
                     '[Velora][Brightness] software GPU effect unavailable: ' +
                     error
                 );
+                return false;
             }
         } else {
             try {
                 this._effect.set_brightness(dim);
             } catch (error) {
                 this._removeEffect();
+                this._publishStatus('Unavailable: software dimming update failed');
                 console.warn(
                     '[Velora][Brightness] dimming update failed: ' + error
                 );
+                return false;
             }
         }
+        return this._effectHost === host && Boolean(this._effect);
     }
 
     _removeEffect() {
@@ -459,8 +463,7 @@ export class QuickBrightnessManager {
                     this._softwareSlider.slider.value = value;
                     this._syncingSlider = false;
                 }
-                this._applySoftDim(percent);
-                if (!this._status.startsWith('Unavailable')) {
+                if (this._applySoftDim(percent)) {
                     this._publishStatus(
                         'Software dimming: full desktop (external display)'
                     );
