@@ -408,6 +408,8 @@ the [Terminal Glass guide](docs/TERMINAL_GLASS.md).
 
 ```bash
 python3 tools/velora_terminal_glass.py status
+# Read-only on-device diagnosis if GPU blur still appears unchanged:
+python3 tools/velora_terminal_diagnose.py
 ```
 
 ## GNOME Extensions Store submission
