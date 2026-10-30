@@ -358,6 +358,15 @@ gnome-extensions prefs velora@wonderer.tech
   `bash gnome-shell/install.sh`. Hot updates are a developer workflow; a
   Store package must not require them.
 
+### Fullscreen video: top bar and panel visibility
+
+GNOME 50 hides its top bar on a primary-monitor fullscreen window. Velora
+also keeps its independent **top-panel Liquid Glass backdrop** in sync with
+that native visibility while fullscreen software brightness is enabled.
+The separate Ubuntu Dock Panel-mode glass backdrop likewise cannot linger
+over a fullscreen window; Ubuntu Dock itself retains its existing native
+autohide configuration. See [Fullscreen Panel behavior](docs/FULLSCREEN_PANEL.md).
+
 ### Quick Settings Brightness — same native slider as Sound
 
 Velora shows a Brightness slider immediately **under Sound** in GNOME

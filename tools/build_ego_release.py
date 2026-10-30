@@ -101,6 +101,7 @@ def verify(payload: dict[str, bytes]) -> dict[str, str]:
         "runtime.css",
         "orbThemeRuntime.js",
         "quickBrightness.js",
+        "fullscreenPanelGuard.js",
         "terminalBackdropBlur.js",
         "wallpaperAtmosphere.js",
         "wallpaperAtmosphereEffect.js",
