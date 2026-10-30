@@ -103,6 +103,7 @@ def verify(payload: dict[str, bytes]) -> dict[str, str]:
         "quickBrightness.js",
         "fullscreenPanelGuard.js",
         "terminalBackdropBlur.js",
+        "terminalBlurMask.js",
         "wallpaperAtmosphere.js",
         "wallpaperAtmosphereEffect.js",
         "wallpaperAtmospherePreferences.js",
