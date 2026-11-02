@@ -1,8 +1,8 @@
-# Velora for GNOME Shell 50
+# VLIQ for GNOME Shell 50
 
-Velora keeps the native Ubuntu/GNOME desktop UI and replaces supported Shell surface materials with Liquid Glass.
+VLIQ keeps the native Ubuntu/GNOME desktop UI and replaces supported Shell surface materials with Liquid Glass.
 
-The separate floating dock is removed. The Velora Orb keeps its full behavior: click toggles GNOME Applications and hover opens the radial launcher with previews, tooltips and running indicators.
+The separate floating dock is removed. The VLIQ Orb keeps its full behavior: click toggles GNOME Applications and hover opens the radial launcher with previews, tooltips and running indicators.
 
 ## Active runtime
 
@@ -28,7 +28,7 @@ From the repository root:
     git pull --ff-only origin main
     bash gnome-shell/install.sh
 
-Velora targets GNOME Shell 50.
+VLIQ targets GNOME Shell 50.
 
 For a fresh bootstrap/schema install, follow the installer's unsafe-mode prompt if shown. Ordinary runtime revisions use the hot-swap path.
 
@@ -38,17 +38,17 @@ For a fresh bootstrap/schema install, follow the installer's unsafe-mode prompt 
 
 Expected popup adapter startup log:
 
-    [Velora][PopupGlass] global PopupMenu adapter active
+    [VLIQ][PopupGlass] global PopupMenu adapter active
 
 When a popup is first converted:
 
-    [Velora][PopupGlass] attached ...
+    [VLIQ][PopupGlass] attached ...
 
 ## Preferences
 
     gnome-extensions prefs velora@wonderer.tech
 
-The main Velora page contains only the shared system-glass profile and Orb controls. Advanced renderer controls come from the vendored Liquid Glass preference pages.
+The main VLIQ page contains only the shared system-glass profile and Orb controls. Advanced renderer controls come from the vendored Liquid Glass preference pages.
 
 ## Architecture
 
