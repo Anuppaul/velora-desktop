@@ -1,7 +1,7 @@
 {
   "uuid": "velora@wonderer.tech",
-  "name": "Velora Desktop",
-  "description": "Liquid Glass and Frosted Crystal for GNOME Shell 50, with a radial Orb launcher, Spotlight search, optional premium wallpaper effects, and native Ubuntu Dock controls.",
+  "name": "VLIQ Desktop",
+  "description": "VLIQ Desktop brings Liquid Glass and Frosted Crystal to GNOME Shell 50, with a radial Orb launcher, Spotlight search, premium wallpaper effects and native Ubuntu Dock controls.",
   "shell-version": [
     "50"
   ],
