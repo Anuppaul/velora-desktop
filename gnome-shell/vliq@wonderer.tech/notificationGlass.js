@@ -8,16 +8,16 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
 const DEFAULT_RADIUS = 24;
 const SAMPLE_MARGIN_MIN = 48;
 const SAMPLE_MARGIN_MAX = 180;
-const TEXT_LIGHT_CLASS = 'velora-notification-text-light';
-const TEXT_DARK_CLASS = 'velora-notification-text-dark';
+const TEXT_LIGHT_CLASS = 'vliq-notification-text-light';
+const TEXT_DARK_CLASS = 'vliq-notification-text-dark';
 const LIGHT_TEXT = '#f7f8fc';
 const DARK_TEXT = '#17191f';
 const TEXT_SWITCH_ADVANTAGE = 1.18;
@@ -161,7 +161,7 @@ export class NotificationGlassManager {
         }
 
         console.log(
-            '[Velora][NotificationGlass] live refractive material active'
+            '[VLIQ][NotificationGlass] live refractive material active'
         );
     }
 
@@ -215,7 +215,7 @@ export class NotificationGlassManager {
             '';
 
         actor.add_style_class_name?.(
-            'velora-native-notification-glass'
+            'vliq-native-notification-glass'
         );
 
         // NotificationMessage itself is the painted GNOME/Yaru card
@@ -236,12 +236,12 @@ export class NotificationGlassManager {
         const bannerRoot = this._resolveBannerRoot(actor);
 
         const root = new this._vendor.UnpickableActor();
-        root.set_name('velora-notification-material-root');
+        root.set_name('vliq-notification-material-root');
         root.set_size(1, 1);
         root.hide();
 
         const liquidBox = new this._vendor.UnpickableActor();
-        liquidBox.set_name('velora-notification-liquid-box');
+        liquidBox.set_name('vliq-notification-liquid-box');
         liquidBox.set_clip_to_allocation(true);
         liquidBox.set_position(0, 0);
         liquidBox.set_size(1, 1);
@@ -253,14 +253,14 @@ export class NotificationGlassManager {
             new this._vendor.WindowCloneManager(
                 liquidBox,
                 null,
-                'velora-notification-scene'
+                'vliq-notification-scene'
             );
 
         // Matches the proven LiquidEffect container pattern used by the
         // vendored managers. It paints nothing; it only avoids a Clutter
         // offscreen-cache optimization edge case that can produce black frames.
         const breaker = new this._vendor.UnpickableActor();
-        breaker.set_name('velora-notification-optimization-breaker');
+        breaker.set_name('vliq-notification-optimization-breaker');
         breaker.set_size(1, 1);
         breaker.set_opacity(0);
         liquidBox.add_child(breaker);
@@ -268,11 +268,11 @@ export class NotificationGlassManager {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-notification-lite',
+            owner: 'vliq-notification-lite',
         });
 
         const notificationAdapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
+            VLIQ_GLASS_ADAPTERS.notificationBanner;
         effect.setPadding?.(
             notificationAdapter.shaderPadding ?? 20
         );
@@ -280,8 +280,8 @@ export class NotificationGlassManager {
         liquidBox.add_effect(effect);
 
         const filterLayer = new St.Widget({
-            name: 'velora-notification-white-filter',
-            style_class: 'velora-glass-white-filter',
+            name: 'vliq-notification-white-filter',
+            style_class: 'vliq-glass-white-filter',
             reactive: false,
         });
         root.add_child(filterLayer);
@@ -305,10 +305,10 @@ export class NotificationGlassManager {
                 // Best-effort partial construction cleanup.
             }
             actor.remove_style_class_name?.(
-                'velora-native-notification-glass'
+                'vliq-native-notification-glass'
             );
             console.error(
-                '[Velora][NotificationGlass] attach failed: ' + error
+                '[VLIQ][NotificationGlass] attach failed: ' + error
             );
             return;
         }
@@ -357,7 +357,7 @@ export class NotificationGlassManager {
         this._queueSync(material);
         this._scheduleTextSample(
             material,
-            VELORA_GLASS_ADAPTERS.notificationBanner
+            VLIQ_GLASS_ADAPTERS.notificationBanner
                 .adaptiveSampleDelayMs ?? 220
         );
     }
@@ -463,7 +463,7 @@ export class NotificationGlassManager {
         if (
             !this._enabled ||
             !material ||
-            !VELORA_GLASS_ADAPTERS.notificationBanner.adaptiveText
+            !VLIQ_GLASS_ADAPTERS.notificationBanner.adaptiveText
         ) {
             return;
         }
@@ -776,9 +776,9 @@ export class NotificationGlassManager {
             return;
 
         const role =
-            VELORA_GLASS_ROLES.notificationCard;
+            VLIQ_GLASS_ROLES.notificationCard;
         const adapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
+            VLIQ_GLASS_ADAPTERS.notificationBanner;
         const scopedAppearance =
             adapter.appearanceProfile
                 ? state?.[adapter.appearanceProfile]
@@ -809,7 +809,7 @@ export class NotificationGlassManager {
             // Shared material defaults remain valid.
         }
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             material.effect,
             role,
             {
@@ -896,7 +896,7 @@ export class NotificationGlassManager {
             new this._vendor.WindowCloneManager(
                 material.liquidBox,
                 null,
-                'velora-notification-scene'
+                'vliq-notification-scene'
             );
         material.lastSceneSyncUs = 0;
         return material.sceneManager;
@@ -976,7 +976,7 @@ export class NotificationGlassManager {
         );
 
         const adapter =
-            VELORA_GLASS_ADAPTERS.notificationBanner;
+            VLIQ_GLASS_ADAPTERS.notificationBanner;
         const shaderPad = Math.max(
             0,
             adapter.shaderPadding ?? 20
@@ -1195,7 +1195,7 @@ export class NotificationGlassManager {
                 actor.set_style(material.originalInlineStyle ?? '');
 
             actor?.remove_style_class_name?.(
-                'velora-native-notification-glass'
+                'vliq-native-notification-glass'
             );
             actor?.remove_style_class_name?.(
                 TEXT_LIGHT_CLASS

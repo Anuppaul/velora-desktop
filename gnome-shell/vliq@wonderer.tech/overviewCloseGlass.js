@@ -8,17 +8,17 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
     GLASS_TEXT_PALETTE,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
 const CLOSE_TARGET_CLASS = 'window-close';
 const ICON_TARGET_CLASS = 'window-icon';
 const CAPTION_TARGET_CLASS = 'window-caption';
-const CLOSE_ACTIVE_CLASS = 'velora-window-close-shared-glass';
-const ICON_ACTIVE_CLASS = 'velora-window-icon-shared-glass';
-const CAPTION_TEXT_LIGHT_CLASS = 'velora-window-caption-text-light';
-const CAPTION_TEXT_DARK_CLASS = 'velora-window-caption-text-dark';
+const CLOSE_ACTIVE_CLASS = 'vliq-window-close-shared-glass';
+const ICON_ACTIVE_CLASS = 'vliq-window-icon-shared-glass';
+const CAPTION_TEXT_LIGHT_CLASS = 'vliq-window-caption-text-light';
+const CAPTION_TEXT_DARK_CLASS = 'vliq-window-caption-text-dark';
 const PAD = 20;
 const MAX_REGIONS = 16;
 const SHARED_RADIUS = 24;
@@ -162,7 +162,7 @@ export class OverviewCloseGlassManager {
         this._setupOverviewFrameLoop();
 
         console.log(
-            '[Velora][OverviewCloseGlass] shared window chrome glass active'
+            '[VLIQ][OverviewCloseGlass] shared window chrome glass active'
         );
     }
 
@@ -289,7 +289,7 @@ export class OverviewCloseGlassManager {
 
     _createLayer() {
         const root = new this._vendor.UnpickableActor({
-            name: 'velora-window-close-glass-root',
+            name: 'vliq-window-close-glass-root',
             reactive: false,
         });
         root.set_no_layout?.(true);
@@ -298,7 +298,7 @@ export class OverviewCloseGlassManager {
         root.hide();
 
         const liquidBox = new this._vendor.UnpickableActor({
-            name: 'velora-window-close-liquid-box',
+            name: 'vliq-window-close-liquid-box',
             reactive: false,
         });
         liquidBox.set_no_layout?.(true);
@@ -308,7 +308,7 @@ export class OverviewCloseGlassManager {
         root.add_child(liquidBox);
 
         const sceneRoot = new this._vendor.UnpickableActor({
-            name: 'velora-window-close-scene',
+            name: 'vliq-window-close-scene',
             reactive: false,
         });
         sceneRoot.set_no_layout?.(true);
@@ -318,7 +318,7 @@ export class OverviewCloseGlassManager {
 
         const wallpaper =
             this._vendor.createBackgroundMirror?.(
-                'velora-window-close-wallpaper'
+                'vliq-window-close-wallpaper'
             ) ?? null;
         if (wallpaper) {
             wallpaper.set_no_layout?.(true);
@@ -327,7 +327,7 @@ export class OverviewCloseGlassManager {
         }
 
         const breaker = new this._vendor.UnpickableActor({
-            name: 'velora-window-close-breaker',
+            name: 'vliq-window-close-breaker',
             reactive: false,
         });
         breaker.set_no_layout?.(true);
@@ -338,7 +338,7 @@ export class OverviewCloseGlassManager {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-overview-window-close',
+            owner: 'vliq-overview-window-close',
         });
         effect.setPadding?.(PAD);
         effect.setIsDock?.(false);
@@ -347,7 +347,7 @@ export class OverviewCloseGlassManager {
         liquidBox.add_effect(effect);
 
         const iconLayer = new this._vendor.UnpickableActor({
-            name: 'velora-window-close-icon-layer',
+            name: 'vliq-window-close-icon-layer',
             reactive: false,
         });
         iconLayer.set_no_layout?.(true);
@@ -378,7 +378,7 @@ export class OverviewCloseGlassManager {
             return;
 
         this._appearance = state;
-        const role = VELORA_GLASS_ROLES.shellCard;
+        const role = VLIQ_GLASS_ROLES.shellCard;
 
         let brightness = null;
         let contrast = null;
@@ -395,7 +395,7 @@ export class OverviewCloseGlassManager {
             // Shared material defaults are valid.
         }
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             this._effect,
             role,
             {
@@ -433,7 +433,7 @@ export class OverviewCloseGlassManager {
         // Renderer/clone subtrees are not native Overview controls. Do not
         // count their internal mutations as reasons to rebuild the registry.
         const name = actor.get_name?.() ?? '';
-        return name.startsWith('velora-') ||
+        return name.startsWith('vliq-') ||
             name.startsWith('lg-');
     }
 
@@ -617,8 +617,8 @@ export class OverviewCloseGlassManager {
                 });
                 clone.set_name?.(
                     kind === 'icon'
-                        ? 'velora-window-app-icon-clone'
-                        : 'velora-window-close-icon-clone'
+                        ? 'vliq-window-app-icon-clone'
+                        : 'vliq-window-close-icon-clone'
                 );
                 clone.set_no_layout?.(true);
                 clone.remove_transition?.('position');
@@ -1425,7 +1425,7 @@ export class OverviewCloseGlassManager {
         this._lastRegionGeometry = [];
 
         console.log(
-            '[Velora][OverviewCloseGlass] stopped'
+            '[VLIQ][OverviewCloseGlass] stopped'
         );
     }
 }

@@ -1,13 +1,13 @@
-// Velora fullscreen chrome visibility guard — GNOME Shell 50.
+// VLIQ fullscreen chrome visibility guard — GNOME Shell 50.
 //
 // Mutter's fullscreen direct-scanout inhibitor keeps fullscreen video inside
 // the uiGroup compositor so software brightness applies. GNOME's native
-// panelBox is already tracked with trackFullscreen:true; however, Velora's
+// panelBox is already tracked with trackFullscreen:true; however, VLIQ's
 // independent top-panel Liquid Glass actor lives directly under uiGroup and
 // can remain drawn after the native panel disappears.
 //
 // This guard reconciles ONLY the native panelBox on the primary monitor and
-// Velora's owned top-panel glass actor. It does not change Ubuntu Dock native
+// VLIQ's owned top-panel glass actor. It does not change Ubuntu Dock native
 // hide settings, rewrite stage/window opacity or affect fullscreen video.
 
 export function primaryPanelIsFullscreen(layout, display) {
@@ -70,7 +70,7 @@ export class FullscreenPanelChromeGuard {
                     this._signals.push({actor, id});
             } catch (error) {
                 console.warn(
-                    '[Velora][FullscreenPanel] optional ' +
+                    '[VLIQ][FullscreenPanel] optional ' +
                     signal + ' signal unavailable: ' + error
                 );
             }
@@ -153,7 +153,7 @@ export class FullscreenPanelChromeGuard {
             }
         } catch (error) {
             console.warn(
-                '[Velora][FullscreenPanel] visibility sync failed: ' +
+                '[VLIQ][FullscreenPanel] visibility sync failed: ' +
                 error
             );
         } finally {
@@ -172,7 +172,7 @@ export class FullscreenPanelChromeGuard {
         this._signals = [];
 
         // Remove the callback so a disposed runtime cannot be referenced by
-        // vendor frame updates after Velora hot-swaps.
+        // vendor frame updates after VLIQ hot-swaps.
         try { this._manager?.setVisibilityGate?.(null); } catch {}
 
         if (this._forcedNativeHide) {
@@ -182,7 +182,7 @@ export class FullscreenPanelChromeGuard {
                     this._layout._updateVisibility();
                 // If still fullscreen, leave GNOME's panel hidden; if
                 // fullscreen has ended and layout updater is absent,
-                // restore only the visibility that Velora changed.
+                // restore only the visibility that VLIQ changed.
                 else if (!primaryPanelIsFullscreen(this._layout, this._display))
                     this._layout.panelBox.visible = true;
             } catch {}

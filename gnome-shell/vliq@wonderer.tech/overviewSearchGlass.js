@@ -4,12 +4,12 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
-const REGION_CLASS = 'velora-overview-search-glass-region';
+const REGION_CLASS = 'vliq-overview-search-glass-region';
 const TARGET_CLASS = 'search-section-content';
 const DEFAULT_RADIUS = 24;
 const SCENE_MARGIN_MIN = 56;
@@ -113,7 +113,7 @@ export class OverviewSearchGlassManager {
         this._setupOverviewFrameLoop();
 
         console.log(
-            '[Velora][OverviewSearchGlass] shared multi-region material active'
+            '[VLIQ][OverviewSearchGlass] shared multi-region material active'
         );
     }
 
@@ -212,7 +212,7 @@ export class OverviewSearchGlassManager {
 
     _createMaterial() {
         const root = new this._vendor.UnpickableActor({
-            name: 'velora-overview-search-material-root',
+            name: 'vliq-overview-search-material-root',
             reactive: false,
         });
         root.set_no_layout?.(true);
@@ -222,7 +222,7 @@ export class OverviewSearchGlassManager {
         root.hide();
 
         const liquidBox = new this._vendor.UnpickableActor({
-            name: 'velora-overview-search-liquid-box',
+            name: 'vliq-overview-search-liquid-box',
             reactive: false,
         });
         liquidBox.set_no_layout?.(true);
@@ -232,7 +232,7 @@ export class OverviewSearchGlassManager {
         root.add_child(liquidBox);
 
         const sceneRoot = new this._vendor.UnpickableActor({
-            name: 'velora-overview-search-scene',
+            name: 'vliq-overview-search-scene',
             reactive: false,
         });
         sceneRoot.set_no_layout?.(true);
@@ -244,11 +244,11 @@ export class OverviewSearchGlassManager {
             new this._vendor.WindowCloneManager(
                 sceneRoot,
                 null,
-                'velora-overview-search'
+                'vliq-overview-search'
             );
 
         const breaker = new this._vendor.UnpickableActor({
-            name: 'velora-overview-search-breaker',
+            name: 'vliq-overview-search-breaker',
             reactive: false,
         });
         breaker.set_no_layout?.(true);
@@ -259,10 +259,10 @@ export class OverviewSearchGlassManager {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-overview-search',
+            owner: 'vliq-overview-search',
         });
         effect.setPadding?.(
-            VELORA_GLASS_ADAPTERS.overviewSearch.regionPadding ?? 20
+            VLIQ_GLASS_ADAPTERS.overviewSearch.regionPadding ?? 20
         );
         effect.setIsDock?.(false);
         effect.setMultiRegionMode?.(true);
@@ -300,7 +300,7 @@ export class OverviewSearchGlassManager {
                 return;
 
             const name = actor.get_name?.() ?? '';
-            if (name.startsWith('velora-overview-search-'))
+            if (name.startsWith('vliq-overview-search-'))
                 return;
 
             if (actorClasses(actor).includes(TARGET_CLASS)) {
@@ -385,9 +385,9 @@ export class OverviewSearchGlassManager {
             // Shared role defaults remain valid.
         }
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             this._effect,
-            VELORA_GLASS_ROLES.overviewSearchCard,
+            VLIQ_GLASS_ROLES.overviewSearchCard,
             {
                 tintColor: [
                     (state.r ?? 255) / 255,
@@ -396,7 +396,7 @@ export class OverviewSearchGlassManager {
                 ],
                 tintStrength:
                     state.opacity ??
-                    VELORA_GLASS_ROLES.overviewSearchCard
+                    VLIQ_GLASS_ROLES.overviewSearchCard
                         .tintStrength,
                 baseBlur: state.blur ?? 7,
                 cornerRadius: DEFAULT_RADIUS,
@@ -523,7 +523,7 @@ export class OverviewSearchGlassManager {
         );
 
         const adapter =
-            VELORA_GLASS_ADAPTERS.overviewSearch;
+            VLIQ_GLASS_ADAPTERS.overviewSearch;
         const pad =
             adapter.regionPadding ?? 20;
         const maxRegions =
@@ -732,7 +732,7 @@ export class OverviewSearchGlassManager {
         this._lastCaptureRect = null;
 
         console.log(
-            '[Velora][OverviewSearchGlass] stopped'
+            '[VLIQ][OverviewSearchGlass] stopped'
         );
     }
 }

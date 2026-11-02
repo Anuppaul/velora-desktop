@@ -7,14 +7,14 @@ import {frameDue} from './frameBudget.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
-const ORB_FACE_CLASS = 'velora-orb-face-v2';
-const ORB_GLYPH_CLASS = 'velora-orb-glyph-v2';
-const APP_BUTTON_CLASS = 'velora-app-button';
+const ORB_FACE_CLASS = 'vliq-orb-face-v2';
+const ORB_GLYPH_CLASS = 'vliq-orb-glyph-v2';
+const APP_BUTTON_CLASS = 'vliq-app-button';
 const PAD = 20;
 const REGIONS_PER_BATCH = 16;
 const MAX_GLASS_BATCHES = 4;
@@ -24,8 +24,8 @@ const EXPANDED_REGION_FPS = 30;
 // Deliberately larger than any Orb/app-button half extent. The shader
 // clamps this per region, producing a true circle for square controls.
 const SHARED_RADIUS = 128;
-const TEXT_LIGHT_CLASS = 'velora-shared-text-light';
-const TEXT_DARK_CLASS = 'velora-shared-text-dark';
+const TEXT_LIGHT_CLASS = 'vliq-shared-text-light';
+const TEXT_DARK_CLASS = 'vliq-shared-text-dark';
 
 function classesOf(actor) {
     return String(
@@ -102,7 +102,7 @@ export class OrbGlassManager {
         this._desktopLayer = Main.uiGroup
             ?.get_children?.()
             ?.find(actor =>
-                actor.get_name?.() === 'velora-desktop-layer'
+                actor.get_name?.() === 'vliq-desktop-layer'
             ) ?? null;
 
         if (!this._desktopLayer)
@@ -120,13 +120,13 @@ export class OrbGlassManager {
         );
 
         console.log(
-            '[Velora][OrbGlass] shared Orb/radial Liquid Glass active'
+            '[VLIQ][OrbGlass] shared Orb/radial Liquid Glass active'
         );
     }
 
     _createLayer() {
         const root = new this._vendor.UnpickableActor({
-            name: 'velora-orb-glass-root',
+            name: 'vliq-orb-glass-root',
             reactive: false,
         });
         root.set_no_layout?.(true);
@@ -161,7 +161,7 @@ export class OrbGlassManager {
             return null;
 
         const liquidBox = new this._vendor.UnpickableActor({
-            name: `velora-orb-glass-box-${index}`,
+            name: `vliq-orb-glass-box-${index}`,
             reactive: false,
         });
         liquidBox.set_no_layout?.(true);
@@ -174,7 +174,7 @@ export class OrbGlassManager {
         liquidBox.hide?.();
 
         const sceneRoot = new this._vendor.UnpickableActor({
-            name: `velora-orb-glass-scene-${index}`,
+            name: `vliq-orb-glass-scene-${index}`,
             reactive: false,
         });
         sceneRoot.set_no_layout?.(true);
@@ -189,11 +189,11 @@ export class OrbGlassManager {
             new this._vendor.WindowCloneManager(
                 sceneRoot,
                 null,
-                `velora-orb-glass-scene-${index}`
+                `vliq-orb-glass-scene-${index}`
             );
 
         const breaker = new this._vendor.UnpickableActor({
-            name: `velora-orb-glass-breaker-${index}`,
+            name: `vliq-orb-glass-breaker-${index}`,
             reactive: false,
         });
         breaker.set_no_layout?.(true);
@@ -204,7 +204,7 @@ export class OrbGlassManager {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: `velora-orb-shared-${index}`,
+            owner: `vliq-orb-shared-${index}`,
         });
         effect.setPadding?.(PAD);
         effect.setIsDock?.(false);
@@ -269,9 +269,9 @@ export class OrbGlassManager {
 
         this._appearance = state;
         const role =
-            VELORA_GLASS_ROLES.orbCard;
+            VLIQ_GLASS_ROLES.orbCard;
         const adapter =
-            VELORA_GLASS_ADAPTERS.orb;
+            VLIQ_GLASS_ADAPTERS.orb;
 
         let brightness = null;
         let contrast = null;
@@ -286,7 +286,7 @@ export class OrbGlassManager {
         } catch {}
 
         for (const batch of targets) {
-            applyVeloraGlassRole(
+            applyVLIQGlassRole(
                 batch.effect,
                 role,
                 {
@@ -380,7 +380,7 @@ export class OrbGlassManager {
             // its renderer every time a hover preview opens. Only the real
             // Orb and app buttons belong in this region registry.
             const name = actor.get_name?.() ?? '';
-            if (name.startsWith('velora-shell-card-') ||
+            if (name.startsWith('vliq-shell-card-') ||
                 name.startsWith('lg-'))
                 return;
 
@@ -455,7 +455,7 @@ export class OrbGlassManager {
         const width = global.stage.width;
         const height = global.stage.height;
         const adapter =
-            VELORA_GLASS_ADAPTERS.orb;
+            VLIQ_GLASS_ADAPTERS.orb;
         const nowUs =
             GLib.get_monotonic_time();
 
@@ -783,7 +783,7 @@ export class OrbGlassManager {
     }
 
     _maybeSampleGlyph() {
-        const adapter = VELORA_GLASS_ADAPTERS.orb;
+        const adapter = VLIQ_GLASS_ADAPTERS.orb;
 
         if (
             !adapter.adaptiveText ||
@@ -991,6 +991,6 @@ export class OrbGlassManager {
         this._glyphSampleDirty = true;
         this._glyphGeometryChangedUs = 0;
 
-        console.log('[Velora][OrbGlass] stopped');
+        console.log('[VLIQ][OrbGlass] stopped');
     }
 }

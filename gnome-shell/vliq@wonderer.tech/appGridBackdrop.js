@@ -6,7 +6,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const APP_GRID_CLASS = 'apps-scroll-view';
 const SEARCH_RESULTS_NAME = 'searchResults';
-const OVERVIEW_WALLPAPER_CLASS = 'velora-overview-wallpaper';
+const OVERVIEW_WALLPAPER_CLASS = 'vliq-overview-wallpaper';
 const BLUR_RADIUS = 36;
 const BLUR_BRIGHTNESS = 0.82;
 
@@ -113,14 +113,14 @@ export class AppGridBackdropManager {
         }
 
         console.log(
-            '[Velora][OverviewBackdrop] full Overview native wallpaper blur active'
+            '[VLIQ][OverviewBackdrop] full Overview native wallpaper blur active'
         );
     }
 
     _createLayer() {
         const overview = Main.layoutManager.overviewGroup;
         const layer = new St.Widget({
-            name: 'velora-overview-native-backdrop',
+            name: 'vliq-overview-native-backdrop',
             reactive: false,
             x_expand: true,
             y_expand: true,
@@ -182,7 +182,7 @@ export class AppGridBackdropManager {
                 height: monitor.height,
                 reactive: false,
                 effect: new Shell.BlurEffect({
-                    name: 'velora-overview-native-blur',
+                    name: 'vliq-overview-native-blur',
                 }),
             });
 
@@ -229,7 +229,7 @@ export class AppGridBackdropManager {
         for (const widget of widgets) {
             const effect =
                 widget.get_effect?.(
-                    'velora-overview-native-blur'
+                    'vliq-overview-native-blur'
                 );
             if (!effect) {
                 allApplied = false;
@@ -396,7 +396,7 @@ export class AppGridBackdropManager {
         this._atmosphereManager = null;
 
         console.log(
-            '[Velora][OverviewBackdrop] stopped'
+            '[VLIQ][OverviewBackdrop] stopped'
         );
     }
 }
