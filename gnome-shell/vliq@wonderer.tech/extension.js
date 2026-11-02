@@ -3,6 +3,7 @@ import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {DesktopClockWidget} from './desktopClockWidget.js';
 
 export const VLIQ_BOOTSTRAP_API = 1;
 export const VLIQ_BOOTSTRAP_GENERATION = '2026-09-28-b';
@@ -45,6 +46,10 @@ export default class VLIQBootstrap extends Extension {
         );
 
         await this._reloadRuntime(this._reloadGeneration);
+        if (this._enabled) {
+            this._desktopClock = new DesktopClockWidget(this._settings);
+            this._desktopClock.enable();
+        }
     }
 
     disable() {
@@ -56,6 +61,8 @@ export default class VLIQBootstrap extends Extension {
             this._revisionChangedId = 0;
         }
 
+        this._desktopClock?.disable();
+        this._desktopClock = null;
         this._disableRuntime();
         this._settings = null;
         this._reloadPromise = null;
