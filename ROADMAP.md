@@ -2,7 +2,7 @@
 
 This roadmap communicates direction, not a delivery promise.
 
-Velora prioritizes **stability, native GNOME behavior, performance and maintainability** over adding features quickly.
+VLIQ prioritizes **stability, native GNOME behavior, performance and maintainability** over adding features quickly.
 
 ## Current priorities
 
@@ -55,7 +55,7 @@ These are not commitments and may change based on upstream GNOME behavior and co
 
 ## Explicit non-goals
 
-Velora is not intended to become:
+VLIQ is not intended to become:
 
 - a replacement desktop environment;
 - a duplicate Dock implementation;
@@ -70,7 +70,7 @@ The native-GNOME ownership model remains the design constraint for roadmap decis
 Open a GitHub Discussion describing:
 
 - the user problem;
-- why it belongs in Velora;
+- why it belongs in VLIQ;
 - native GNOME ownership impact;
 - lifecycle/performance considerations;
 - a possible scoped implementation.
