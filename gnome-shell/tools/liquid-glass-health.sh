@@ -4,11 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 GNOME_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 REPO_DIR="$(cd -- "${GNOME_DIR}/.." && pwd)"
-SOURCE_DIR="${GNOME_DIR}/velora@wonderer.tech"
+SOURCE_DIR="${GNOME_DIR}/vliq@wonderer.tech"
 VENDOR_DIR="${SOURCE_DIR}/vendor/liquid-glass"
 MANIFEST="${VENDOR_DIR}/UPSTREAM-BLOBS.txt"
-UUID="velora@wonderer.tech"
-VELORA_SCHEMA="org.gnome.shell.extensions.velora"
+UUID="vliq@wonderer.tech"
+VLIQ_SCHEMA="org.gnome.shell.extensions.vliq"
 GLASS_SCHEMA="org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com"
 TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SINCE="${1:-2 minutes ago}"
@@ -23,7 +23,7 @@ for command_name in git glib-compile-schemas gsettings journalctl grep sed awk w
         fail "${command_name} was not found"
 done
 
-echo "=== VELORA / LIQUID GLASS HEALTH ==="
+echo "=== VLIQ / LIQUID GLASS HEALTH ==="
 echo "Source: ${SOURCE_DIR}"
 echo "Git HEAD: $(git -C "${REPO_DIR}" log -1 --oneline 2>/dev/null || echo unknown)"
 echo
@@ -67,19 +67,19 @@ echo "Schema validation: PASS"
 echo
 
 if [[ -f "${TARGET_DIR}/schemas/gschemas.compiled" ]]; then
-    echo "=== ACTIVE VELORA RUNTIME ==="
+    echo "=== ACTIVE VLIQ RUNTIME ==="
     runtime_revision="$(
-        GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas"             gsettings get "${VELORA_SCHEMA}" runtime-loaded-revision 2>/dev/null || true
+        GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas"             gsettings get "${VLIQ_SCHEMA}" runtime-loaded-revision 2>/dev/null || true
     )"
     runtime_error="$(
-        GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas"             gsettings get "${VELORA_SCHEMA}" runtime-error 2>/dev/null || true
+        GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas"             gsettings get "${VLIQ_SCHEMA}" runtime-error 2>/dev/null || true
     )"
     echo "Revision: ${runtime_revision}"
     echo "Error:    ${runtime_error}"
     echo
 else
-    echo "=== ACTIVE VELORA RUNTIME ==="
-    echo "Installed Velora schema not found: ${TARGET_DIR}/schemas/gschemas.compiled"
+    echo "=== ACTIVE VLIQ RUNTIME ==="
+    echo "Installed VLIQ schema not found: ${TARGET_DIR}/schemas/gschemas.compiled"
     echo
 fi
 
@@ -102,14 +102,14 @@ fi
 echo "=== FRESH GNOME SHELL HEALTH (${SINCE}) ==="
 logs="$(
     journalctl -b --since "${SINCE}" -o cat /usr/bin/gnome-shell 2>/dev/null |
-        grep -i -E '\[Velora\]\[LiquidGlass\]|Liquid Glass|GType|shader|cogl|allocation' || true
+        grep -i -E '\[VLIQ\]\[LiquidGlass\]|Liquid Glass|GType|shader|cogl|allocation' || true
 )"
 
 if [[ -z "${logs}" ]]; then
     echo "(no matching log lines)"
 else
     printf '%s\n' "${logs}" |
-        grep -i -E '\[Velora\]\[LiquidGlass\].*(active|health|root)|setup failed|runtime reload failed' || true
+        grep -i -E '\[VLIQ\]\[LiquidGlass\].*(active|health|root)|setup failed|runtime reload failed' || true
 
     allocation_count="$(
         printf '%s\n' "${logs}" |
