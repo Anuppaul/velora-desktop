@@ -108,6 +108,11 @@ GNOME_MAJOR="$(
 echo "Validating GSettings schema..."
 glib-compile-schemas --strict --dry-run "${SCHEMA_DIR}"
 
+# One-time migration is prepared only AFTER schema validation. It never
+# removes the old installation or overwrites a configured VLIQ profile.
+# The previous UUID is referenced only by the migration helper.
+python3 "${SCRIPT_DIR}/migrate_legacy_install.py" prepare
+
 SOURCE_BOOTSTRAP_GENERATION="$(
     sed -nE "s/^[[:space:]]*export[[:space:]]+const[[:space:]]+VLIQ_BOOTSTRAP_GENERATION[[:space:]]*=[[:space:]]*'([^']+)'.*/\\1/p" \
         "${SOURCE_DIR}/extension.js" | head -n1
@@ -748,5 +753,18 @@ echo "  ${TARGET_DIR}"
 echo
 echo "Fresh local install is complete on disk."
 
-finish_safe_activation
-exit $?
+# The new UUID is fully copied/compiled before the old UUID is disabled.
+# This prevents both extensions from painting the GNOME Shell simultaneously.
+python3 "${SCRIPT_DIR}/migrate_legacy_install.py" retire
+
+if finish_safe_activation; then
+    echo "VLIQ migration/install completed. Verify it after session refresh."
+    echo "After visual verification, optional legacy cleanup:"
+    echo "  python3 gnome-shell/migrate_legacy_install.py finalize"
+    exit 0
+else
+    status=$?
+    echo "VLIQ failed activation; restoring the previous extension." >&2
+    python3 "${SCRIPT_DIR}/migrate_legacy_install.py" rollback || true
+    exit "${status}"
+fi
