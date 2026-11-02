@@ -1513,9 +1513,9 @@ void main() {
     float specularLight = pow(specularDot, max(shininess, 1.0));
     specularLight *= specular_intensity * response;
     float specMask = mix(0.25, 1.0, insideMask) * clamp(edgeBand + insideMask * 0.65, 0.0, 1.0);
-    specularLight *= specMask;
+    specularLight *= specMask * cornerGlint;
 
-    float idleRim = edgeBand * 0.008;
+    float idleRim = edgeBand * 0.008 * cornerGlint;
     // [FIX] Same redundant-insideMask issue as finalRimLight above — removed.
     // The final `litColor * alpha` composite already applies insideMask once.
 
@@ -1549,7 +1549,7 @@ void main() {
         1.0, 0.09 + 0.14 * crystalEdgeGlow, frostMatte
     );
     addedLight += vec3(0.79, 0.90, 1.0) *
-        pow(max(edgeBand, 0.0), 0.58) * lightMask *
+        pow(max(edgeBand, 0.0), 0.58) * cornerGlint *
         (0.05 + 0.21 * crystalEdgeGlow) *
         frostMatte * surface_light_enabled;
 
@@ -1593,6 +1593,9 @@ void main() {
             (0.76 - edgeBlue.r) / (0.76 - 0.54), 0.0, 1.0
         );
         edgeCoverage *= mix(1.0, 0.58, brightEdge);
+        // The adaptive optical outline is the old full-height white edge.
+        // Clip its visibility to the same diagonal corner highlights.
+        edgeCoverage *= cornerGlint;
         // Frosted uses a calmer contrast contour; its Crystal Edge Glow
         // slider still controls the separate broad luminous highlight.
         edgeCoverage *= mix(
