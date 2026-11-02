@@ -10,7 +10,7 @@ You do not need to be a GNOME Shell expert to contribute. Testing, documentation
 
 Open a bug report:
 
-https://github.com/Anuppaul/velora-desktop/issues/new/choose
+https://github.com/Anuppaul/vliq-desktop/issues/new/choose
 
 Include your GNOME Shell version, distribution, session, reproduction steps and relevant logs.
 
@@ -18,7 +18,7 @@ Include your GNOME Shell version, distribution, session, reproduction steps and 
 
 Start a Discussion:
 
-https://github.com/Anuppaul/velora-desktop/discussions
+https://github.com/Anuppaul/vliq-desktop/discussions
 
 Use Discussions for ideas that still need design or architecture conversation before becoming an implementation task.
 
@@ -26,8 +26,8 @@ Use Discussions for ideas that still need design or architecture conversation be
 
 Start with:
 
-- [Good first issues](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
-- [Help wanted](https://github.com/Anuppaul/velora-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
+- [Good first issues](https://github.com/Anuppaul/vliq-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+- [Help wanted](https://github.com/Anuppaul/vliq-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
 - [Contributor Map](docs/CONTRIBUTOR_MAP.md)
 - [Development Guide](docs/DEVELOPMENT.md)
 
