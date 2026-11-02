@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UUID="velora@wonderer.tech"
-VELORA_SCHEMA="org.gnome.shell.extensions.velora"
+UUID="vliq@wonderer.tech"
+VLIQ_SCHEMA="org.gnome.shell.extensions.vliq"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}/${UUID}"
 TARGET_DIR="${HOME}/.local/share/gnome-shell/extensions/${UUID}"
 SCHEMA_DIR="${SOURCE_DIR}/schemas"
-BOOTSTRAP_MARKER="${TARGET_DIR}/.velora-bootstrap-generation"
-BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.velora-bootstrap-revision"
+BOOTSTRAP_MARKER="${TARGET_DIR}/.vliq-bootstrap-generation"
+BOOTSTRAP_REVISION_MARKER="${TARGET_DIR}/.vliq-bootstrap-revision"
 INSTALLER_VERSION="2026-10-02.220"
 
 BOOTSTRAP_FILES=(
@@ -22,7 +22,7 @@ HOT_AUX_FILES=(
     "nativeDockPreferences.js"
     "wallpaperAtmospherePreferences.js"
     "wallpaperAtmosphereConfig.js"
-    "schemas/org.gnome.shell.extensions.velora.gschema.xml"
+    "schemas/org.gnome.shell.extensions.vliq.gschema.xml"
 )
 
 RUNTIME_FILES=(
@@ -108,8 +108,13 @@ GNOME_MAJOR="$(
 echo "Validating GSettings schema..."
 glib-compile-schemas --strict --dry-run "${SCHEMA_DIR}"
 
+# One-time migration is prepared only AFTER schema validation. It never
+# removes the old installation or overwrites a configured VLIQ profile.
+# The previous UUID is referenced only by the migration helper.
+python3 "${SCRIPT_DIR}/migrate_legacy_install.py" prepare
+
 SOURCE_BOOTSTRAP_GENERATION="$(
-    sed -nE "s/^[[:space:]]*export[[:space:]]+const[[:space:]]+VELORA_BOOTSTRAP_GENERATION[[:space:]]*=[[:space:]]*'([^']+)'.*/\\1/p" \
+    sed -nE "s/^[[:space:]]*export[[:space:]]+const[[:space:]]+VLIQ_BOOTSTRAP_GENERATION[[:space:]]*=[[:space:]]*'([^']+)'.*/\\1/p" \
         "${SOURCE_DIR}/extension.js" | head -n1
 )"
 [[ -n "${SOURCE_BOOTSTRAP_GENERATION}" ]] ||
@@ -138,7 +143,7 @@ read_string_setting() {
     local key="$1"
 
     env GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas" \
-        gsettings get "${VELORA_SCHEMA}" "${key}" 2>/dev/null |
+        gsettings get "${VLIQ_SCHEMA}" "${key}" 2>/dev/null |
         sed -e "s/^'//" -e "s/'$//"
 }
 
@@ -147,7 +152,7 @@ write_string_setting() {
     local value="$2"
 
     env GSETTINGS_SCHEMA_DIR="${TARGET_DIR}/schemas" \
-        gsettings set "${VELORA_SCHEMA}" "${key}" "'${value}'"
+        gsettings set "${VLIQ_SCHEMA}" "${key}" "'${value}'"
 }
 
 read_marker() {
@@ -168,7 +173,7 @@ installed_bootstrap_generation() {
 
     if [[ -f "${TARGET_DIR}/extension.js" ]]; then
         generation="$(
-            sed -nE "s/^[[:space:]]*export[[:space:]]+const[[:space:]]+VELORA_BOOTSTRAP_GENERATION[[:space:]]*=[[:space:]]*'([^']+)'.*/\\1/p" \
+            sed -nE "s/^[[:space:]]*export[[:space:]]+const[[:space:]]+VLIQ_BOOTSTRAP_GENERATION[[:space:]]*=[[:space:]]*'([^']+)'.*/\\1/p" \
                 "${TARGET_DIR}/extension.js" | head -n1
         )"
     fi
@@ -202,7 +207,7 @@ bootstrap_scaffold_compatible() {
     [[ -d "${TARGET_DIR}" ]] || return 1
     [[ -f "${TARGET_DIR}/extension.js" ]] || return 1
     [[ -f "${TARGET_DIR}/metadata.json" ]] || return 1
-    grep -Fq "VELORA_BOOTSTRAP_API = 1" "${TARGET_DIR}/extension.js" ||
+    grep -Fq "VLIQ_BOOTSTRAP_API = 1" "${TARGET_DIR}/extension.js" ||
         return 1
 
     installed_generation="$(installed_bootstrap_generation)" || return 1
@@ -258,7 +263,7 @@ sync_hot_aux() {
         fail "Canonical VLIQ GSettings compilation failed."
 
     shopt -s nullglob
-    for live_dir in "${HOME}"/.cache/velora-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
+    for live_dir in "${HOME}"/.cache/vliq-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
         [[ -d "${live_dir}" ]] || continue
         for file in "${HOT_AUX_FILES[@]}"; do
             mkdir -p "$(dirname "${live_dir}/${file}")"
@@ -344,8 +349,8 @@ runtime_revision() {
             cat "${SOURCE_DIR}/${file}"
         done
 
-        printf '%s\0' "schemas/org.gnome.shell.extensions.velora.gschema.xml"
-        cat "${SOURCE_DIR}/schemas/org.gnome.shell.extensions.velora.gschema.xml"
+        printf '%s\0' "schemas/org.gnome.shell.extensions.vliq.gschema.xml"
+        cat "${SOURCE_DIR}/schemas/org.gnome.shell.extensions.vliq.gschema.xml"
 
         for runtime_source in "${RUNTIME_DIRS[@]}"; do
             while IFS= read -r file; do
@@ -482,7 +487,7 @@ finish_safe_activation() {
         23)
             echo "VLIQ was discovered but its runtime reported an error." >&2
             echo "Check:" >&2
-            echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
+            echo "  journalctl --user -b -o cat | grep -i -E 'vliq|gnome-shell'" >&2
             return 23
             ;;
         20|21|22|24)
@@ -671,7 +676,7 @@ if command -v unzip >/dev/null 2>&1; then
         "notificationGlass.js"
         "popupGlass.js"
         "shellCards.js"
-        "schemas/org.gnome.shell.extensions.velora.gschema.xml"
+        "schemas/org.gnome.shell.extensions.vliq.gschema.xml"
     )
 
     PACK_LIST="$(unzip -Z1 "${PACK_PATH}")"
@@ -748,5 +753,18 @@ echo "  ${TARGET_DIR}"
 echo
 echo "Fresh local install is complete on disk."
 
-finish_safe_activation
-exit $?
+# The new UUID is fully copied/compiled before the old UUID is disabled.
+# This prevents both extensions from painting the GNOME Shell simultaneously.
+python3 "${SCRIPT_DIR}/migrate_legacy_install.py" retire
+
+if finish_safe_activation; then
+    echo "VLIQ migration/install completed. Verify it after session refresh."
+    echo "After visual verification, optional legacy cleanup:"
+    echo "  python3 gnome-shell/migrate_legacy_install.py finalize"
+    exit 0
+else
+    status=$?
+    echo "VLIQ failed activation; restoring the previous extension." >&2
+    python3 "${SCRIPT_DIR}/migrate_legacy_install.py" rollback || true
+    exit "${status}"
+fi

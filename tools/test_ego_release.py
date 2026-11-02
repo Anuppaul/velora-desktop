@@ -29,9 +29,9 @@ class EGOReleaseArchiveTests(unittest.TestCase):
         self.assertIn("metadata.json", names)
         self.assertIn("runtime.js", names)
         self.assertIn("prefs.js", names)
-        self.assertNotIn("velora@wonderer.tech/extension.js", names)
+        self.assertNotIn("vliq@wonderer.tech/extension.js", names)
         manifest = json.loads(self.package["metadata.json"])
-        self.assertEqual(manifest["uuid"], "velora@wonderer.tech")
+        self.assertEqual(manifest["uuid"], "vliq@wonderer.tech")
         self.assertEqual(manifest["shell-version"], ["50"])
         self.assertNotIn("version", manifest)
 
@@ -41,7 +41,7 @@ class EGOReleaseArchiveTests(unittest.TestCase):
             if k.startswith("schemas/") and k.endswith(".gschema.xml")
         }
         self.assertEqual(schemas, {
-            "schemas/org.gnome.shell.extensions.velora.gschema.xml",
+            "schemas/org.gnome.shell.extensions.vliq.gschema.xml",
             "schemas/org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com.gschema.xml",
         })
         self.assertFalse(any(p.endswith("gschemas.compiled") for p in self.package))
@@ -64,7 +64,7 @@ class EGOReleaseArchiveTests(unittest.TestCase):
         ))
 
     def test_zip_is_byte_reproducible_and_has_manifest_compatible_hashes(self):
-        with tempfile.TemporaryDirectory(prefix="velora-ego-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="vliq-ego-test-") as tmp:
             first = Path(tmp) / "a.zip"
             second = Path(tmp) / "b.zip"
             module.create_zip(first, self.package)

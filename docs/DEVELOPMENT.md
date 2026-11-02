@@ -15,8 +15,8 @@ gnome-shell --version
 ## Clone
 
 ```bash
-git clone https://github.com/Anuppaul/velora-desktop.git
-cd velora-desktop
+git clone https://github.com/Anuppaul/vliq.git
+cd vliq
 ```
 
 For contribution work, create a focused branch:
@@ -38,13 +38,13 @@ Normal runtime revisions should use VLIQ's update/hot-swap path where supported.
 ## Verify activation
 
 ```bash
-gnome-extensions list --active | grep velora@wonderer.tech
+gnome-extensions list --active | grep vliq@wonderer.tech
 ```
 
 Open preferences:
 
 ```bash
-gnome-extensions prefs velora@wonderer.tech
+gnome-extensions prefs vliq@wonderer.tech
 ```
 
 ## Logs
@@ -52,7 +52,7 @@ gnome-extensions prefs velora@wonderer.tech
 Follow VLIQ-related Shell logs:
 
 ```bash
-journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'
+journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'vliq|liquid glass|liquidglass'
 ```
 
 Useful baseline messages include:

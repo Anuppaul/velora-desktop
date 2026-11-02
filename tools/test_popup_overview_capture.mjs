@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // One backdrop-selection rule across Calendar, Quick Settings and native
 // panel/popup menus: visible GNOME Overview → Overview pixels; otherwise
 // actual desktop windows above wallpaper. This exercises the SHIPPED code.
-const root = '../gnome-shell/velora@wonderer.tech/';
+const root = '../gnome-shell/vliq@wonderer.tech/';
 const popup = await readFile(new URL(root + 'popupGlass.js', import.meta.url), 'utf8');
 const clones = await readFile(new URL(
     root + 'vendor/liquid-glass/dist/capture/windowClones.js', import.meta.url

@@ -15,15 +15,15 @@ VLIQ vendors and adapts components from **Liquid Glass**.
 
 The preserved upstream license is available at:
 
-`gnome-shell/velora@wonderer.tech/vendor/liquid-glass/LICENSE`
+`gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/LICENSE`
 
 The vendored provenance record is available at:
 
-`gnome-shell/velora@wonderer.tech/vendor/liquid-glass/UPSTREAM.md`
+`gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/UPSTREAM.md`
 
 The upstream blob/reference inventory is available at:
 
-`gnome-shell/velora@wonderer.tech/vendor/liquid-glass/UPSTREAM-BLOBS.txt`
+`gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/UPSTREAM-BLOBS.txt`
 
 VLIQ's use of the renderer does not remove or replace the upstream copyright and MIT license obligations.
 

@@ -29,7 +29,7 @@ The fallback never claims to control the physical monitor. It is labeled
 ## Install / hot reload
 
 ```bash
-cd ~/Documents/code/velora-desktop
+cd ~/Documents/code/vliq
 git pull origin main
 bash gnome-shell/install.sh
 ```
@@ -48,7 +48,7 @@ supported hardware backlight, VLIQ inserts the fallback in the same
 Open:
 
 ```bash
-gnome-extensions prefs velora@wonderer.tech
+gnome-extensions prefs vliq@wonderer.tech
 ```
 
 Then **Menus → Quick Settings Brightness**:
@@ -135,8 +135,8 @@ native GNOME hardware brightness slider remain managed by GNOME itself.
 If the full-screen effect looks wrong, restore normal brightness immediately:
 
 ```bash
-GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
-  gsettings set org.gnome.shell.extensions.velora quick-soft-brightness 100
+GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/vliq@wonderer.tech/schemas" \
+  gsettings set org.gnome.shell.extensions.vliq quick-soft-brightness 100
 ```
 
 Or use **VLIQ Preferences → Menus → Quick Settings Brightness → OFF**.
@@ -163,8 +163,8 @@ it is not a hardware backlight control.
   Read status with:
 
 ```bash
-GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
-  gsettings get org.gnome.shell.extensions.velora quick-brightness-status
+GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/vliq@wonderer.tech/schemas" \
+  gsettings get org.gnome.shell.extensions.vliq quick-brightness-status
 ```
 
 ## Terminal Glass remains paused

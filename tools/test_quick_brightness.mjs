@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const root = new URL('../gnome-shell/velora@wonderer.tech/', import.meta.url);
+const root = new URL('../gnome-shell/vliq@wonderer.tech/', import.meta.url);
 const src = await readFile(new URL('quickBrightness.js', root), 'utf8');
 const runtime = await readFile(new URL('orbThemeRuntime.js', root), 'utf8');
 const prefs = await readFile(new URL('prefs.js', root), 'utf8');
 const schema = await readFile(new URL(
-    'schemas/org.gnome.shell.extensions.velora.gschema.xml', root
+    'schemas/org.gnome.shell.extensions.vliq.gschema.xml', root
 ), 'utf8');
 const installer = await readFile(
     new URL('../gnome-shell/install.sh', import.meta.url), 'utf8'
@@ -94,7 +94,7 @@ class Slider extends Signals {
 
 class QuickSlider extends MockActor {
     constructor(props) {
-        super('velora-fallback-slider');
+        super('vliq-fallback-slider');
         this.props = props;
         this.menu = {actor: new MockActor('quick-toggle-menu')};
         this.slider = new Slider();
@@ -284,7 +284,7 @@ controller.setup();
 flushIdle();
 assert.equal(controller._softwareSlider instanceof QuickSlider, true);
 assert.deepEqual(grid.get_children().map(a => a.name),
-    ['sound-output', 'velora-fallback-slider',
+    ['sound-output', 'vliq-fallback-slider',
      'sound-input', 'gnome-native-brightness']);
 assert.match(settings.get_string('quick-brightness-status'), /^Software/);
 assert.equal(controller._softwareSlider.slider.accessible_name,
@@ -324,7 +324,7 @@ grid.emit('child-added', new MockActor('dummy'));
 brightnessManager.emit('changed');
 flushIdle();
 assert.equal(grid.get_children().filter(a =>
-    a.name === 'velora-fallback-slider').length, 1);
+    a.name === 'vliq-fallback-slider').length, 1);
 assert.equal(compositor.inhibitCount, 1);
 assert.equal(compositor.disableCalls, 1,
     'slider updates may NEVER accumulate global compositor holds');
@@ -375,7 +375,7 @@ brightnessManager.globalScale = null;
 brightnessManager.emit('changed');
 flushIdle();
 assert.deepEqual(grid.get_children().map(a => a.name),
-    ['sound-output', 'velora-fallback-slider',
+    ['sound-output', 'vliq-fallback-slider',
      'sound-input', 'gnome-native-brightness']);
 assert.equal(settings.get_int('quick-soft-brightness'), 55);
 assert.equal(uiGroup.effects.size, 1);
@@ -393,7 +393,7 @@ assert.equal(settings.get_string('quick-brightness-status'), 'Off');
 settings.set_boolean('quick-brightness-enabled', true);
 flushIdle();
 assert.equal(grid.get_children().filter(a =>
-    a.name === 'velora-fallback-slider').length, 1);
+    a.name === 'vliq-fallback-slider').length, 1);
 
 // GNOME async indicator additions must be handled on a single deferred
 // idle, without polling/monkeypatching the GNOME QuickSettings prototype.
@@ -492,7 +492,7 @@ failed.cleanup();
 uiGroup.add_effect_with_name = originalAddEffect;
 
 // Mutter's counter is shared with OSK/OSD and other extensions.
-// Releasing Velora's ONE lease must not release another owner's hold.
+// Releasing VLIQ's ONE lease must not release another owner's hold.
 compositor.disable_unredirect(); // Native OSD-like external owner
 const nestedSettings = new Settings();
 nestedSettings.data.set('quick-soft-brightness', 60);
@@ -502,7 +502,7 @@ flushIdle();
 assert.equal(compositor.inhibitCount, 2);
 nested.cleanup();
 assert.equal(compositor.inhibitCount, 1,
-    'disabling Velora may not decrement the native OSD inhibitor');
+    'disabling VLIQ may not decrement the native OSD inhibitor');
 compositor.enable_unredirect(); // OSD releases its own hold
 assert.equal(compositor.inhibitCount, 0);
 assert.equal(compositor.disableCalls, compositor.enableCalls);

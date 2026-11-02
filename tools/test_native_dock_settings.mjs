@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-// Verify the actual shipped Velora Dock Preferences helper and its bindings.
+// Verify the actual shipped VLIQ Dock Preferences helper and its bindings.
 // This mock models the real Gio.Settings signals and Adw property notifications;
 // it does not require a user's GNOME session or modify system GSettings.
 const src = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/nativeDockPreferences.js',
+    '../gnome-shell/vliq@wonderer.tech/nativeDockPreferences.js',
     import.meta.url
 ), 'utf8');
 const prefs = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/prefs.js',
+    '../gnome-shell/vliq@wonderer.tech/prefs.js',
     import.meta.url
 ), 'utf8');
 const install = await readFile(new URL(
@@ -211,7 +211,7 @@ const native = new NativeSettings();
 assert.equal(mod.addUbuntuDockPreferences(page, Gio, Gtk, Adw, native),
     native);
 assert.equal(native.calls.length, 0,
-    'opening Velora Dock settings must never write native Ubuntu defaults');
+    'opening VLIQ Dock settings must never write native Ubuntu defaults');
 assert.ok(page.groups.length >= 4);
 const findRow = title => page.groups.flatMap(g => g.rows)
     .find(row => row.title === title);
@@ -231,7 +231,7 @@ assert.equal(row('Pressure threshold').value, 100,
     'pressure-threshold is a double, not an integer');
 assert.equal(row('Maximum icon size').value, 48);
 
-// External Ubuntu/system GSettings changes must reflect in Velora.
+// External Ubuntu/system GSettings changes must reflect in VLIQ.
 native.set_boolean('dock-fixed', true);
 assert.equal(row('Always visible').active, true);
 assert.equal(row('Auto-hide at screen edge').sensitive, false);
@@ -249,7 +249,7 @@ row('Dock position').selected = 1;
 assert.equal(native.get_enum('dock-position'), 1);
 native.set_enum('dock-position', 3);
 assert.equal(row('Dock position').selected, 3,
-    'external native enum changes reflect in Velora');
+    'external native enum changes reflect in VLIQ');
 row('Maximum icon size').value = 56;
 assert.equal(native.get_int('dash-max-icon-size'), 56);
 row('Reveal delay (seconds)').value = 0.6;
@@ -262,7 +262,7 @@ row('Click on a running application').selected = 6;
 assert.equal(native.get_enum('click-action'), 6);
 
 // Restore is explicitly user-triggered and operates atomically in the
-// native schema (no intermediary Velora setting or duplicate dock engine).
+// native schema (no intermediary VLIQ setting or duplicate dock engine).
 native.set_boolean('dock-fixed', true);
 native.set_boolean('manualhide', true);
 native.set_boolean('intellihide', false);

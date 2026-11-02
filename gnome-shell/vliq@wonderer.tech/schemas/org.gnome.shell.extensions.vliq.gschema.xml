@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.vliq" path="/org/gnome/shell/extensions/vliq/">
+    <key name="bootstrap-loaded-generation" type="s">
+      <default>''</default>
+      <summary>Internal bootstrap generation loaded by GNOME Shell</summary>
+    </key>
+    <key name="bootstrap-loaded-revision" type="s">
+      <default>''</default>
+      <summary>Internal bootstrap fingerprint loaded by GNOME Shell</summary>
+    </key>
+    <key name="runtime-revision" type="s">
+      <default>'base'</default>
+      <summary>Requested hot-swap runtime revision</summary>
+    </key>
+    <key name="runtime-loaded-revision" type="s">
+      <default>''</default>
+      <summary>Runtime revision currently loaded by the bootstrap</summary>
+    </key>
+    <key name="runtime-error" type="s">
+      <default>''</default>
+      <summary>Runtime hot-swap error status</summary>
+    </key>
+
+    <key name="orb-enabled" type="b">
+      <default>true</default>
+      <summary>Show the VLIQ Orb</summary>
+    </key>
+    <key name="orb-size" type="i">
+      <default>44</default>
+      <range min="20" max="80"/>
+      <summary>VLIQ Orb size</summary>
+    </key>
+    <key name="orb-opacity" type="i">
+      <default>100</default>
+      <range min="0" max="100"/>
+      <summary>VLIQ Orb opacity percentage</summary>
+    </key>
+    <key name="orb-icon" type="s">
+      <default>'start-here-symbolic'</default>
+      <summary>Themed icon name or absolute SVG/PNG path used by the Orb</summary>
+    </key>
+    <key name="orb-x" type="d">
+      <default>0.015</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized horizontal Orb position</summary>
+    </key>
+    <key name="orb-y" type="d">
+      <default>0.065</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized vertical Orb position</summary>
+    </key>
+    <key name="auto-hide-orb" type="b">
+      <default>false</default>
+      <summary>Slide the Orb to the nearest monitor edge while idle</summary>
+    </key>
+    <key name="auto-hide-delay" type="i">
+      <default>1400</default>
+      <range min="0" max="10000"/>
+      <summary>Milliseconds before the idle Orb auto-hides</summary>
+    </key>
+    <key name="auto-fade-orb" type="b">
+      <default>true</default>
+      <summary>Fade the Orb while idle when auto-hide is disabled</summary>
+    </key>
+    <key name="auto-fade-delay" type="i">
+      <default>5000</default>
+      <range min="0" max="30000"/>
+      <summary>Milliseconds before the idle Orb fades</summary>
+    </key>
+    <key name="orb-app-source" type="s">
+      <default>'dock'</default>
+      <choices>
+        <choice value="dock"/>
+        <choice value="custom"/>
+        <choice value="all"/>
+      </choices>
+      <summary>Application source for the Orb radial launcher</summary>
+      <description>Dock uses favorites plus running apps, Custom uses the selected desktop application IDs, and All uses every visible installed application.</description>
+    </key>
+    <key name="orb-custom-apps" type="as">
+      <default>@as []</default>
+      <summary>Custom application IDs shown by the Orb</summary>
+      <description>Ordered desktop application IDs used when Orb app source is Custom.</description>
+    </key>
+
+    <key name="orb-geometry" type="s">
+      <default>'orbit'</default>
+      <choices>
+        <choice value="orbit"/>
+        <choice value="star"/>
+        <choice value="molecule"/>
+        <choice value="spiral"/>
+        <choice value="petal"/>
+      </choices>
+      <summary>Geometry used by the Orb application launcher</summary>
+      <description>Orbit preserves the classic circular launcher. Star, Molecule, Spiral and Petal use monitor-safe alternative slot generators while preserving the same application buttons and interactions.</description>
+    </key>
+
+    <key name="ring-mode" type="s">
+      <default>'auto'</default>
+      <choices>
+        <choice value="auto"/>
+        <choice value="2"/>
+        <choice value="3"/>
+        <choice value="4"/>
+      </choices>
+      <summary>Orb launcher layout depth</summary>
+    </key>
+    <key name="icon-size" type="i">
+      <default>52</default>
+      <range min="20" max="80"/>
+      <summary>Orb radial launcher icon size</summary>
+    </key>
+    <key name="icon-gap" type="i">
+      <default>12</default>
+      <range min="0" max="64"/>
+      <summary>Minimum gap between Orb launcher icons</summary>
+    </key>
+    <key name="ring-gap" type="i">
+      <default>80</default>
+      <range min="0" max="160"/>
+      <summary>Spacing between Orb launcher geometry levels</summary>
+    </key>
+    <key name="hover-delay" type="i">
+      <default>100</default>
+      <range min="0" max="1200"/>
+      <summary>Hover delay before the Orb radial launcher opens</summary>
+    </key>
+    <key name="close-delay" type="i">
+      <default>420</default>
+      <range min="0" max="1800"/>
+      <summary>Delay before the Orb radial launcher closes</summary>
+    </key>
+    <key name="animation-ms" type="i">
+      <default>160</default>
+      <range min="0" max="600"/>
+      <summary>Orb radial launcher animation duration</summary>
+    </key>
+    <key name="show-tooltips" type="b">
+      <default>true</default>
+      <summary>Show application names around the Orb launcher</summary>
+    </key>
+    <key name="show-running-indicator" type="b">
+      <default>true</default>
+      <summary>Show running indicators on Orb launcher applications</summary>
+    </key>
+    <key name="app-preview-size" type="i">
+      <default>100</default>
+      <range min="50" max="180"/>
+      <summary>Live Orb application preview size percentage</summary>
+    </key>
+
+    <!-- Terminal Glass is opt-in because native BACKGROUND blur adds a
+         compositor GPU pass per visible Ptyxis window. Ptyxis supplies
+         alpha for its background; VLIQ never changes window text opacity. -->
+    <key name="terminal-backdrop-blur-enabled" type="b">
+      <default>false</default>
+      <summary>Enable real compositor background blur beneath native Ptyxis windows</summary>
+      <description>Off by default. GNOME Shell 50 adds a background-only GPU blur under matching Ptyxis surfaces. No other applications or text rendering are modified.</description>
+    </key>
+    <key name="terminal-backdrop-blur-radius" type="i">
+      <default>18</default>
+      <range min="4" max="36"/>
+      <summary>Ptyxis background blur strength (legacy sigma-equivalent)</summary>
+      <description>GNOME Shell 50 uses Shell.BlurEffect.radius, which is twice the stored legacy sigma-equivalent strength. Stronger values increase GPU cost per terminal window.</description>
+    </key>
+    <key name="terminal-backdrop-blur-status" type="s">
+      <default>'Off'</default>
+      <summary>Read-only VLIQ Terminal Glass compositor attachment status</summary>
+      <description>Written by the Shell runtime to report detected or attached Ptyxis windows. This is diagnostic text, not proof of visible blurred pixels.</description>
+    </key>
+
+    <key name="spotlight-enabled" type="b">
+      <default>true</default>
+      <summary>Enable VLIQ Spotlight search</summary>
+      <description>Shows the centered VLIQ application search with Super+Space.</description>
+    </key>
+    <key name="spotlight-keybinding" type="as">
+      <default>['&lt;Super&gt;space']</default>
+      <summary>VLIQ Spotlight shortcut</summary>
+    </key>
+    <key name="spotlight-vertical-position" type="i">
+      <default>18</default>
+      <range min="8" max="55"/>
+      <summary>VLIQ Spotlight vertical position</summary>
+      <description>Search bar position as a percentage from the top of the active monitor.</description>
+    </key>
+
+    <!-- GNOME 50 shows the hardware brightness slider only when the
+         brightness manager has a supported backlight. VLIQ keeps that
+         native slider, or provides a reversible software dim fallback for
+         external desktop monitors that have no hardware backlight. -->
+    <key name="quick-brightness-enabled" type="b">
+      <default>true</default>
+      <summary>Place a native-style Brightness slider immediately below Sound</summary>
+      <description>Use the GNOME native brightness slider if available. Otherwise show a native-style software dimmer for external displays; no DDC access, no external binaries and no changes to monitor hardware.</description>
+    </key>
+    <key name="quick-soft-brightness" type="i">
+      <default>100</default>
+      <range min="30" max="100"/>
+      <summary>Software display brightness percentage for non-backlight monitors</summary>
+      <description>100 means unchanged and uses no extra GPU effect. Values below 100 apply bounded GPU software dimming to desktop windows; it cannot increase hardware brightness above the screen's current maximum.</description>
+    </key>
+    <key name="quick-brightness-status" type="s">
+      <default>'Not initialized'</default>
+      <summary>Diagnostic status of the Quick Settings brightness control</summary>
+    </key>
+
+    <key name="panel-menu-hover-switch" type="b">
+      <default>false</default>
+      <summary>Switch between open panel menus on hover</summary>
+      <description>When enabled, moving the pointer onto another panel menu source can switch to it after the configured dwell. When disabled, crossing panel icons does not open their menus; click and keyboard activation remain immediate.</description>
+    </key>
+    <key name="panel-menu-hover-delay-ms" type="i">
+      <default>300</default>
+      <range min="0" max="1000"/>
+      <summary>Panel menu hover switch delay</summary>
+      <description>Milliseconds the pointer must continuously remain over another panel menu source before switching to it while a panel menu is already open.</description>
+    </key>
+
+    <key name="dock-vertical-offset" type="i">
+      <default>0</default>
+      <range min="-64" max="64"/>
+      <summary>Floating Ubuntu Dock vertical offset</summary>
+      <description>Vertical paint offset in pixels. Positive values move the floating dock upward; negative values move it downward. Panel mode ignores this setting.</description>
+    </key>
+
+    <!-- VLIQ Atmosphere is opt-in. Original disables the wallpaper GPU
+         shader completely. Slider defaults are the Atmosphere profile and
+         remain saved across preset changes and Original toggles. -->
+    <key name="wallpaper-runtime-status" type="s">
+      <default>'Not initialized — install or reload VLIQ'</default>
+      <summary>Diagnostic status of attached Atmosphere wallpaper shader effects</summary>
+      <description>Updated by the running GNOME Shell extension only; not a user setting. Reports source effects attached, not measured pixel output.</description>
+    </key>
+    <key name="wallpaper-style" type="s">
+      <default>'original'</default>
+      <choices>
+        <choice value="original"/>
+        <choice value="natural"/>
+        <choice value="cinematic"/>
+        <choice value="atmosphere"/>
+        <choice value="custom"/>
+      </choices>
+      <summary>VLIQ Atmosphere wallpaper treatment</summary>
+      <description>Original leaves GNOME wallpaper rendering unchanged. Other profiles apply static GPU-native visual grading to wallpaper sources.</description>
+    </key>
+    <key name="wallpaper-filmic" type="i">
+      <default>62</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper filmic color intensity</summary>
+    </key>
+    <key name="wallpaper-vignette" type="i">
+      <default>52</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper soft vignette intensity</summary>
+    </key>
+    <key name="wallpaper-ambient" type="i">
+      <default>54</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper ambient light intensity</summary>
+    </key>
+    <key name="wallpaper-grain" type="i">
+      <default>3</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper static micro-grain intensity</summary>
+    </key>
+    <key name="wallpaper-adaptive-contrast" type="i">
+      <default>56</default>
+      <range min="0" max="100"/>
+      <summary>Wallpaper adaptive contrast intensity</summary>
+    </key>
+
+    <!-- VLIQ material picker. Liquid remains the installed default. The
+         Frosted Crystal controls are independent: switching must not rewrite
+         the user's existing liquid optics, tint or blur preferences. -->
+    <key name="glass-style" type="s">
+      <default>'liquid'</default>
+      <choices>
+        <choice value="liquid"/>
+        <choice value="frosted"/>
+      </choices>
+      <summary>VLIQ glass material style</summary>
+      <description>Liquid Glass preserves the v10 refractive material, while Frosted Crystal uses a matte-diffused surface with grain and soft edge light.</description>
+    </key>
+    <key name="frost-density" type="i">
+      <default>88</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal matte diffusion density</summary>
+    </key>
+    <key name="frost-grain" type="i">
+      <default>62</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal microscopic glass grain</summary>
+    </key>
+    <key name="frost-edge-glow" type="i">
+      <default>52</default>
+      <range min="0" max="100"/>
+      <summary>Frosted Crystal edge illumination</summary>
+    </key>
+
+    <key name="glass-optics-profile-version" type="i">
+      <default>0</default>
+      <range min="0" max="100"/>
+      <summary>Internal VLIQ full-glass optics profile version</summary>
+    </key>
+    <key name="glass-opacity" type="i">
+      <default>3</default>
+      <range min="0" max="100"/>
+      <summary>System Liquid Glass tint strength percentage</summary>
+    </key>
+    <key name="glass-tint-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>System Liquid Glass tint color</summary>
+    </key>
+    <key name="glass-blur" type="i">
+      <default>9</default>
+      <range min="0" max="80"/>
+      <summary>System Liquid Glass blur radius</summary>
+    </key>
+    <key name="glass-filter-opacity" type="i">
+      <default>5</default>
+      <range min="0" max="20"/>
+      <summary>Neutral white filter opacity percentage</summary>
+      <description>Low-opacity white veil painted above the refractive material and below native content.</description>
+    </key>
+    <key name="date-menu-glass-opacity" type="i">
+      <default>1</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu tint strength percentage</summary>
+      <description>Independent micro-tuning for the Date/Calendar popup.</description>
+    </key>
+    <key name="date-menu-glass-blur" type="i">
+      <default>4</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu blur radius</summary>
+      <description>Independent low blur radius for a clearer refractive Date Menu.</description>
+    </key>
+    <key name="date-menu-glass-filter-opacity" type="i">
+      <default>4</default>
+      <range min="0" max="20"/>
+      <summary>Date Menu white filter percentage</summary>
+      <description>Neutral white veil for the Date/Calendar popup only.</description>
+    </key>
+    <key name="glass-live-scene-fps" type="i">
+      <default>24</default>
+      <range min="15" max="60"/>
+      <summary>Live glass scene refresh rate</summary>
+      <description>Caps expensive live window-clone synchronization while keeping Shell geometry and interaction on the native frame clock.</description>
+    </key>
+  </schema>
+</schemalist>

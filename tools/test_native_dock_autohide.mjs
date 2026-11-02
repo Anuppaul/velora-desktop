@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // Execute shipped runtime methods with GNOME/Ubuntu Dock mock actors.
 // Real desktop input and compositor rendering still need on-device checks.
 const source = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/liquidGlassDock.js',
+    '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js',
     import.meta.url
 ), 'utf8');
 function shipped(name, scope = {}) {

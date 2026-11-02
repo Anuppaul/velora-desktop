@@ -4,7 +4,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EXT = ROOT / "gnome-shell" / "velora@wonderer.tech"
+EXT = ROOT / "gnome-shell" / "vliq@wonderer.tech"
 INSTALLER = ROOT / "gnome-shell" / "install.sh"
 
 

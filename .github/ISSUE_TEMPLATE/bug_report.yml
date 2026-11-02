@@ -63,7 +63,7 @@ body:
     id: logs
     attributes:
       label: Relevant GNOME Shell logs
-      description: "Use: journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'"
+      description: "Use: journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'vliq|liquid glass|liquidglass'"
       render: shell
   - type: textarea
     id: media

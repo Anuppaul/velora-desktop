@@ -1,0 +1,10 @@
+{
+  "uuid": "vliq@wonderer.tech",
+  "name": "VLIQ",
+  "description": "Liquid Glass and Frosted Crystal for GNOME Shell 50, with a radial Orb launcher, Spotlight search, premium wallpaper effects and native Ubuntu Dock controls.",
+  "shell-version": [
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.vliq",
+  "url": "https://github.com/Anuppaul/vliq"
+}

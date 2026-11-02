@@ -19,9 +19,9 @@ an additional GPU blur pass. This integration is still subject to real GNOME
 ## 1. Verify your terminal and existing transparency
 
 ```bash
-cd ~/Documents/code/velora-desktop
+cd ~/Documents/code/vliq
 git pull origin main
-python3 tools/velora_terminal_glass.py status
+python3 tools/vliq_terminal_glass.py status
 ```
 
 The status tool is **read-only**. `TERM=xterm-256color` indicates a
@@ -31,11 +31,11 @@ Your existing Ptyxis opacity value (for example **0.88**) is preserved.
 If transparency isn't enabled, explicitly opt in:
 
 ```bash
-python3 tools/velora_terminal_glass.py apply --opacity 0.88
+python3 tools/vliq_terminal_glass.py apply --opacity 0.88
 ```
 
 This developer utility saves the original Ptyxis opacity under
-`~/.local/state/velora-desktop/terminal-glass.json`, with restrictive
+`~/.local/state/vliq/terminal-glass.json`, with restrictive
 permissions, and supports full restoration. **Never use sudo.**
 
 ## 2. Install the new native blur runtime
@@ -86,8 +86,8 @@ nearly indistinguishable from an opaque window.
 Before debugging the compositor, perform this controlled A/B test:
 
 ```bash
-cd ~/Documents/code/velora-desktop
-python3 tools/velora_terminal_glass.py status
+cd ~/Documents/code/vliq
+python3 tools/vliq_terminal_glass.py status
 ```
 
 The read-only status now reports both **Ptyxis opacity** and (where installed)
@@ -99,7 +99,7 @@ To test a visibly translucent background **without losing your original
 backup**, use the existing opt-in tool:
 
 ```bash
-python3 tools/velora_terminal_glass.py apply --opacity 0.78
+python3 tools/vliq_terminal_glass.py apply --opacity 0.78
 ```
 
 Close all Ptyxis windows and open Ptyxis again if the alpha does not redraw.
@@ -116,7 +116,7 @@ Ptyxis window: doing so would fade terminal text as well.
 To restore the original background-opacity setting, after testing run:
 
 ```bash
-python3 tools/velora_terminal_glass.py restore
+python3 tools/vliq_terminal_glass.py restore
 ```
 
 Note: if the original opacity was 1.0, restore makes it opaque again.
@@ -164,8 +164,8 @@ and resize still require real-device comparison.
 Capture the exact failure without restarting the session:
 
 ```bash
-GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
-  gsettings get org.gnome.shell.extensions.velora terminal-backdrop-blur-status
+GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/vliq@wonderer.tech/schemas" \
+  gsettings get org.gnome.shell.extensions.vliq terminal-backdrop-blur-status
 journalctl --user -b --no-pager -o cat | grep -F '[VLIQ][TerminalBlur]' | tail -n 30
 ```
 
@@ -190,7 +190,7 @@ listeners. It leaves Ptyxis opacity alone.
 To restore the original Ptyxis opacity as well:
 
 ```bash
-python3 tools/velora_terminal_glass.py restore
+python3 tools/vliq_terminal_glass.py restore
 ```
 
 If another application has changed the opacity meanwhile, the restore

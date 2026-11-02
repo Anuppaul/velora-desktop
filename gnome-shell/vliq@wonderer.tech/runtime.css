@@ -1,0 +1,1644 @@
+.vliq-orb-hitbox-v2,
+.vliq-orb-hitbox-v2:hover,
+.vliq-orb-hitbox-v2:focus,
+.vliq-orb-hitbox-v2:open,
+.vliq-orb-hitbox-v2:dragging {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.vliq-orb-content-v2 {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.vliq-orb-face-v2,
+.vliq-orb-face-v2:hover,
+.vliq-orb-face-v2:focus,
+.vliq-orb-face-v2:open,
+.vliq-orb-face-v2:dragging {
+    border-radius: 999px;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.vliq-orb-glyph-v2 {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    color: #f7f8fc;
+    background-color: transparent;
+    icon-shadow: none;
+}
+
+/* Full Orb radial launcher ------------------------------------------------ */
+
+.vliq-app-button,
+.vliq-app-button:hover,
+.vliq-app-button:focus,
+.vliq-app-button:active {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 999px;
+    color: #f7f8fc;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.vliq-app-content {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.vliq-orb-geometry-link {
+    min-width: 1px;
+    min-height: 2px;
+    background-color: rgba(255, 255, 255, 0.20);
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+.vliq-running-dot {
+    min-width: 3px;
+    min-height: 3px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.96);
+    box-shadow: none;
+}
+
+.vliq-glass-container {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 16px;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+    transition-duration: 260ms;
+}
+
+.vliq-glass-filter,
+.vliq-glass-overlay,
+.vliq-glass-specular {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 16px;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+.vliq-glass-content {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+}
+
+
+/* Preview cards use a fixed native 16:9 shape. One v10 Liquid Glass
+ * material paints beneath real windows as the first child. This slightly
+ * denser neutral fallback stays readable on dark or bright wallpaper while
+ * the asynchronous GPU shader starts; there is NO second frame/border. */
+.vliq-app-preview-card {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 16px;
+    background-color: rgba(232, 243, 255, 0.18);
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+
+/* Once ShellCardSurface attached the actual v10 refractive LiquidEffect,
+ * the card must paint NO second white veil under it. A separate dynamic
+ * stylesheet handles global shell-card filter opacity; this preview-only
+ * exception must remain transparent even when that stylesheet is refreshed.
+ * Keep the 18% neutral fallback above ONLY when glass never attached. */
+.vliq-app-preview-card.vliq-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Native live window clones stay directly above a SINGLE glass surface.
+ * Tile hover/focus must not paint an extra white sheet over the refracted
+ * card. Input and keyboard-focus handling remain native to St.Button. */
+.vliq-window-preview-tile {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border-radius: 12px;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+    transition-duration: 110ms;
+}
+
+.vliq-window-preview-tile:hover,
+.vliq-window-preview-tile:focus {
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.vliq-window-preview-content {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.vliq-orb-page-indicator {
+    padding: 4px 8px;
+    border-radius: 999px;
+    color: rgba(247, 248, 252, 0.92);
+    background-color: rgba(255, 255, 255, 0.085);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: none;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.vliq-tooltip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #ffffff;
+    background-color: rgba(20, 22, 28, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 5px 18px 0 rgba(0, 0, 0, 0.30);
+    font-size: 11px;
+    font-weight: 650;
+}
+
+/* Shared adaptive Shell text --------------------------------------------- */
+/* Applied directly to ordinary StLabel/StEntry actors by SharedAdaptiveText.
+ * Semantic selected/default/error/accent text is deliberately excluded. */
+.vliq-shared-text-light {
+    color: #f7f8fc !important;
+}
+
+.vliq-shared-text-dark {
+    color: #17191f !important;
+}
+
+/* PopupGlassManager keeps the original GNOME menu.box as the content layer.
+ * Only its painted card material is removed. */
+.vliq-liquid-popup-content,
+.vliq-liquid-popup-content.popup-menu-content {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* BoxPointer draws its own background/border through -arrow-* theme
+ * properties. Keep its geometry (border width/rise) unchanged, but make that
+ * native paint transparent so only the LiquidEffect silhouette is visible. */
+.vliq-liquid-popup-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Date Menu micro-fix: remove only GNOME/Yaru's native inner outline.
+ * Geometry, LiquidEffect rim, refraction and drop shadow are untouched. */
+.vliq-liquid-popup-content.datemenu-popover {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-date-menu-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Quick Menu uses the same single-rim popup chrome as Date Menu. The shader
+ * owns the visible edge; Yaru/GNOME shell paint must not add a second outline
+ * or drop shadow around the right-side Quick Settings popup. */
+.vliq-liquid-popup-content.quick-settings {
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-quick-menu-shell {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    -arrow-background-color: transparent !important;
+    -arrow-border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Only the GNOME top header is an edge-to-edge square glass strip.
+ * Popup menus, cards and the Dock keep their existing corner geometry. */
+#panel.vliq-liquid-top-panel,
+.vliq-liquid-top-panel {
+    background-color: transparent;
+    background-image: none;
+    border-radius: 0px !important;
+    box-shadow: none;
+}
+
+/* Top Panel controls: keep GNOME spacing/iconography untouched. Only hover,
+ * focus and active paint are softened to sit on the parent glass material. */
+.vliq-liquid-top-panel .panel-button {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.vliq-liquid-top-panel .panel-button:hover,
+.vliq-liquid-top-panel .panel-button:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+
+.vliq-liquid-top-panel .panel-button:active,
+.vliq-liquid-top-panel .panel-button:checked {
+    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+/* The only stage-level blur used for Ubuntu Dock Panel Mode is constrained
+ * to its native .dash-background rectangle, with no black fullscreen actor. */
+.vliq-dock-panel-backdrop {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    border-radius: 0px !important;
+    box-shadow: none;
+}
+
+/* Ubuntu Dock Panel Mode uses panel-local frosted glass: a native BACKGROUND
+ * blur plus neutral milky tint and a thin surface-light highlight, drawn only
+ * on the real .dash-background. No full-monitor renderer is attached here.
+ * Native layout/autohide remain untouched and all corners stay square. */
+#dashtodockDashContainer.vliq-dock-panel-mode,
+#dashtodockDashContainer.vliq-dock-panel-mode.liquid-glass-transparent,
+#dashtodockDashContainer.vliq-dock-panel-mode #dashtodockContainer,
+#dashtodockDashContainer.vliq-dock-panel-mode .dashtodock-box {
+    /* Wrappers stay fully clear. Stacking translucent backgrounds here would
+     * compound alpha and make the panel look opaque. */
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Ubuntu Dock keeps this actor beside #dashtodockDashContainer rather
+ * than inside it, so target the real background actor directly. */
+.vliq-ubuntu-dock-panel-background,
+.liquid-glass-transparent .dash-background.vliq-ubuntu-dock-panel-background {
+    /* The second selector deliberately outranks Liquid Glass' generic
+     * .liquid-glass-transparent .dash-background rule during the warm handoff
+     * from panel mode to floating dock. */
+    background-color: rgba(245, 248, 255, 0.15) !important;
+    background-image: none !important;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255,255,255,0.15);
+    background-gradient-end: rgba(255,255,255,0.015);
+    border-color: rgba(255, 255, 255, 0.21) !important;
+    border-radius: 0 !important;
+    box-shadow: inset 0 1px rgba(255,255,255,0.20) !important;
+}
+
+/* Once the small LiquidEffect has *actually composited*, remove the
+ * fallback white plate in front of it. No extra blur/actor is stacked.
+ * Before shader warmup or if the scene fails, native fallback remains. */
+.dash-background.vliq-ubuntu-dock-panel-background.vliq-native-panel-liquid-ready,
+.liquid-glass-transparent .dash-background.vliq-ubuntu-dock-panel-background.vliq-native-panel-liquid-ready {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+}
+
+#dashtodockDashContainer.vliq-dock-panel-mode .overview-icon {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#dashtodockDashContainer.vliq-dock-panel-mode .dash-item-container:hover .overview-icon,
+#dashtodockDashContainer.vliq-dock-panel-mode .dash-item-container:focus .overview-icon {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+#dashtodockDashContainer.vliq-dock-panel-mode .dash-item-container:active .overview-icon,
+#dashtodockDashContainer.vliq-dock-panel-mode .dash-item-container:checked .overview-icon {
+    background-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Floating Ubuntu Dock: only the real sibling .dash-background becomes
+ * transparent for Liquid Glass. Never put a transparency class on the common
+ * parent, because that subtree also owns the app icons and reveal animation. */
+.vliq-ubuntu-dock-glass-background {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Ubuntu Dock icons stay completely native. The glass renderer owns only
+ * the dock background; it must never clear or replace overview-icon imagery,
+ * because Ubuntu Dock reuses those actors across autohide/reveal cycles. */
+#dashtodockDashContainer.liquid-glass-transparent .overview-icon,
+.liquid-glass-transparent #dashtodockContainer .overview-icon {
+    box-shadow: none;
+}
+
+
+
+/* Native notification banner --------------------------------------------- */
+/* NotificationGlassManager owns the real refractive surface. Native message
+ * paint is stripped so there is one card, one rim and zero extra shadow. */
+.vliq-native-notification-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-native-notification-glass:hover,
+.vliq-native-notification-glass:focus {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* One-shot backdrop sampling chooses foreground polarity. */
+.vliq-native-notification-glass.vliq-notification-text-light,
+.vliq-native-notification-glass.vliq-notification-text-light StLabel,
+.vliq-native-notification-glass.vliq-notification-text-light StIcon {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.vliq-native-notification-glass.vliq-notification-text-dark,
+.vliq-native-notification-glass.vliq-notification-text-dark StLabel,
+.vliq-native-notification-glass.vliq-notification-text-dark StIcon {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.vliq-native-notification-glass.vliq-notification-text-light .message-header,
+.vliq-native-notification-glass.vliq-notification-text-light .event-time {
+    color: rgba(248, 249, 253, 0.66) !important;
+}
+
+.vliq-native-notification-glass.vliq-notification-text-dark .message-header,
+.vliq-native-notification-glass.vliq-notification-text-dark .event-time {
+    color: rgba(23, 25, 31, 0.64) !important;
+}
+
+/* Keep controls native, but don't let their theme card/shadow compete with
+ * the parent glass surface. */
+.vliq-native-notification-glass .message-expand-button,
+.vliq-native-notification-glass .message-close-button,
+.vliq-native-notification-glass .message-media-control {
+    box-shadow: none !important;
+}
+
+.vliq-native-notification-glass .message-media-control:hover,
+.vliq-native-notification-glass .message-media-control:focus {
+    background-color: rgba(255, 255, 255, 0.065);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* Non-PopupMenu Shell cards discovered by ShellCardGlassManager. */
+.vliq-liquid-shell-card {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* Neutral optical veil. The per-surface runtime supplies opacity/radius
+ * inline; this class only guarantees that no theme image/shadow competes with
+ * the refractive material underneath. */
+.vliq-glass-white-filter {
+    background-image: none;
+    box-shadow: none;
+    transition: none;
+    transition-duration: 0ms;
+}
+
+
+/* Generic panel / context popups ----------------------------------------- */
+/* Keep menu semantics and geometry native; only replace opaque menu-item
+ * fills with light translucent states over the parent glass. */
+.vliq-liquid-popup-content .popup-menu-item {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.vliq-liquid-popup-content .popup-menu-item:hover,
+.vliq-liquid-popup-content .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.vliq-liquid-popup-content .popup-menu-item:active,
+.vliq-liquid-popup-content .popup-menu-item:checked {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.vliq-liquid-popup-content .popup-separator-menu-item-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Preserve native submenu shape while keeping it visually part of the same
+ * glass surface instead of a second opaque card. */
+.vliq-liquid-popup-content .popup-sub-menu {
+    background-color: rgba(255, 255, 255, 0.07);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+}
+
+.vliq-liquid-popup-content .popup-sub-menu .popup-menu-item:hover,
+.vliq-liquid-popup-content .popup-sub-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Modal dialogs / switchers ---------------------------------------------- */
+.vliq-liquid-shell-card .modal-dialog-button,
+.vliq-liquid-shell-card .audio-selection-device,
+.vliq-liquid-shell-card .run-dialog-entry,
+.vliq-liquid-shell-card .prompt-dialog-password-entry {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    box-shadow: none;
+}
+
+.vliq-liquid-shell-card .modal-dialog-button:hover,
+.vliq-liquid-shell-card .audio-selection-device:hover,
+.vliq-liquid-shell-card .run-dialog-entry:focus,
+.vliq-liquid-shell-card .prompt-dialog-password-entry:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.vliq-liquid-shell-card .modal-dialog-button:active,
+.vliq-liquid-shell-card .audio-selection-device:active {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Alt-Tab / window switcher: keep thumbnails/icons native, only soften the
+ * tile state that sits on top of the glass card. */
+.vliq-liquid-shell-card .item-box {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+.vliq-liquid-shell-card .item-box:selected {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.vliq-liquid-shell-card .separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+
+/* Modal / system dialog refinement -------------------------------------- */
+.modal-dialog.vliq-liquid-shell-card .modal-dialog-button,
+.modal-dialog.vliq-liquid-shell-card .run-dialog-entry,
+.modal-dialog.vliq-liquid-shell-card .prompt-dialog-password-entry,
+.modal-dialog.vliq-liquid-shell-card .audio-selection-device {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.modal-dialog.vliq-liquid-shell-card .modal-dialog-button:hover,
+.modal-dialog.vliq-liquid-shell-card .modal-dialog-button:focus,
+.modal-dialog.vliq-liquid-shell-card .audio-selection-device:hover,
+.modal-dialog.vliq-liquid-shell-card .run-dialog-entry:focus,
+.modal-dialog.vliq-liquid-shell-card .prompt-dialog-password-entry:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.modal-dialog.vliq-liquid-shell-card .modal-dialog-button:active,
+.modal-dialog.vliq-liquid-shell-card .audio-selection-device:active {
+    background-color: rgba(255, 255, 255, 0.19);
+}
+
+/* Keep GNOME's default-action semantics visible. */
+.modal-dialog.vliq-liquid-shell-card .modal-dialog-button:default {
+    background-color: -st-accent-color;
+    color: -st-accent-fg-color;
+    border-color: transparent;
+}
+
+/* Alt-Tab / switcher ---------------------------------------------------- */
+/* The outer switcher-list already owns the real Liquid Glass material.
+ * Reuse that backdrop for application/window tiles instead of stacking
+ * another shader per icon. Native item geometry, keyboard focus, labels,
+ * thumbnails and switching behaviour remain owned by GNOME Shell. */
+.switcher-list.vliq-liquid-shell-card .item-box {
+    /* Mid-neutral glass stays readable over both very dark and very bright
+     * backdrops. Pure white tint/rim disappears over light wallpapers. */
+    background-color: rgba(127, 127, 127, 0.11);
+    background-image: none;
+    border: 1px solid rgba(127, 127, 127, 0.30);
+    border-radius: 18px;
+    box-shadow: none;
+}
+
+.switcher-list.vliq-liquid-shell-card .item-box:hover,
+.switcher-list.vliq-liquid-shell-card .item-box:focus {
+    background-color: rgba(127, 127, 127, 0.17);
+    border-color: rgba(127, 127, 127, 0.42);
+    box-shadow: none;
+}
+
+.switcher-list.vliq-liquid-shell-card .item-box:selected,
+.switcher-list.vliq-liquid-shell-card .item-box:checked {
+    background-color: rgba(127, 127, 127, 0.20);
+    border-color: -st-accent-color;
+    box-shadow: none;
+}
+
+/* App icons/thumbnails stay fully native; only their surrounding tile gets
+ * the VLIQ plate. This avoids the icon-opacity/disappear class of bugs. */
+.switcher-list.vliq-liquid-shell-card .item-box StIcon,
+.switcher-list.vliq-liquid-shell-card .item-box .thumbnail {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+/* Secondary window thumbnails inside the Alt-Tab switcher share the same
+ * visual hierarchy without becoming a second opaque card. */
+.switcher-list.vliq-liquid-shell-card .thumbnail-box {
+    background-color: rgba(127, 127, 127, 0.08);
+    background-image: none;
+    border: 1px solid rgba(127, 127, 127, 0.24);
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+.switcher-list.vliq-liquid-shell-card .thumbnail-box:selected,
+.switcher-list.vliq-liquid-shell-card .thumbnail-box:focus {
+    background-color: rgba(127, 127, 127, 0.16);
+    border-color: -st-accent-color;
+    box-shadow: none;
+}
+
+.switcher-list.vliq-liquid-shell-card .separator {
+    background-color: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
+}
+
+/* App Grid folder dialog ------------------------------------------------
+ * Folder dialogs already live on VLIQ's cached Overview wallpaper blur.
+ * Do not run them through ShellCardGlassManager's second live-scene capture
+ * path: that duplicates work and can visually fight GNOME's native folder
+ * paint. Keep the native dialog/controls and turn only its card material into
+ * one lightweight translucent Overview surface. */
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog-container {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog {
+    /* The Overview already supplies the expensive blur. This layer only adds
+     * optical separation: a faint neutral veil, brighter top edge and one
+     * soft shadow. No second blur/capture/refraction pass is created. */
+    background-color: rgba(255, 255, 255, 0.085) !important;
+    background-image: none !important;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.125);
+    background-gradient-end: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 22px 68px 0 rgba(0, 0, 0, 0.30) !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .folder-name-container {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .overview-tile {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .overview-tile:hover,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .overview-tile:focus {
+    background-color: rgba(255, 255, 255, 0.085) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .overview-tile:active,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .overview-tile:checked {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .icon-button,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-navigation-arrow,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .folder-name-entry {
+    background-color: rgba(255, 255, 255, 0.060) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .icon-button:hover,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .icon-button:focus,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-navigation-arrow:hover,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-navigation-arrow:focus,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .folder-name-entry:focus {
+    background-color: rgba(255, 255, 255, 0.105) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .icon-button:active,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-navigation-arrow:active {
+    background-color: rgba(255, 255, 255, 0.17) !important;
+}
+
+/* Keep folder pagination/navigation inside the same visual material instead
+ * of painting a nested opaque control surface. */
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-indicators,
+#overviewGroup.vliq-overview-wallpaper .app-folder-dialog .page-navigation-hint {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+
+/* Overview / Search / App Grid ------------------------------------------ */
+/*
+ * Search entries deliberately stay OUT of ShellCardGlassManager. GNOME/Yaru
+ * already provide the correct native pill geometry; this single lightweight
+ * surface recipe is shared by App Grid and Super+Space. No offscreen FBO,
+ * capture margin, shader edge or focus-ring seam is involved.
+ */
+.search-entry.vliq-search-surface,
+.search-entry.vliq-search-surface:hover,
+.search-entry.vliq-search-surface:focus {
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.search-entry.vliq-search-surface {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+.search-entry.vliq-search-surface:hover {
+    background-color: rgba(255, 255, 255, 0.090) !important;
+    border-color: rgba(255, 255, 255, 0.13) !important;
+}
+
+.search-entry.vliq-search-surface:focus {
+    background-color: rgba(255, 255, 255, 0.105) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Search providers sit directly on the same native blurred wallpaper used
+ * by App Grid. Keep cards deliberately light: no custom per-provider shader,
+ * no extra blur pass, just a premium translucent plate over the cached blur. */
+#overviewGroup .search-section-content,
+.vliq-spotlight-card .search-section-content {
+    background-color: rgba(255, 255, 255, 0.065) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    border-radius: 24px;
+    box-shadow: none !important;
+}
+
+#overviewGroup .list-search-result,
+#overviewGroup .grid-search-result,
+#overviewGroup .search-provider-icon,
+.vliq-spotlight-card .list-search-result {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup .list-search-result:hover,
+#overviewGroup .list-search-result:focus,
+#overviewGroup .grid-search-result:hover,
+#overviewGroup .grid-search-result:focus,
+#overviewGroup .search-provider-icon:hover,
+#overviewGroup .search-provider-icon:focus,
+.vliq-spotlight-card .list-search-result:hover,
+.vliq-spotlight-card .list-search-result:focus {
+    background-color: rgba(255, 255, 255, 0.085);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+#overviewGroup #searchController,
+#overviewGroup #searchResults,
+#overviewGroup #searchResultsContent,
+#overviewGroup .search-display,
+#overviewGroup .search-statusbox,
+#overviewGroup .search-statustext {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Keep provider plates premium but visually light over the shared wallpaper. */
+#overviewGroup .search-section-content {
+    color: inherit;
+}
+
+#overviewGroup .search-section-content:hover {
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Applications grid ------------------------------------------------------ */
+/* The whole GNOME Overview (window picker, Search and App Grid) uses the
+ * shared native blurred wallpaper. Remove GNOME's opaque gray/system-base
+ * canvas while the backdrop manager is active. */
+#overviewGroup.vliq-overview-wallpaper {
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+/* One shared wallpaper-only LiquidEffect backs the full app grid.
+ * No live window clones are captured for this large surface. */
+#overviewGroup .apps-scroll-view {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 32px;
+    box-shadow: none !important;
+}
+
+/* App-grid tiles: geometry/icon labels stay native. */
+#overviewGroup .apps-scroll-view .overview-tile,
+#overviewGroup .apps-scroll-view .app-folder {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup .apps-scroll-view .overview-tile:hover,
+#overviewGroup .apps-scroll-view .overview-tile:focus,
+#overviewGroup .apps-scroll-view .app-folder:hover,
+#overviewGroup .apps-scroll-view .app-folder:focus {
+    background-color: rgba(255, 255, 255, 0.075);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+#overviewGroup .apps-scroll-view .overview-tile:active,
+#overviewGroup .apps-scroll-view .overview-tile:checked,
+#overviewGroup .apps-scroll-view .app-folder:active,
+#overviewGroup .apps-scroll-view .app-folder:checked {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+#overviewGroup .apps-scroll-view .page-navigation-arrow {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.09) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup .apps-scroll-view .page-navigation-arrow:hover,
+#overviewGroup .apps-scroll-view .page-navigation-arrow:focus {
+    background-color: rgba(255, 255, 255, 0.11) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* GNOME overview dash only. Ubuntu Dock is outside overviewGroup and keeps
+ * its dedicated DashManager material. */
+#overviewGroup #dash .dash-background.vliq-liquid-shell-card {
+    background-color: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+#overviewGroup #dash .dash-item-container .overview-icon {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
+#overviewGroup #dash .dash-item-container:hover .overview-icon,
+#overviewGroup #dash .dash-item-container:focus .overview-icon {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+
+#overviewGroup #dash .dash-item-container:active .overview-icon,
+#overviewGroup #dash .dash-item-container:checked .overview-icon {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+#overviewGroup #dash .dash-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Overview window close -------------------------------------------------- */
+/* A single Overview-root LiquidEffect draws the actual glass circle above
+ * WindowPreview's offscreen-composited subtree. The native button remains the
+ * click/hover target; its stock opaque circle is removed here. */
+#overviewGroup .window-close.vliq-window-close-shared-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: rgba(248, 249, 253, 0.98) !important;
+}
+
+#overviewGroup .window-close.vliq-window-close-shared-glass StIcon {
+    color: inherit !important;
+}
+
+#overviewGroup .window-close.vliq-window-close-shared-glass:hover,
+#overviewGroup .window-close.vliq-window-close-shared-glass:focus {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup .window-close.vliq-window-close-shared-glass:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: none !important;
+}
+
+/* Overview window app icon ----------------------------------------------- */
+/* The same root-level shared LiquidEffect draws an exact centered 48px
+ * circular badge. The native 64px icon actor stays in place for layout/input
+ * while a sharp 40px visual clone is centered over the glass badge. */
+#overviewGroup .window-icon.vliq-window-icon-shared-glass {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    icon-shadow: none !important;
+}
+
+#overviewGroup .window-icon.vliq-window-icon-shared-glass:hover,
+#overviewGroup .window-icon.vliq-window-icon-shared-glass:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    icon-shadow: none !important;
+}
+
+/* Overview window title -------------------------------------------------- */
+/* GNOME's stock %tooltip is ~90% black. Use a lightweight premium silver
+ * plate instead: no shader, no blur pass, no shadow, and no black backing. */
+#overviewGroup .window-caption {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.20) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    color: #f7f8fc !important;
+    font-weight: 500;
+    padding: 7px 13px;
+}
+
+#overviewGroup .window-caption:hover,
+#overviewGroup .window-caption:focus {
+    background-color: rgba(255, 255, 255, 0.17) !important;
+    border-color: rgba(255, 255, 255, 0.27) !important;
+    box-shadow: none !important;
+}
+
+#overviewGroup .window-caption.vliq-window-caption-text-dark {
+    color: #17191f !important;
+}
+
+#overviewGroup .window-caption.vliq-window-caption-text-light {
+    color: #f7f8fc !important;
+}
+
+/* Workspace switcher strip ---------------------------------------------- */
+/* The whole GNOME workspace-thumbnails actor receives one ShellCard
+ * LiquidEffect. Individual workspace previews stay native window clones;
+ * their old opaque backing plates are removed so the shared parent material
+ * is visible through every thumbnail without adding per-thumbnail shaders. */
+#overviewGroup .workspace-thumbnails.vliq-liquid-shell-card {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    border-radius: 24px;
+    box-shadow: none !important;
+}
+
+#overviewGroup .workspace-thumbnails.vliq-liquid-shell-card .workspace-thumbnail {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none !important;
+}
+
+/* Selected workspace: keep GNOME's semantic accent, but replace the stock
+ * heavy 3px outline with a quieter premium ring over the shared strip glass. */
+#overviewGroup .workspace-thumbnail-indicator {
+    background-color: rgba(255, 255, 255, 0.035);
+    background-image: none;
+    border: 2px solid -st-accent-color;
+    border-radius: 16px;
+    box-shadow: none;
+    transition-duration: 140ms;
+}
+
+/* Keyboard workspace switcher already has a full ShellCard glass surface. */
+.workspace-switcher.vliq-liquid-shell-card .ws-switcher-indicator {
+    background-color: rgba(255, 255, 255, 0.38);
+}
+
+.workspace-switcher.vliq-liquid-shell-card .ws-switcher-indicator:active {
+    background-color: rgba(255, 255, 255, 0.92);
+}
+
+/* -------------------------------------------------------------------------
+ * Inner material unification
+ *
+ * These selectors keep GNOME's native geometry, radii, checked state and
+ * interaction. Date Menu and Quick Settings now use the shared VLIQ
+ * premium-card LiquidEffect role; CSS only clears/falls back around native
+ * paint and styles controls. Notification/Shell/OSD cards consume the same
+ * optical role through their surface adapters.
+ * ---------------------------------------------------------------------- */
+
+/* Date / Calendar -------------------------------------------------------- */
+/* The outer popover already owns the first LiquidEffect. These native cards
+ * are made paint-transparent because PopupGlass now places a second shared
+ * multi-region LiquidEffect between the outer glass and GNOME content. */
+.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button,
+.vliq-liquid-popup-content.datemenu-popover .calendar,
+.vliq-liquid-popup-content.datemenu-popover .events-button,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-button,
+.vliq-liquid-popup-content.datemenu-popover .weather-button,
+.vliq-liquid-popup-content.datemenu-popover .message,
+.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Hover/press is only a thin interaction sheen; the actual material remains
+ * the nested shader underneath, so the card never turns back into a flat box. */
+.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button:hover,
+.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .events-button:hover,
+.vliq-liquid-popup-content.datemenu-popover .events-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-button:hover,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .weather-button:hover,
+.vliq-liquid-popup-content.datemenu-popover .weather-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .message:hover,
+.vliq-liquid-popup-content.datemenu-popover .message:focus,
+.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button:hover,
+.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button:focus {
+    background-color: rgba(255, 255, 255, 0.038) !important;
+    border-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .message:active,
+.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button:active,
+.vliq-liquid-popup-content.datemenu-popover .events-button:active,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-button:active,
+.vliq-liquid-popup-content.datemenu-popover .weather-button:active,
+.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button:active {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+/* Keep the two-column divider quiet; no fake second panel behind the cards. */
+.vliq-liquid-popup-content.datemenu-popover .message-list {
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-header,
+.vliq-liquid-popup-content.datemenu-popover .events-box,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-grid,
+.vliq-liquid-popup-content.datemenu-popover .weather-box {
+    background-color: transparent;
+    background-image: none;
+}
+
+/* Premium hierarchy ------------------------------------------------------ */
+.vliq-liquid-popup-content.datemenu-popover .date-label {
+    font-size: 1.18em;
+    font-weight: 600;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-label,
+.vliq-liquid-popup-content.datemenu-popover .events-title,
+.vliq-liquid-popup-content.datemenu-popover .event-summary,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-header,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-city,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-time,
+.vliq-liquid-popup-content.datemenu-popover .weather-header,
+.vliq-liquid-popup-content.datemenu-popover .weather-forecast-temp,
+.vliq-liquid-popup-content.datemenu-popover .message-source-title,
+.vliq-liquid-popup-content.datemenu-popover .message-title {
+    font-weight: 600;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .message-source-title,
+.vliq-liquid-popup-content.datemenu-popover .events-title,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-header {
+    opacity: 0.88;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .day-label,
+.vliq-liquid-popup-content.datemenu-popover .event-time,
+.vliq-liquid-popup-content.datemenu-popover .event-placeholder,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-timezone,
+.vliq-liquid-popup-content.datemenu-popover .weather-forecast-time,
+.vliq-liquid-popup-content.datemenu-popover .message-header,
+.vliq-liquid-popup-content.datemenu-popover .message-body {
+    font-weight: normal;
+}
+
+/* One rendered Date Menu frame is sampled in a single batch; each major
+ * nested-glass card then receives its own stable foreground polarity. This
+ * follows the real backdrop per card rather than GNOME light/dark mode. */
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light StLabel,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light StIcon,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .message-media-control {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .day-label,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .event-time,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .event-placeholder,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .world-clocks-timezone,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .message-header {
+    color: rgba(248, 249, 253, 0.66) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark StLabel,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark StIcon,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .message-media-control {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .day-label,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .event-time,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .event-placeholder,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .world-clocks-timezone,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .message-header {
+    color: rgba(23, 25, 31, 0.64) !important;
+}
+
+/* Month navigation is a control layer inside the nested calendar card. */
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-label,
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button {
+    background-color: rgba(255, 255, 255, 0.050) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.045) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-label:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:hover {
+    background-color: rgba(255, 255, 255, 0.095) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Calendar day beads: low-opacity optical controls rather than opaque grey
+ * circles. They sit over the real nested calendar glass, so a second blur per
+ * day would be both wasteful and visually noisy. */
+.vliq-liquid-popup-content.datemenu-popover .calendar-day-heading {
+    background-color: rgba(255, 255, 255, 0.035) !important;
+    border: 1px solid rgba(255, 255, 255, 0.075) !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day {
+    background-color: rgba(255, 255, 255, 0.060) !important;
+    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.045) !important;
+    transition-duration: 120ms;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .calendar-day {
+    color: rgba(248, 249, 253, 0.91) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .calendar-day {
+    color: rgba(23, 25, 31, 0.90) !important;
+}
+
+/* Semantic calendar state: today follows the GNOME Appearance accent,
+ * not the adaptive black/white palette and not the Liquid Glass tint color.
+ * Keep the day bead itself neutral; only the meaning-bearing text is accented. */
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .calendar-day.calendar-today,
+.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .calendar-day.calendar-today {
+    color: -st-accent-color !important;
+    font-weight: 700;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar-day:focus {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.21) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.065) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day:active,
+.vliq-liquid-popup-content.datemenu-popover .calendar-day:selected {
+    background-color: rgba(255, 255, 255, 0.17) !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-weekend {
+    opacity: 0.76;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month {
+    background-color: rgba(255, 255, 255, 0.020) !important;
+    border-color: rgba(255, 255, 255, 0.050) !important;
+    opacity: 0.48;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-other-month:focus {
+    background-color: rgba(255, 255, 255, 0.070) !important;
+    opacity: 0.75;
+}
+
+/* Adaptive control material follows each card's sampled backdrop. */
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-month-label,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-month-header .pager-button,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-day-heading,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-day {
+    background-color: rgba(255, 255, 255, 0.060) !important;
+    border-color: rgba(255, 255, 255, 0.115) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-month-label,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-month-header .pager-button,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-day-heading,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-day {
+    background-color: rgba(0, 0, 0, 0.040) !important;
+    border-color: rgba(0, 0, 0, 0.105) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.075) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-day:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-day:focus,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-month-label:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-light .calendar-month-header .pager-button:hover {
+    background-color: rgba(255, 255, 255, 0.120) !important;
+    border-color: rgba(255, 255, 255, 0.205) !important;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-day:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-day:focus,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-month-label:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar.vliq-date-card-text-dark .calendar-month-header .pager-button:hover {
+    background-color: rgba(0, 0, 0, 0.075) !important;
+    border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+/* Keyboard focus: one clean accent outline, no outer shadow. */
+.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .events-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .world-clocks-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .weather-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .message:focus,
+.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button:focus,
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-label:focus,
+.vliq-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:focus {
+    border-color: -st-accent-color !important;
+    box-shadow: none !important;
+}
+
+/* Preserve the user's accent for today; it is the one intentional solid state
+ * in the calendar and therefore remains immediately scannable. */
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today {
+    background-color: -st-accent-color !important;
+    color: -st-accent-fg-color !important;
+    border-color: rgba(255, 255, 255, 0.34) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+    opacity: 1;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today:hover,
+.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today:focus {
+    border-color: rgba(255, 255, 255, 0.54) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.20) !important;
+}
+
+/* Media controls remain crisp over their newly-glassed message card. */
+.vliq-liquid-popup-content.datemenu-popover .message-media-control {
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.vliq-liquid-popup-content.datemenu-popover .message-media-control:hover,
+.vliq-liquid-popup-content.datemenu-popover .message-media-control:focus {
+    background-color: rgba(255, 255, 255, 0.075);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Quick Settings --------------------------------------------------------- */
+/* Quick Settings now uses the SAME PopupGlass nested-card pipeline as Date
+ * Menu. Native pod paint is cleared so the shared clone-of-parent
+ * LiquidEffect is the visible card; CSS only supplies interaction/selection
+ * hints and never another opaque card, border or shadow. */
+.vliq-liquid-popup-content.quick-settings .quick-toggle-has-menu,
+.vliq-liquid-popup-content.quick-settings .quick-toggle,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu-button,
+.vliq-liquid-popup-content.quick-settings .quick-slider,
+.vliq-liquid-popup-content.quick-settings .slider-bin,
+.vliq-liquid-popup-content.quick-settings .quick-settings-system-item .icon-button,
+.vliq-liquid-popup-content.quick-settings .button,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    transition-duration: 120ms;
+}
+
+/* Hover/focus is only a thin sheen over the real glass. */
+.vliq-liquid-popup-content.quick-settings .quick-toggle-has-menu:hover,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-has-menu:focus,
+.vliq-liquid-popup-content.quick-settings .quick-toggle:hover,
+.vliq-liquid-popup-content.quick-settings .quick-toggle:focus,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu-button:hover,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu-button:focus,
+.vliq-liquid-popup-content.quick-settings .quick-slider:hover,
+.vliq-liquid-popup-content.quick-settings .quick-slider:focus,
+.vliq-liquid-popup-content.quick-settings .quick-settings-system-item .icon-button:hover,
+.vliq-liquid-popup-content.quick-settings .quick-settings-system-item .icon-button:focus,
+.vliq-liquid-popup-content.quick-settings .button:hover,
+.vliq-liquid-popup-content.quick-settings .button:focus {
+    background-color: rgba(255, 255, 255, 0.038) !important;
+    border-color: rgba(255, 255, 255, 0.075) !important;
+    box-shadow: none !important;
+}
+
+/* ON/checked remains glass. Accent marks the state on the edge instead of
+ * replacing the entire glass pod with a flat accent rectangle. */
+.vliq-liquid-popup-content.quick-settings .quick-toggle-has-menu:checked,
+.vliq-liquid-popup-content.quick-settings .quick-toggle:checked,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu-button:checked,
+.vliq-liquid-popup-content.quick-settings .button:checked,
+.vliq-liquid-popup-content.quick-settings .icon-button:checked {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Active state carries color only in text. Tile body, border and icon remain
+ * the same neutral glass as inactive tiles. The token follows Ubuntu/GNOME's
+ * current Appearance accent automatically. */
+.vliq-liquid-popup-content.quick-settings .vliq-quick-active StLabel,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-active .quick-toggle-title,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-active .quick-toggle-subtitle {
+    color: -st-accent-color !important;
+}
+
+/* Premium hierarchy: foreground stays native/adaptive, weight matches Date. */
+.vliq-liquid-popup-content.quick-settings .quick-toggle-title,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .header .title {
+    font-weight: 600;
+    opacity: 0.98;
+}
+
+.vliq-liquid-popup-content.quick-settings .quick-toggle-subtitle,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .header .subtitle,
+.vliq-liquid-popup-content.quick-settings .device-subtitle {
+    font-weight: normal;
+    opacity: 0.68;
+}
+
+.vliq-liquid-popup-content.quick-settings .quick-toggle-icon,
+.vliq-liquid-popup-content.quick-settings .quick-slider StIcon,
+.vliq-liquid-popup-content.quick-settings .quick-settings-system-item StIcon {
+    opacity: 0.95;
+}
+
+/* Adaptive foreground/control polarity follows each pod's actual rendered
+ * backdrop. One batched popup capture supplies all decisions. */
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light StLabel,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light StIcon {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .quick-toggle-subtitle,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .device-subtitle,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .subtitle {
+    color: rgba(248, 249, 253, 0.68) !important;
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark StLabel,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark StIcon {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .quick-toggle-subtitle,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .device-subtitle,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .subtitle {
+    color: rgba(23, 25, 31, 0.66) !important;
+}
+
+/* Interaction sheen changes polarity with the material below it instead of
+ * always painting white. The LiquidEffect remains the actual card surface. */
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light:hover,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light:focus,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark:hover,
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark:focus {
+    background-color: transparent !important;
+    border-color: transparent !important;
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .slider {
+    -barlevel-background-color: rgba(255, 255, 255, 0.20);
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .slider {
+    -barlevel-background-color: rgba(0, 0, 0, 0.16);
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .quick-toggle-separator {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .quick-toggle-separator {
+    background-color: rgba(0, 0, 0, 0.16);
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-light .header .icon:not(.active) {
+    background-color: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.095);
+}
+
+.vliq-liquid-popup-content.quick-settings .vliq-quick-card-text-dark .header .icon:not(.active) {
+    background-color: rgba(0, 0, 0, 0.042);
+    border-color: rgba(0, 0, 0, 0.085);
+}
+
+/* Slider track is a control painted on top of the glass pod. */
+.vliq-liquid-popup-content.quick-settings .quick-slider .slider {
+    -barlevel-background-color: rgba(255, 255, 255, 0.18);
+    -barlevel-active-background-color: -st-accent-color;
+}
+
+/* Expanded Wi-Fi/Bluetooth/device menu is itself a nested-glass region now. */
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .header .icon {
+    background-color: rgba(255, 255, 255, 0.050);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: none;
+}
+
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .header .icon.active {
+    background-color: transparent !important;
+    color: inherit;
+    border-color: transparent !important;
+}
+
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:hover,
+.vliq-liquid-popup-content.quick-settings .quick-toggle-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.075);
+}
+
+.vliq-liquid-popup-content.quick-settings .quick-toggle-separator {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Quick Settings expanded overlay ---------------------------------------- */
+/* QuickToggleMenu lives in QuickSettingsMenu._overlay, a sibling of the
+ * BoxPointer rather than a descendant of .quick-settings. Scope it through
+ * the top-level Quick Settings actor so the expanded Power/Wi-Fi/Bluetooth
+ * card gets the same neutral nested glass and adaptive foreground. */
+.vliq-liquid-quick-menu-root .quick-toggle-menu-container,
+.vliq-liquid-quick-menu-root .quick-toggle-menu {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item:hover,
+.vliq-liquid-quick-menu-root .quick-toggle-menu .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.045) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-quick-menu-root .quick-toggle-menu .header .icon {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-liquid-quick-menu-root .quick-toggle-menu .header .icon.active {
+    background-color: transparent !important;
+    color: inherit !important;
+    border-color: transparent !important;
+}
+
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light StLabel,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light StIcon,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .popup-menu-item,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .popup-inactive-menu-item,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .header,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .header .title,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .header .subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .device-subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .popup-menu-icon,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .popup-menu-ornament {
+    color: rgba(248, 249, 253, 0.96) !important;
+}
+
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .header .subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-light .device-subtitle {
+    color: rgba(248, 249, 253, 0.68) !important;
+}
+
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark StLabel,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark StIcon,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .popup-menu-item,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .popup-inactive-menu-item,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .header,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .header .title,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .header .subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .device-subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .popup-menu-icon,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .popup-menu-ornament {
+    color: rgba(23, 25, 31, 0.95) !important;
+}
+
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .header .subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-card-text-dark .device-subtitle {
+    color: rgba(23, 25, 31, 0.66) !important;
+}
+
+/* Active Quick tiles use the theme accent on text only, including standalone
+ * toggles such as Dark Style / Night Light / Do Not Disturb. */
+.vliq-liquid-quick-menu-root .vliq-quick-active StLabel,
+.vliq-liquid-quick-menu-root .vliq-quick-active .quick-toggle-title,
+.vliq-liquid-quick-menu-root .vliq-quick-active .quick-toggle-subtitle {
+    color: -st-accent-color !important;
+}
+
+
+/* VLIQ Spotlight ------------------------------------------------------- */
+
+/*
+ * The Super+Space entry uses a dedicated core LiquidEffect rendered by
+ * SpotlightGlassManager. Keep native St.Entry paint transparent so the real
+ * VLIQ glass is the only surface visible. App Grid stays on its separate
+ * lightweight line-free search surface.
+ */
+.search-entry.vliq-spotlight-glass-entry,
+.search-entry.vliq-spotlight-glass-entry:hover,
+.search-entry.vliq-spotlight-glass-entry:focus {
+    background-color: rgba(255, 255, 255, 0.035) !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-light,
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-light StLabel.hint-text,
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-light .search-entry-icon {
+    color: #f7f8fc !important;
+}
+
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-dark,
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-dark StLabel.hint-text,
+.search-entry.vliq-spotlight-glass-entry.vliq-shared-text-dark .search-entry-icon {
+    color: #17191f !important;
+}
+
+.vliq-spotlight-layer {
+    background-color: transparent;
+}
+
+.vliq-spotlight-card {
+    spacing: 8px;
+    padding: 0;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    box-shadow: none;
+}
+
+.vliq-spotlight-card .search-entry {
+    min-height: 68px;
+    margin-top: 0;
+    padding-left: 20px;
+    padding-right: 20px;
+    font-size: 17px;
+}
+
+.vliq-spotlight-card .search-entry .search-entry-icon {
+    icon-size: 21px;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.vliq-spotlight-card .search-section-content {
+    margin: 2px 0 0 0;
+}
+
+.vliq-spotlight-card
+.vliq-spotlight-results.vliq-spotlight-glass-results {
+    background-color: rgba(255, 255, 255, 0.025) !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-spotlight-card
+.vliq-spotlight-results.vliq-spotlight-glass-results
+.list-search-result {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.vliq-spotlight-card
+.vliq-spotlight-results.vliq-spotlight-glass-results
+.list-search-result:hover,
+.vliq-spotlight-card
+.vliq-spotlight-results.vliq-spotlight-glass-results
+.list-search-result:focus {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.vliq-spotlight-result-icon-bin {
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.vliq-spotlight-result-labels {
+    spacing: 1px;
+}

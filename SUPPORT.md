@@ -17,19 +17,19 @@ Please check:
 
 1. the [README](README.md);
 2. the [Development Guide](docs/DEVELOPMENT.md);
-3. existing [Issues](https://github.com/Anuppaul/velora-desktop/issues);
-4. existing [Discussions](https://github.com/Anuppaul/velora-desktop/discussions).
+3. existing [Issues](https://github.com/Anuppaul/vliq/issues);
+4. existing [Discussions](https://github.com/Anuppaul/vliq/discussions).
 
 Verify the extension is active:
 
 ```bash
-gnome-extensions list --active | grep velora@wonderer.tech
+gnome-extensions list --active | grep vliq@wonderer.tech
 ```
 
 Useful logs:
 
 ```bash
-journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'
+journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'vliq|liquid glass|liquidglass'
 ```
 
 ## Where to ask
@@ -51,7 +51,7 @@ Include:
 
 ### General question or setup help
 
-Use [GitHub Discussions](https://github.com/Anuppaul/velora-desktop/discussions).
+Use [GitHub Discussions](https://github.com/Anuppaul/vliq/discussions).
 
 ### Feature or design idea
 

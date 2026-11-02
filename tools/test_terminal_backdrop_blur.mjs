@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const root = new URL('../gnome-shell/velora@wonderer.tech/', import.meta.url);
+const root = new URL('../gnome-shell/vliq@wonderer.tech/', import.meta.url);
 const src = await readFile(new URL('terminalBackdropBlur.js', root), 'utf8');
 const runtime = await readFile(new URL('orbThemeRuntime.js', root), 'utf8');
 const prefs = await readFile(new URL('prefs.js', root), 'utf8');
 const schema = await readFile(new URL(
-    'schemas/org.gnome.shell.extensions.velora.gschema.xml', root
+    'schemas/org.gnome.shell.extensions.vliq.gschema.xml', root
 ), 'utf8');
 const installer = await readFile(
     new URL('../gnome-shell/install.sh', import.meta.url), 'utf8'
@@ -81,7 +81,7 @@ class TerminalBlurOutputMask {
         this.frames.push([width, height, radius]);
     }
 }
-const MASK_EFFECT_NAME = 'velora-ptyxis-rounded-output-mask';
+const MASK_EFFECT_NAME = 'vliq-ptyxis-rounded-output-mask';
 const DEFAULT_CORNER_RADIUS = 12;
 const Shell = {
     BlurEffect,

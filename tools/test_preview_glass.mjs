@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // Run the *shipped* GJS glass manager with mock Clutter actors so lifecycle,
 // laziness, geometry and teardown are verified without requiring a display.
 const shellSource = (await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/shellCards.js', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/shellCards.js', import.meta.url
 ), 'utf8')).replace(/^import[\s\S]*?;\s*$/gm, '')
     .replace(/^export\s+/gm, '');
 
@@ -114,7 +114,7 @@ const vendor = {
     UnpickableActor: Actor,
     LiquidEffect: MockEffect,
     WindowCloneManager: MockWindowClones,
-    root: '/fake-velora-vendor',
+    root: '/fake-vliq-vendor',
     setPositionIfChanged: (actor, x, y) => actor.set_position(x, y),
     setSizeIfChanged: (actor, w, h) => actor.set_size(w, h),
     setTranslationIfChanged: (actor, x, y) => {
@@ -139,12 +139,12 @@ const stage = {
     },
 };
 const uiGroup = new Actor({name: 'uiGroup'});
-const cardLayer = new Actor({name: 'velora-desktop-layer'});
+const cardLayer = new Actor({name: 'vliq-layer'});
 uiGroup.add_child(cardLayer);
 const Manager = new Function(
     'Clutter', 'GLib', 'St', 'Main', 'global',
-    'VELORA_GLASS_ADAPTERS', 'VELORA_GLASS_ROLES',
-    'applyVeloraGlassRole', 'console',
+    'VLIQ_GLASS_ADAPTERS', 'VLIQ_GLASS_ROLES',
+    'applyVLIQGlassRole', 'console',
     shellSource + '\nreturn ShellCardGlassManager;'
 )(
     {BinLayout: class {}},
@@ -177,7 +177,7 @@ assert.equal(stage._signals.size, 0, 'no idle compositor callback');
 assert.equal(manager.attachPreview(new Actor({style_class: 'unrelated'})), false);
 
 const makePreview = () => {
-    const card = new Actor({style_class: 'velora-app-preview-card'});
+    const card = new Actor({style_class: 'vliq-app-preview-card'});
     card.set_position(235, 170);
     card.set_size(315, 196);
     cardLayer.add_child(card);
@@ -188,7 +188,7 @@ assert.equal(manager.attachPreview(card), true);
 assert.equal(manager._surfaces.size, 1);
 assert.equal(manager.attachPreview(card), true);
 assert.equal(manager._surfaces.size, 1, 'no duplicate effect per card');
-assert.equal(card._classes.has('velora-liquid-shell-card'), true);
+assert.equal(card._classes.has('vliq-liquid-shell-card'), true);
 const surface = manager._surfaces.get(card);
 assert.equal(surface._material.parent, card,
     'preview glass must belong to the native card, not its sibling');
@@ -199,7 +199,7 @@ assert.equal(cardLayer._children.includes(surface._material), false,
 assert.equal(surface._previewInTarget, true);
 assert.equal(surface._material.scale_x, 1,
     'parent handles GNOME preview zoom without double scaling');
-assert.equal(surface._effect.owner, 'velora-shell-card');
+assert.equal(surface._effect.owner, 'vliq-shell-card');
 assert.equal(surface._effect.appearance.cornerRadius, 16);
 assert.equal(stage._signals.size, 0, 'unmapped card adds no frame loop');
 
@@ -247,10 +247,10 @@ assert.equal(stage._signals.size, 0);
 assert.equal(manager._watched.size, 0);
 
 const css = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/runtime.css', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
-const previewBlock = css.match(/\.velora-app-preview-card\s*\{([^}]*)\}/);
-const liveBlock = css.match(/\.velora-app-preview-card\.velora-liquid-shell-card\s*\{([^}]*)\}/);
+const previewBlock = css.match(/\.vliq-app-preview-card\s*\{([^}]*)\}/);
+const liveBlock = css.match(/\.vliq-app-preview-card\.vliq-liquid-shell-card\s*\{([^}]*)\}/);
 assert.ok(previewBlock && liveBlock);
 assert.doesNotMatch(previewBlock[1], /rgba\(\s*8\s*,\s*9\s*,\s*12\s*,\s*0\.94/);
 assert.match(previewBlock[1], /rgba\(232,\s*243,\s*255,\s*0\.18\)/);
@@ -262,25 +262,25 @@ assert.match(liveBlock[1],
 assert.doesNotMatch(liveBlock[1], /rgba\(/);
 assert.match(liveBlock[1], /border-color:\s*transparent/);
 const hoverCss = css.match(
-    /\.velora-window-preview-tile:hover,\s*\.velora-window-preview-tile:focus\s*\{([^}]*)\}/
+    /\.vliq-window-preview-tile:hover,\s*\.vliq-window-preview-tile:focus\s*\{([^}]*)\}/
 )?.[1];
 assert.ok(hoverCss);
 assert.match(hoverCss, /background-color:\s*transparent\s*;/);
 assert.doesNotMatch(hoverCss, /rgba\(/);
 
 const liquidCode = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/liquidGlassDock.js',
+    '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js',
     import.meta.url
 ), 'utf8');
 const genericFilterPos = liquidCode.indexOf(
-    "' .velora-liquid-shell-card {"
+    "' .vliq-liquid-shell-card {"
 ) >= 0
-    ? liquidCode.indexOf("' .velora-liquid-shell-card {")
-    : liquidCode.indexOf("'.velora-liquid-shell-card {");
+    ? liquidCode.indexOf("' .vliq-liquid-shell-card {")
+    : liquidCode.indexOf("'.vliq-liquid-shell-card {");
 const previewOverridePos = liquidCode.indexOf(
-    "'.velora-app-preview-card.velora-liquid-shell-card {"
+    "'.vliq-app-preview-card.vliq-liquid-shell-card {"
 );
-const panelPos = liquidCode.indexOf("'#panel.velora-liquid-top-panel {");
+const panelPos = liquidCode.indexOf("'#panel.vliq-liquid-top-panel {");
 assert.ok(
     genericFilterPos >= 0 &&
     previewOverridePos > genericFilterPos &&
@@ -291,7 +291,7 @@ assert.ok(
 assert.match(liquidCode, /filterOpacity\.toFixed\(3\)/);
 
 const orbSource = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/orbThemeRuntime.js', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js', import.meta.url
 ), 'utf8');
 assert.match(orbSource, /attachPreviewGlass\?\.\(card\)/);
 console.log('Preview Liquid Glass-only material, no white/hover layers, scoped global CSS, lifecycle and fallback PASS.');

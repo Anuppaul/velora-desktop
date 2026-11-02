@@ -4,13 +4,13 @@ import {readFile} from 'node:fs/promises';
 // Exercise the shipped canonical settings bridge, vendored material bindings,
 // and the existing LiquidEffect blur setter without a live GNOME compositor.
 // No second copy of either implementation is tested or shipped.
-const root = '../gnome-shell/velora@wonderer.tech/';
+const root = '../gnome-shell/vliq@wonderer.tech/';
 const file = async name => readFile(new URL(root + name, import.meta.url), 'utf8');
 const integration = await file('liquidGlassDock.js');
 const materialSource = await file('vendor/liquid-glass/dist/rendering/material.js');
 const effectSource = await file('vendor/liquid-glass/dist/liquidEffect.js');
 const shader = await file('vendor/liquid-glass/shaders/glass.frag');
-const canonicalSchema = await file('schemas/org.gnome.shell.extensions.velora.gschema.xml');
+const canonicalSchema = await file('schemas/org.gnome.shell.extensions.vliq.gschema.xml');
 const vendorSchema = await file(
     'vendor/liquid-glass/schemas/org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com.gschema.xml'
 );
@@ -25,9 +25,9 @@ const bridge = new Function('clampNumber',
     );
 
 const values = new Map([
-    ['velora-frost-amount', 0],
-    ['velora-frost-grain', 0.55],
-    ['velora-frost-edge-glow', 0.52],
+    ['vliq-frost-amount', 0],
+    ['vliq-frost-grain', 0.55],
+    ['vliq-frost-edge-glow', 0.52],
     // Saved, user-customized Liquid v10 optics must be left unchanged.
     ['glass-displacement-scale', 36],
     ['glass-chroma-strength', 3.4],
@@ -42,7 +42,7 @@ const vendor = {
         // optics. This focused mock supplies their defaults without hiding
         // missing Frosted keys (which must always be explicitly present).
         if (!values.has(key)) {
-            if (key.startsWith('velora-frost-'))
+            if (key.startsWith('vliq-frost-'))
                 throw new Error('Missing Frosted key: ' + key);
             return 1.0;
         }
@@ -87,7 +87,7 @@ const canonical = {
 };
 const instance = {
     _settings: vendor,
-    _veloraSettings: canonical,
+    _vliqSettings: canonical,
     _applyFrostedCrystalSettings: bridge._applyFrostedCrystalSettings,
 };
 
@@ -105,48 +105,48 @@ const material = new MaterialSettings(
     (amount, initial) => events.push([amount, initial])
 );
 material.initialize();
-assert.equal(uniformValues.get('velora_frost_amount'), 0);
+assert.equal(uniformValues.get('vliq_frost_amount'), 0);
 assert.equal(events.at(-1)[1], true);
 instance._applyFrostedCrystalSettings();
-assert.equal(values.get('velora-frost-amount'), 0);
-assert.equal(values.get('velora-frost-grain'), 0.55);
+assert.equal(values.get('vliq-frost-amount'), 0);
+assert.equal(values.get('vliq-frost-grain'), 0.55);
 
 // The first user switch should update ALL live effects; original settings
 // are not rewritten. Density and edge glow can be adjusted while enabled.
 controls['glass-style'] = 'frosted';
 instance._applyFrostedCrystalSettings();
-assert.equal(values.get('velora-frost-amount'), 0.78);
-assert.equal(uniformValues.get('velora_frost_amount'), 0.78);
-assert.equal(uniformValues.get('velora_frost_grain'), 0.55);
+assert.equal(values.get('vliq-frost-amount'), 0.78);
+assert.equal(uniformValues.get('vliq_frost_amount'), 0.78);
+assert.equal(uniformValues.get('vliq_frost_grain'), 0.55);
 assert.equal(events.at(-1)[1], false);
 controls['frost-density'] = 34;
 controls['frost-grain'] = 77;
 controls['frost-edge-glow'] = 19;
 instance._applyFrostedCrystalSettings();
-assert.equal(uniformValues.get('velora_frost_amount'), 0.34);
-assert.equal(uniformValues.get('velora_frost_grain'), 0.77);
-assert.equal(uniformValues.get('velora_frost_edge_glow'), 0.19);
+assert.equal(uniformValues.get('vliq_frost_amount'), 0.34);
+assert.equal(uniformValues.get('vliq_frost_grain'), 0.77);
+assert.equal(uniformValues.get('vliq_frost_edge_glow'), 0.19);
 assert.equal(values.get('glass-displacement-scale'), 36);
 assert.equal(values.get('glass-chroma-strength'), 3.4);
 assert.equal(values.get('glass-rim-intensity'), 0.22);
 
 controls['glass-style'] = 'liquid';
 instance._applyFrostedCrystalSettings();
-assert.equal(uniformValues.get('velora_frost_amount'), 0);
+assert.equal(uniformValues.get('vliq_frost_amount'), 0);
 assert.equal(values.get('glass-displacement-scale'), 36);
 assert.equal(values.get('glass-rim-intensity'), 0.22);
 
 // Retest after switching back, including independently retained user choices.
 controls['glass-style'] = 'frosted';
 instance._applyFrostedCrystalSettings();
-assert.equal(uniformValues.get('velora_frost_amount'), 0.34);
+assert.equal(uniformValues.get('vliq_frost_amount'), 0.34);
 material.clear();
 assert.equal(handlers.size, 0, 'material must disconnect mode listeners');
 
 // Exercise the actual LiquidEffect.blur setter, not an invented model.
 // Liquid now has Frosted-like strong native diffusion, while the users'
 // saved base radius and advanced optics remain intact. Both modes respect 0.
-const blurBegin = effectSource.indexOf('    _applyVeloraBlurRadius() {');
+const blurBegin = effectSource.indexOf('    _applyVLIQBlurRadius() {');
 const blurEnd = effectSource.indexOf('\n    /**', blurBegin);
 assert.ok(blurBegin >= 0 && blurEnd > blurBegin);
 const extractedMethods = effectSource.slice(blurBegin, blurEnd)
@@ -169,11 +169,11 @@ assert.equal(blurRadii.at(-1), 28,
 assert.equal(fx._requestedBlurRadius, 7,
     'stronger Liquid blur must never overwrite the saved slider value');
 fx._frostAmount = 0.78;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.ok(Math.abs(blurRadii.at(-1) - 25.72) < 0.0001,
     'Frosted still tracks its independently selected density');
 fx._frostAmount = 0;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 28,
     'returning to Liquid restores strong blur without touching base radius');
 
@@ -181,11 +181,11 @@ assert.equal(blurRadii.at(-1), 28,
 // They must stay *optically distinct* via the original Liquid shader, not
 // by adding a CSS overlay, extra FBO or mutating refraction/edge settings.
 fx._frostAmount = 0.88;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.ok(Math.abs(blurRadii.at(-1) - 28.12) < 0.0001,
     'default Frosted and Liquid background diffusion should be comparable');
 fx._frostAmount = 0;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 28);
 assert.equal(fx._requestedBlurRadius, 7);
 
@@ -194,19 +194,19 @@ fx.setBlurRadius(14);
 assert.equal(blurRadii.at(-1), 35, 'Liquid blur tracks slider changes');
 assert.equal(fx._requestedBlurRadius, 14);
 fx._frostAmount = 1;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 38, 'max Frosted density adds up to 24');
 fx._frostAmount = 0;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 35);
 
 fx.setBlurRadius(0);
 assert.equal(blurRadii.at(-1), 0, 'Liquid blur=0 disables the effect');
 fx._frostAmount = 0.88;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 0, 'Frosted blur=0 also disables the effect');
 fx._frostAmount = 0;
-fx._applyVeloraBlurRadius();
+fx._applyVLIQBlurRadius();
 assert.equal(blurRadii.at(-1), 0);
 assert.equal(fx._requestedBlurRadius, 0);
 
@@ -221,18 +221,18 @@ assert.doesNotMatch(
 // Test wiring and safety contracts: no hidden second layer/GL pass,
 // Liquid has an identity path, all shader paths use same matte+grain.
 for (const uniformName of [
-    'velora_frost_amount', 'velora_frost_grain', 'velora_frost_edge_glow',
+    'vliq_frost_amount', 'vliq_frost_grain', 'vliq_frost_edge_glow',
 ])
     assert.match(shader, new RegExp('uniform float ' + uniformName + ';'));
 assert.match(shader, /if \(frost < 0\.0001\)\s*return color;/);
-assert.match(shader, /flatRgb = veloraCrystalBody\(flatRgb\)/);
-assert.match(shader, /vec3 baseColor = veloraCrystalBody\(insideBaseColor\)/);
+assert.match(shader, /flatRgb = vliqCrystalBody\(flatRgb\)/);
+assert.match(shader, /vec3 baseColor = vliqCrystalBody\(insideBaseColor\)/);
 assert.equal(
-    shader.match(/veloraCrystalGrain\(pixel_coord\)/g)?.length,
+    shader.match(/vliqCrystalGrain\(pixel_coord\)/g)?.length,
     2,
     'flat/full paths must share the same static grain implementation'
 );
-assert.doesNotMatch(shader, /sampler2D velora_/);
+assert.doesNotMatch(shader, /sampler2D vliq_/);
 
 // Full Crystal should be visually distinct, not merely Liquid with a white
 // tint. Verify both rendering branches, the density-to-matte blend, the
@@ -244,7 +244,7 @@ assert.match(shader, /float crystalLensSuppression = smoothstep\(/);
 assert.match(shader, /dispPx \*= mix\(1\.0, 0\.09, crystalLensSuppression\)/);
 assert.match(shader, /float crystalChroma = 1\.0 - smoothstep\(/);
 assert.match(shader, /\* lensShape \* crystalChroma;/);
-assert.match(shader, /veloraGlassGrain\(floor\(pixel \* 0\.25\) \* 4\.0\)/);
+assert.match(shader, /vliqGlassGrain\(floor\(pixel \* 0\.25\) \* 4\.0\)/);
 assert.match(shader, /vec3\(0\.79, 0\.90, 1\.0\)/);
 assert.match(shader, /if \(frost < 0\.0001\)\s*return fine;/);
 // At the *previous* 78% default, the matte crystal should already be strong
@@ -271,7 +271,7 @@ assert.match(canonicalSchema, /<default>'liquid'<\/default>/);
 for (const key of ['frost-density', 'frost-grain', 'frost-edge-glow'])
     assert.match(canonicalSchema, new RegExp('<key name="' + key + '"'));
 for (const key of [
-    'velora-frost-amount', 'velora-frost-grain', 'velora-frost-edge-glow',
+    'vliq-frost-amount', 'vliq-frost-grain', 'vliq-frost-edge-glow',
 ])
     assert.match(vendorSchema, new RegExp('<key name="' + key + '"'));
 assert.match(prefs, /model: Gtk\.StringList\.new\(\[\s*'Liquid Glass',\s*'Frosted Crystal'/);

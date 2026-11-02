@@ -8,11 +8,11 @@ async function loadSource(path) {
         .replace(/^import[\s\S]*?;\s*$/gm, '')
         .replace(/^export\s+/gm, '');
 }
-const roleSource = await loadSource('../gnome-shell/velora@wonderer.tech/glassMaterialSystem.js');
-const roles = new Function(roleSource + '\nreturn VELORA_GLASS_ROLES;')();
-const adapters = new Function(roleSource + '\nreturn VELORA_GLASS_ADAPTERS;')();
-const runtimeSource = await loadSource('../gnome-shell/velora@wonderer.tech/liquidGlassDock.js');
-const Integration = new Function('VELORA_GLASS_ROLES',
+const roleSource = await loadSource('../gnome-shell/vliq@wonderer.tech/glassMaterialSystem.js');
+const roles = new Function(roleSource + '\nreturn VLIQ_GLASS_ROLES;')();
+const adapters = new Function(roleSource + '\nreturn VLIQ_GLASS_ADAPTERS;')();
+const runtimeSource = await loadSource('../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js');
+const Integration = new Function('VLIQ_GLASS_ROLES',
     runtimeSource + '\nreturn LiquidGlassIntegration;')(roles);
 const keys = new Map([
     ['glass-max-z', 'max_z'],
@@ -70,7 +70,7 @@ function migrate(source, version) {
         },
     };
     Integration.prototype._ensureFullGlassOpticsProfile.call({
-        _settings: settings, _veloraSettings: canonical,
+        _settings: settings, _vliqSettings: canonical,
     });
     return {values, writes, version: canonical.version};
 }
