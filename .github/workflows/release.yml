@@ -148,7 +148,7 @@ jobs:
           {
             echo "## Release artifact"
             echo
-            echo "- \`${ARCHIVE}\` — complete Velora source tree for this tag"
+            echo "- \`${ARCHIVE}\` — complete VLIQ source tree for this tag"
             echo "- \`velora@wonderer.tech.shell-extension.zip\` — GNOME Extensions Store upload package (GNOME 50)"
             echo "- \`SHA256SUMS\` — SHA-256 checksum"
             echo
@@ -184,4 +184,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "Velora Desktop ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "VLIQ ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
