@@ -72,6 +72,30 @@ gnome-extensions prefs vliq@wonderer.tech
 If GNOME has not registered the new UUID in the current Wayland session,
 log out/in once before concluding that the install has failed.
 
+## Manual rollback if the new extension does not activate
+
+The installer automatically attempts rollback on a detected activation
+failure. A newly registered UUID may still require **one GNOME Wayland
+logout/login**, so missing immediate activation is not by itself a failure.
+
+If, after the session refresh, VLIQ still fails to load, restore the previous
+extension without deleting its settings:
+
+```bash
+python3 gnome-shell/migrate_legacy_install.py rollback
+```
+
+The rollback removes `vliq@wonderer.tech` from the persisted
+`org.gnome.shell enabled-extensions` list and re-enables the previous
+extension if it was enabled when migration began. It does **not** reset
+either dconf path, delete the migration backup, or touch other installed
+extensions. If the old UUID is not immediately recognized, log out/in
+once after rollback. Run this **before** optional `finalize`.
+
+The migration checkpoint and original settings backup are saved under
+`~/.local/state/vliq/`. Do not delete this directory until you have
+verified that your preferences and native Ubuntu Dock behavior are preserved.
+
 ## Optional cleanup after successful visual verification
 
 Once VLIQ is active and its Orb, Liquid Glass, Dock and saved settings
