@@ -173,7 +173,7 @@ function planWindowPreview(windows, preferredScale, monitor) {
     return {cardWidth, cardHeight, tiles};
 }
 
-function createCanonicalVLIQSettings(uuid) {
+function createCanonicalVeloraSettings(uuid) {
     const schemaDir = GLib.build_filenamev([
         GLib.get_user_data_dir(),
         'gnome-shell',
@@ -199,7 +199,7 @@ function createCanonicalVLIQSettings(uuid) {
     return new Gio.Settings({settings_schema: schema});
 }
 
-export default class VLIQRuntime extends Extension {
+export default class VeloraRuntime extends Extension {
     async enable() {
         const previousRuntime = globalThis[RUNTIME_SINGLETON_KEY];
         if (previousRuntime && previousRuntime !== this) {
@@ -222,7 +222,7 @@ export default class VLIQRuntime extends Extension {
         // runtime/prefs keys bind immediately in the current Shell session.
         try {
             this._settings =
-                createCanonicalVLIQSettings(this.uuid);
+                createCanonicalVeloraSettings(this.uuid);
         } catch (error) {
             logError(
                 error,
