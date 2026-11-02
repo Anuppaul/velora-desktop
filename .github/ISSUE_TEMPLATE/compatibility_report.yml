@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for testing Velora on another environment. Please report observed results, not assumed compatibility.
+        Thanks for testing VLIQ on another environment. Please report observed results, not assumed compatibility.
   - type: input
     id: distro
     attributes:
@@ -34,7 +34,7 @@ body:
   - type: input
     id: revision
     attributes:
-      label: Velora revision
+      label: VLIQ revision
       placeholder: "git rev-parse --short HEAD"
     validations:
       required: true
@@ -50,7 +50,7 @@ body:
         - label: Notifications
         - label: Panel/status popups
         - label: App Grid / Overview
-        - label: Velora Orb
+        - label: VLIQ Orb
         - label: Spotlight
         - label: Disable / re-enable cleanup
   - type: textarea
