@@ -349,5 +349,13 @@
       <summary>Live glass scene refresh rate</summary>
       <description>Caps expensive live window-clone synchronization while keeping Shell geometry and interaction on the native frame clock.</description>
     </key>
+    <key name="clock-widget-enabled" type="b">
+      <default>false</default>
+      <summary>Show VLIQ desktop clock</summary>
+    </key>
+    <key name="clock-widget-24h" type="b">
+      <default>false</default>
+      <summary>Display clock in 24-hour format</summary>
+    </key>
   </schema>
 </schemalist>
