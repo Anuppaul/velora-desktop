@@ -1,81 +1,113 @@
-# VLIQ — branding migration
+# VLIQ — complete GNOME Shell identity migration
 
-**Public name: VLIQ.** No suffix.
+**Public name: VLIQ.** This is the sole product name. The GitHub repository
+is `Anuppaul/vliq`; the canonical extension UUID, schema, CSS/shaders,
+runtime, tests, screenshot files and new release bundles are VLIQ.
 
-VLIQ is the public-facing brand for the GNOME Shell 50 Liquid Glass and
-Frosted Crystal project previously presented as Velora.
+## New canonical identity
 
-## What changes in this release
+| Component | New VLIQ identity |
+| --- | --- |
+| GNOME Extensions display name | `VLIQ` |
+| GNOME Shell UUID | `vliq@wonderer.tech` |
+| Source directory | `gnome-shell/vliq@wonderer.tech` |
+| GSettings schema | `org.gnome.shell.extensions.vliq` |
+| GSettings/dconf path | `/org/gnome/shell/extensions/vliq/` |
+| Source repository | `https://github.com/Anuppaul/vliq` |
+| Store-review ZIP | `vliq@wonderer.tech.shell-extension.zip` |
+| GitHub source archive | `vliq-<version>.tar.gz` |
+| User-facing name | `VLIQ` |
 
-- The GNOME Extensions application listing reads **VLIQ**.
-- Main README, About text, Preferences, runtime/installer messages,
-  wallpaper preset labels, release titles, SVG diagram labels,
-  contributor guides and GNOME Store submission documents use VLIQ.
-- Public release source archives are named `vliq-<version>.tar.gz`.
-- Supported Shell version remains **50**.
-- The full Liquid Glass, Orb, Spotlight, wallpaper, Dock, brightness
-  and Terminal Glass implementation stays the same.
+All first-party runtime constants, CSS IDs, shader cache identifiers,
+extension metadata, documentation and build/test paths refer to VLIQ.
+Vendored third-party Liquid Glass dependencies retain their legally
+required original package identifiers and attribution; these are not
+product branding.
 
-## Legacy identifiers intentionally preserved
+## Upgrade from a previous local installation
 
-| Identifier | Existing value | Reason |
-| --- | --- | --- |
-| GNOME extension UUID | `velora@wonderer.tech` | GNOME treats a new UUID as a **different extension**. Preserving it avoids duplicate installs and lost update continuity. |
-| User GSettings schema ID | `org.gnome.shell.extensions.velora` | Existing user preferences stay at the same dconf path. |
-| User dconf path | `/org/gnome/shell/extensions/velora/` | Explicitly migrating/deleting this location could destroy saved settings. |
-| Bootstrap API, hot-swap state and environment keys | Existing legacy names | The bootstrapped GNOME 50 loader must recognize existing local installations. |
-| Internal CSS/shader/cache names | Existing `velora-` prefixes | Renaming compositor internals without a separate migration could break style/effect matching and hot reload. |
-| GNOME Store inner ZIP | `velora@wonderer.tech.shell-extension.zip` | Matches the unchanged extension UUID; source release archive branding is independently VLIQ. |
-| Screenshots filenames and legacy GitHub path | Existing names | Preserves image links and repository continuity while public captions say VLIQ. |
+GNOME Shell treats a new UUID as a **different extension**. A naive
+rename could leave two compositors fighting over the screen or discard
+saved preferences. The developer installer now performs a one-time,
+reversible migration:
 
-These identifiers are not user-visible branding. **Do not globally replace
-every lowercase `velora` with `vliq` in code or remove the old GSettings
-schema.** The legacy names also appear in historical logs and tests.
+1. Validate GNOME Shell 50 and compile the new VLIQ schema before writing
+   any settings.
+2. Inspect the previous local extension and its dconf settings. The
+   migration helper `gnome-shell/migrate_legacy_install.py` is the **only
+   place that must identify the former extension UUID and dconf path**.
+3. Back up old dconf settings privately to
+   `~/.local/state/vliq/legacy-settings-backup.ini` (mode 0600).
+4. Import real user preferences into `/org/gnome/shell/extensions/vliq/`
+   only if that destination has no existing user settings. Exclude
+   process-specific runtime revisions, diagnostics and captured Ubuntu
+   Dock ownership flags. Never reset or delete the previous dconf values.
+5. Install the new VLIQ files, compile schemas and prepare startup.
+6. Only after the new extension is successfully installed, **disable**
+   the previous extension so there are no two active glass renderers.
+7. If VLIQ activation fails, the installer attempts to restore the
+   previous extension. A first-time GNOME extension UUID may require
+   logging out and logging in once.
 
-## Local update
+To update an existing source checkout **after pulling the VLIQ changes**:
 
 ```bash
 cd ~/Documents/code/velora-desktop
+git remote set-url origin https://github.com/Anuppaul/vliq.git
 git pull origin main
 bash gnome-shell/install.sh
-gnome-extensions info velora@wonderer.tech
+gnome-extensions info vliq@wonderer.tech
 ```
 
-The extension name in GNOME Extensions should display **VLIQ**. Because
-the bootstrap source and metadata change, the existing installer may
-require the GNOME session's normal logout/login cycle. Do not uninstall
-the old UUID before reinstalling: that can delete settings and break Dock
-state restoration.
+Your existing local checkout directory name is not an extension identity.
+It can be renamed later, once it is safe to do so.
 
-## Repository rename (owner-only action)
+To verify or open preferences:
 
-The GitHub connector currently available for development cannot update
-repository administration settings. After PR checks pass and the brand
-is visible in the app, the owner can change the repository name:
+```bash
+gnome-extensions list --active | grep -F 'vliq@wonderer.tech'
+gnome-extensions prefs vliq@wonderer.tech
+```
 
-1. Open the existing `Anuppaul/velora-desktop` GitHub repository.
-2. Go to **Settings → General → Repository name**.
-3. Rename the repository to **vliq**, if that exact slug is available.
-4. Update the local remote, documentation URLs and badges after the
-   rename. GitHub generally redirects old links, but check Actions,
-   releases, issue templates and website references independently.
+If GNOME has not registered the new UUID in the current Wayland session,
+log out/in once before concluding that the install has failed.
 
-The rename has **not** been performed by changing README text.
-No new domain or trademark is claimed, registered or reserved by this
-source change.
+## Optional cleanup after successful visual verification
 
-## Trademark and public availability
+Once VLIQ is active and its Orb, Liquid Glass, Dock and saved settings
+work on the device, the following deliberately explicit operation can
+uninstall the **disabled** previous GNOME extension:
 
-Brand-name selection does not establish trademark rights or guarantee
-availability of matching domains and handles. Obtain trademark counsel
-or authoritative registry checks before commercial launch.
+```bash
+python3 gnome-shell/migrate_legacy_install.py finalize
+```
 
-## Acceptance
+This refuses to run unless VLIQ is active. It does **not** erase the
+original dconf backup, preserving a recovery option. Do not run the old
+project's `uninstall.sh` after migration: that utility can modify saved
+Ubuntu Dock and extension-list state while the new project is active.
 
-- metadata name exactly `VLIQ`
-- no public display string `VLIQ Desktop`
-- no broken runtime imports, duplicate extension UUID or alternate
-  canonical GSettings schema
-- GNOME 50 unit/packaging and static review checks pass
-- existing Settings, Orb, Spotlight, Brightness and native Dock remain
-  operational after a local upgrade
+The migration's backup and state files are intentionally retained in a
+private user-owned location. For diagnosis of failed activation:
+
+```bash
+journalctl --user -b --no-pager -o cat |
+  grep -i -E 'vliq|gnome-shell' | tail -n 40
+```
+
+## GNOME Store / releases
+
+- A new GNOME UUID generally means a **new extension listing**, not an
+  update to any listing registered under the previous UUID.
+- VLIQ Store artifacts use the VLIQ UUID and canonical schema. No
+  migration utility or developer installer is included inside the
+  review ZIP.
+- CI packaging and schema validation do not constitute GNOME Store
+  approval or actual GNOME 50.1 visual acceptance.
+
+## Brand and legal checks
+
+Rebranding source code does not register a trademark or reserve domains.
+Vendor licenses and provenance must remain available to downstream
+users even after renaming. Trademarks, social handles and matching domain
+availability require separate authoritative verification.
