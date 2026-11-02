@@ -7,25 +7,25 @@ This opt-in, read-only sampler runs as a separate Python process. It does not pa
 Run these commands from the repository root, one at a time. A five-second delay gives you time to open the requested surface. Return to the terminal only after 20 seconds of recording:
 
 ```bash
-python3 tools/velora_perf.py capture --label desktop-idle --seconds 20
-python3 tools/velora_perf.py capture --label overview --seconds 20
-python3 tools/velora_perf.py capture --label app-grid --seconds 20
-python3 tools/velora_perf.py capture --label orb-all-apps --seconds 20
+python3 tools/vliq_perf.py capture --label desktop-idle --seconds 20
+python3 tools/vliq_perf.py capture --label overview --seconds 20
+python3 tools/vliq_perf.py capture --label app-grid --seconds 20
+python3 tools/vliq_perf.py capture --label orb-all-apps --seconds 20
 # Use Ubuntu Dock Panel Mode with its Liquid Glass backdrop enabled:
-python3 tools/velora_perf.py capture --label panel-idle --seconds 20
+python3 tools/vliq_perf.py capture --label panel-idle --seconds 20
 # While recording, repeatedly reveal/hide the native dock panel:
-python3 tools/velora_perf.py capture --label panel-motion --seconds 20
+python3 tools/vliq_perf.py capture --label panel-motion --seconds 20
 ```
 
-During idle, keep the desktop still. During Overview/App Grid, leave the surface open. For Orb All Apps, keep a representative page open and still. Record a separate run for paging or rapid transitions. All reports are local at dist/velora-perf/ (ignored by Git) as CSV and summary JSON.
+During idle, keep the desktop still. During Overview/App Grid, leave the surface open. For Orb All Apps, keep a representative page open and still. Record a separate run for paging or rapid transitions. All reports are local at dist/vliq-perf/ (ignored by Git) as CSV and summary JSON.
 
 ## Comparison
 
 Repeat the same scenario before and after a change, matching screen resolution, GNOME version, session, workload, power state and other GPU-intensive programs:
 
 ```bash
-python3 tools/velora_perf.py compare path/to/before.csv path/to/after.csv
-python3 -m unittest discover -s tools -p 'test_velora_perf.py'
+python3 tools/vliq_perf.py compare path/to/before.csv path/to/after.csv
+python3 -m unittest discover -s tools -p 'test_vliq_perf.py'
 ```
 
 Use --pid PID if multiple same-user gnome-shell processes exist, --delay 10 to give yourself more time, --output PATH to control the destination, and --no-gpu for systems without NVIDIA.
@@ -294,7 +294,7 @@ The compact **480×270 exact-16:9** running-window preview already has its own
 VLIQ LiquidEffect as the first child of the native card. However, the card
 still received a painted translucent white body when glass was active, and
 `LiquidGlassIntegration._applyCardAppearanceStylesheet()` applied a generic
-`.velora-liquid-shell-card` **`!important` white-filter override** on top of
+`.vliq-liquid-shell-card` **`!important` white-filter override** on top of
 all native shell cards, including this preview. A hovered/focused native
 thumbnail also received an additional 5.5% white tile fill. These are visual
 layers independent of the actual refractive LiquidEffect.
@@ -429,7 +429,7 @@ saved user setting.
 - Example with an existing base radius of 7: Liquid **28**, Frosted at 88%
   **28.12**, and Frosted at 78% **25.72**. After returning to Liquid, the
   effective radius is still 28 and the saved base radius remains 7.
-- Implementation changes only `LiquidEffect._applyVeloraBlurRadius()` and
+- Implementation changes only `LiquidEffect._applyVLIQBlurRadius()` and
   its source-based regression tests. No added material actor, blur pass,
   shader uniform, framebuffer, texture, timer or scene-sampling loop.
 - **Performance caveat:** a larger radius can select more levels in the
@@ -910,10 +910,10 @@ remain exactly user-owned. Original continues to remove all effects.
 ### GNOME hot reload: Shader V2
 
 GNOME registers GObject class names for the lifetime of its Shell process.
-The PR #62 effect class was cached as `VeloraAtmosphereShaderEffectV1`.
+The PR #62 effect class was cached as `VLIQAtmosphereShaderEffectV1`.
 Merely changing the GLSL source while retaining that name/key could
 continue using the OLD invisible shader on VLIQ hot-reload. The
-recalibrated shader now uses **`VeloraAtmosphereShaderEffectV2`** and
+recalibrated shader now uses **`VLIQAtmosphereShaderEffectV2`** and
 a separate process-global cache key. Running sessions may allocate the
 new type without re-registering V1; GNOME's old effect instances are
 removed by the normal manager cleanup path. The fallback for systems

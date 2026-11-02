@@ -11,10 +11,10 @@ has accepted the extension.
 | Item | Value |
 | --- | --- |
 | Name | VLIQ |
-| UUID | `velora@wonderer.tech` |
+| UUID | `vliq@wonderer.tech` |
 | Target Shell | GNOME Shell **50** only |
-| Repository | https://github.com/Anuppaul/velora-desktop |
-| Uploaded artifact | `velora@wonderer.tech.shell-extension.zip` |
+| Repository | https://github.com/Anuppaul/vliq-desktop |
+| Uploaded artifact | `vliq@wonderer.tech.shell-extension.zip` |
 | License | MIT, including third-party upstream attribution |
 | Release workflow | [GNOME Store package](../.github/workflows/gnome-store-package.yml) |
 | Review guidelines | https://gjs.guide/extensions/review-guidelines/review-guidelines.html |
@@ -30,13 +30,13 @@ Only download a successful `main` run when making the official submission:
 
 1. Open **GitHub → Actions → GNOME Store package**, select the newest
    successful run on `main`.
-2. Download the artifact **`velora-gnome-store-upload-zip`**.
+2. Download the artifact **`vliq-gnome-store-upload-zip`**.
 3. GitHub wraps files in an artifact archive. **Extract the artifact once**,
-   and locate the actual inner `velora@wonderer.tech.shell-extension.zip`.
+   and locate the actual inner `vliq@wonderer.tech.shell-extension.zip`.
    **Upload the inner ZIP**, not the GitHub artifact wrapper.
-4. Download **`velora-gnome-store-review-evidence`** separately to inspect
+4. Download **`vliq-gnome-store-review-evidence`** separately to inspect
    `SHEXLI_REPORT.txt`, `SHEXLI_EXIT_STATUS.txt` and the SHA-256 manifest.
-5. Compare the inner ZIP's SHA-256 with `velora-ego-manifest.json` before
+5. Compare the inner ZIP's SHA-256 with `vliq-ego-manifest.json` before
    uploading or distributing it.
 
 Offline source builder (no Git command or additional Python packages needed):
@@ -111,7 +111,7 @@ With Python 3.12 or later:
 python3 -m venv .venv-shexli
 . .venv-shexli/bin/activate
 pip install -r tools/ego-review-requirements.txt
-shexli dist/ego/velora@wonderer.tech.shell-extension.zip --format text
+shexli dist/ego/vliq@wonderer.tech.shell-extension.zip --format text
 ```
 
 Shexli is a static analyzer, not a GNOME Shell/GPU compositor test. The
@@ -155,7 +155,7 @@ do not imply official approval or guarantee the runtime is bug-free.
 2. Read the review guidelines, Code of Conduct and GNOME maintainership
    expectations.
 3. Open https://extensions.gnome.org/upload/.
-4. Upload **`velora@wonderer.tech.shell-extension.zip`** from the
+4. Upload **`vliq@wonderer.tech.shell-extension.zip`** from the
    successful main release artifact, not a repository ZIP or artifact wrapper.
 5. Confirm the metadata (VLIQ, UUID, GNOME Shell 50); submit for
    review and provide truthful screenshots/description as requested.

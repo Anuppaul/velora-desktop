@@ -53,7 +53,7 @@ into:
            -> wallpaper-backed LiquidEffect material
            -> original menu.box
 
-The original box gets only the velora-liquid-popup-content class, which removes background/border/shadow paint but does not alter radius, padding or content.
+The original box gets only the vliq-liquid-popup-content class, which removes background/border/shadow paint but does not alter radius, padding or content.
 
 Because the material is inside BoxPointer, GNOME automatically carries native position, scale, translation, opacity and open/close animation.
 

@@ -24,7 +24,7 @@
 <rect x="660" y="145" width="470" height="320" rx="34" fill="url(#right)" stroke="#b3a7ff" stroke-opacity=".45"/>
 
 <text x="110" y="198" fill="#8fc5ff" font-family="system-ui, sans-serif" font-size="18" font-weight="700">GNOME OWNS</text>
-<text x="700" y="198" fill="#c2baff" font-family="system-ui, sans-serif" font-size="18" font-weight="700">VELORA OWNS</text>
+<text x="700" y="198" fill="#c2baff" font-family="system-ui, sans-serif" font-size="18" font-weight="700">VLIQ OWNS</text>
 
 <g font-family="system-ui, sans-serif" font-size="19" fill="#eef5ff">
   <text x="110" y="250">✓ Layout &amp; geometry</text>

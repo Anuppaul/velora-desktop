@@ -8,7 +8,7 @@ VLIQ targets GNOME Shell 50. Read [ARCHITECTURE.md](ARCHITECTURE.md) before chan
 
 | Area | Main files | Typical contributions | Risk |
 | --- | --- | --- | --- |
-| Extension lifecycle | `gnome-shell/velora@wonderer.tech/extension.js`, `runtime.js` | enable/disable lifecycle, bootstrap, cleanup | High |
+| Extension lifecycle | `gnome-shell/vliq@wonderer.tech/extension.js`, `runtime.js` | enable/disable lifecycle, bootstrap, cleanup | High |
 | Orb launcher | `orbThemeRuntime.js`, `orbGlass.js`, `geometry.js`, `apps.js` | launcher behavior, geometry, paging, app sources | Medium–High |
 | Spotlight | `spotlightSearch.js`, `spotlightGlass.js`, `searchSurface.js` | search UX, keyboard behavior, visual integration | Medium |
 | Popup surfaces | `popupGlass.js` | Quick Settings, Calendar, panel/status PopupMenu integration | High |
