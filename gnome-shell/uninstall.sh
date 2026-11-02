@@ -177,4 +177,4 @@ if [[ -e "${LIVE_CACHE_DIR}" ]]; then
     exit 1
 fi
 
-echo "VLIQ Desktop was fully removed."
+echo "VLIQ was fully removed."
