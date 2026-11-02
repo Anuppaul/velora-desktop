@@ -1,6 +1,6 @@
 # Contributors
 
-Velora is built in the open. Code, documentation, testing, bug reports, compatibility checks, accessibility feedback and design review all count as meaningful contributions.
+VLIQ is built in the open. Code, documentation, testing, bug reports, compatibility checks, accessibility feedback and design review all count as meaningful contributions.
 
 GitHub automatically records commit and pull-request authorship. This file exists to make contribution paths and recognition expectations explicit.
 
@@ -16,7 +16,7 @@ Contributions may be recognized through:
 
 ## Community contributors
 
-Thank you to the people helping improve Velora through code and review.
+Thank you to the people helping improve VLIQ through code and review.
 
 | Contributor | Contribution |
 | --- | --- |
@@ -42,4 +42,4 @@ Useful contributions include:
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [Contributor Map](docs/CONTRIBUTOR_MAP.md).
 
-Thank you to everyone who helps make Velora more reliable, understandable and useful.
+Thank you to everyone who helps make VLIQ more reliable, understandable and useful.

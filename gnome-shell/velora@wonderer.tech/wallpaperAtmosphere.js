@@ -395,7 +395,7 @@ export class WallpaperAtmosphereManager {
         try {
             this._settings?.set_string?.(
                 'wallpaper-runtime-status',
-                'Inactive: Velora Atmosphere runtime stopped'
+                'Inactive: VLIQ Atmosphere runtime stopped'
             );
         } catch {}
         this._settings = null;

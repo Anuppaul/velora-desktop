@@ -1,6 +1,6 @@
-# Velora Documentation
+# VLIQ Documentation
 
-This directory contains the technical and contributor documentation for Velora Desktop.
+This directory contains the technical and contributor documentation for VLIQ.
 
 ## Project architecture
 

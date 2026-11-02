@@ -51,7 +51,7 @@ restore_dock_from_saved_state() {
             gsettings set "${DOCK_SCHEMA}" dock-fixed "${original_fixed}"
             gsettings set "${DOCK_SCHEMA}" manualhide "${original_manualhide}"
 
-            echo "Restored Ubuntu Dock settings saved by Velora."
+            echo "Restored Ubuntu Dock settings saved by VLIQ."
         else
             echo "WARNING: saved Ubuntu Dock settings exist, but Dash-to-Dock schema is unavailable." >&2
         fi
@@ -111,7 +111,7 @@ PY
 
         env GSETTINGS_SCHEMA_DIR="${SCHEMA_DIR}" \
             gsettings set "${VELORA_SCHEMA}" dock-extension-state-captured false
-        echo "Restored Ubuntu Dock extension-list state saved by Velora."
+        echo "Restored Ubuntu Dock extension-list state saved by VLIQ."
     fi
 }
 
@@ -163,18 +163,18 @@ if command -v dconf >/dev/null 2>&1; then
 fi
 
 if [[ -e "${TARGET_DIR}" ]]; then
-    echo "ERROR: Velora user extension directory still exists: ${TARGET_DIR}" >&2
+    echo "ERROR: VLIQ user extension directory still exists: ${TARGET_DIR}" >&2
     exit 1
 fi
 
 if [[ -e "${UPDATE_DIR}" ]]; then
-    echo "ERROR: Velora extension-update directory still exists: ${UPDATE_DIR}" >&2
+    echo "ERROR: VLIQ extension-update directory still exists: ${UPDATE_DIR}" >&2
     exit 1
 fi
 
 if [[ -e "${LIVE_CACHE_DIR}" ]]; then
-    echo "ERROR: Velora live-load cache still exists: ${LIVE_CACHE_DIR}" >&2
+    echo "ERROR: VLIQ live-load cache still exists: ${LIVE_CACHE_DIR}" >&2
     exit 1
 fi
 
-echo "Velora Desktop was fully removed."
+echo "VLIQ was fully removed."

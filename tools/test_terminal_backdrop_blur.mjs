@@ -342,7 +342,7 @@ assert.equal(settings.count(), 0, 'hot-swap releases settings listeners');
 
 assert.match(runtime, /new TerminalBackdropBlurManager\(this\._settings\)/);
 assert.match(runtime, /this\._terminalBackdropBlurManager\?\.cleanup\(\)/);
-assert.match(prefs, /Velora Terminal Glass — experimental/);
+assert.match(prefs, /VLIQ Terminal Glass — experimental/);
 assert.match(schema, /<key name="terminal-backdrop-blur-enabled" type="b">\s*<default>false<\/default>/);
 assert.match(installer, /"terminalBackdropBlur.js"/);
 assert.match(builder, /"terminalBackdropBlur.js"/);

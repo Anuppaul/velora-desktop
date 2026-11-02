@@ -1,8 +1,8 @@
 # Release Process
 
-This document describes the intended release discipline for Velora.
+This document describes the intended release discipline for VLIQ.
 
-Velora currently has no public GitHub release history, so the first tagged release should establish the release baseline rather than pretending prior semantic versions exist.
+VLIQ currently has no public GitHub release history, so the first tagged release should establish the release baseline rather than pretending prior semantic versions exist.
 
 ## Release principles
 

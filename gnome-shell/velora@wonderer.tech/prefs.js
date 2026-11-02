@@ -10,7 +10,7 @@ const LIQUID_GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
 function createLiquidGlassSettings(extensionDir) {
-    // Store packages place both Velora and renderer schema XML in the
+    // Store packages place both VLIQ and renderer schema XML in the
     // *top-level* schemas/ directory so EGO can compile them together.
     // Development installs may still keep an additional compiled vendor
     // schema directory. Always prefer the Store-compatible source.
@@ -37,7 +37,7 @@ function createLiquidGlassSettings(extensionDir) {
                 return new Gio.Settings({settings_schema: schema});
         } catch (error) {
             console.warn(
-                '[Velora][Store] preferences schema source unavailable: ' +
+                '[VLIQ][Store] preferences schema source unavailable: ' +
                 error
             );
         }
@@ -51,7 +51,7 @@ function createLiquidGlassSettings(extensionDir) {
         return new Gio.Settings({settings_schema: fallback});
 
     throw new Error(
-        'Liquid Glass schema missing; reinstall Velora from a complete ZIP.'
+        'Liquid Glass schema missing; reinstall VLIQ from a complete ZIP.'
     );
 }
 
@@ -222,7 +222,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         const materialGroup = new Adw.PreferencesGroup({
             title: 'Glass Material',
             description:
-                'Choose one material for Velora surfaces. The change applies live without restarting GNOME Shell.',
+                'Choose one material for VLIQ surfaces. The change applies live without restarting GNOME Shell.',
         });
         appearancePage.add(materialGroup);
 
@@ -395,7 +395,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
 
         // -----------------------------------------------------------------
-        // Wallpaper — Velora Atmosphere
+        // Wallpaper — VLIQ Atmosphere
         // -----------------------------------------------------------------
         const wallpaperPage = addPage(
             window,
@@ -417,7 +417,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             'Native Ptyxis background blur on GNOME Shell 50.'
         );
         const terminalGroup = new Adw.PreferencesGroup({
-            title: 'Velora Terminal Glass — experimental',
+            title: 'VLIQ Terminal Glass — experimental',
             description:
                 'Requires a transparent native Ptyxis background (for example 0.88 opacity). Blur is painted behind the window; text and other applications remain unchanged.',
         });
@@ -485,12 +485,12 @@ export default class VeloraPreferences extends ExtensionPreferences {
             settings,
             'spotlight-enabled',
             'Enable Spotlight Search',
-            'Super+Space opens Velora Search. GNOME’s input-source shortcut is restored automatically when this is disabled.'
+            'Super+Space opens VLIQ Search. GNOME’s input-source shortcut is restored automatically when this is disabled.'
         );
 
         const spotlightShortcut = new Adw.ActionRow({
             title: 'Shortcut',
-            subtitle: 'Open or close Velora Search',
+            subtitle: 'Open or close VLIQ Search',
         });
         const shortcutLabel = new Gtk.ShortcutLabel({
             accelerator: '<Super>space',
@@ -624,14 +624,14 @@ export default class VeloraPreferences extends ExtensionPreferences {
         );
 
         // Bind directly to Ubuntu Dock's *installed* native GSettings
-        // schema, not a duplicate Velora key or a replacement dock.
+        // schema, not a duplicate VLIQ key or a replacement dock.
         // Native Dash-to-Dock remains the only hide/show state machine.
         addUbuntuDockPreferences(dockPage, Gio, Gtk, Adw);
 
         const dock = new Adw.PreferencesGroup({
-            title: 'Velora Floating Dock Offset',
+            title: 'VLIQ Floating Dock Offset',
             description:
-                'Optional Velora-only vertical adjustment of the real Ubuntu Dock. Auto-hide and intellihide continue using the native fully-shown bounds. Panel mode ignores this offset.',
+                'Optional VLIQ-only vertical adjustment of the real Ubuntu Dock. Auto-hide and intellihide continue using the native fully-shown bounds. Panel mode ignores this offset.',
         });
         dockPage.add(dock);
 
@@ -668,7 +668,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
         addSwitch(
             orbAppearance, settings, 'orb-enabled',
             'Show Orb',
-            'Keep the Velora Orb on the desktop.'
+            'Keep the VLIQ Orb on the desktop.'
         );
         addIntSpin(
             orbAppearance, settings, 'orb-size',
@@ -1054,7 +1054,7 @@ export default class VeloraPreferences extends ExtensionPreferences {
             15, 60, 5
         );
 
-        // Velora intentionally exposes only the curated controls above.
+        // VLIQ intentionally exposes only the curated controls above.
         // The vendored renderer's duplicate developer-oriented pages stay
         // hidden so Preferences remains compact and product-focused.
     }

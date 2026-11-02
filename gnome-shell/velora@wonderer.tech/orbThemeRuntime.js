@@ -191,7 +191,7 @@ function createCanonicalVeloraSettings(uuid) {
 
     if (!schema) {
         throw new Error(
-            'Velora canonical GSettings schema was not found: ' +
+            'VLIQ canonical GSettings schema was not found: ' +
             schemaDir
         );
     }
@@ -208,7 +208,7 @@ export default class VeloraRuntime extends Extension {
             } catch (error) {
                 logError(
                     error,
-                    'Velora Desktop: failed to retire duplicate runtime'
+                    'VLIQ: failed to retire duplicate runtime'
                 );
             }
         }
@@ -226,7 +226,7 @@ export default class VeloraRuntime extends Extension {
         } catch (error) {
             logError(
                 error,
-                'Velora Desktop: canonical settings load failed; using bootstrap schema'
+                'VLIQ: canonical settings load failed; using bootstrap schema'
             );
             this._settings = this.getSettings();
         }
@@ -286,7 +286,7 @@ export default class VeloraRuntime extends Extension {
         } catch (error) {
             logError(
                 error,
-                'Velora: Liquid Glass startup failed; keeping full Orb active'
+                'VLIQ: Liquid Glass startup failed; keeping full Orb active'
             );
             try {
                 this._liquidGlassIntegration.disable();
@@ -335,7 +335,7 @@ export default class VeloraRuntime extends Extension {
         } catch (error) {
             try { this._quickBrightnessManager?.cleanup(); } catch {}
             this._quickBrightnessManager = null;
-            console.warn('[Velora][Brightness] setup skipped: ' + error);
+            console.warn('[VLIQ][Brightness] setup skipped: ' + error);
         }
 
         // Independent, opt-in compositor-native Ptyxis window blur. Does
@@ -347,7 +347,7 @@ export default class VeloraRuntime extends Extension {
         } catch (error) {
             try { this._terminalBackdropBlurManager?.cleanup(); } catch {}
             this._terminalBackdropBlurManager = null;
-            console.warn('[Velora][TerminalBlur] unavailable: ' + error);
+            console.warn('[VLIQ][TerminalBlur] unavailable: ' + error);
         }
 
         this._setOrbEnabled(
@@ -358,7 +358,7 @@ export default class VeloraRuntime extends Extension {
 
         globalThis[RUNTIME_SINGLETON_KEY] = this;
         console.log(
-            '[Velora] Full Orb + system Liquid Glass runtime active'
+            '[VLIQ] Full Orb + system Liquid Glass runtime active'
         );
     }
 
@@ -452,7 +452,7 @@ export default class VeloraRuntime extends Extension {
                 } catch (error) {
                     logError(
                         error,
-                        'Velora Desktop: stale layer cleanup failed'
+                        'VLIQ: stale layer cleanup failed'
                     );
                 }
             }
@@ -542,7 +542,7 @@ export default class VeloraRuntime extends Extension {
 
         this._orb = new St.Button({
             style_class: 'velora-orb-hitbox-v2',
-            accessible_name: 'Velora',
+            accessible_name: 'VLIQ',
             can_focus: true,
             reactive: true,
             track_hover: true,
@@ -1246,7 +1246,7 @@ export default class VeloraRuntime extends Extension {
         if (!showAppsButton) {
             logError(
                 new Error('GNOME Applications button is unavailable'),
-                'Velora Desktop: failed to open Applications view'
+                'VLIQ: failed to open Applications view'
             );
             return;
         }

@@ -28,7 +28,7 @@ Add relevant logs, screenshots, screen recordings, or before/after performance o
 
 Mention any security-sensitive behavior, new command/file access, new dependency, vendored-code change, or licensing/provenance impact.
 
-## Velora contract
+## VLIQ contract
 
 - [ ] Native GNOME/Ubuntu layout and interaction remain intact.
 - [ ] The PR solves one focused problem and avoids unrelated cleanup.

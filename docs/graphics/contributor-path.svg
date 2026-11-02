@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
-<title id="title">Velora contributor path</title>
+<title id="title">VLIQ contributor path</title>
 <desc id="desc">A simple contribution path from choosing an issue through testing and opening a pull request.</desc>
 <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -13,7 +13,7 @@
 </defs>
 
 <rect width="1200" height="430" rx="34" fill="url(#bg)"/>
-<text x="600" y="66" text-anchor="middle" fill="#fff" font-family="system-ui, sans-serif" font-size="32" font-weight="700">Contribute to Velora</text>
+<text x="600" y="66" text-anchor="middle" fill="#fff" font-family="system-ui, sans-serif" font-size="32" font-weight="700">Contribute to VLIQ</text>
 <text x="600" y="99" text-anchor="middle" fill="#aab8d3" font-family="system-ui, sans-serif" font-size="16">Small, focused changes are the fastest path to a useful merge.</text>
 
 <g stroke="#719cff" stroke-opacity=".55" stroke-width="3">

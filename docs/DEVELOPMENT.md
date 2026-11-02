@@ -1,10 +1,10 @@
-# Velora Development Guide
+# VLIQ Development Guide
 
 This guide is for contributors making and validating changes locally.
 
 ## Target
 
-Velora currently targets **GNOME Shell 50**.
+VLIQ currently targets **GNOME Shell 50**.
 
 Check your version:
 
@@ -33,7 +33,7 @@ bash gnome-shell/install.sh
 
 A clean first install can require one normal Log Out → Log In so the running GNOME Shell session discovers the new local extension.
 
-Normal runtime revisions should use Velora's update/hot-swap path where supported.
+Normal runtime revisions should use VLIQ's update/hot-swap path where supported.
 
 ## Verify activation
 
@@ -49,7 +49,7 @@ gnome-extensions prefs velora@wonderer.tech
 
 ## Logs
 
-Follow Velora-related Shell logs:
+Follow VLIQ-related Shell logs:
 
 ```bash
 journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'
@@ -58,7 +58,7 @@ journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liqu
 Useful baseline messages include:
 
 ```text
-[Velora][PopupGlass] global PopupMenu adapter active
+[VLIQ][PopupGlass] global PopupMenu adapter active
 ```
 
 When reporting a runtime problem, include the smallest relevant log section rather than a full session log.
@@ -67,12 +67,12 @@ When reporting a runtime problem, include the smallest relevant log section rath
 
 For most runtime changes, check:
 
-1. Enable Velora.
+1. Enable VLIQ.
 2. Exercise the changed surface.
-3. Open another unrelated Velora surface.
-4. Disable Velora.
+3. Open another unrelated VLIQ surface.
+4. Disable VLIQ.
 5. Confirm native Shell UI still works.
-6. Re-enable Velora.
+6. Re-enable VLIQ.
 7. Repeat the changed path.
 
 If the change touches Dock/Orb/Spotlight, also test the relevant pointer and keyboard path.

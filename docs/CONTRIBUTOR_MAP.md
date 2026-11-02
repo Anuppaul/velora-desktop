@@ -1,8 +1,8 @@
 # Contributor Map
 
-This map helps contributors find the smallest part of Velora relevant to a change.
+This map helps contributors find the smallest part of VLIQ relevant to a change.
 
-Velora targets GNOME Shell 50. Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing Shell ownership or rendering behavior.
+VLIQ targets GNOME Shell 50. Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing Shell ownership or rendering behavior.
 
 ## Start by area
 

@@ -1,12 +1,12 @@
 name: Feature request
-description: Propose a focused Velora improvement
+description: Propose a focused VLIQ improvement
 title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Velora preserves native GNOME/Ubuntu interaction. Proposals should prefer enhancing native Shell surfaces over replacing them.
+        VLIQ preserves native GNOME/Ubuntu interaction. Proposals should prefer enhancing native Shell surfaces over replacing them.
   - type: textarea
     id: problem
     attributes:

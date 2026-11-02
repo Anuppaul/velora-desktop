@@ -10,7 +10,7 @@ export function addWallpaperAtmospherePreferences(
     page, settings, Adw, Gtk
 ) {
     const intro = new Adw.PreferencesGroup({
-        title: 'Velora Atmosphere',
+        title: 'VLIQ Atmosphere',
         description:
             'Premium GPU-native wallpaper treatment. Original keeps GNOME untouched. Desktop, glass wallpaper and App Grid share the same grading without changing your wallpaper file.',
     });
@@ -174,7 +174,7 @@ export function addWallpaperAtmospherePreferences(
     const renderer = new Adw.PreferencesGroup({
         title: 'Live Wallpaper Renderer',
         description:
-            'Shows how many real wallpaper sources currently have the Atmosphere shader attached. If this remains “Not initialized”, reload Velora and check GNOME Shell logs.',
+            'Shows how many real wallpaper sources currently have the Atmosphere shader attached. If this remains “Not initialized”, reload VLIQ and check GNOME Shell logs.',
     });
     page.add(renderer);
 
@@ -190,7 +190,7 @@ export function addWallpaperAtmospherePreferences(
     const reset = new Adw.PreferencesGroup({
         title: 'Wallpaper Safety',
         description:
-            'Original instantly detaches Velora wallpaper effects and restores the native look. All GNOME wallpaper files, picture URI, color scheme and glass settings are left alone.',
+            'Original instantly detaches VLIQ wallpaper effects and restores the native look. All GNOME wallpaper files, picture URI, color scheme and glass settings are left alone.',
     });
     page.add(reset);
 

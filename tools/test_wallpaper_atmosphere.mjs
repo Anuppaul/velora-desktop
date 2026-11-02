@@ -247,7 +247,7 @@ assert.equal(manager._containers.size,0);
 assert.equal(desktop.get_children().length,3);
 assert.equal(uiGroup.get_children().length,0);
 assert.match(settings.get_string('wallpaper-runtime-status'),
-    /Inactive: Velora Atmosphere runtime stopped/);
+    /Inactive: VLIQ Atmosphere runtime stopped/);
 
 // Packaging and runtime integration must be real, not just mock tests.
 assert.match(integration,/new WallpaperAtmosphereManager\(this\._veloraSettings\)/);

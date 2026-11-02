@@ -252,7 +252,7 @@ export function createLiquidGlassSettings() {
                 return new Gio.Settings({settings_schema: schema});
         } catch (error) {
             console.warn(
-                '[Velora][Store] could not load compiled GSettings from ' +
+                '[VLIQ][Store] could not load compiled GSettings from ' +
                 schemaDir + ': ' + error
             );
         }
@@ -270,7 +270,7 @@ export function createLiquidGlassSettings() {
 
     throw new Error(
         'Liquid Glass GSettings schema unavailable. ' +
-        'Install Velora with both schema XML files under schemas/.'
+        'Install VLIQ with both schema XML files under schemas/.'
     );
 }
 
@@ -440,7 +440,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
             if (!root) {
                 throw new Error(
                     'Liquid Glass GObject types are already registered, ' +
-                    'but the previously loaded Velora vendor revision is unavailable'
+                    'but the previously loaded VLIQ vendor revision is unavailable'
                 );
             }
         } else {
@@ -560,7 +560,7 @@ export class LiquidGlassIntegration {
                 ?.attachPreview?.(target) ?? false;
         } catch (error) {
             console.warn(
-                '[Velora][PreviewGlass] using translucent fallback: ' +
+                '[VLIQ][PreviewGlass] using translucent fallback: ' +
                 error
             );
             return false;
@@ -568,7 +568,7 @@ export class LiquidGlassIntegration {
     }
 
     _applyFrostedCrystalSettings() {
-        // The canonical Velora schema is the ONLY source of user intent.
+        // The canonical VLIQ schema is the ONLY source of user intent.
         // Map style controls into the existing material's uniforms; never
         // replace or persist over the original v10 refraction, tint, blur or
         // custom advanced renderer values. New and existing LiquidEffects
@@ -599,7 +599,7 @@ export class LiquidGlassIntegration {
             // Incompatible external/upstream vendor versions may not have
             // the new keys; never break the user's running GNOME session.
             console.warn(
-                '[Velora][FrostedCrystal] mode application skipped: ' + error
+                '[VLIQ][FrostedCrystal] mode application skipped: ' + error
             );
         }
     }
@@ -648,13 +648,13 @@ export class LiquidGlassIntegration {
             this._wallpaperAtmosphereManager = null;
             this._managerHealth.wallpaperAtmosphereManager = false;
             console.warn(
-                '[Velora][Atmosphere] native wallpaper effects unavailable: ' +
+                '[VLIQ][Atmosphere] native wallpaper effects unavailable: ' +
                 error
             );
         }
 
         console.log(
-            '[Velora][LiquidGlass] full upstream integration root: ' +
+            '[VLIQ][LiquidGlass] full upstream integration root: ' +
             this._vendor.root
         );
 
@@ -663,7 +663,7 @@ export class LiquidGlassIntegration {
         // pipeline to Main.panel so the top panel itself receives glass.
         this._setupTopPanelGlass();
 
-        // Orb is a Velora-owned surface. The upstream Liquid Glass extension
+        // Orb is a VLIQ-owned surface. The upstream Liquid Glass extension
         // never knows about velora-desktop-layer, so it must be attached even
         // when we reuse an already-active upstream renderer stack.
         try {
@@ -677,13 +677,13 @@ export class LiquidGlassIntegration {
             this._orbGlassManager.setup();
             this._managerHealth.orbGlassManager = true;
             console.log(
-                '[Velora][LiquidGlass] orbGlassManager active'
+                '[VLIQ][LiquidGlass] orbGlassManager active'
             );
         } catch (error) {
             this._orbGlassManager = null;
             this._managerHealth.orbGlassManager = false;
             console.error(
-                '[Velora][LiquidGlass] orbGlassManager setup failed: ' +
+                '[VLIQ][LiquidGlass] orbGlassManager setup failed: ' +
                 error +
                 '\n' +
                 (error?.stack ?? '')
@@ -701,13 +701,13 @@ export class LiquidGlassIntegration {
             this._spotlightGlassManager.setup();
             this._managerHealth.spotlightGlassManager = true;
             console.log(
-                '[Velora][LiquidGlass] spotlightGlassManager active'
+                '[VLIQ][LiquidGlass] spotlightGlassManager active'
             );
         } catch (error) {
             this._spotlightGlassManager = null;
             this._managerHealth.spotlightGlassManager = false;
             console.error(
-                '[Velora][LiquidGlass] spotlightGlassManager setup failed: ' +
+                '[VLIQ][LiquidGlass] spotlightGlassManager setup failed: ' +
                 error
             );
         }
@@ -731,10 +731,10 @@ export class LiquidGlassIntegration {
             try { this._previewGlassManager?.cleanup?.(); } catch {}
             this._previewGlassManager = null;
             this._managerHealth.previewGlassManager = false;
-            console.warn('[Velora][PreviewGlass] setup failed: ' + error);
+            console.warn('[VLIQ][PreviewGlass] setup failed: ' + error);
         }
 
-        // Keep Velora-owned materials live-bound to the same shared appearance
+        // Keep VLIQ-owned materials live-bound to the same shared appearance
         // controls in both standalone and upstream-stack modes.
         this._setupSharedCardAppearanceSync();
 
@@ -752,9 +752,9 @@ export class LiquidGlassIntegration {
 
         if (this._externalGlobalStack) {
             console.warn(
-                '[Velora][LiquidGlass] original Liquid Glass extension is ' +
+                '[VLIQ][LiquidGlass] original Liquid Glass extension is ' +
                 'already active; reusing its global manager stack and ' +
-                'attaching only Velora-specific dock surfaces.'
+                'attaching only VLIQ-specific dock surfaces.'
             );
             this._installDebugState();
             return;
@@ -767,7 +767,7 @@ export class LiquidGlassIntegration {
                 fn();
                 this._managerHealth[name] = true;
                 console.log(
-                    '[Velora][LiquidGlass] ' +
+                    '[VLIQ][LiquidGlass] ' +
                     name +
                     ' active'
                 );
@@ -775,7 +775,7 @@ export class LiquidGlassIntegration {
             } catch (error) {
                 this._managerHealth[name] = false;
                 console.error(
-                    '[Velora][LiquidGlass] ' +
+                    '[VLIQ][LiquidGlass] ' +
                     name +
                     ' setup failed: ' +
                     error +
@@ -893,7 +893,7 @@ export class LiquidGlassIntegration {
         }
 
         console.log(
-            '[Velora][LiquidGlass] immediate manager health: ' +
+            '[VLIQ][LiquidGlass] immediate manager health: ' +
             JSON.stringify(this._managerHealth)
         );
 
@@ -917,7 +917,7 @@ export class LiquidGlassIntegration {
             // The vendored renderer already implements the full optical model.
             // Its conservative defaults intentionally ship chroma/specular/sheen
             // at zero, which reads as ordinary frosted blur. Seed a one-time
-            // Velora profile that makes the lens unmistakable while keeping the
+            // VLIQ profile that makes the lens unmistakable while keeping the
             // shader GPU-native and avoiding CPU framebuffer readback.
             const doubles = {
                 'glass-max-z': 82.0,
@@ -958,7 +958,7 @@ export class LiquidGlassIntegration {
                     this._settings.set_double(key, value);
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] optics key skipped ' +
+                        '[VLIQ][LiquidGlass] optics key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -983,13 +983,13 @@ export class LiquidGlassIntegration {
                 version = 1;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] optics profile migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] optics profile migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] full refractive optics profile seeded'
+                '[VLIQ][LiquidGlass] full refractive optics profile seeded'
             );
         }
 
@@ -1006,7 +1006,7 @@ export class LiquidGlassIntegration {
                         this._settings.set_double(key, value);
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        '[VLIQ][LiquidGlass] dock profile key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1018,7 +1018,7 @@ export class LiquidGlassIntegration {
                         this._settings.set_int(key, value);
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        '[VLIQ][LiquidGlass] dock profile key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1030,7 +1030,7 @@ export class LiquidGlassIntegration {
                         this._settings.set_string(key, value);
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] dock profile key skipped ' +
+                        '[VLIQ][LiquidGlass] dock profile key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1049,13 +1049,13 @@ export class LiquidGlassIntegration {
                 version = 2;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] dock optics profile migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] dock optics profile migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] panel/dock optical profile v2 seeded'
+                '[VLIQ][LiquidGlass] panel/dock optical profile v2 seeded'
             );
         }
 
@@ -1085,13 +1085,13 @@ export class LiquidGlassIntegration {
                 version = 3;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] clear-glass profile migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] clear-glass profile migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] clear-glass material profile v3 seeded'
+                '[VLIQ][LiquidGlass] clear-glass material profile v3 seeded'
             );
         }
 
@@ -1119,13 +1119,13 @@ export class LiquidGlassIntegration {
                 version = 4;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] micro-tune profile migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] micro-tune profile migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] Date Menu micro-tune/performance profile v4 seeded'
+                '[VLIQ][LiquidGlass] Date Menu micro-tune/performance profile v4 seeded'
             );
         }
 
@@ -1146,7 +1146,7 @@ export class LiquidGlassIntegration {
                         this._settings.set_double(key, premiumValue);
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] optics v5 key skipped ' +
+                        '[VLIQ][LiquidGlass] optics v5 key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1180,13 +1180,13 @@ export class LiquidGlassIntegration {
                 version = 5;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] optics v5 migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] optics v5 migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] live optics controls profile v5 seeded'
+                '[VLIQ][LiquidGlass] live optics controls profile v5 seeded'
             );
         }
 
@@ -1216,7 +1216,7 @@ export class LiquidGlassIntegration {
                     }
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] thickness v6 key skipped ' +
+                        '[VLIQ][LiquidGlass] thickness v6 key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1241,13 +1241,13 @@ export class LiquidGlassIntegration {
                 version = 6;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] thickness v6 migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] thickness v6 migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] thicker shared glass profile v6 seeded'
+                '[VLIQ][LiquidGlass] thicker shared glass profile v6 seeded'
             );
         }
 
@@ -1275,7 +1275,7 @@ export class LiquidGlassIntegration {
                     }
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] thickness v7 key skipped ' +
+                        '[VLIQ][LiquidGlass] thickness v7 key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1300,13 +1300,13 @@ export class LiquidGlassIntegration {
                 version = 7;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] thickness v7 migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] thickness v7 migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] extra-thick shared glass profile v7 seeded'
+                '[VLIQ][LiquidGlass] extra-thick shared glass profile v7 seeded'
             );
         }
 
@@ -1333,13 +1333,13 @@ export class LiquidGlassIntegration {
                 version = 8;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] performance v8 migration incomplete: ' +
+                    '[VLIQ][LiquidGlass] performance v8 migration incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] performance profile v8 seeded'
+                '[VLIQ][LiquidGlass] performance profile v8 seeded'
             );
         }
 
@@ -1376,7 +1376,7 @@ export class LiquidGlassIntegration {
                     }
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] liquid optics v9 skipped ' +
+                        '[VLIQ][LiquidGlass] liquid optics v9 skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1392,13 +1392,13 @@ export class LiquidGlassIntegration {
                 version = 9;
             } catch (error) {
                 console.warn(
-                    '[Velora][LiquidGlass] liquid optics v9 incomplete: ' +
+                    '[VLIQ][LiquidGlass] liquid optics v9 incomplete: ' +
                     error
                 );
             }
 
             console.log(
-                '[Velora][LiquidGlass] richer liquid optics v9 seeded'
+                '[VLIQ][LiquidGlass] richer liquid optics v9 seeded'
             );
         }
 
@@ -1431,7 +1431,7 @@ export class LiquidGlassIntegration {
                 } catch (error) {
                     complete = false;
                     console.warn(
-                        '[Velora][LiquidGlass] v10 key skipped ' +
+                        '[VLIQ][LiquidGlass] v10 key skipped ' +
                         key + ': ' + error
                     );
                 }
@@ -1447,14 +1447,14 @@ export class LiquidGlassIntegration {
                     version = 10;
                 } catch (error) {
                     console.warn(
-                        '[Velora][LiquidGlass] v10 migration incomplete: ' +
+                        '[VLIQ][LiquidGlass] v10 migration incomplete: ' +
                         error
                     );
                 }
             }
             if (version === 10)
                 console.log(
-                    '[Velora][LiquidGlass] richer liquid optics v10 seeded'
+                    '[VLIQ][LiquidGlass] richer liquid optics v10 seeded'
                 );
         }
     }
@@ -1644,7 +1644,7 @@ export class LiquidGlassIntegration {
         }
 
         console.log(
-            '[Velora][CardAppearance] applied ' +
+            '[VLIQ][CardAppearance] applied ' +
             'opacity=' +
             Math.round(state.opacity * 100) +
             ' tint=' +
@@ -1722,7 +1722,7 @@ export class LiquidGlassIntegration {
                 this._desktopInterfaceSettings = null;
                 this._desktopAccentChangedId = 0;
                 console.warn(
-                    '[Velora][Appearance] desktop accent sync unavailable: ' +
+                    '[VLIQ][Appearance] desktop accent sync unavailable: ' +
                     error
                 );
             }
@@ -1826,7 +1826,7 @@ export class LiquidGlassIntegration {
             );
         } catch (error) {
             console.warn(
-                '[Velora][CardAppearance] stylesheet unload failed: ' +
+                '[VLIQ][CardAppearance] stylesheet unload failed: ' +
                 error
             );
         }
@@ -1861,7 +1861,7 @@ export class LiquidGlassIntegration {
             this._readSystemAccentColor();
         const accentColor = systemAccent.color;
         const css =
-            '/* Velora semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
+            '/* VLIQ semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
             '.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
             '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day.calendar-today,\n' +
             '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day.calendar-today {\n' +
@@ -1989,7 +1989,7 @@ export class LiquidGlassIntegration {
             );
             manager.setup();
 
-            // Top-panel glass is a Velora surface of its own. Keep it active
+            // Top-panel glass is a VLIQ surface of its own. Keep it active
             // even if the upstream Dock surface switch is off.
             if (!manager.effect)
                 manager._applyEffect?.();
@@ -2048,13 +2048,13 @@ export class LiquidGlassIntegration {
             }
 
             console.log(
-                '[Velora][LiquidGlass] topPanel active'
+                '[VLIQ][LiquidGlass] topPanel active'
             );
         } catch (error) {
             try { this._fullscreenPanelChromeGuard?.cleanup(); } catch {}
             this._fullscreenPanelChromeGuard = null;
             console.error(
-                '[Velora][LiquidGlass] topPanel setup failed: ' +
+                '[VLIQ][LiquidGlass] topPanel setup failed: ' +
                 error +
                 '\n' +
                 (error?.stack ?? '')
@@ -2130,7 +2130,7 @@ export class LiquidGlassIntegration {
                 this._topPanelManager.cleanup();
             } catch (error) {
                 console.error(
-                    '[Velora][LiquidGlass] topPanel cleanup failed: ' +
+                    '[VLIQ][LiquidGlass] topPanel cleanup failed: ' +
                     error
                 );
             }
@@ -2172,7 +2172,7 @@ export class LiquidGlassIntegration {
             this._notificationGlassManager?.cleanup();
         } catch (error) {
             console.error(
-                '[Velora][LiquidGlass] notification material cleanup failed: ' +
+                '[VLIQ][LiquidGlass] notification material cleanup failed: ' +
                 error
             );
         }
@@ -2406,7 +2406,7 @@ export class LiquidGlassIntegration {
                 );
 
             // Ubuntu Dock owns the actual hide/show state machine. When the
-            // *native* settings change from Velora Prefs (or Ubuntu Settings),
+            // *native* settings change from VLIQ Prefs (or Ubuntu Settings),
             // repair hover, visibility and stable intellihide target exactly
             // once on the next idle turn AFTER native handlers run. Never
             // compete with Dash-to-Dock by calling _animateIn/_animateOut.
@@ -2442,7 +2442,7 @@ export class LiquidGlassIntegration {
             this._dashToDockFixedModeId = 0;
             this._dashToDockVisibilityId = 0;
             console.warn(
-                '[Velora][Dock] Dash-to-Dock panel-mode watch unavailable: ' +
+                '[VLIQ][Dock] Dash-to-Dock panel-mode watch unavailable: ' +
                 error
             );
         }
@@ -2877,7 +2877,7 @@ export class LiquidGlassIntegration {
             this._ubuntuDockModule = null;
             this._ubuntuDockManager = null;
             console.warn(
-                '[Velora][Dock] Ubuntu Dock bridge unavailable: ' +
+                '[VLIQ][Dock] Ubuntu Dock bridge unavailable: ' +
                 error
             );
         }
@@ -2964,7 +2964,7 @@ export class LiquidGlassIntegration {
             entry.nativeOverviewHiddenId
         );
 
-        // If Velora supplied its own normalized overlap target, hand ownership
+        // If VLIQ supplied its own normalized overlap target, hand ownership
         // back to Ubuntu Dock before dropping the binding.
         if (
             entry.nativeIntellihide &&
@@ -3163,11 +3163,11 @@ export class LiquidGlassIntegration {
 
         // Native Dash-to-Dock *already* computes a stable fully-visible
         // _staticBox in its own _updateStaticBox() while autohide animates.
-        // The previous Velora override reconstructed the target from the
+        // The previous VLIQ override reconstructed the target from the
         // moving _box, allowing per-frame allocation/hover races to push
         // intellihide's overlap rectangle away from the visible dock.
         // Trust the native target at offset=0. If the user deliberately
-        // offsets Velora's dock, clone the stable native geometry and apply
+        // offsets VLIQ's dock, clone the stable native geometry and apply
         // precisely that vertical offset, independently of slide progress.
         const nativeBox =
             dock._staticBox ??
@@ -3798,7 +3798,7 @@ export class LiquidGlassIntegration {
                 entry.nativeDockHidingId = 0;
             }
 
-            // Do NOT mirror intellihide status-changed into Velora repaint.
+            // Do NOT mirror intellihide status-changed into VLIQ repaint.
             // Ubuntu Dock consumes that signal first and decides the actual
             // transition. Reading its state in the same signal turn can observe
             // the previous state and produces duplicate show/hide churn.
@@ -3818,7 +3818,7 @@ export class LiquidGlassIntegration {
                                     return;
 
                                 // This is intentionally the only per-frame
-                                // Velora work on slide-x: one conditional
+                                // VLIQ work on slide-x: one conditional
                                 // paint-transform write. Heavy glass/state work
                                 // below still runs at endpoints only.
                                 this._applyDockVerticalOffset(
@@ -3841,7 +3841,7 @@ export class LiquidGlassIntegration {
                                 }
 
                                 // The signal still fires while animating, but
-                                // Velora performs no actor/shader work until an
+                                // VLIQ performs no actor/shader work until an
                                 // endpoint actually changes.
                                 if (
                                     endpoint === null ||
@@ -4218,7 +4218,7 @@ export class LiquidGlassIntegration {
                         // handoff once glass becomes healthy.
                         this._dockModeHandoffId = 0;
                         console.warn(
-                            '[Velora][Dock] glass handoff timed out; keeping native fallback'
+                            '[VLIQ][Dock] glass handoff timed out; keeping native fallback'
                         );
                         this._scheduleNativeDashRescan();
                         return GLib.SOURCE_REMOVE;
@@ -4452,7 +4452,7 @@ export class LiquidGlassIntegration {
             return true;
         } catch (error) {
             this._removePanelBackdrop(entry);
-            console.warn('[Velora][Dock] panel material fallback: ' + error);
+            console.warn('[VLIQ][Dock] panel material fallback: ' + error);
             return false;
         }
     }
@@ -4660,7 +4660,7 @@ export class LiquidGlassIntegration {
 
             // A Dash-to-Dock theme/mode rebuild can replace the real
             // .dash-background actor while the old actor is still paintable
-            // for a frame. Remove every Velora-owned paint marker from the old
+            // for a frame. Remove every VLIQ-owned paint marker from the old
             // actor and restore its captured inline style before following the
             // replacement. Otherwise rapid panel/dock switching can leave a
             // stale translucent or fully transparent strip behind.
@@ -4987,7 +4987,7 @@ export class LiquidGlassIntegration {
             entry.manager.cleanup();
         } catch (error) {
             console.error(
-                '[Velora][LiquidGlass] native dock manager cleanup failed: ' +
+                '[VLIQ][LiquidGlass] native dock manager cleanup failed: ' +
                 error
             );
         }
@@ -5003,7 +5003,7 @@ export class LiquidGlassIntegration {
 
         manager._veloraUbuntuDockRuntimePatched = true;
 
-        // Hot-swapped Velora revisions reuse the already-loaded vendor module
+        // Hot-swapped VLIQ revisions reuse the already-loaded vendor module
         // graph. Patch the INSTANCE so these fixes work immediately without a
         // GNOME Shell restart, regardless of which vendor revision is cached.
         manager._marginValue = 0;
@@ -5176,7 +5176,7 @@ export class LiquidGlassIntegration {
 
         // Older cached vendor managers add the generic transparency class to
         // the icon/reveal subtree during setup(). Remove it synchronously;
-        // Velora transparently styles only the real .dash-background actor.
+        // VLIQ transparently styles only the real .dash-background actor.
         try {
             manager.targetActor
                 ?.remove_style_class_name?.(
@@ -5280,7 +5280,7 @@ export class LiquidGlassIntegration {
             return true;
         } catch (error) {
             console.error(
-                '[Velora][LiquidGlass] native dock attach failed: ' +
+                '[VLIQ][LiquidGlass] native dock attach failed: ' +
                 error
             );
             this._cleanupNativeDashManager(entry);
@@ -5703,7 +5703,7 @@ export class LiquidGlassIntegration {
                 const status =
                     globalThis[DEBUG_STATE_KEY]?.status?.() ?? null;
                 console.log(
-                    '[Velora][LiquidGlass][full-status] ' +
+                    '[VLIQ][LiquidGlass][full-status] ' +
                     JSON.stringify(status)
                 );
                 const upstream =
@@ -5803,7 +5803,7 @@ export class LiquidGlassIntegration {
                 manager.cleanup();
             } catch (error) {
                 console.error(
-                    '[Velora][LiquidGlass] ' +
+                    '[VLIQ][LiquidGlass] ' +
                     name +
                     ' cleanup failed: ' +
                     error

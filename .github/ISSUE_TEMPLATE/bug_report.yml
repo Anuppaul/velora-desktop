@@ -1,12 +1,12 @@
 name: Bug report
-description: Report a reproducible Velora problem
+description: Report a reproducible VLIQ problem
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a Velora issue. Reproduction details and Shell logs make fixes much faster.
+        Thanks for reporting a VLIQ issue. Reproduction details and Shell logs make fixes much faster.
   - type: input
     id: gnome
     attributes:
@@ -34,7 +34,7 @@ body:
   - type: input
     id: revision
     attributes:
-      label: Velora revision
+      label: VLIQ revision
       description: Commit SHA if known.
       placeholder: "git rev-parse --short HEAD"
   - type: textarea
@@ -42,7 +42,7 @@ body:
     attributes:
       label: Reproduction steps
       placeholder: |
-        1. Enable Velora
+        1. Enable VLIQ
         2. Open ...
         3. ...
     validations:

@@ -2,18 +2,18 @@
 
 Security reports are taken seriously.
 
-Velora runs inside GNOME Shell, so a security-sensitive bug can affect the desktop session, extension state, local files, settings, or the integrity of the Shell process. Please use responsible disclosure for vulnerabilities that could cause harm if published before a fix is available.
+VLIQ runs inside GNOME Shell, so a security-sensitive bug can affect the desktop session, extension state, local files, settings, or the integrity of the Shell process. Please use responsible disclosure for vulnerabilities that could cause harm if published before a fix is available.
 
 ## Supported versions
 
-Velora currently targets **GNOME Shell 50**.
+VLIQ currently targets **GNOME Shell 50**.
 
 | Version | Security support |
 | --- | --- |
 | Current `main` branch on GNOME Shell 50 | Supported |
 | Latest tagged/released build, when present | Supported while it matches the current GNOME Shell 50 line |
 | Older commits or superseded builds | Best effort only |
-| Modified forks or third-party repackaging | Not supported unless the issue also reproduces on current upstream Velora |
+| Modified forks or third-party repackaging | Not supported unless the issue also reproduces on current upstream VLIQ |
 
 When possible, reproduce a report against the current `main` branch before submitting it.
 
@@ -40,7 +40,7 @@ Do not include the vulnerability details in that public issue. State only that y
 A useful report contains:
 
 - a concise description of the vulnerability;
-- affected Velora commit/revision;
+- affected VLIQ commit/revision;
 - GNOME Shell version;
 - distribution/version;
 - Wayland/X11 session where relevant;
@@ -58,7 +58,7 @@ Please redact usernames, home-directory paths, tokens, credentials, private file
 
 Examples that belong in a private security report include:
 
-- arbitrary command execution caused by Velora;
+- arbitrary command execution caused by VLIQ;
 - unintended file creation, overwrite, deletion, or permission changes;
 - privilege-boundary violations;
 - unsafe use of shell commands or environment data;
@@ -81,7 +81,7 @@ These should normally use the public bug template instead:
 - ordinary extension crashes caused only by unsupported manual source edits;
 - GNOME Shell compatibility bugs;
 - broken preferences with no security boundary involved;
-- expected access to files/settings already available to the logged-in user and intentionally required by Velora;
+- expected access to files/settings already available to the logged-in user and intentionally required by VLIQ;
 - issues that reproduce only in a modified third-party fork.
 
 If you are unsure, prefer the private reporting path.
@@ -123,11 +123,11 @@ Credit will be given to reporters who want it, unless legal, privacy, or safety 
 
 ## Dependencies, vendored code, and provenance
 
-Velora includes vendored/derived components whose license and provenance notices must remain intact.
+VLIQ includes vendored/derived components whose license and provenance notices must remain intact.
 
 If a vulnerability originates in vendored code:
 
-- report it to Velora if the affected code ships with or is exercised by Velora;
+- report it to VLIQ if the affected code ships with or is exercised by VLIQ;
 - upstream reporting may also be appropriate;
 - do not remove or rewrite attribution/provenance while preparing a security fix.
 

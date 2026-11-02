@@ -1,4 +1,4 @@
-// Velora Atmosphere: one canonical preset catalog for GJS runtime and Prefs.
+// VLIQ Atmosphere: one canonical preset catalog for GJS runtime and Prefs.
 // Original is intentionally the default and does not overwrite a user's
 // wallpaper or previously customized Atmosphere values.
 export const ATMOSPHERE_KEYS = Object.freeze([
@@ -18,19 +18,19 @@ export const ATMOSPHERE_PRESETS = Object.freeze([
     }),
     Object.freeze({
         id: 'natural',
-        label: 'Velora Natural',
+        label: 'VLIQ Natural',
         description: 'Clean color grading, mild depth and delicate light.',
         values: Object.freeze([38, 24, 22, 2, 34]),
     }),
     Object.freeze({
         id: 'cinematic',
-        label: 'Velora Cinematic',
+        label: 'VLIQ Cinematic',
         description: 'Richer tones, pronounced yet restrained vignette.',
         values: Object.freeze([78, 70, 34, 4, 72]),
     }),
     Object.freeze({
         id: 'atmosphere',
-        label: 'Velora Atmosphere',
+        label: 'VLIQ Atmosphere',
         description: 'Balanced filmic depth, soft ambient color and static grain.',
         values: Object.freeze([62, 52, 54, 3, 56]),
     }),
@@ -63,7 +63,7 @@ export function readAtmosphereProfile(settings) {
     });
 
     // A named style is defined by its CANONICAL preset, not by sliders last
-    // written by an earlier Velora release. PR #62 shipped intentionally
+    // written by an earlier VLIQ release. PR #62 shipped intentionally
     // near-invisible presets: people with 'atmosphere' selected may still
     // have those old numbers saved. Resolving a named preset here makes
     // the new filmic profile visible immediately after upgrading, without

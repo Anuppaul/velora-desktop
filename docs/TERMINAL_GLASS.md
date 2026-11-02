@@ -1,6 +1,6 @@
-# Velora Terminal Glass — native Ptyxis on GNOME Shell 50
+# VLIQ Terminal Glass — native Ptyxis on GNOME Shell 50
 
-Velora supports **two separate, optional effects** on native Ptyxis:
+VLIQ supports **two separate, optional effects** on native Ptyxis:
 
 1. **Phase 1: Ptyxis translucent background.** The profile opacity setting
    changes only the terminal's background transparency. Text stays sharp.
@@ -10,7 +10,7 @@ Velora supports **two separate, optional effects** on native Ptyxis:
    and wallpaper behind the terminal can be blurred in real time. The blur
    does not require a separate extension or per-frame JavaScript capture.
 
-Phase 2 is **OFF by default**. It does **not** put the full Velora Liquid
+Phase 2 is **OFF by default**. It does **not** put the full VLIQ Liquid
 Glass lens shader into Ptyxis, replace GTK theming, inject a global window
 overlay, fade window text, or alter other programs. Each rendered window costs
 an additional GPU blur pass. This integration is still subject to real GNOME
@@ -46,12 +46,12 @@ After updating the repo, run the existing developer installer:
 bash gnome-shell/install.sh
 ```
 
-This is necessary **once per source update** to hot-swap Velora's new
-`terminalBackdropBlur.js` module and compile the updated Velora GSettings
+This is necessary **once per source update** to hot-swap VLIQ's new
+`terminalBackdropBlur.js` module and compile the updated VLIQ GSettings
 schema. When the bootstrap is compatible and active, it reports:
 
 ```text
-Velora runtime hot-swap succeeded.
+VLIQ runtime hot-swap succeeded.
 No logout is required.
 ```
 
@@ -59,7 +59,7 @@ No new OS packages or additional GNOME extensions are installed.
 
 ## 3. Turn on blur (opt-in)
 
-Open **GNOME Extensions → Velora Desktop → Preferences → Terminal**.
+Open **GNOME Extensions → VLIQ → Preferences → Terminal**.
 
 - Turn on **Real backdrop blur**.
 - The default strength is **18** (legacy sigma-equivalent), adjustable from 4–36. GNOME Shell 50 uses **`radius = strength × 2`**, so the native blur radius is 36 at the default value.
@@ -79,7 +79,7 @@ profile opacity"** to prevent false-positive success reports.
 
 A compositor BACKGROUND blur actor sits **behind** the native terminal surface.
 If Ptyxis paints that surface opaque, no backdrop pixels can show through.
-Ptyxis transparency is *independent* of the Velora blur toggle. At 0.88
+Ptyxis transparency is *independent* of the VLIQ blur toggle. At 0.88
 opacity, only 12% of the backdrop is visible: on dark backgrounds this can be
 nearly indistinguishable from an opaque window.
 
@@ -91,7 +91,7 @@ python3 tools/velora_terminal_glass.py status
 ```
 
 The read-only status now reports both **Ptyxis opacity** and (where installed)
-Velora's extension-scoped blur status. It also warns if the default profile is
+VLIQ's extension-scoped blur status. It also warns if the default profile is
 opaque or nearly opaque. A Ptyxis tab may use a **non-default profile**; if
 the status disagrees with the visible tab, check its profile in Ptyxis.
 
@@ -104,12 +104,12 @@ python3 tools/velora_terminal_glass.py apply --opacity 0.78
 
 Close all Ptyxis windows and open Ptyxis again if the alpha does not redraw.
 Then put a strongly contrasting Firefox window behind Ptyxis. First compare
-with Velora's **Real backdrop blur OFF** (true native transparency), then ON
+with VLIQ's **Real backdrop blur OFF** (true native transparency), then ON
 (blur behind the same native background). If OFF is also opaque, fix the
 Ptyxis profile/window itself before changing any compositor code.
 
 Some other extensions (e.g., Blur My Shell/WinFX) may own a window blur.
-Velora avoids stacking known actor names, but cannot detect every external
+VLIQ avoids stacking known actor names, but cannot detect every external
 extension's modifications. Never change compositor opacity of the **entire**
 Ptyxis window: doing so would fade terminal text as well.
 
@@ -142,14 +142,14 @@ The updated path has two independent bounds:
    geometry contradicts the native buffer size by more than 8%, the blur
    **fails closed** instead of guessing and spilling outside.
 2. **GPU final output alpha mask:** before adding the background blur, install
-   an outermost `Shell.GLSLEffect` (original Velora code). It masks the
+   an outermost `Shell.GLSLEffect` (original VLIQ code). It masks the
    *blurred output* after the blur pass to a 12px rounded rectangle, with
    a 1.5px interior safety inset and antialiased corners. Maximized/fullscreen
    Terminal windows use square corners. No extra library, system theme,
    screenshot or full-screen overlay is installed.
 
 If GNOME 50 cannot create the mask, resolve its uniforms or establish the
-expected effect order, Velora **does not show an unmasked blur**. The terminal
+expected effect order, VLIQ **does not show an unmasked blur**. The terminal
 continues using its native Ptyxis transparency. The GObject shader type
 is cached in the Shell process to avoid duplicate registration during
 developer hot-swaps.
@@ -166,13 +166,13 @@ Capture the exact failure without restarting the session:
 ```bash
 GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.tech/schemas" \
   gsettings get org.gnome.shell.extensions.velora terminal-backdrop-blur-status
-journalctl --user -b --no-pager -o cat | grep -F '[Velora][TerminalBlur]' | tail -n 30
+journalctl --user -b --no-pager -o cat | grep -F '[VLIQ][TerminalBlur]' | tail -n 30
 ```
 
 If the Shell writes to the system journal instead, use:
 
 ```bash
-journalctl -b --no-pager -o cat /usr/bin/gnome-shell | grep -F '[Velora][TerminalBlur]' | tail -n 30
+journalctl -b --no-pager -o cat /usr/bin/gnome-shell | grep -F '[VLIQ][TerminalBlur]' | tail -n 30
 ```
 
 The stage and real GJS exception matter more than a generic "unavailable"
@@ -184,7 +184,7 @@ and, if necessary, share these logs for the next targeted fix.
 ## 4. Disable / restore
 
 To remove the GPU effect immediately, switch **Real backdrop blur** OFF.
-This removes all Velora-added blur actors and disconnects compositor window
+This removes all VLIQ-added blur actors and disconnects compositor window
 listeners. It leaves Ptyxis opacity alone.
 
 To restore the original Ptyxis opacity as well:
@@ -219,16 +219,16 @@ command refuses to overwrite it. Review the conflict before using
 - **Safety on geometry changes:** native `size-changed`,
   `position-changed` and actor allocation notifications recompute
   the frame clip. Invalid or stale geometry temporarily hides blur;
-  disabling Velora disconnects these signals and destroys only its
+  disabling VLIQ disconnects these signals and destroys only its
   own backdrop actor.
 - **Performance:** one GPU background blur pass per matching Ptyxis window.
   Higher radius and larger windows increase GPU cost. Effects are never
   constructed with the switch OFF.
-- **Distribution:** module is bundled as readable JavaScript in Velora's
+- **Distribution:** module is bundled as readable JavaScript in VLIQ's
   GNOME Store review ZIP; the standalone Python transparency utility and
   tests are **not** shipped inside the extension ZIP.
 - **Not Liquid Glass v10:** this uses GNOME's native background diffusion,
-  not Velora's refractive displacement/rim/chroma rendering.
+  not VLIQ's refractive displacement/rim/chroma rendering.
 
 ## Implementation references
 
@@ -237,7 +237,7 @@ command refuses to overwrite it. Review the conflict before using
 - GNOME Shell 50 `Shell.BlurEffect(BACKGROUND)` final-paint behavior:
   https://github.com/GNOME/gnome-shell/blob/gnome-50/src/shell-blur-effect.c
 - GNOME Shell 50 `Shell.GLSLEffect` fragment pipeline lifecycle, used for
-  Velora's original rounded alpha mask: `vfunc_build_pipeline`,
+  VLIQ's original rounded alpha mask: `vfunc_build_pipeline`,
   `get_uniform_location`, `set_uniform_float`.
 - winfx effects documentation:
   https://winfx.readthedocs.io/en/latest/guide/effects/

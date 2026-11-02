@@ -83,19 +83,19 @@ done
 for required_file in \
     "${BOOTSTRAP_FILES[@]}" "${HOT_AUX_FILES[@]}" "${RUNTIME_FILES[@]}"; do
     [[ -f "${SOURCE_DIR}/${required_file}" ]] ||
-        fail "Required Velora file is missing: ${required_file}"
+        fail "Required VLIQ file is missing: ${required_file}"
 done
 
 for required_dir in "${RUNTIME_DIRS[@]}"; do
     [[ -d "${SOURCE_DIR}/${required_dir}" ]] ||
-        fail "Required Velora runtime directory is missing: ${required_dir}"
+        fail "Required VLIQ runtime directory is missing: ${required_dir}"
 done
 
 GNOME_VERSION="$(gnome-shell --version 2>/dev/null)" ||
     fail "Unable to read the GNOME Shell version."
 
 echo "Detected: ${GNOME_VERSION}"
-echo "Velora installer: ${INSTALLER_VERSION}"
+echo "VLIQ installer: ${INSTALLER_VERSION}"
 
 GNOME_MAJOR="$(
     sed -nE 's/.* ([0-9]+)(\.[0-9]+.*)?$/\1/p' <<<"${GNOME_VERSION}"
@@ -103,7 +103,7 @@ GNOME_MAJOR="$(
 [[ -n "${GNOME_MAJOR}" ]] ||
     fail "Unable to parse GNOME Shell version: ${GNOME_VERSION}"
 [[ "${GNOME_MAJOR}" == "50" ]] ||
-    fail "This Velora branch targets GNOME Shell 50 only."
+    fail "This VLIQ branch targets GNOME Shell 50 only."
 
 echo "Validating GSettings schema..."
 glib-compile-schemas --strict --dry-run "${SCHEMA_DIR}"
@@ -113,7 +113,7 @@ SOURCE_BOOTSTRAP_GENERATION="$(
         "${SOURCE_DIR}/extension.js" | head -n1
 )"
 [[ -n "${SOURCE_BOOTSTRAP_GENERATION}" ]] ||
-    fail "Unable to read Velora bootstrap generation from extension.js"
+    fail "Unable to read VLIQ bootstrap generation from extension.js"
 
 bootstrap_revision_for_dir() {
     local root="$1"
@@ -132,7 +132,7 @@ bootstrap_revision_for_dir() {
 }
 
 SOURCE_BOOTSTRAP_REVISION="$(bootstrap_revision_for_dir "${SOURCE_DIR}")" ||
-    fail "Unable to fingerprint Velora bootstrap scaffold."
+    fail "Unable to fingerprint VLIQ bootstrap scaffold."
 
 read_string_setting() {
     local key="$1"
@@ -255,7 +255,7 @@ sync_hot_aux() {
 
     glib-compile-schemas --strict "${TARGET_DIR}/schemas"
     [[ -f "${TARGET_DIR}/schemas/gschemas.compiled" ]] ||
-        fail "Canonical Velora GSettings compilation failed."
+        fail "Canonical VLIQ GSettings compilation failed."
 
     shopt -s nullglob
     for live_dir in "${HOME}"/.cache/velora-live/"${SOURCE_BOOTSTRAP_REVISION}"-*/"${UUID}"; do
@@ -297,7 +297,7 @@ ensure_bootstrap_active() {
 
     if ! gnome-extensions list --active 2>/dev/null | grep -Fxq "${UUID}"; then
         if ! enable_output="$(gnome-extensions enable "${UUID}" 2>&1)"; then
-            echo "GNOME knows Velora but could not enable it:" >&2
+            echo "GNOME knows VLIQ but could not enable it:" >&2
             [[ -n "${enable_output}" ]] && echo "  ${enable_output}" >&2
             return 21
         fi
@@ -323,7 +323,7 @@ ensure_bootstrap_active() {
         fi
 
         if [[ -n "${runtime_error}" ]]; then
-            echo "Velora bootstrap runtime error: ${runtime_error}" >&2
+            echo "VLIQ bootstrap runtime error: ${runtime_error}" >&2
             return 23
         fi
 
@@ -449,10 +449,10 @@ PY
 
 print_session_restart_required() {
     echo
-    echo "Velora is installed and enabled for your user."
+    echo "VLIQ is installed and enabled for your user."
     echo "GNOME Shell has not loaded this newly installed local extension in the current session."
     echo
-    echo "Log out and log back in once to activate Velora."
+    echo "Log out and log back in once to activate VLIQ."
     echo "No Looking Glass, unsafe-mode, or developer live-registration is required."
 }
 
@@ -475,12 +475,12 @@ finish_safe_activation() {
 
     case "${status}" in
         0)
-            echo "Velora is active in the current GNOME Shell session."
+            echo "VLIQ is active in the current GNOME Shell session."
             echo "No logout is required."
             return 0
             ;;
         23)
-            echo "Velora was discovered but its runtime reported an error." >&2
+            echo "VLIQ was discovered but its runtime reported an error." >&2
             echo "Check:" >&2
             echo "  journalctl --user -b -o cat | grep -i -E 'velora|gnome-shell'" >&2
             return 23
@@ -488,7 +488,7 @@ finish_safe_activation() {
         20|21|22|24)
             if [[ "$(gsettings get org.gnome.shell disable-user-extensions 2>/dev/null || echo false)" == "true" ]]; then
                 echo
-                echo "Velora is installed, but GNOME user extensions are globally disabled."
+                echo "VLIQ is installed, but GNOME user extensions are globally disabled."
                 echo "Re-enable user extensions, then log out and log back in once."
                 return 0
             fi
@@ -518,7 +518,7 @@ hot_deploy_runtime() {
 
     loaded_revision="$(read_string_setting runtime-loaded-revision)"
     if [[ "${revision}" == "${loaded_revision}" ]]; then
-        echo "Velora runtime is already current: ${revision}"
+        echo "VLIQ runtime is already current: ${revision}"
         echo "No logout is required."
         return 0
     fi
@@ -529,14 +529,14 @@ hot_deploy_runtime() {
     write_string_setting runtime-error ""
     write_string_setting runtime-revision "${revision}"
 
-    echo "Hot-loading Velora runtime revision ${revision}..."
+    echo "Hot-loading VLIQ runtime revision ${revision}..."
 
     for ((i = 0; i < 80; i++)); do
         loaded_revision="$(read_string_setting runtime-loaded-revision)"
         runtime_error="$(read_string_setting runtime-error)"
 
         if [[ "${loaded_revision}" == "${revision}" ]]; then
-            echo "Velora runtime hot-swap succeeded."
+            echo "VLIQ runtime hot-swap succeeded."
             echo "No logout is required."
             return 0
         fi
@@ -583,18 +583,18 @@ if bootstrap_scaffold_compatible; then
 
     case "${BOOTSTRAP_STATUS}" in
         0)
-            echo "Velora bootstrap is active; using live runtime hot-swap."
+            echo "VLIQ bootstrap is active; using live runtime hot-swap."
             hot_deploy_runtime
             exit $?
             ;;
         20|21|22|24)
-            echo "Velora bootstrap needs a normal Shell-session refresh."
+            echo "VLIQ bootstrap needs a normal Shell-session refresh."
             persist_extension_enabled
             print_session_restart_required
             exit 0
             ;;
         23)
-            echo "Velora bootstrap is active, but the current runtime failed."
+            echo "VLIQ bootstrap is active, but the current runtime failed."
             echo "Attempting automatic recovery with a fresh hashed runtime..."
             hot_deploy_runtime
             exit $?
@@ -613,11 +613,11 @@ trap cleanup EXIT
 
 PACK_ARGS=(pack --force --out-dir="${BUILD_DIR}")
 
-# Only package Velora-owned bootstrap/runtime files. Do NOT pass the vendored
+# Only package VLIQ-owned bootstrap/runtime files. Do NOT pass the vendored
 # upstream extension tree as --extra-source: it contains its own metadata.json
 # and UUID, and GNOME 50 may treat that nested metadata as the package identity.
 # The complete vendor tree is copied deterministically into TARGET_DIR after
-# gnome-extensions install and before Velora is enabled/live-registered.
+# gnome-extensions install and before VLIQ is enabled/live-registered.
 for source_name in "${RUNTIME_FILES[@]}"; do
     PACK_ARGS+=(--extra-source="${source_name}")
 done
@@ -646,7 +646,7 @@ fi
 if [[ "${#PACK_CANDIDATES[@]}" -gt 1 ]]; then
     echo "gnome-extensions pack created multiple zip bundles:" >&2
     printf '  %s\n' "${PACK_CANDIDATES[@]}" >&2
-    fail "Unable to choose the Velora extension bundle safely."
+    fail "Unable to choose the VLIQ extension bundle safely."
 fi
 
 PACK_PATH="${PACK_CANDIDATES[0]}"
@@ -692,7 +692,7 @@ if gnome-extensions info "${UUID}" >/dev/null 2>&1; then
     gnome-extensions disable "${UUID}" >/dev/null 2>&1 || true
 fi
 
-echo "Installing Velora bootstrap with GNOME's extension installer..."
+echo "Installing VLIQ bootstrap with GNOME's extension installer..."
 gnome-extensions install --force "${PACK_PATH}"
 
 [[ -d "${TARGET_DIR}" ]] ||
@@ -714,7 +714,7 @@ for runtime_source in "${RUNTIME_DIRS[@]}"; do
     cp -a "${SOURCE_DIR}/${runtime_source}" "${destination}"
 done
 
-# Remove launcher-era modules left by older Velora installs.
+# Remove launcher-era modules left by older VLIQ installs.
 rm -f \
     "${TARGET_DIR}/dock.js" \
     "${TARGET_DIR}/floatingDock.js" \
@@ -743,7 +743,7 @@ write_string_setting runtime-loaded-revision ""
 write_string_setting runtime-error ""
 
 echo
-echo "Velora bootstrap/scaffold installed successfully:"
+echo "VLIQ bootstrap/scaffold installed successfully:"
 echo "  ${TARGET_DIR}"
 echo
 echo "Fresh local install is complete on disk."
