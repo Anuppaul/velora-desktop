@@ -1,6 +1,6 @@
-// Native Ubuntu Dock controls embedded into Velora Preferences.
+// Native Ubuntu Dock controls embedded into VLIQ Preferences.
 // These rows bind directly to the installed org.gnome.shell.extensions.
-// dash-to-dock schema. They never create a competing Velora settings copy,
+// dash-to-dock schema. They never create a competing VLIQ settings copy,
 // mutate settings on page open, or override the native hide/show state machine.
 export const UBUNTU_DOCK_SCHEMA =
     'org.gnome.shell.extensions.dash-to-dock';
@@ -34,7 +34,7 @@ export function addUbuntuDockPreferences(
         unavailable.add(new Adw.ActionRow({
             title: 'Native Ubuntu Dock settings not found',
             subtitle:
-                'Velora does not create a second dock. Install or enable Ubuntu Dock, then reopen Preferences.',
+                'VLIQ does not create a second dock. Install or enable Ubuntu Dock, then reopen Preferences.',
         }));
         return null;
     }
@@ -71,7 +71,7 @@ export function addUbuntuDockPreferences(
             title, subtitle,
             adjustment: new Gtk.Adjustment({
                 // Existing upstream/native values may exceed our preferred
-                // UI range. Never clamp/write them just by opening Velora.
+                // UI range. Never clamp/write them just by opening VLIQ.
                 lower: Math.min(min, current),
                 upper: Math.max(max, current),
                 step_increment: step,
@@ -262,7 +262,7 @@ export function addUbuntuDockPreferences(
 
     const layout = group(
         'Position, Size & Layout',
-        'Ubuntu Dock’s original layout; extended Panel mode remains square and uses Velora’s existing panel material.'
+        'Ubuntu Dock’s original layout; extended Panel mode remains square and uses VLIQ’s existing panel material.'
     );
     nativeEnum(
         layout, 'dock-position', 'Dock position',
@@ -305,7 +305,7 @@ export function addUbuntuDockPreferences(
 
     const apps = group(
         'Applications & Content',
-        'Control which native Ubuntu Dock icons appear. Velora’s own Orb app source remains separate.'
+        'Control which native Ubuntu Dock icons appear. VLIQ’s own Orb app source remains separate.'
     );
     for (const [key, title, subtitle] of [
         ['show-favorites', 'Show favorites', 'Display pinned applications.'],
@@ -316,7 +316,7 @@ export function addUbuntuDockPreferences(
         ['show-show-apps-button', 'Show Applications button',
             'Display the native Show Apps launcher.'],
         ['show-windows-preview', 'Native window previews',
-            'Control Ubuntu Dock’s native window list previews, not Velora’s hover mini preview.'],
+            'Control Ubuntu Dock’s native window list previews, not VLIQ’s hover mini preview.'],
         ['isolate-workspaces', 'Limit apps to current workspace',
             'Only show windows from the current workspace.'],
         ['isolate-monitors', 'Limit apps to current monitor',
@@ -352,7 +352,7 @@ export function addUbuntuDockPreferences(
     nativeEnum(
         interactions, 'running-indicator-style',
         'Running app indicators',
-        'Native indicator shape; Velora keeps its existing glass styling.',
+        'Native indicator shape; VLIQ keeps its existing glass styling.',
         [
             [0, 'Default'], [1, 'Dots'], [2, 'Squares'],
             [3, 'Dashes'], [4, 'Segmented'], [5, 'Solid'],
