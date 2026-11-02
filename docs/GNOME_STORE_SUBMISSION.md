@@ -1,4 +1,4 @@
-# Publishing Velora Desktop on GNOME Extensions
+# Publishing VLIQ on GNOME Extensions
 
 **Status: preparing first submission, not approved or published.**
 
@@ -10,7 +10,7 @@ has accepted the extension.
 
 | Item | Value |
 | --- | --- |
-| Name | Velora Desktop |
+| Name | VLIQ |
 | UUID | `velora@wonderer.tech` |
 | Target Shell | GNOME Shell **50** only |
 | Repository | https://github.com/Anuppaul/velora-desktop |
@@ -55,11 +55,11 @@ GNOME reviews readable JavaScript, native schemas and the resources needed
 to run the extension. The release package intentionally includes:
 
 - Top-level `metadata.json`, `extension.js`, `prefs.js`, `runtime.js`,
-  other Velora runtime JS, `stylesheet.css` and `runtime.css`.
-- **Both** canonical Velora and vendored Liquid Glass GSettings XML files
+  other VLIQ runtime JS, `stylesheet.css` and `runtime.css`.
+- **Both** canonical VLIQ and vendored Liquid Glass GSettings XML files
   together inside **top-level `schemas/`**. GNOME's normal extension schema
   compilation can therefore provide both schemas; **a Store installation
-  must not require running Velora's developer `install.sh`**.
+  must not require running VLIQ's developer `install.sh`**.
 - The vendored renderer's non-minified, readable `dist/**/*.js`,
   `shaders/*.frag`, `stylesheet.css`, required `icons/*.svg`, and
   upstream MIT license/provenance.
@@ -116,7 +116,7 @@ shexli dist/ego/velora@wonderer.tech.shell-extension.zip --format text
 
 Shexli is a static analyzer, not a GNOME Shell/GPU compositor test. The
 dependency pin avoids an incompatible Tree-sitter parser combination.
-Neither venv nor Shexli is shipped in Velora's extension ZIP.
+Neither venv nor Shexli is shipped in VLIQ's extension ZIP.
 
 ### Shexli review findings observed during PR #64 preflight
 
@@ -124,7 +124,7 @@ The current upload ZIP successfully passes the structural/schema checks and
 Shexli reports **0 errors, 1 warning**:
 
 - **`EGO-P-007` — dynamically loaded JavaScript modules appear unreachable.**
-  Velora's bootstrap loads its installed `runtime.js` using
+  VLIQ's bootstrap loads its installed `runtime.js` using
   `import(target.moduleFile.get_uri())` and the Liquid Glass bridge loads
   vendored GJS modules using `import(moduleUri(root, ...))`. This is not a
   runtime download: all modules reside in the review ZIP, and the packaging
@@ -157,7 +157,7 @@ do not imply official approval or guarantee the runtime is bug-free.
 3. Open https://extensions.gnome.org/upload/.
 4. Upload **`velora@wonderer.tech.shell-extension.zip`** from the
    successful main release artifact, not a repository ZIP or artifact wrapper.
-5. Confirm the metadata (Velora Desktop, UUID, GNOME Shell 50); submit for
+5. Confirm the metadata (VLIQ, UUID, GNOME Shell 50); submit for
    review and provide truthful screenshots/description as requested.
 6. Await GNOME review by email. Address any requested corrections in a new
    source commit, generate a **new ZIP** from a successful main build, then
@@ -166,11 +166,11 @@ do not imply official approval or guarantee the runtime is bug-free.
 The notice about installing the **GNOME Browser Integration** extension and
 native-messaging host is about browser-side control of installed GNOME
 extensions. It is **not an instruction to embed a browser extension,
-native-messaging app, binary or installer inside Velora's Store ZIP**.
+native-messaging app, binary or installer inside VLIQ's Store ZIP**.
 
 ## 5. Reviewer notes and limitations
 
-Velora intentionally modifies GNOME Shell's popup/overview glass appearance
+VLIQ intentionally modifies GNOME Shell's popup/overview glass appearance
 and supports Ubuntu Dock's native settings, but is **not** a substitute
 for GNOME Shell, GTK application themes, or a second Dash-to-Dock instance.
 The Ubuntu Dock-specific controls are available only when Ubuntu Dock's
@@ -191,7 +191,7 @@ test the final Store ZIP on GNOME Shell 50 and address Shexli findings,
 
 ## 6. After approval
 
-Only **after GNOME approves and publishes** Velora, update README with
+Only **after GNOME approves and publishes** VLIQ, update README with
 the actual GNOME Extensions listing URL and verified supported platforms.
 Do not fabricate an extension listing ID or use a Store-installed badge
 before publication.
