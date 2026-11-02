@@ -1481,7 +1481,20 @@ void main() {
     
     // Mix the fresnel effect with the edge mask to keep light strictly on the bevels.
     float rimShape = mix(pow(edgeBand, 0.85), rimFresnel, 0.55) * edgeBand;
-    float finalRimLight = rimShape * lightMask * rim_intensity * rim_light_color_intensity;
+    // VLIQ optical signature: highlights at top-left and bottom-right only.
+    // local_pos is centered and box_size is the half-extent of this surface.
+    // The two localized masks fade smoothly along BOTH adjacent edges;
+    // no additional border actor, blur pass, or shader uniform is needed.
+    vec2 cornerUV = clamp(local_pos / max(box_size * 2.0, vec2(1.0)) + 0.5,
+                          vec2(0.0), vec2(1.0));
+    float topLeftGlint = (1.0 - smoothstep(0.0, 0.36, cornerUV.x)) *
+                         (1.0 - smoothstep(0.0, 0.36, cornerUV.y));
+    float bottomRightGlint = smoothstep(0.64, 1.0, cornerUV.x) *
+                             smoothstep(0.64, 1.0, cornerUV.y);
+    float cornerGlint = clamp(topLeftGlint * 1.0 + bottomRightGlint * 0.68,
+                              0.0, 1.0);
+    float finalRimLight = rimShape * cornerGlint * rim_intensity *
+                          rim_light_color_intensity;
     finalRimLight *= response;
     
     // [FIX] Previously also multiplied by insideMask here to "mask out
