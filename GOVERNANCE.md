@@ -1,6 +1,6 @@
 # Governance
 
-Velora Desktop is an open-source project maintained through a lightweight maintainer-led model.
+VLIQ is an open-source project maintained through a lightweight maintainer-led model.
 
 ## Project maintainer
 
@@ -35,9 +35,9 @@ For architectural changes, start with an issue or Discussion.
 
 ## Product contract
 
-Velora's core architectural rule is:
+VLIQ's core architectural rule is:
 
-> **Native GNOME/Ubuntu behavior first. Velora changes supported material and adds focused Velora features without replacing the desktop interaction model.**
+> **Native GNOME/Ubuntu behavior first. VLIQ changes supported material and adds focused VLIQ features without replacing the desktop interaction model.**
 
 Changes that conflict with this contract may be declined even if they work technically.
 
