@@ -1,8 +1,8 @@
-# Contributing to Velora Desktop
+# Contributing to VLIQ
 
-Thanks for helping improve Velora.
+Thanks for helping improve VLIQ.
 
-Velora is a GNOME Shell 50 extension with one non-negotiable product rule:
+VLIQ is a GNOME Shell 50 extension with one non-negotiable product rule:
 
 > **Preserve native GNOME/Ubuntu behavior. Change the material, not the desktop interaction model.**
 
@@ -41,7 +41,7 @@ See the open `good first issue` and `help wanted` issues for scoped tasks.
 
 ## Development setup
 
-Velora currently targets **GNOME Shell 50**.
+VLIQ currently targets **GNOME Shell 50**.
 
 Clone the repository:
 
@@ -77,7 +77,7 @@ Please read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before changing Shell i
 Changes should preserve these rules:
 
 1. GNOME owns layout, geometry, content, controls, hit targets, accessibility and native animation.
-2. Velora owns the supported material layer underneath that content.
+2. VLIQ owns the supported material layer underneath that content.
 3. Do not create duplicate native UI when material-only integration is possible.
 4. Disable/cleanup paths must restore native Shell state safely.
 5. Avoid permanent polling, CPU screenshot loops and unnecessary property writes.
@@ -103,7 +103,7 @@ A useful bug report includes:
 - GNOME Shell version;
 - distribution and version;
 - Wayland/X11 session where relevant;
-- Velora commit or revision;
+- VLIQ commit or revision;
 - exact reproduction steps;
 - expected behavior;
 - actual behavior;
@@ -137,7 +137,7 @@ Before submitting, confirm:
 
 ## Licensing and provenance
 
-Velora is released under the MIT License, but the repository also retains required attribution/provenance for vendored or derived components.
+VLIQ is released under the MIT License, but the repository also retains required attribution/provenance for vendored or derived components.
 
 Do not remove third-party license or provenance notices unless the underlying licensing requirements have been verified.
 
