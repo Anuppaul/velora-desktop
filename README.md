@@ -11,10 +11,10 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
   <img alt="GNOME Shell 50" src="https://img.shields.io/badge/GNOME%20Shell-50-4A86CF.svg">
-  <a href="https://github.com/Anuppaul/vliq-desktop/actions/workflows/repository-checks.yml"><img alt="Repository checks" src="https://github.com/Anuppaul/vliq-desktop/actions/workflows/repository-checks.yml/badge.svg"></a>
-  <a href="https://github.com/Anuppaul/vliq-desktop/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/Anuppaul/vliq-desktop/actions/workflows/codeql.yml/badge.svg"></a>
-  <a href="https://github.com/Anuppaul/vliq-desktop/actions/workflows/gnome-store-package.yml"><img alt="GNOME Store package" src="https://github.com/Anuppaul/vliq-desktop/actions/workflows/gnome-store-package.yml/badge.svg"></a>
-  <a href="https://github.com/Anuppaul/vliq-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img alt="Contributions welcome" src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg"></a>
+  <a href="https://github.com/Anuppaul/vliq/actions/workflows/repository-checks.yml"><img alt="Repository checks" src="https://github.com/Anuppaul/vliq/actions/workflows/repository-checks.yml/badge.svg"></a>
+  <a href="https://github.com/Anuppaul/vliq/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/Anuppaul/vliq/actions/workflows/codeql.yml/badge.svg"></a>
+  <a href="https://github.com/Anuppaul/vliq/actions/workflows/gnome-store-package.yml"><img alt="GNOME Store package" src="https://github.com/Anuppaul/vliq/actions/workflows/gnome-store-package.yml/badge.svg"></a>
+  <a href="https://github.com/Anuppaul/vliq/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img alt="Contributions welcome" src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg"></a>
 </p>
 
 <p align="center">
@@ -319,7 +319,7 @@ This is especially important with **All Apps** near monitor edges and corners.
 VLIQ is **not yet listed as an approved GNOME extension**. You can test the
 same self-contained package we intend to submit for official review:
 
-1. Open [Actions → GNOME Store package](https://github.com/Anuppaul/vliq-desktop/actions/workflows/gnome-store-package.yml).
+1. Open [Actions → GNOME Store package](https://github.com/Anuppaul/vliq/actions/workflows/gnome-store-package.yml).
 2. Select a successful **`main` branch** run and download the
    **`vliq-gnome-store-upload-zip`** artifact.
 3. Extract the artifact wrapper once. Its **inner ZIP** named
@@ -341,8 +341,8 @@ runtime files without bundling build scripts or compiled schema binaries.
 ### Install from source (development / contributors)
 
 ```bash
-git clone https://github.com/Anuppaul/vliq-desktop.git
-cd vliq-desktop
+git clone https://github.com/Anuppaul/vliq.git
+cd vliq
 bash gnome-shell/install.sh
 ```
 
@@ -446,7 +446,7 @@ before uploading. It covers ZIP selection, checksums, review findings, GNOME
 Official references:
 [Review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
 · [Upload extension](https://extensions.gnome.org/upload/)
-· [Release build artifacts](https://github.com/Anuppaul/vliq-desktop/actions/workflows/gnome-store-package.yml).
+· [Release build artifacts](https://github.com/Anuppaul/vliq/actions/workflows/gnome-store-package.yml).
 
 ## Architecture
 
@@ -538,9 +538,9 @@ Contributions are welcome across code, testing, accessibility, compatibility, do
 
 - [Community Hub](COMMUNITY.md)
 - [Contributor Guide](CONTRIBUTING.md)
-- [Good First Issues](https://github.com/Anuppaul/vliq-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
-- [Help Wanted](https://github.com/Anuppaul/vliq-desktop/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
-- [Discussions](https://github.com/Anuppaul/vliq-desktop/discussions)
+- [Good First Issues](https://github.com/Anuppaul/vliq/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22)
+- [Help Wanted](https://github.com/Anuppaul/vliq/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22)
+- [Discussions](https://github.com/Anuppaul/vliq/discussions)
 
 If you are changing Shell integration behavior, preserve the core contract:
 
