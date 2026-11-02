@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // Exercises the actual shipped GNOME 50 bootstrap marker loader so the
 // EGO-X-004 synchronous-IO warning cannot regress unnoticed.
 const path = new URL(
-    '../gnome-shell/velora@wonderer.tech/extension.js',
+    '../gnome-shell/vliq@wonderer.tech/extension.js',
     import.meta.url
 );
 const code = await readFile(path, 'utf8');
@@ -22,15 +22,15 @@ assert.ok(start >= 0 && end > start);
 const methodCode = code.slice(start, end);
 const fallback = '2026-09-28-b';
 const loadRevision = new Function(
-    'BOOTSTRAP_REVISION_FILE', 'VELORA_BOOTSTRAP_GENERATION',
+    'BOOTSTRAP_REVISION_FILE', 'VLIQ_BOOTSTRAP_GENERATION',
     'return ({' + methodCode + '})._readBootstrapRevision;',
-)('.velora-bootstrap-revision', fallback);
+)('.vliq-bootstrap-revision', fallback);
 
 function make(marker) {
     return {
         dir: {
             get_child(name) {
-                assert.equal(name, '.velora-bootstrap-revision');
+                assert.equal(name, '.vliq-bootstrap-revision');
                 return marker;
             },
         },

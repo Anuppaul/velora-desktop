@@ -20,8 +20,8 @@ const slots = [
 ];
 const sourceApps = ['One', 'Two', 'Three'];
 const OrbRuntime = await loadClass(
-    '../gnome-shell/velora@wonderer.tech/orbThemeRuntime.js',
-    'VeloraRuntime', {
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js',
+    'VLIQRuntime', {
         Extension: class {},
         GLib: {get_monotonic_time: () => 1000000},
         Clutter: {AnimationMode: {EASE_OUT_QUAD: 1, EASE_IN_QUAD: 2}},
@@ -120,7 +120,7 @@ for (const actor of paging._radialActors) {
 // Check that the native Overview shader radius does not toggle while the
 // first Apps grid is opening or when switching between Overview states.
 const Backdrop = await loadClass(
-    '../gnome-shell/velora@wonderer.tech/appGridBackdrop.js',
+    '../gnome-shell/vliq@wonderer.tech/appGridBackdrop.js',
     'AppGridBackdropManager', {
         Main: {
             layoutManager: {overviewGroup: {
@@ -151,14 +151,14 @@ assert.deepEqual(blurChanges, [], 'no mid-transition blur invalidation');
 let clock = 5000000;
 const updatedEffects = [];
 const OrbGlass = await loadClass(
-    '../gnome-shell/velora@wonderer.tech/orbGlass.js',
+    '../gnome-shell/vliq@wonderer.tech/orbGlass.js',
     'OrbGlassManager', {
         GLib: {get_monotonic_time: () => clock},
         frameDue: (now, last, fps) =>
             !last || now < last || now - last >= 1000000 / fps,
-        VELORA_GLASS_ROLES: {orbCard: {tintStrength: 0}},
-        VELORA_GLASS_ADAPTERS: {orb: {multiRegion: true}},
-        applyVeloraGlassRole: effect => updatedEffects.push(effect.id),
+        VLIQ_GLASS_ROLES: {orbCard: {tintStrength: 0}},
+        VLIQ_GLASS_ADAPTERS: {orb: {multiRegion: true}},
+        applyVLIQGlassRole: effect => updatedEffects.push(effect.id),
         global: {stage: {width: 1280, height: 720}},
     }
 );

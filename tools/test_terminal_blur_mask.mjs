@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const src = (await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/terminalBlurMask.js', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/terminalBlurMask.js', import.meta.url
 ), 'utf8')).replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
 
 class MockGLSLEffect {
@@ -20,8 +20,8 @@ class MockGLSLEffect {
     }
     get_uniform_location(name) {
         return this.forceBadUniform ? -1 :
-            ['velora_mask_size', 'velora_mask_radius',
-                'velora_mask_inset'].indexOf(name);
+            ['vliq_mask_size', 'vliq_mask_radius',
+                'vliq_mask_inset'].indexOf(name);
     }
     set_uniform_float(index, count, value) {
         assert.ok(index >= 0);
@@ -31,7 +31,7 @@ class MockGLSLEffect {
     }
     queue_repaint() {this.repaintCount++;}
 }
-const cacheKey = '__veloraPtyxisBlurOutputMaskClassV1';
+const cacheKey = '__vliqPtyxisBlurOutputMaskClassV1';
 const previousCache = globalThis[cacheKey];
 delete globalThis[cacheKey];
 let registrations = 0;
@@ -39,7 +39,7 @@ const instantiateModule = new Function('Cogl', 'GObject', 'Shell',
     src + '\nreturn {TerminalBlurOutputMask, MASK_CODE, EDGE_INSET, clampCornerRadius};'
 );
 const mockGObject = {registerClass(meta, ctor) {
-    assert.equal(meta.GTypeName, 'VeloraPtyxisBlurOutputMaskV1');
+    assert.equal(meta.GTypeName, 'VLIQPtyxisBlurOutputMaskV1');
     registrations++;
     if (registrations !== 1)
         throw new Error('native GType was registered twice during hot-swap');
@@ -54,7 +54,7 @@ assert.equal(reloaded.TerminalBlurOutputMask, api.TerminalBlurOutputMask,
 assert.equal(registrations, 1, 'only one native GType registration per session');
 const effect = new api.TerminalBlurOutputMask();
 assert.equal(effect.snippets.length, 1);
-assert.match(effect.snippets[0].declarations, /uniform vec2 velora_mask_size/);
+assert.match(effect.snippets[0].declarations, /uniform vec2 vliq_mask_size/);
 assert.match(effect.snippets[0].code, /cogl_color_out \*= coverage/);
 assert.match(effect.snippets[0].code,
     /smoothstep\(-0\.6, 0\.6, signedDistance\)/);

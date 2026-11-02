@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // Evaluate the exact shipped GNOME runtime with Clutter actor mocks; verify
 // a FIXED 16:9 glass card for portrait Terminal, wide Files and 1-4 windows.
 const code = (await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/orbThemeRuntime.js', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js', import.meta.url
 ), 'utf8')).replace(/^import[\s\S]*?;\s*$/gm, '')
     .replace(/^export\s+default\s+class\s+/gm, 'class ');
 
@@ -38,7 +38,7 @@ class WindowPreviewLayout {
 }
 const {Runtime, planWindowPreview, previewWindowBounds} = new Function(
     'Extension', 'Clutter', 'St', 'Shell', 'Main', 'clamp',
-    code + '\nreturn {Runtime: VeloraRuntime, planWindowPreview, previewWindowBounds};'
+    code + '\nreturn {Runtime: VLIQRuntime, planWindowPreview, previewWindowBounds};'
 )(
     class {},
     {Actor, FixedLayout: class {}, AnimationMode: {EASE_OUT_QUAD: 1}},
@@ -94,7 +94,7 @@ function render(frames, {
     assert.equal(runtime._showAppPreview(app, anchor, preferredSide), true);
     const card = runtime._appPreview;
     assert.equal(card, attached[0], 'native card receives LiquidEffect');
-    assert.equal(card.style_class, 'velora-app-preview-card');
+    assert.equal(card.style_class, 'vliq-app-preview-card');
     assert.equal(card.width * 9, card.height * 16,
         'outer glass ratio must be EXACTLY 16:9');
     assert.equal(card.width % 16, 0);
@@ -213,13 +213,13 @@ for (const monitor of [
 // No extra painted side layer: visible fallback/neutral body are part of
 // the SAME native preview St.Widget (a shader tint is not another actor).
 const css = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/runtime.css', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
-const normalCss = css.match(/\.velora-app-preview-card\s*\{([^}]*)\}/)?.[1];
+const normalCss = css.match(/\.vliq-app-preview-card\s*\{([^}]*)\}/)?.[1];
 const glassCss = css.match(
-    /\.velora-app-preview-card\.velora-liquid-shell-card\s*\{([^}]*)\}/
+    /\.vliq-app-preview-card\.vliq-liquid-shell-card\s*\{([^}]*)\}/
 )?.[1];
-const tileCss = css.match(/\.velora-window-preview-tile\s*\{([^}]*)\}/)?.[1];
+const tileCss = css.match(/\.vliq-window-preview-tile\s*\{([^}]*)\}/)?.[1];
 assert.ok(normalCss && glassCss && tileCss);
 assert.match(normalCss, /background-color:\s*rgba\(232,\s*243,\s*255,\s*0\.18\)/);
 assert.match(glassCss,
