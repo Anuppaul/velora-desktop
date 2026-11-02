@@ -139,9 +139,9 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          ARCHIVE="velora-desktop-${VERSION}.tar.gz"
+          ARCHIVE="vliq-${VERSION}.tar.gz"
 
-          git archive --format=tar.gz --prefix="velora-desktop-${VERSION}/" --output="${ARCHIVE}" "${TAG_COMMIT}"
+          git archive --format=tar.gz --prefix="vliq-${VERSION}/" --output="${ARCHIVE}" "${TAG_COMMIT}"
           cp dist/ego/velora@wonderer.tech.shell-extension.zip .
           sha256sum "${ARCHIVE}" velora@wonderer.tech.shell-extension.zip > SHA256SUMS
 
@@ -184,4 +184,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${TAG}" "velora-desktop-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "VLIQ ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+          gh release create "${TAG}" "vliq-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "VLIQ ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
