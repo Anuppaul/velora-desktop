@@ -1,6 +1,6 @@
 # Community Code of Conduct
 
-Velora welcomes contributors of different experience levels and backgrounds.
+VLIQ welcomes contributors of different experience levels and backgrounds.
 
 ## Expected behavior
 
@@ -25,7 +25,7 @@ The project does not accept:
 
 ## Technical disagreements
 
-Velora has a strong architecture contract: native GNOME behavior and ownership come first.
+VLIQ has a strong architecture contract: native GNOME behavior and ownership come first.
 
 When contributors disagree about an implementation:
 
