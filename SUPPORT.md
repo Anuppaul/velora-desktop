@@ -17,8 +17,8 @@ Please check:
 
 1. the [README](README.md);
 2. the [Development Guide](docs/DEVELOPMENT.md);
-3. existing [Issues](https://github.com/Anuppaul/vliq-desktop/issues);
-4. existing [Discussions](https://github.com/Anuppaul/vliq-desktop/discussions).
+3. existing [Issues](https://github.com/Anuppaul/vliq/issues);
+4. existing [Discussions](https://github.com/Anuppaul/vliq/discussions).
 
 Verify the extension is active:
 
@@ -51,7 +51,7 @@ Include:
 
 ### General question or setup help
 
-Use [GitHub Discussions](https://github.com/Anuppaul/vliq-desktop/discussions).
+Use [GitHub Discussions](https://github.com/Anuppaul/vliq/discussions).
 
 ### Feature or design idea
 

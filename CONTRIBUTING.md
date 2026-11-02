@@ -19,7 +19,7 @@ If an issue already exists:
 3. coordinate with anyone already active on the issue;
 4. link the issue from your pull request.
 
-For architecture ideas or questions that are not yet scoped as bugs/tasks, start a [GitHub Discussion](https://github.com/Anuppaul/vliq-desktop/discussions).
+For architecture ideas or questions that are not yet scoped as bugs/tasks, start a [GitHub Discussion](https://github.com/Anuppaul/vliq/discussions).
 
 For local setup, logs and smoke testing, use the [Development Guide](docs/DEVELOPMENT.md).
 
@@ -46,8 +46,8 @@ VLIQ currently targets **GNOME Shell 50**.
 Clone the repository:
 
 ```bash
-git clone https://github.com/Anuppaul/vliq-desktop.git
-cd vliq-desktop
+git clone https://github.com/Anuppaul/vliq.git
+cd vliq
 ```
 
 Install/update the extension:

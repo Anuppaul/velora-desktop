@@ -141,6 +141,6 @@ Security fixes may be prepared privately first and moved to the normal public re
 
 For ordinary bugs, feature requests, contributor questions, and compatibility issues, use the normal project channels:
 
-- Issues: https://github.com/Anuppaul/vliq-desktop/issues
-- Discussions: https://github.com/Anuppaul/vliq-desktop/discussions
+- Issues: https://github.com/Anuppaul/vliq/issues
+- Discussions: https://github.com/Anuppaul/vliq/discussions
 - Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)

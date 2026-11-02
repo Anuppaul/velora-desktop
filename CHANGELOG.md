@@ -26,4 +26,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Added a dedicated security policy covering GNOME Shell extension-specific risks, private reporting and coordinated disclosure.
 
-[Unreleased]: https://github.com/Anuppaul/vliq-desktop/commits/main
+[Unreleased]: https://github.com/Anuppaul/vliq/commits/main
