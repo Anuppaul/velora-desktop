@@ -79,9 +79,9 @@ export class MaterialSettings {
         // Zero is bit-for-bit backward compatible with Liquid Glass v10.
         // Default uniforms must exist even if an older external schema is
         // loaded. Frosted Crystal uses the SAME composite shader and FBO.
-        this._uniforms.set('velora_frost_amount', 0.0);
-        this._uniforms.set('velora_frost_grain', 0.55);
-        this._uniforms.set('velora_frost_edge_glow', 0.52);
+        this._uniforms.set('vliq_frost_amount', 0.0);
+        this._uniforms.set('vliq_frost_grain', 0.55);
+        this._uniforms.set('vliq_frost_edge_glow', 0.52);
         this._settingsIds = [];
         if (this._settings) {
             this._bindSettings();
@@ -151,32 +151,32 @@ export class MaterialSettings {
         if (!settings)
             return;
 
-        // The Velora material mode is independent of the vendor's Advanced
+        // The VLIQ material mode is independent of the vendor's Advanced
         // optical settings. Do not overwrite any refraction or highlight key.
         // Listen to canonical-bridge values on EVERY LiquidEffect instance,
         // including native Dock/Panel/Quick Settings and preview surfaces.
         const applyFrost = (initial = false) => {
             let amount = 0.0, grain = 0.55, edgeGlow = 0.52;
             try {
-                amount = settings.get_double('velora-frost-amount');
-                grain = settings.get_double('velora-frost-grain');
-                edgeGlow = settings.get_double('velora-frost-edge-glow');
+                amount = settings.get_double('vliq-frost-amount');
+                grain = settings.get_double('vliq-frost-grain');
+                edgeGlow = settings.get_double('vliq-frost-edge-glow');
             } catch {
                 // Older upstream schema -> original Liquid look, no crash.
             }
             amount = Math.max(0, Math.min(1, amount));
             grain = Math.max(0, Math.min(1, grain));
             edgeGlow = Math.max(0, Math.min(1, edgeGlow));
-            this._uniforms.set('velora_frost_amount', amount);
-            this._uniforms.set('velora_frost_grain', grain);
-            this._uniforms.set('velora_frost_edge_glow', edgeGlow);
+            this._uniforms.set('vliq_frost_amount', amount);
+            this._uniforms.set('vliq_frost_grain', grain);
+            this._uniforms.set('vliq_frost_edge_glow', edgeGlow);
             this._onFrostChanged?.(amount, initial);
         };
         applyFrost(true);
         for (const key of [
-            'velora-frost-amount',
-            'velora-frost-grain',
-            'velora-frost-edge-glow',
+            'vliq-frost-amount',
+            'vliq-frost-grain',
+            'vliq-frost-edge-glow',
         ]) {
             try {
                 if (settings.settings_schema?.has_key?.(key) === false)
