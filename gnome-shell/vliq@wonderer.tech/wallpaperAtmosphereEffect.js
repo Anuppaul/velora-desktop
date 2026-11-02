@@ -49,7 +49,7 @@ float luma = va_luminance(color);
 // PR #62's visually imperceptible 0.18 * 14% saturation adjustment.
 // Saturation expands modestly (never hard grayscale or neon colors); a
 // shoulder-preserving S-curve separates shadows and midtones with the
-// original wallpaper hue intact. At Velora Atmosphere (62%) these changes
+// original wallpaper hue intact. At VLIQ Atmosphere (62%) these changes
 // are intentionally apparent in a direct Original/Atmosphere comparison.
 float filmicStrength = clamp(va_filmic, 0.0, 1.0);
 vec3 filmic = mix(vec3(luma), color, 1.0 + 0.27 * filmicStrength);
@@ -119,11 +119,11 @@ cogl_color_out = vec4(color * original.a, original.a) * cogl_color_in;
 
 // The V1 GObject class from PR #62 is immutable inside a running GNOME
 // Shell process. Using a new GTypeName/cache key is REQUIRED for this new
-// GLSL code to take effect on Velora live hot-swaps without logout.
-const CACHE_KEY = Symbol.for('velora.atmosphere.effect.class.v2');
+// GLSL code to take effect on VLIQ live hot-swaps without logout.
+const CACHE_KEY = Symbol.for('vliq.atmosphere.effect.class.v2');
 
 export function getAtmosphereEffectClass() {
-    // Velora can hot-reload runtime JS under a fresh module URI without
+    // VLIQ can hot-reload runtime JS under a fresh module URI without
     // restarting GNOME Shell. GObject classes cannot be registered again
     // with the same GTypeName in one process; reuse the registered class.
     if (globalThis[CACHE_KEY])
@@ -213,7 +213,7 @@ export function getAtmosphereEffectClass() {
     }
 
     const Effect = GObject.registerClass(
-        {GTypeName: 'VeloraAtmosphereShaderEffectV2'},
+        {GTypeName: 'VLIQAtmosphereShaderEffectV2'},
         WallpaperAtmosphereEffect
     );
     globalThis[CACHE_KEY] = Effect;

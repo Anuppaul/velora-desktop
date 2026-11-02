@@ -9,7 +9,7 @@ import {
 } from './wallpaperAtmosphereConfig.js';
 import {getAtmosphereEffectClass} from './wallpaperAtmosphereEffect.js';
 
-const EFFECT_NAME = 'velora-atmosphere-wallpaper';
+const EFFECT_NAME = 'vliq-atmosphere-wallpaper';
 const VENDOR_MIRROR_NAME = 'lg-bg-mirror-source';
 
 /**
@@ -17,7 +17,7 @@ const VENDOR_MIRROR_NAME = 'lg-bg-mirror-source';
  *
  * (1) original GNOME desktop Meta.BackgroundActors;
  * (2) Meta.BackgroundActors in Liquid Glass's SHARED wallpaper mirror;
- * (3) the independent wallpaper actors of Velora's native App Grid blur.
+ * (3) the independent wallpaper actors of VLIQ's native App Grid blur.
  *
  * The three sources share the original Meta.Background image and stay
  * independent as actors; each has at most ONE Atmosphere shader. We never
@@ -46,7 +46,7 @@ export class WallpaperAtmosphereManager {
             return;
         this._enabled = true;
 
-        // Hook original GNOME wallpaper before the other Velora glass
+        // Hook original GNOME wallpaper before the other VLIQ glass
         // managers start. No wallpaper image is loaded or copied here.
         this.watchContainer(Main.layoutManager?._backgroundGroup);
 
@@ -91,7 +91,7 @@ export class WallpaperAtmosphereManager {
             return;
         this._warnings.add(phase);
         console.warn(
-            '[Velora][Atmosphere] ' + phase + ': ' + error
+            '[VLIQ][Atmosphere] ' + phase + ': ' + error
         );
     }
 
@@ -323,7 +323,7 @@ export class WallpaperAtmosphereManager {
                     'wallpaper-runtime-status', message
                 );
             }
-            console.log('[Velora][Atmosphere] ' + message);
+            console.log('[VLIQ][Atmosphere] ' + message);
         } catch (error) {
             this._warnOnce('runtime status unavailable', error);
         }

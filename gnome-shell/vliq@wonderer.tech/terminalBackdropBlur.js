@@ -1,4 +1,4 @@
-// Velora Terminal Glass, phase 2: compositor-native background blur for Ptyxis.
+// VLIQ Terminal Glass, phase 2: compositor-native background blur for Ptyxis.
 // GNOME Shell 50 / Wayland. Opt-in; transparent terminal backgrounds are
 // supplied by Ptyxis itself (and retain fully opaque glyphs).
 //
@@ -12,7 +12,7 @@ import Shell from 'gi://Shell';
 import St from 'gi://St';
 import {TerminalBlurOutputMask, DEFAULT_CORNER_RADIUS, MASK_EFFECT_NAME} from './terminalBlurMask.js';
 
-const BLUR_ACTOR_NAME = 'velora-ptyxis-backdrop-blur';
+const BLUR_ACTOR_NAME = 'vliq-ptyxis-backdrop-blur';
 // Never stack an extra expensive background pass on another extension's blur.
 const OTHER_BLUR_ACTORS = new Set([
     'bms-application-blurred-widget',
@@ -231,7 +231,7 @@ export class TerminalBackdropBlurManager {
             this._stop();
             this._publishStatus('Unavailable: cannot track Shell windows');
             console.warn(
-                '[Velora][TerminalBlur] window tracking unavailable: ' + error
+                '[VLIQ][TerminalBlur] window tracking unavailable: ' + error
             );
         }
     }
@@ -249,7 +249,7 @@ export class TerminalBackdropBlurManager {
             for (const actor of actors)
                 this._attach(actor);
         } catch (error) {
-            console.warn('[Velora][TerminalBlur] scan skipped: ' + error);
+            console.warn('[VLIQ][TerminalBlur] scan skipped: ' + error);
         }
     }
 
@@ -367,7 +367,7 @@ export class TerminalBackdropBlurManager {
                         geometrySignals.push({source, id});
                 } catch (error) {
                     console.warn(
-                        '[Velora][TerminalBlur] optional geometry signal ' +
+                        '[VLIQ][TerminalBlur] optional geometry signal ' +
                         signal + ' unavailable: ' + error
                     );
                 }
@@ -396,7 +396,7 @@ export class TerminalBackdropBlurManager {
             });
             stage = 'add-effect';
             backdrop.add_effect_with_name(
-                'velora-terminal-background-blur',
+                'vliq-terminal-background-blur',
                 effect
             );
             // Fail closed if effect ordering is reversed or unavailable.
@@ -434,7 +434,7 @@ export class TerminalBackdropBlurManager {
             this._lastAttachFailure = '';
             this._publishAttachedCount();
             console.log(
-                '[Velora][TerminalBlur] rounded output mask attached ' +
+                '[VLIQ][TerminalBlur] rounded output mask attached ' +
                 'over native Ptyxis backdrop; real pixel QA still required'
             );
             return true;
@@ -460,7 +460,7 @@ export class TerminalBackdropBlurManager {
             'Unavailable (' + this._lastAttachFailure + ')'
         );
         console.warn(
-            '[Velora][TerminalBlur] native blur attach ' +
+            '[VLIQ][TerminalBlur] native blur attach ' +
             stage + ' failed: ' + (error?.stack ?? error)
         );
     }
@@ -488,7 +488,7 @@ export class TerminalBackdropBlurManager {
                     effect.radius = radius;
             } catch (error) {
                 console.warn(
-                    '[Velora][TerminalBlur] radius change skipped: ' + error
+                    '[VLIQ][TerminalBlur] radius change skipped: ' + error
                 );
             }
         }
