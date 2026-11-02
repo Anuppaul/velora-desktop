@@ -41,7 +41,7 @@ import {
 import {
     VELORA_GLASS_ADAPTERS,
     VELORA_GLASS_ROLES,
-    applyVLIQGlassRole,
+    applyVeloraGlassRole,
 } from './glassMaterialSystem.js';
 import {PanelGlassSurface} from './panelGlass.js';
 import {FullscreenPanelChromeGuard} from './fullscreenPanelGuard.js';
@@ -1589,7 +1589,7 @@ export class LiquidGlassIntegration {
             // Keep renderer defaults if an optional dock key is unavailable.
         }
 
-        applyVLIQGlassRole(
+        applyVeloraGlassRole(
             effect,
             role,
             {
