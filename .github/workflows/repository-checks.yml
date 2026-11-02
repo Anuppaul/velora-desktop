@@ -23,7 +23,7 @@ jobs:
       - name: Test performance sampler and runtime packaging
         run: python3 -m unittest discover -s tools -p 'test_*.py'
 
-      - name: Check Velora runtime JS syntax and frame budget
+      - name: Check VLIQ runtime JS syntax and frame budget
         run: |
           find gnome-shell/velora@wonderer.tech -maxdepth 1 -name '*.js' -print0 |
             while IFS= read -r -d '' file; do
@@ -48,7 +48,7 @@ jobs:
           node tools/test_liquid_optics.mjs
           node tools/test_frosted_crystal.mjs
           node tools/test_adaptive_blue_edge.mjs
-          # Validate the modified vendored modules as well as Velora's own JS.
+          # Validate the modified vendored modules as well as VLIQ's own JS.
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
           node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
 
