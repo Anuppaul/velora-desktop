@@ -10,7 +10,7 @@ export const VELORA_BOOTSTRAP_GENERATION = '2026-09-28-b';
 const BASE_REVISION = 'base';
 const BOOTSTRAP_REVISION_FILE = '.velora-bootstrap-revision';
 
-export default class VeloraBootstrap extends Extension {
+export default class VLIQBootstrap extends Extension {
     async enable() {
         this._enabled = true;
         this._settings = this.getSettings();
@@ -95,7 +95,7 @@ export default class VeloraBootstrap extends Extension {
         } catch (error) {
             this._recordError(
                 new Error(
-                    `Unable to import Velora runtime ${target.revision}: ${error.message}`
+                    `Unable to import VLIQ runtime ${target.revision}: ${error.message}`
                 )
             );
             return;
@@ -110,7 +110,7 @@ export default class VeloraBootstrap extends Extension {
         } catch (error) {
             this._recordError(
                 new Error(
-                    `Unable to create Velora runtime ${target.revision}: ${error.message}`
+                    `Unable to create VLIQ runtime ${target.revision}: ${error.message}`
                 )
             );
             return;
@@ -287,7 +287,7 @@ export default class VeloraBootstrap extends Extension {
             try {
                 this._runtime.disable();
             } catch (error) {
-                logError(error, 'Velora Desktop: runtime disable failed');
+                logError(error, 'VLIQ Desktop: runtime disable failed');
             }
         }
 
@@ -309,7 +309,7 @@ export default class VeloraBootstrap extends Extension {
     }
 
     _recordError(error) {
-        logError(error, 'Velora Desktop runtime reload failed');
+        logError(error, 'VLIQ Desktop runtime reload failed');
 
         if (!this._settings)
             return;
