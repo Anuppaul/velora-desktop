@@ -199,7 +199,7 @@ function installedApplications() {
     return apps;
 }
 
-export default class VeloraPreferences extends ExtensionPreferences {
+export default class VLIQPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         const advanced = createLiquidGlassSettings(this.dir);

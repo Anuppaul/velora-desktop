@@ -39,9 +39,9 @@ import {
     SpotlightGlassManager,
 } from './spotlightGlass.js';
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 import {PanelGlassSurface} from './panelGlass.js';
 import {FullscreenPanelChromeGuard} from './fullscreenPanelGuard.js';
@@ -52,12 +52,12 @@ const UPSTREAM_EXTENSION_UUID =
 const GLASS_SCHEMA =
     'org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com';
 
-const VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV3';
-const VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV3';
-const VENDOR_PROMISE_KEY = '__veloraLiquidGlassVendorPromiseV3';
-const LEGACY_VENDOR_CACHE_KEY = '__veloraLiquidGlassVendorModulesV2';
-const LEGACY_VENDOR_ROOT_KEY = '__veloraLiquidGlassVendorRootV1';
-const DEBUG_STATE_KEY = '__veloraLiquidGlassDebugV2';
+const VENDOR_CACHE_KEY = '__vliqLiquidGlassVendorModulesV3';
+const VENDOR_ROOT_KEY = '__vliqLiquidGlassVendorRootV3';
+const VENDOR_PROMISE_KEY = '__vliqLiquidGlassVendorPromiseV3';
+const LEGACY_VENDOR_CACHE_KEY = '__vliqLiquidGlassVendorModulesV2';
+const LEGACY_VENDOR_ROOT_KEY = '__vliqLiquidGlassVendorRootV1';
+const DEBUG_STATE_KEY = '__vliqLiquidGlassDebugV2';
 const DASH_RESCAN_IDLE_TICKS = 2;
 const DASH_RESCAN_INTERVAL_MS = 2000;
 const DASH_TO_DOCK_SCHEMA =
@@ -65,22 +65,22 @@ const DASH_TO_DOCK_SCHEMA =
 const UBUNTU_DOCK_UUID =
     'ubuntu-dock@ubuntu.com';
 const DOCK_PANEL_MODE_CLASS =
-    'velora-dock-panel-mode';
+    'vliq-dock-panel-mode';
 const DOCK_PANEL_BACKGROUND_CLASS =
-    'velora-ubuntu-dock-panel-background';
+    'vliq-ubuntu-dock-panel-background';
 const DOCK_GLASS_BACKGROUND_CLASS =
-    'velora-ubuntu-dock-glass-background';
+    'vliq-ubuntu-dock-glass-background';
 const DOCK_PANEL_BLUR_EFFECT =
-    'velora-ubuntu-dock-panel-blur';
+    'vliq-ubuntu-dock-panel-blur';
 const DOCK_PANEL_BLUR_RADIUS = 18;
-const DOCK_PANEL_READY_CLASS = 'velora-native-panel-liquid-ready';
+const DOCK_PANEL_READY_CLASS = 'vliq-native-panel-liquid-ready';
 const DOCK_PANEL_GLASS_STYLE =
     'background-color: transparent; ' +
     'background-image: none; ' +
     'border-color: transparent; ' +
     'border-radius: 0px; ' +
     'box-shadow: none;';
-const DOCK_PANEL_BACKDROP_NAME = 'velora-dock-panel-local-backdrop';
+const DOCK_PANEL_BACKDROP_NAME = 'vliq-dock-panel-local-backdrop';
 // Panel-local frosted glass: the blur effect is applied to Ubuntu Dock's
 // native .dash-background only, never to the whole monitor. A thin highlight
 // and the accepted milky tint add depth without another capture pass.
@@ -151,7 +151,7 @@ function canonicalExtensionRoot() {
         GLib.get_user_data_dir(),
         'gnome-shell',
         'extensions',
-        'velora@wonderer.tech',
+        'vliq@wonderer.tech',
     ]);
 }
 
@@ -371,7 +371,7 @@ function validateVendorApi(vendor) {
 }
 
 
-export async function loadLiquidGlassVendorModules(veloraSettings) {
+export async function loadLiquidGlassVendorModules(vliqSettings) {
     const ensureQuickSettingsManager = async vendor => {
         if (vendor?.root && !vendor.QuickSettingsManager) {
             const quickSettingsManager = await import(
@@ -436,7 +436,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
         const alreadyRegistered = Boolean(liquidType || cloneType);
 
         if (alreadyRegistered) {
-            root = previousRevisionVendorRoot(veloraSettings);
+            root = previousRevisionVendorRoot(vliqSettings);
             if (!root) {
                 throw new Error(
                     'Liquid Glass GObject types are already registered, ' +
@@ -469,7 +469,7 @@ export async function loadLiquidGlassVendorModules(veloraSettings) {
 
 export class LiquidGlassIntegration {
     constructor(params) {
-        this._veloraSettings = params.veloraSettings;
+        this._vliqSettings = params.vliqSettings;
         this._vendor = null;
         this._settings = null;
         this._logger = null;
@@ -573,14 +573,14 @@ export class LiquidGlassIntegration {
         // replace or persist over the original v10 refraction, tint, blur or
         // custom advanced renderer values. New and existing LiquidEffects
         // receive live changes via their vendored MaterialSettings bindings.
-        if (!this._settings || !this._veloraSettings)
+        if (!this._settings || !this._vliqSettings)
             return;
 
         try {
             const enabled =
-                this._veloraSettings.get_string('glass-style') === 'frosted';
+                this._vliqSettings.get_string('glass-style') === 'frosted';
             const fraction = key =>
-                clampNumber(this._veloraSettings.get_int(key), 0, 100) / 100;
+                clampNumber(this._vliqSettings.get_int(key), 0, 100) / 100;
             const grain = fraction('frost-grain');
             const edge = fraction('frost-edge-glow');
             const density = enabled ? fraction('frost-density') : 0;
@@ -588,9 +588,9 @@ export class LiquidGlassIntegration {
             // Update grain/edge first, the mode-active blend last: no
             // transient half-configured material during a live toggle.
             for (const [key, value] of [
-                ['velora-frost-grain', grain],
-                ['velora-frost-edge-glow', edge],
-                ['velora-frost-amount', density],
+                ['vliq-frost-grain', grain],
+                ['vliq-frost-edge-glow', edge],
+                ['vliq-frost-amount', density],
             ]) {
                 if (Math.abs(this._settings.get_double(key) - value) > 0.0001)
                     this._settings.set_double(key, value);
@@ -609,7 +609,7 @@ export class LiquidGlassIntegration {
             return;
 
         this._vendor = await loadLiquidGlassVendorModules(
-            this._veloraSettings
+            this._vliqSettings
         );
         validateVendorApi(this._vendor);
         this._settings = createLiquidGlassSettings();
@@ -638,7 +638,7 @@ export class LiquidGlassIntegration {
         // not instantiate a ShaderEffect or change the user's wallpaper.
         try {
             this._wallpaperAtmosphereManager =
-                new WallpaperAtmosphereManager(this._veloraSettings);
+                new WallpaperAtmosphereManager(this._vliqSettings);
             this._wallpaperAtmosphereManager.setup();
             this._managerHealth.wallpaperAtmosphereManager = true;
         } catch (error) {
@@ -664,7 +664,7 @@ export class LiquidGlassIntegration {
         this._setupTopPanelGlass();
 
         // Orb is a VLIQ-owned surface. The upstream Liquid Glass extension
-        // never knows about velora-desktop-layer, so it must be attached even
+        // never knows about vliq-desktop-layer, so it must be attached even
         // when we reuse an already-active upstream renderer stack.
         try {
             this._orbGlassManager =
@@ -791,8 +791,8 @@ export class LiquidGlassIntegration {
                 new PopupGlassManager({
                     vendor: this._vendor,
                     settings: this._settings,
-                    veloraSettings:
-                        this._veloraSettings,
+                    vliqSettings:
+                        this._vliqSettings,
                     readAppearance: () =>
                         this._readSharedCardAppearance(),
                 });
@@ -846,7 +846,7 @@ export class LiquidGlassIntegration {
                 this._vendor.root,
                 this._settings,
                 this._logger,
-                VELORA_GLASS_ROLES.osdCard
+                VLIQ_GLASS_ROLES.osdCard
             );
             this._osdManager.setup();
         });
@@ -901,12 +901,12 @@ export class LiquidGlassIntegration {
     }
 
     _ensureFullGlassOpticsProfile() {
-        if (!this._settings || !this._veloraSettings)
+        if (!this._settings || !this._vliqSettings)
             return;
 
         let version = 0;
         try {
-            version = this._veloraSettings.get_int(
+            version = this._vliqSettings.get_int(
                 'glass-optics-profile-version'
             );
         } catch {
@@ -970,13 +970,13 @@ export class LiquidGlassIntegration {
 
                 // Refraction should dominate the look; blur and tint support it
                 // instead of turning the surface into an opaque frosted card.
-                this._veloraSettings.set_int('glass-blur', 12);
-                this._veloraSettings.set_int('glass-opacity', 8);
-                this._veloraSettings.set_string(
+                this._vliqSettings.set_int('glass-blur', 12);
+                this._vliqSettings.set_int('glass-opacity', 8);
+                this._vliqSettings.set_string(
                     'glass-tint-color',
                     '#ffffff'
                 );
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     1
                 );
@@ -1042,7 +1042,7 @@ export class LiquidGlassIntegration {
             setDoubleIfUnset('dock-corner-radius', 28.0);
 
             try {
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     2
                 );
@@ -1065,10 +1065,10 @@ export class LiquidGlassIntegration {
             // The veil is painted by each surface above LiquidEffect and below
             // native content; it should read as glass body, not colored fog.
             try {
-                this._veloraSettings.set_int('glass-opacity', 3);
-                this._veloraSettings.set_int('glass-blur', 9);
-                this._veloraSettings.set_int('glass-filter-opacity', 5);
-                this._veloraSettings.set_string(
+                this._vliqSettings.set_int('glass-opacity', 3);
+                this._vliqSettings.set_int('glass-blur', 9);
+                this._vliqSettings.set_int('glass-filter-opacity', 5);
+                this._vliqSettings.set_string(
                     'glass-tint-color',
                     '#ffffff'
                 );
@@ -1078,7 +1078,7 @@ export class LiquidGlassIntegration {
                 this._settings.set_double('dock-tint-strength', 0.03);
                 this._settings.set_int('dock-blur-radius', 6);
 
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     3
                 );
@@ -1100,19 +1100,19 @@ export class LiquidGlassIntegration {
             // calibrated independently. Preserve manual edits made after v3 by
             // only replacing values that still equal our previous seed.
             try {
-                if (this._veloraSettings.get_int('glass-opacity') === 3)
-                    this._veloraSettings.set_int('glass-opacity', 2);
-                if (this._veloraSettings.get_int('glass-blur') === 9)
-                    this._veloraSettings.set_int('glass-blur', 7);
-                if (this._veloraSettings.get_int('glass-filter-opacity') === 5)
-                    this._veloraSettings.set_int('glass-filter-opacity', 4);
+                if (this._vliqSettings.get_int('glass-opacity') === 3)
+                    this._vliqSettings.set_int('glass-opacity', 2);
+                if (this._vliqSettings.get_int('glass-blur') === 9)
+                    this._vliqSettings.set_int('glass-blur', 7);
+                if (this._vliqSettings.get_int('glass-filter-opacity') === 5)
+                    this._vliqSettings.set_int('glass-filter-opacity', 4);
 
                 if (this._settings.get_double('dock-tint-strength') === 0.03)
                     this._settings.set_double('dock-tint-strength', 0.02);
                 if (this._settings.get_int('dock-blur-radius') === 6)
                     this._settings.set_int('dock-blur-radius', 4);
 
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     4
                 );
@@ -1173,7 +1173,7 @@ export class LiquidGlassIntegration {
             migrateDoubleIfSeeded('glass-ao-radius', 2.2, 1.3);
 
             try {
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     5
                 );
@@ -1234,7 +1234,7 @@ export class LiquidGlassIntegration {
             );
 
             try {
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     6
                 );
@@ -1293,7 +1293,7 @@ export class LiquidGlassIntegration {
             );
 
             try {
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     7
                 );
@@ -1316,17 +1316,17 @@ export class LiquidGlassIntegration {
             // default to 24 FPS. Respect an explicit user FPS override.
             try {
                 if (
-                    this._veloraSettings.get_user_value(
+                    this._vliqSettings.get_user_value(
                         'glass-live-scene-fps'
                     ) === null
                 ) {
-                    this._veloraSettings.set_int(
+                    this._vliqSettings.set_int(
                         'glass-live-scene-fps',
                         24
                     );
                 }
 
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     8
                 );
@@ -1385,7 +1385,7 @@ export class LiquidGlassIntegration {
             // Do not touch native geometry, shaders, blur radius, downscale,
             // neutral milky tint/grain, contrast or any saved custom setting.
             try {
-                this._veloraSettings.set_int(
+                this._vliqSettings.set_int(
                     'glass-optics-profile-version',
                     9
                 );
@@ -1406,7 +1406,7 @@ export class LiquidGlassIntegration {
             // v10 liquid-lens tuning: existing material uniforms only.
             // Respect custom renderer controls, including explicitly disabled
             // chromatic aberration and manual IOR/refraction values.
-            const optics = VELORA_GLASS_ROLES.innerCard.optics;
+            const optics = VLIQ_GLASS_ROLES.innerCard.optics;
             const seeds = [
                 ['glass-max-z', 132.0, 'max_z'],
                 ['glass-displacement-scale', 50.0, 'displacement_scale'],
@@ -1441,7 +1441,7 @@ export class LiquidGlassIntegration {
             // successful. Never touch blur, tint, glass actors or geometry.
             if (complete) {
                 try {
-                    this._veloraSettings.set_int(
+                    this._vliqSettings.set_int(
                         'glass-optics-profile-version', 10
                     );
                     version = 10;
@@ -1460,7 +1460,7 @@ export class LiquidGlassIntegration {
     }
 
     _readSharedCardAppearance() {
-        if (!this._veloraSettings) {
+        if (!this._vliqSettings) {
             return {
                 opacity: 0,
                 tint: '#ffffff',
@@ -1474,7 +1474,7 @@ export class LiquidGlassIntegration {
         }
 
         const opacity = clampNumber(
-            this._veloraSettings.get_int(
+            this._vliqSettings.get_int(
                 'glass-opacity'
             ),
             0,
@@ -1482,13 +1482,13 @@ export class LiquidGlassIntegration {
         ) / 100;
 
         const tint =
-            this._veloraSettings.get_string(
+            this._vliqSettings.get_string(
                 'glass-tint-color'
             );
         const [r, g, b] = parseHexRgb(tint);
 
         const blur = clampNumber(
-            this._veloraSettings.get_int(
+            this._vliqSettings.get_int(
                 'glass-blur'
             ),
             0,
@@ -1496,7 +1496,7 @@ export class LiquidGlassIntegration {
         );
 
         const filterOpacity = clampNumber(
-            this._veloraSettings.get_int(
+            this._vliqSettings.get_int(
                 'glass-filter-opacity'
             ),
             0,
@@ -1504,7 +1504,7 @@ export class LiquidGlassIntegration {
         ) / 100;
 
         const sceneFps = clampNumber(
-            this._veloraSettings.get_int(
+            this._vliqSettings.get_int(
                 'glass-live-scene-fps'
             ),
             15,
@@ -1513,21 +1513,21 @@ export class LiquidGlassIntegration {
 
         const dateMenu = {
             opacity: clampNumber(
-                this._veloraSettings.get_int(
+                this._vliqSettings.get_int(
                     'date-menu-glass-opacity'
                 ),
                 0,
                 20
             ) / 100,
             blur: clampNumber(
-                this._veloraSettings.get_int(
+                this._vliqSettings.get_int(
                     'date-menu-glass-blur'
                 ),
                 0,
                 20
             ),
             filterOpacity: clampNumber(
-                this._veloraSettings.get_int(
+                this._vliqSettings.get_int(
                     'date-menu-glass-filter-opacity'
                 ),
                 0,
@@ -1557,11 +1557,11 @@ export class LiquidGlassIntegration {
 
         const isTopPanel = surface === 'topPanel';
         const role = isTopPanel
-            ? VELORA_GLASS_ROLES.topPanel
-            : VELORA_GLASS_ROLES.dock;
+            ? VLIQ_GLASS_ROLES.topPanel
+            : VLIQ_GLASS_ROLES.dock;
         const adapter = isTopPanel
-            ? VELORA_GLASS_ADAPTERS.topPanel
-            : VELORA_GLASS_ADAPTERS.dock;
+            ? VLIQ_GLASS_ADAPTERS.topPanel
+            : VLIQ_GLASS_ADAPTERS.dock;
         const state = this._readSharedCardAppearance();
 
         let brightness = null;
@@ -1589,7 +1589,7 @@ export class LiquidGlassIntegration {
             // Keep renderer defaults if an optional dock key is unavailable.
         }
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             effect,
             role,
             {
@@ -1728,14 +1728,14 @@ export class LiquidGlassIntegration {
             }
         }
 
-        if (!this._veloraSettings) {
+        if (!this._vliqSettings) {
             this._applySharedCardAppearance();
             return;
         }
 
         if (!this._cardAppearanceSettingId) {
             this._cardAppearanceSettingId =
-                this._veloraSettings.connect(
+                this._vliqSettings.connect(
                     'changed',
                     (_settings, key) => {
                         if ([
@@ -1771,10 +1771,10 @@ export class LiquidGlassIntegration {
     _cleanupSharedCardAppearanceSync() {
         if (
             this._cardAppearanceSettingId &&
-            this._veloraSettings
+            this._vliqSettings
         ) {
             try {
-                this._veloraSettings.disconnect(
+                this._vliqSettings.disconnect(
                     this._cardAppearanceSettingId
                 );
             } catch {
@@ -1862,51 +1862,51 @@ export class LiquidGlassIntegration {
         const accentColor = systemAccent.color;
         const css =
             '/* VLIQ semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
-            '.velora-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-light .calendar-day.calendar-today,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .velora-date-card-text-dark .calendar-day.calendar-today {\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .calendar-day.calendar-today,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .calendar-day.calendar-today {\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.velora-liquid-popup-content.quick-settings .velora-quick-active StLabel,\n' +
-            '.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-title,\n' +
-            '.velora-liquid-popup-content.quick-settings .velora-quick-active .quick-toggle-subtitle,\n' +
-            '.velora-liquid-quick-menu-root .velora-quick-active StLabel,\n' +
-            '.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-title,\n' +
-            '.velora-liquid-quick-menu-root .velora-quick-active .quick-toggle-subtitle {\n' +
+            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active StLabel,\n' +
+            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active .quick-toggle-title,\n' +
+            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active .quick-toggle-subtitle,\n' +
+            '.vliq-liquid-quick-menu-root .vliq-quick-active StLabel,\n' +
+            '.vliq-liquid-quick-menu-root .vliq-quick-active .quick-toggle-title,\n' +
+            '.vliq-liquid-quick-menu-root .vliq-quick-active .quick-toggle-subtitle {\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
             '#overviewGroup .workspace-thumbnail-indicator {\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.velora-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .calendar:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .events-button:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .world-clocks-button:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .weather-button:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .message:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .message-list-clear-button:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .calendar-month-label:focus,\n' +
-            '.velora-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:focus {\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .datemenu-today-button:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .calendar:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .events-button:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .world-clocks-button:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .weather-button:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .message:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .message-list-clear-button:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .calendar-month-label:focus,\n' +
+            '.vliq-liquid-popup-content.datemenu-popover .calendar-month-header .pager-button:focus {\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.velora-liquid-popup-content.quick-settings .quick-slider .slider {\n' +
+            '.vliq-liquid-popup-content.quick-settings .quick-slider .slider {\n' +
             '  -barlevel-active-background-color: ' + accentColor + ';\n' +
             '}\n' +
-            '.modal-dialog.velora-liquid-shell-card .modal-dialog-button:default {\n' +
+            '.modal-dialog.vliq-liquid-shell-card .modal-dialog-button:default {\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '  color: #ffffff !important;\n' +
-            '}\n' +            '.velora-running-dot {\n' +
+            '}\n' +            '.vliq-running-dot {\n' +
             '  background-color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            '.velora-native-notification-glass,\n' +
-            '.velora-native-notification-glass:hover,\n' +
-            '.velora-native-notification-glass:focus {\n' +
+            '.vliq-native-notification-glass,\n' +
+            '.vliq-native-notification-glass:hover,\n' +
+            '.vliq-native-notification-glass:focus {\n' +
             '  background-color: transparent !important;\n' +
             '  background-image: none !important;\n' +
             '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
-            '.velora-liquid-shell-card {\n' +
+            '.vliq-liquid-shell-card {\n' +
             '  background-color: rgba(255,255,255,' +
             filterOpacity.toFixed(3) +
             ') !important;\n' +
@@ -1916,13 +1916,13 @@ export class LiquidGlassIntegration {
             // The global white filter must not stack over the genuine
             // refractive preview card. Keep global shell-card filtering for
             // every other surface and override this preview only.
-            '.velora-app-preview-card.velora-liquid-shell-card {\n' +
+            '.vliq-app-preview-card.vliq-liquid-shell-card {\n' +
             '  background-color: transparent !important;\n' +
             '  background-image: none !important;\n' +
             '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
-            '#panel.velora-liquid-top-panel {\n' +
+            '#panel.vliq-liquid-top-panel {\n' +
             '  background-color: rgba(255,255,255,' +
             barFilterOpacity.toFixed(3) +
             ') !important;\n' +
@@ -1950,7 +1950,7 @@ export class LiquidGlassIntegration {
 
         const dir = GLib.build_filenamev([
             GLib.get_user_cache_dir(),
-            'velora@wonderer.tech',
+            'vliq@wonderer.tech',
             'card-appearance',
         ]);
         GLib.mkdir_with_parents(dir, 0o755);
@@ -1996,7 +1996,7 @@ export class LiquidGlassIntegration {
 
             this._topPanelManager = manager;
             Main.panel.add_style_class_name?.(
-                'velora-liquid-top-panel'
+                'vliq-liquid-top-panel'
             );
             this._applyTopPanelOverrides();
 
@@ -2137,7 +2137,7 @@ export class LiquidGlassIntegration {
         }
         try {
             Main.panel?.remove_style_class_name?.(
-                'velora-liquid-top-panel'
+                'vliq-liquid-top-panel'
             );
         } catch {
             // Panel may already be tearing down.
@@ -2183,7 +2183,7 @@ export class LiquidGlassIntegration {
     _readDockVerticalOffset() {
         try {
             return clampNumber(
-                this._veloraSettings.get_int(
+                this._vliqSettings.get_int(
                     'dock-vertical-offset'
                 ),
                 -64,
@@ -2302,7 +2302,7 @@ export class LiquidGlassIntegration {
 
         try {
             this._dockVerticalOffsetSettingId =
-                this._veloraSettings.connect(
+                this._vliqSettings.connect(
                     'changed::dock-vertical-offset',
                     () => {
                         if (!this._enabled)
@@ -2319,10 +2319,10 @@ export class LiquidGlassIntegration {
     _cleanupDockVerticalOffsetWatch() {
         if (
             this._dockVerticalOffsetSettingId &&
-            this._veloraSettings
+            this._vliqSettings
         ) {
             try {
-                this._veloraSettings.disconnect(
+                this._vliqSettings.disconnect(
                     this._dockVerticalOffsetSettingId
                 );
             } catch {}
@@ -4980,7 +4980,7 @@ export class LiquidGlassIntegration {
         entry.nativeDockStableH = NaN;
 
         try {
-            entry.manager._veloraRestoreSceneThrottle?.();
+            entry.manager._vliqRestoreSceneThrottle?.();
         } catch {}
 
         try {
@@ -4998,10 +4998,10 @@ export class LiquidGlassIntegration {
         if (!entry || !manager)
             return;
 
-        if (manager._veloraUbuntuDockRuntimePatched)
+        if (manager._vliqUbuntuDockRuntimePatched)
             return;
 
-        manager._veloraUbuntuDockRuntimePatched = true;
+        manager._vliqUbuntuDockRuntimePatched = true;
 
         // Hot-swapped VLIQ revisions reuse the already-loaded vendor module
         // graph. Patch the INSTANCE so these fixes work immediately without a
@@ -5670,24 +5670,24 @@ export class LiquidGlassIntegration {
                     this._spotlightGlassManager
                 ),
                 glassOpacity:
-                    this._veloraSettings?.get_int?.(
+                    this._vliqSettings?.get_int?.(
                         'glass-opacity'
                     ) ?? null,
                 glassTintColor:
-                    this._veloraSettings?.get_string?.(
+                    this._vliqSettings?.get_string?.(
                         'glass-tint-color'
                     ) ?? null,
                 glassBlur:
-                    this._veloraSettings?.get_int?.(
+                    this._vliqSettings?.get_int?.(
                         'glass-blur'
                     ) ?? null,
                 glassStyle:
-                    this._veloraSettings?.get_string?.(
+                    this._vliqSettings?.get_string?.(
                         'glass-style'
                     ) ?? null,
                 frostAmount:
                     this._settings?.get_double?.(
-                        'velora-frost-amount'
+                        'vliq-frost-amount'
                     ) ?? null,
                 nativeNotificationStyler: Boolean(
                     this._notificationGlassManager

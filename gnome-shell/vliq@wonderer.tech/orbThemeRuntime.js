@@ -50,8 +50,8 @@ const APP_PREVIEW_PADDING = 16;
 const APP_PREVIEW_OFFSET = 14;
 const APP_PREVIEW_HIDE_DELAY = 220;
 const DOCK_PREVIEW_RESCAN_MS = 1400;
-const RUNTIME_SINGLETON_KEY = '__veloraDesktopActiveRuntime';
-const VELORA_SCHEMA_ID = 'org.gnome.shell.extensions.velora';
+const RUNTIME_SINGLETON_KEY = '__vliqDesktopActiveRuntime';
+const VLIQ_SCHEMA_ID = 'org.gnome.shell.extensions.vliq';
 
 // WindowPreviewLayout sizes the native clone from the Meta.Window *frame*,
 // but its compositor texture may include a wider/taller buffer (CSD shadow).
@@ -173,7 +173,7 @@ function planWindowPreview(windows, preferredScale, monitor) {
     return {cardWidth, cardHeight, tiles};
 }
 
-function createCanonicalVeloraSettings(uuid) {
+function createCanonicalVLIQSettings(uuid) {
     const schemaDir = GLib.build_filenamev([
         GLib.get_user_data_dir(),
         'gnome-shell',
@@ -187,7 +187,7 @@ function createCanonicalVeloraSettings(uuid) {
         Gio.SettingsSchemaSource.get_default(),
         false
     );
-    const schema = source.lookup(VELORA_SCHEMA_ID, true);
+    const schema = source.lookup(VLIQ_SCHEMA_ID, true);
 
     if (!schema) {
         throw new Error(
@@ -199,7 +199,7 @@ function createCanonicalVeloraSettings(uuid) {
     return new Gio.Settings({settings_schema: schema});
 }
 
-export default class VeloraRuntime extends Extension {
+export default class VLIQRuntime extends Extension {
     async enable() {
         const previousRuntime = globalThis[RUNTIME_SINGLETON_KEY];
         if (previousRuntime && previousRuntime !== this) {
@@ -222,7 +222,7 @@ export default class VeloraRuntime extends Extension {
         // runtime/prefs keys bind immediately in the current Shell session.
         try {
             this._settings =
-                createCanonicalVeloraSettings(this.uuid);
+                createCanonicalVLIQSettings(this.uuid);
         } catch (error) {
             logError(
                 error,
@@ -278,7 +278,7 @@ export default class VeloraRuntime extends Extension {
         this._searchSurfaceManager.setup();
 
         this._liquidGlassIntegration = new LiquidGlassIntegration({
-            veloraSettings: this._settings,
+            vliqSettings: this._settings,
         });
 
         try {
@@ -446,7 +446,7 @@ export default class VeloraRuntime extends Extension {
 
     _removeStaleLayers() {
         for (const actor of Main.uiGroup.get_children()) {
-            if (actor.get_name?.() === 'velora-desktop-layer') {
+            if (actor.get_name?.() === 'vliq-desktop-layer') {
                 try {
                     actor.destroy();
                 } catch (error) {
@@ -461,7 +461,7 @@ export default class VeloraRuntime extends Extension {
 
     _createLayer() {
         this._layer = new St.Widget({
-            name: 'velora-desktop-layer',
+            name: 'vliq-desktop-layer',
             reactive: false,
             x: 0,
             y: 0,
@@ -515,7 +515,7 @@ export default class VeloraRuntime extends Extension {
 
     _createOrb() {
         this._orbContent = new St.Widget({
-            style_class: 'velora-orb-content-v2',
+            style_class: 'vliq-orb-content-v2',
             reactive: false,
             x_expand: true,
             y_expand: true,
@@ -525,7 +525,7 @@ export default class VeloraRuntime extends Extension {
         });
 
         this._orbFace = new St.Widget({
-            style_class: 'velora-orb-face-v2',
+            style_class: 'vliq-orb-face-v2',
             reactive: false,
         });
 
@@ -533,7 +533,7 @@ export default class VeloraRuntime extends Extension {
             icon_name: DEFAULT_ORB_ICON,
             fallback_icon_name: FALLBACK_ORB_ICON,
             icon_size: 24,
-            style_class: 'velora-orb-glyph-v2',
+            style_class: 'vliq-orb-glyph-v2',
             reactive: false,
         });
 
@@ -541,7 +541,7 @@ export default class VeloraRuntime extends Extension {
         this._orbContent.add_child(this._orbMark);
 
         this._orb = new St.Button({
-            style_class: 'velora-orb-hitbox-v2',
+            style_class: 'vliq-orb-hitbox-v2',
             accessible_name: 'VLIQ',
             can_focus: true,
             reactive: true,
@@ -1702,7 +1702,7 @@ export default class VeloraRuntime extends Extension {
 
             const line = new St.Widget({
                 style_class:
-                    'velora-orb-geometry-link',
+                    'vliq-orb-geometry-link',
                 reactive: false,
             });
             line.set_size(
@@ -1810,7 +1810,7 @@ export default class VeloraRuntime extends Extension {
             Math.round(iconSize * 0.72)
         );
         const content = new St.Widget({
-            style_class: 'velora-app-content',
+            style_class: 'vliq-app-content',
             layout_manager: new Clutter.FixedLayout(),
         });
         content.set_size(iconSize, iconSize);
@@ -1828,7 +1828,7 @@ export default class VeloraRuntime extends Extension {
         ) {
             const dotSize = Math.max(3, Math.round(iconSize * 0.09));
             const dot = new St.Widget({
-                style_class: 'velora-running-dot',
+                style_class: 'vliq-running-dot',
                 reactive: false,
             });
             dot.set_size(dotSize, dotSize);
@@ -1840,7 +1840,7 @@ export default class VeloraRuntime extends Extension {
         }
 
         const button = new St.Button({
-            style_class: 'velora-app-button',
+            style_class: 'vliq-app-button',
             accessible_name: app.get_name(),
             can_focus: true,
             reactive: true,
@@ -2027,7 +2027,7 @@ export default class VeloraRuntime extends Extension {
         if (!this._orbPageIndicator) {
             this._orbPageIndicator = new St.Label({
                 style_class:
-                    'velora-orb-page-indicator',
+                    'vliq-orb-page-indicator',
                 reactive: false,
             });
             this._layer.add_child(
@@ -2582,7 +2582,7 @@ export default class VeloraRuntime extends Extension {
         const {cardWidth, cardHeight} = layout;
 
         const card = new St.Widget({
-            style_class: 'velora-app-preview-card',
+            style_class: 'vliq-app-preview-card',
             reactive: true,
             track_hover: true,
             layout_manager: new Clutter.FixedLayout(),
@@ -2665,7 +2665,7 @@ export default class VeloraRuntime extends Extension {
         window, tileWidth, tileHeight, bounds = previewWindowBounds(window)
     ) {
         const content = new St.Widget({
-            style_class: 'velora-window-preview-content',
+            style_class: 'vliq-window-preview-content',
             reactive: false,
             clip_to_allocation: true,
             layout_manager: new Clutter.FixedLayout(),
@@ -2719,7 +2719,7 @@ export default class VeloraRuntime extends Extension {
         content.add_child(preview);
 
         const tile = new St.Button({
-            style_class: 'velora-window-preview-tile',
+            style_class: 'vliq-window-preview-tile',
             accessible_name: window.title || 'Window preview',
             can_focus: true,
             reactive: true,
@@ -2937,7 +2937,7 @@ export default class VeloraRuntime extends Extension {
 
         this._tooltip = new St.Label({
             text,
-            style_class: 'velora-tooltip',
+            style_class: 'vliq-tooltip',
             reactive: false,
         });
         this._layer.add_child(this._tooltip);

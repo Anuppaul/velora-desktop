@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.velora" path="/org/gnome/shell/extensions/velora/">
+  <schema id="org.gnome.shell.extensions.vliq" path="/org/gnome/shell/extensions/vliq/">
     <key name="bootstrap-loaded-generation" type="s">
       <default>''</default>
       <summary>Internal bootstrap generation loaded by GNOME Shell</summary>

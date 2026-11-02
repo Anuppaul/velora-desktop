@@ -1,8 +1,8 @@
-// Velora shared Liquid Glass material system.
+// VLIQ shared Liquid Glass material system.
 //
 // This module is the design-system layer above the generic vendored renderer.
 // Surface adapters decide WHAT is glass (Date Menu cards, Quick Settings pods,
-// notification cards, etc.); this file decides HOW Velora glass behaves.
+// notification cards, etc.); this file decides HOW VLIQ glass behaves.
 //
 // Keep visual constants here rather than scattering them across managers.
 // Changing a role here intentionally updates every surface consuming that role.
@@ -69,9 +69,9 @@ const CLEAN_POPUP_CHROME = Object.freeze({
     nativeBorder: false,
 });
 
-export const VELORA_GLASS_ROLES = Object.freeze({
+export const VLIQ_GLASS_ROLES = Object.freeze({
     // Aliases intentionally point to the SAME frozen role object.
-    // One material tune therefore updates every adopted Velora card surface.
+    // One material tune therefore updates every adopted VLIQ card surface.
     innerCard: PREMIUM_CARD_ROLE,
     quickMenuCard: PREMIUM_CARD_ROLE,
     notificationCard: PREMIUM_CARD_ROLE,
@@ -82,7 +82,7 @@ export const VELORA_GLASS_ROLES = Object.freeze({
     orbCard: PREMIUM_CARD_ROLE,
 });
 
-export const VELORA_GLASS_ADAPTERS = Object.freeze({
+export const VLIQ_GLASS_ADAPTERS = Object.freeze({
     popupMenu: Object.freeze({
         popupChrome: CLEAN_POPUP_CHROME,
         filterUsesContentBounds: true,
@@ -238,7 +238,7 @@ export function stepGlassInteraction(
     return next;
 }
 
-export function resolveRoleBlur(baseBlur, role = VELORA_GLASS_ROLES.innerCard) {
+export function resolveRoleBlur(baseBlur, role = VLIQ_GLASS_ROLES.innerCard) {
     const blur = Number.isFinite(baseBlur) ? baseBlur : 7;
 
     // Zero is an explicit off state, not a request for the role floor.
@@ -252,9 +252,9 @@ export function resolveRoleBlur(baseBlur, role = VELORA_GLASS_ROLES.innerCard) {
     );
 }
 
-export function applyVeloraGlassRole(
+export function applyVLIQGlassRole(
     effect,
-    role = VELORA_GLASS_ROLES.innerCard,
+    role = VLIQ_GLASS_ROLES.innerCard,
     {
         tintColor = [1, 1, 1],
         tintStrength = role.tintStrength,

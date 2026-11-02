@@ -4,13 +4,13 @@ import St from 'gi://St';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-export const VELORA_BOOTSTRAP_API = 1;
-export const VELORA_BOOTSTRAP_GENERATION = '2026-09-28-b';
+export const VLIQ_BOOTSTRAP_API = 1;
+export const VLIQ_BOOTSTRAP_GENERATION = '2026-09-28-b';
 
 const BASE_REVISION = 'base';
-const BOOTSTRAP_REVISION_FILE = '.velora-bootstrap-revision';
+const BOOTSTRAP_REVISION_FILE = '.vliq-bootstrap-revision';
 
-export default class VeloraBootstrap extends Extension {
+export default class VLIQBootstrap extends Extension {
     async enable() {
         this._enabled = true;
         this._settings = this.getSettings();
@@ -32,7 +32,7 @@ export default class VeloraBootstrap extends Extension {
 
         this._settings.set_string(
             'bootstrap-loaded-generation',
-            VELORA_BOOTSTRAP_GENERATION
+            VLIQ_BOOTSTRAP_GENERATION
         );
         this._settings.set_string(
             'bootstrap-loaded-revision',
@@ -181,7 +181,7 @@ export default class VeloraBootstrap extends Extension {
     async _readBootstrapRevision() {
         const marker = this.dir.get_child(BOOTSTRAP_REVISION_FILE);
         if (!marker.query_exists(null))
-            return VELORA_BOOTSTRAP_GENERATION;
+            return VLIQ_BOOTSTRAP_GENERATION;
 
         // Use GIO's callback form to remain compatible with GNOME 50's
         // async introspection API without assuming Gio._promisify() was
@@ -199,15 +199,15 @@ export default class VeloraBootstrap extends Extension {
                             const revision = bytes
                                 ? new TextDecoder().decode(bytes).trim()
                                 : '';
-                            resolve(revision || VELORA_BOOTSTRAP_GENERATION);
+                            resolve(revision || VLIQ_BOOTSTRAP_GENERATION);
                         } catch {
-                            resolve(VELORA_BOOTSTRAP_GENERATION);
+                            resolve(VLIQ_BOOTSTRAP_GENERATION);
                         }
                     }
                 );
             } catch {
                 // Store installs need no bootstrap marker at all.
-                resolve(VELORA_BOOTSTRAP_GENERATION);
+                resolve(VLIQ_BOOTSTRAP_GENERATION);
             }
         });
     }
