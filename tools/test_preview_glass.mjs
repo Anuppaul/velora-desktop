@@ -139,7 +139,7 @@ const stage = {
     },
 };
 const uiGroup = new Actor({name: 'uiGroup'});
-const cardLayer = new Actor({name: 'vliq-desktop-layer'});
+const cardLayer = new Actor({name: 'vliq-layer'});
 uiGroup.add_child(cardLayer);
 const Manager = new Function(
     'Clutter', 'GLib', 'St', 'Main', 'global',
