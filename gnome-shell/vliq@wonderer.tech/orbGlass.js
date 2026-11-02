@@ -102,7 +102,7 @@ export class OrbGlassManager {
         this._desktopLayer = Main.uiGroup
             ?.get_children?.()
             ?.find(actor =>
-                actor.get_name?.() === 'vliq-desktop-layer'
+                actor.get_name?.() === 'vliq-layer'
             ) ?? null;
 
         if (!this._desktopLayer)
