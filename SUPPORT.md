@@ -1,6 +1,6 @@
 # Support
 
-Velora is a community open-source GNOME Shell extension.
+VLIQ is a community open-source GNOME Shell extension.
 
 ## Supported environment
 
@@ -69,14 +69,14 @@ The project cannot guarantee support for:
 
 - unsupported GNOME Shell versions;
 - modified third-party forks;
-- local changes not present in upstream Velora;
-- unrelated GNOME extensions that conflict with Shell actors Velora also integrates with;
+- local changes not present in upstream VLIQ;
+- unrelated GNOME extensions that conflict with Shell actors VLIQ also integrates with;
 - distro-specific patches that cannot be reproduced upstream.
 
 Compatibility reports are still welcome because they can help identify future work.
 
 ## No guaranteed response time
 
-Velora is maintained as an open-source project without a paid support SLA.
+VLIQ is maintained as an open-source project without a paid support SLA.
 
 Reports with clear reproduction steps and evidence are easier for maintainers and contributors to investigate.
