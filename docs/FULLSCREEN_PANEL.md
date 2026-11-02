@@ -4,7 +4,7 @@
 
 GNOME Shell 50 already registers `Main.layoutManager.panelBox` with
 `trackFullscreen: true`. When a fullscreen window is on the **primary
-monitor**, the Shell normally hides that actor. Velora uses a separate
+monitor**, the Shell normally hides that actor. VLIQ uses a separate
 `DashManager.bgActor` glass layer inserted into `uiGroup`, outside the
 native panelBox; it can remain visible when the native panel has hidden.
 
@@ -17,7 +17,7 @@ rather than sending the video buffer directly to the display.
 - GNOME's native `in-fullscreen-changed` event drives a small visibility
   guard. It checks `get_monitor_in_fullscreen(primaryIndex)`, then only
   hides `panelBox` if the Shell has not already done so.
-- A `DashManager.setVisibilityGate()` callback suppresses the **Velora
+- A `DashManager.setVisibilityGate()` callback suppresses the **VLIQ
   top-panel glass** whenever the native panel is hidden/unmapped or its
   primary monitor is fullscreen.
 - The guard synchronizes on `panelBox notify::visible` and
@@ -25,7 +25,7 @@ rather than sending the video buffer directly to the display.
   it requests a single redraw of the `uiGroup` compositor brightness scene.
 - On leaving fullscreen, visibility is handed back to GNOME's native
   `LayoutManager._updateVisibility()` so Overview/session behavior is
-  preserved. On disabling Velora, the guard disconnects its signals,
+  preserved. On disabling VLIQ, the guard disconnects its signals,
   clears the vendor visibility callback and never forces a panel visible
   while GNOME still considers that monitor fullscreen.
 - The separate **Ubuntu Dock Panel-mode liquid backdrop** is suppressed
@@ -43,7 +43,7 @@ rather than sending the video buffer directly to the display.
    appearance; Quick Settings still works.
 3. On two displays, fullscreen a video **only on the secondary monitor**:
    the primary top bar must stay in its normal state.
-4. Enter/exit fullscreen repeatedly, then update Velora via the existing
+4. Enter/exit fullscreen repeatedly, then update VLIQ via the existing
    hot-swap installer. No stale glass bar or duplicate signal handlers should
    remain.
 5. At software brightness 100% and feature OFF, ordinary GNOME fullscreen
@@ -51,10 +51,10 @@ rather than sending the video buffer directly to the display.
 
 **Important:** In Ubuntu Dock's extended **Panel mode**, the dock itself is
 owned by the separate `ubuntu-dock@ubuntu.com` extension. If native Dock
-icons remain in fullscreen, check Velora Preferences → Dock → Native Ubuntu
+icons remain in fullscreen, check VLIQ Preferences → Dock → Native Ubuntu
 Dock — Visibility & Auto-hide: **Always visible** should be OFF, and enable
 **Intelligent hide** or **Auto-hide at screen edge**. **Allow reveal in
-fullscreen** controls native edge reveal. Velora does not silently rewrite
+fullscreen** controls native edge reveal. VLIQ does not silently rewrite
 these user choices when hiding only its independent glass layer.
 
 Code is integration-tested with GNOME 50 scene mocks; actual Wayland
@@ -68,5 +68,5 @@ visual output on every Ubuntu Dock version.
   `_updateActorVisibility`, `in-fullscreen-changed`.
 - GNOME Shell 50 `js/ui/osdWindow.js`:
   balanced fullscreen compositor direct-scanout inhibition.
-- Velora `liquidGlassDock.js` and bundled upstream
+- VLIQ `liquidGlassDock.js` and bundled upstream
   `dist/dockManager.js`: independent top-panel glass actor.
