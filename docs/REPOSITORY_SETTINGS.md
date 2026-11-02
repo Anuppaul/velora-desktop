@@ -2,13 +2,13 @@
 
 Most open-source project configuration lives in the repository and is version-controlled. A few important GitHub settings live only in repository administration and cannot be represented fully by committed files.
 
-Use this checklist when maintaining Velora's GitHub repository.
+Use this checklist when maintaining VLIQ's GitHub repository.
 
 ## About / discoverability
 
 Recommended repository description:
 
-> GNOME Shell 50 extension adding Liquid Glass surfaces, Velora Orb, and Super+Space Spotlight while preserving native GNOME behavior.
+> GNOME Shell 50 extension adding Liquid Glass surfaces, VLIQ Orb, and Super+Space Spotlight while preserving native GNOME behavior.
 
 Recommended topics:
 
