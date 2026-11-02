@@ -6,7 +6,7 @@ The separate floating dock is removed. The VLIQ Orb keeps its full behavior: cli
 
 ## Active runtime
 
-    velora@wonderer.tech/
+    vliq@wonderer.tech/
       runtime.js
       orbThemeRuntime.js
       liquidGlassDock.js
@@ -34,7 +34,7 @@ For a fresh bootstrap/schema install, follow the installer's unsafe-mode prompt 
 
 ## Logs
 
-    journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'velora|liquid glass|liquidglass'
+    journalctl -f -o cat /usr/bin/gnome-shell | grep -i -E 'vliq|liquid glass|liquidglass'
 
 Expected popup adapter startup log:
 
@@ -46,7 +46,7 @@ When a popup is first converted:
 
 ## Preferences
 
-    gnome-extensions prefs velora@wonderer.tech
+    gnome-extensions prefs vliq@wonderer.tech
 
 The main VLIQ page contains only the shared system-glass profile and Orb controls. Advanced renderer controls come from the vendored Liquid Glass preference pages.
 
