@@ -1030,6 +1030,27 @@ export default class VLIQPreferences extends ExtensionPreferences {
         );
 
         // -----------------------------------------------------------------
+        // Widgets
+        // -----------------------------------------------------------------
+        const widgetsPage = addPage(
+            window,
+            'Widgets',
+            'preferences-system-time-symbolic',
+            'Desktop widgets managed by VLIQ.'
+        );
+        const clockGroup = new Adw.PreferencesGroup({
+            title: 'Clock',
+            description: 'A lightweight desktop clock with the VLIQ glass-inspired finish.',
+        });
+        widgetsPage.add(clockGroup);
+        addSwitch(clockGroup, settings, 'clock-widget-enabled',
+            'Show desktop clock',
+            'Display the clock in the upper-right desktop area.');
+        addSwitch(clockGroup, settings, 'clock-widget-24h',
+            '24-hour time',
+            'Switch between 24-hour and 12-hour clock formats.');
+
+        // -----------------------------------------------------------------
         // Performance
         // -----------------------------------------------------------------
         const performancePage = addPage(
