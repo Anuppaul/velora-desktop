@@ -106,7 +106,7 @@ export class OrbGlassManager {
             ) ?? null;
 
         if (!this._desktopLayer)
-            throw new Error('Velora desktop layer unavailable');
+            throw new Error('VLIQ visual layer unavailable');
 
         this._enabled = true;
         this._appearance = this._readAppearance();
