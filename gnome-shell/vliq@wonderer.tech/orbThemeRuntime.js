@@ -446,7 +446,7 @@ export default class VLIQRuntime extends Extension {
 
     _removeStaleLayers() {
         for (const actor of Main.uiGroup.get_children()) {
-            if (actor.get_name?.() === 'vliq-desktop-layer') {
+            if (actor.get_name?.() === 'vliq-layer') {
                 try {
                     actor.destroy();
                 } catch (error) {
@@ -461,7 +461,7 @@ export default class VLIQRuntime extends Extension {
 
     _createLayer() {
         this._layer = new St.Widget({
-            name: 'vliq-desktop-layer',
+            name: 'vliq-layer',
             reactive: false,
             x: 0,
             y: 0,
