@@ -1,4 +1,4 @@
-# Velora performance baseline
+# VLIQ performance baseline
 
 This opt-in, read-only sampler runs as a separate Python process. It does not patch GNOME Shell, restart it, add runtime timers, install packages, or require root.
 
@@ -34,7 +34,7 @@ Use --pid PID if multiple same-user gnome-shell processes exist, --delay 10 to g
 
 - CPU% is GNOME Shell process usage: 100% equals one fully busy CPU core; multi-threaded values can exceed 100%.
 - RSS is the whole GNOME Shell process, not the extension alone.
-- NVIDIA utilization, VRAM and power are **device-wide**, including other programs. They cannot be attributed solely to GNOME Shell or Velora.
+- NVIDIA utilization, VRAM and power are **device-wide**, including other programs. They cannot be attributed solely to GNOME Shell or VLIQ.
 - Sampling nvidia-smi creates a small, external overhead. Compare runs under the same sampling settings.
 - No FPS, compositor paint duration, dropped-frame rate, motion quality or per-effect GPU timing is measured. Use a GNOME Sysprof/compositor trace for those.
 - Inspect reports before sharing: timestamps, PIDs and system workload may reveal information about your machine.
@@ -45,7 +45,7 @@ Use --pid PID if multiple same-user gnome-shell processes exist, --delay 10 to g
 - Orb's small, single-batch surface still samples every compositor frame. Expanded, **stationary** All Apps pages (>16 visible regions) cap geometry/hover scans at 30 FPS; while translation/scale/opacity transitions are active, region placement follows **every compositor frame**. The window-clone scene keeps its original 24 FPS cap. Newly scanned/revealed regions get an immediate pass.
 - The existing native-Dock 180 px monitor-thickness guard, stage clipping, fallback veil and no-fullscreen-panel-FBO architecture are unchanged. This optimization does not claim measured CPU, GPU, FPS or latency gains: capture the same desktop scenarios and compositor traces before attributing improvements.
 
-Runtime guard checks: `node tools/test_frame_budget.mjs`; Velora JS modules are syntax-checked on PRs.
+Runtime guard checks: `node tools/test_frame_budget.mjs`; VLIQ JS modules are syntax-checked on PRs.
 
 ## Transition blink / jump regression checklist
 
@@ -124,7 +124,7 @@ Run `node tools/test_liquid_optics.mjs` to verify migration behavior.
 
 The shared running-window preview card previously used a nearly opaque
 `rgba(8, 9, 12, 0.94)` black background. It now uses the same bounded
-`ShellCardSurface` LiquidEffect as Velora's other premium shell cards:
+`ShellCardSurface` LiquidEffect as VLIQ's other premium shell cards:
 live desktop/window refraction, 16px native card corners, v10 material optics,
 and 104px capture margin around the card rather than a fullscreen effect.
 
@@ -291,7 +291,7 @@ Following the approved 640×360 preview, the default 100% Window Preview Size no
 ## Remove the remaining preview white layer (single-material glass)
 
 The compact **480×270 exact-16:9** running-window preview already has its own
-Velora LiquidEffect as the first child of the native card. However, the card
+VLIQ LiquidEffect as the first child of the native card. However, the card
 still received a painted translucent white body when glass was active, and
 `LiquidGlassIntegration._applyCardAppearanceStylesheet()` applied a generic
 `.velora-liquid-shell-card` **`!important` white-filter override** on top of
@@ -318,9 +318,9 @@ to the global Glass Filter setting; mock tests do not prove the GPU visuals.
 
 ## Live material modes: Liquid Glass v10 and Frosted Crystal
 
-Velora now retains the original v10 **Liquid Glass** as the default and adds
-**Frosted Crystal**, selected from **Extensions → Velora Desktop → Preferences
-→ Appearance → Glass Material**. The selected mode is stored in Velora's
+VLIQ now retains the original v10 **Liquid Glass** as the default and adds
+**Frosted Crystal**, selected from **Extensions → VLIQ → Preferences
+→ Appearance → Glass Material**. The selected mode is stored in VLIQ's
 canonical `glass-style` GSettings key (`liquid` / `frosted`) and changes
 live. Frost Density, Micro-grain and Crystal Edge Glow are independent
 0–100 controls; changing modes never modifies a user's existing Advanced
@@ -496,11 +496,11 @@ This remains a local shader adjustment: 3px SDF extent, rounded corners,
 premultiplied-alpha coverage, single LiquidEffect and material selection
 remain unchanged. GNOME 50 on-device visuals still need confirmation.
 
-## Ubuntu Dock: native auto-hide repair and Velora Preferences controls
+## Ubuntu Dock: native auto-hide repair and VLIQ Preferences controls
 
 The native Ubuntu Dock (Dash-to-Dock) retains full ownership of edge-hover,
 pressure, `intellihide`, `dock-fixed`, native transitions and click targets.
-Velora neither adds a second dock nor replaces the native state machine.
+VLIQ neither adds a second dock nor replaces the native state machine.
 
 ### Actual autohide regressions fixed
 
@@ -508,7 +508,7 @@ Velora neither adds a second dock nor replaces the native state machine.
    previously did `Number(slideOverride)` when the default argument was
    `null`. JavaScript returns **0**, not `NaN`, so a visible dock was
    incorrectly positioned as though its reveal animation were fully hidden
-   when Velora refreshed it. An omitted override now reads the current native
+   when VLIQ refreshed it. An omitted override now reads the current native
    `DashSlideContainer.slide-x` property. Explicit 0 overrides still work.
 2. **Missing GJS state properties:** the GNOME Shell 50/Ubuntu Dock native
    APIs vary by version: `slide_x`, `slideX`, `get_property('slide-x')`,
@@ -516,10 +516,10 @@ Velora neither adds a second dock nor replaces the native state machine.
    fabricates `0` (hidden). The true native slider/legacy state is used.
 3. **Intelligent hide target drift:** native Ubuntu Dock already maintains
    a stable fully-shown `_staticBox` (see its `_updateStaticBox()`); a
-   previously duplicated Velora overlap rectangle depended on a moving
+   previously duplicated VLIQ overlap rectangle depended on a moving
    `_box` allocation during native hide/reveal. With zero vertical offset,
-   Velora now restores Ubuntu Dock's native ActorBox as the authoritative
-   overlap rectangle. With an explicit offset, Velora copies the stable
+   VLIQ now restores Ubuntu Dock's native ActorBox as the authoritative
+   overlap rectangle. With an explicit offset, VLIQ copies the stable
    rectangle and applies only the desired Y shift, independent of the native
    slide progress. Panel mode also restores the original native rectangle.
    The old allocation fallback exists only for older native forks without
@@ -527,7 +527,7 @@ Velora neither adds a second dock nor replaces the native state machine.
    `updateTargetBox` calls cannot cache invalid rectangles.
 4. **Native settings changes:** changes to Ubuntu Dock's visibility, pressure,
    timing, edge, or multi-monitor settings now schedule one coalesced GLib
-   idle callback *after* native handlers have processed the change. Velora
+   idle callback *after* native handlers have processed the change. VLIQ
    rebinds actors, corrects position/overlap, calls native `sync_hover()`
    and `forceUpdate()`, then updates only glass visibility. It never calls
    native `showDock()/hideDock()` or `_animateIn/_animateOut` and never
@@ -546,7 +546,7 @@ sizes and decimal pressure/timing are two-way live bindings. Opening the
 preferences page does **not** write or reset native defaults. The explicit
 **Restore Intelligent Auto-hide** action writes related native keys as
 one `Gio.Settings.delay()/apply()` batch and never runs automatically.
-The existing Velora vertical offset remains a separate control.
+The existing VLIQ vertical offset remains a separate control.
 
 ### CI / on-device acceptance
 
@@ -610,7 +610,7 @@ Then close Overview and reopen the Calendar on the desktop: live windows must
 again be visible through translucent glass. Repeat with Quick Settings,
 window switching, Super transitions and multiple monitors. A popup over
 Overview may show the wallpaper-only fallback; it does not attempt to clone
-the whole Overview actor subtree, since cloning active Shell/Velora glass
+the whole Overview actor subtree, since cloning active Shell/VLIQ glass
 there could create recursive compositor capture or a black rectangle.
 
 ## Calendar/browser background leak — full repair after Overview timing race
@@ -621,13 +621,13 @@ opens, so `Main.overview.visible` and `visibleTarget` can both be false
 while the Calendar is being painted. The previous rule then **re-enabled
 Browser/Meta.WindowActor clones**, showing the full-size webpage inside
 Calendar glass. Moreover, the vendored `WindowCloneManager` JS class is
-cached within a running GNOME Shell process across Velora hot-swaps; the
+cached within a running GNOME Shell process across VLIQ hot-swaps; the
 earlier change to that vendor module could be unavailable until logout.
 
 The robust policy is now **wallpaper-only capture for the native Date/Calendar
 menu**, independently of Overview state. Both native `datemenu-popover` style
 and `Main.panel.statusArea.dateMenu.menu` identity are recognized.
-Before the Calendar's LiquidEffect is constructed, Velora disables only the
+Before the Calendar's LiquidEffect is constructed, VLIQ disables only the
 window-clone subtree of its existing WindowCloneManager. The backdrop is
 still the same GPU-rendered, shared wallpaper source; the original outer
 and nested Date-menu Liquid/Frosted glass, blur, native date controls,
@@ -640,7 +640,7 @@ capture toggle when available **and directly enforces visibility on the
 existing `windowClonesContainer` when the cached vendor is older**.
 The latter is essential: older managers do not know the new API, and their
 cloned children could otherwise continue to render even with the latest
-Velora runtime. The same invariant is checked on each pre-existing popup
+VLIQ runtime. The same invariant is checked on each pre-existing popup
 stage sync so an external GNOME scene/monitor rebuild cannot revive browser
 pixels. The fast unchanged-state check does no extra redraw. The existing
 Overview gate continues for Quick Settings and other generic popup surfaces,
@@ -669,7 +669,7 @@ has currently painted*:
   `Clutter.Clone({source: Main.layoutManager.overviewGroup})` inside the
   existing Calendar LiquidEffect's scene tree, **above** its shared wallpaper
   mirror. This captures the original App Grid/Overview content—including
-  GNOME's icons and Velora's existing native blurred Overview backdrop—
+  GNOME's icons and VLIQ's existing native blurred Overview backdrop—
   instead of the original full-size desktop Browser window.
 - **Overview closed:** hide that clone; the pre-existing wallpaper mirror
   is the safe Calendar backdrop. Date Menu's live desktop-window clones
@@ -780,18 +780,18 @@ If a popup open action actually dismisses GNOME Overview first, there is
 no longer an on-screen App Grid to sample; the live desktop/window
 source should be selected instead of showing a stale Overview snapshot.
 
-## Velora Atmosphere — native wallpaper-only filmic treatment
+## VLIQ Atmosphere — native wallpaper-only filmic treatment
 
 The new **Wallpaper** preferences page selects Original (default), Natural,
 Cinematic, Atmosphere or Custom. Five user-adjustable 0–100 values control
 filmic color, soft vignette, adaptive per-pixel ambient color, screen-static
 micro-grain and adaptive contrast. The selected preset and slider values
-persist in the canonical Velora GSettings schema. Choosing Original detaches
+persist in the canonical VLIQ GSettings schema. Choosing Original detaches
 all Atmosphere GPU effects without erasing previously selected intensities.
 
 ### Source ownership / double-filter prevention
 
-Original GNOME wallpaper and the three Velora wallpaper paint paths must
+Original GNOME wallpaper and the three VLIQ wallpaper paint paths must
 be treated as separate **source actors**, not as final desktop UI:
 
 1. **GNOME desktop:** `Main.layoutManager._backgroundGroup` contains
@@ -804,7 +804,7 @@ be treated as separate **source actors**, not as final desktop UI:
    **mirror children**, never the window clones, GlassEffect or `uiGroup`.
    An existing `BackgroundMirror` is found on setup; new mirrors are
    attached through `uiGroup::child-added`. No extra wallpaper decode.
-3. **App Grid/Overview:** Velora already creates one native
+3. **App Grid/Overview:** VLIQ already creates one native
    `Shell.BlurEffect` wrapper per monitor, containing its own
    `Background.BackgroundManager` wallpaper children. Atmosphere watches
    **the wallpaper actors inside each wrapper**, so the existing blur
@@ -912,7 +912,7 @@ remain exactly user-owned. Original continues to remove all effects.
 GNOME registers GObject class names for the lifetime of its Shell process.
 The PR #62 effect class was cached as `VeloraAtmosphereShaderEffectV1`.
 Merely changing the GLSL source while retaining that name/key could
-continue using the OLD invisible shader on Velora hot-reload. The
+continue using the OLD invisible shader on VLIQ hot-reload. The
 recalibrated shader now uses **`VeloraAtmosphereShaderEffectV2`** and
 a separate process-global cache key. Running sessions may allocate the
 new type without re-registering V1; GNOME's old effect instances are
@@ -953,7 +953,7 @@ details. The existing manager/UI regressions cover old preset migration,
 live GSettings statuses, Custom slider values, source grouping, texture
 sampling, GObject V2 hot-reload and zero effects in Original.
 
-**On a GNOME Shell 50 device:** update Velora; select *Velora Atmosphere*
+**On a GNOME Shell 50 device:** update VLIQ; select *VLIQ Atmosphere*
 and ensure the status reads `Shader attached to X/Y`, with X > 0.
 Toggle to Original and back over a colored wallpaper, then switch to
 Cinematic: corner depth/color tone should be immediately identifiable.
