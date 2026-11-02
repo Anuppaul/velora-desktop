@@ -25,7 +25,7 @@ jobs:
 
       - name: Check VLIQ runtime JS syntax and frame budget
         run: |
-          find gnome-shell/velora@wonderer.tech -maxdepth 1 -name '*.js' -print0 |
+          find gnome-shell/vliq@wonderer.tech -maxdepth 1 -name '*.js' -print0 |
             while IFS= read -r -d '' file; do
               node --input-type=module --check < "$file"
             done
@@ -49,8 +49,8 @@ jobs:
           node tools/test_frosted_crystal.mjs
           node tools/test_adaptive_blue_edge.mjs
           # Validate the modified vendored modules as well as VLIQ's own JS.
-          node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
-          node --input-type=module --check < gnome-shell/velora@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
+          node --input-type=module --check < gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/dist/liquidEffect.js
+          node --input-type=module --check < gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/dist/rendering/material.js
 
       - name: Validate GNOME Store runtime-only release manifest
         run: |
@@ -59,8 +59,8 @@ jobs:
 
       - name: Validate both GSettings material schemas
         run: |
-          glib-compile-schemas --strict --dry-run gnome-shell/velora@wonderer.tech/schemas
-          glib-compile-schemas --strict --dry-run gnome-shell/velora@wonderer.tech/vendor/liquid-glass/schemas
+          glib-compile-schemas --strict --dry-run gnome-shell/vliq@wonderer.tech/schemas
+          glib-compile-schemas --strict --dry-run gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/schemas
 
       - name: Validate repository metadata and XML
         run: |
@@ -71,7 +71,7 @@ jobs:
           import xml.etree.ElementTree as ET
 
           root = pathlib.Path(".")
-          ext = root / "gnome-shell" / "velora@wonderer.tech"
+          ext = root / "gnome-shell" / "vliq@wonderer.tech"
           metadata_path = ext / "metadata.json"
 
           required = [
@@ -83,7 +83,7 @@ jobs:
               metadata_path,
               ext / "extension.js",
               ext / "prefs.js",
-              ext / "schemas" / "org.gnome.shell.extensions.velora.gschema.xml",
+              ext / "schemas" / "org.gnome.shell.extensions.vliq.gschema.xml",
           ]
 
           missing = [str(path) for path in required if not path.is_file()]
@@ -91,7 +91,7 @@ jobs:
               raise SystemExit("Missing required files:\n" + "\n".join(missing))
 
           metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-          if metadata.get("uuid") != "velora@wonderer.tech":
+          if metadata.get("uuid") != "vliq@wonderer.tech":
               raise SystemExit("metadata.json UUID does not match the extension directory")
 
           shell_versions = [str(v) for v in metadata.get("shell-version", [])]
@@ -99,7 +99,7 @@ jobs:
               raise SystemExit("metadata.json must include GNOME Shell 50")
 
           schema = metadata.get("settings-schema")
-          expected_schema = "org.gnome.shell.extensions.velora"
+          expected_schema = "org.gnome.shell.extensions.vliq"
           if schema != expected_schema:
               raise SystemExit(f"Unexpected settings schema: {schema!r}")
 
@@ -114,7 +114,7 @@ jobs:
 
       - name: Check for unresolved merge markers
         run: |
-          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' --             ':!gnome-shell/velora@wonderer.tech/vendor/**'; then
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' --             ':!gnome-shell/vliq@wonderer.tech/vendor/**'; then
             echo "Unresolved merge-conflict marker found."
             exit 1
           fi

@@ -84,7 +84,7 @@ jobs:
           import xml.etree.ElementTree as ET
 
           root = pathlib.Path(".")
-          extension = root / "gnome-shell" / "velora@wonderer.tech"
+          extension = root / "gnome-shell" / "vliq@wonderer.tech"
           metadata = json.loads((extension / "metadata.json").read_text(encoding="utf-8"))
 
           required = [
@@ -97,14 +97,14 @@ jobs:
               extension / "runtime.js",
               extension / "vendor" / "liquid-glass" / "LICENSE",
               extension / "vendor" / "liquid-glass" / "UPSTREAM.md",
-              extension / "schemas" / "org.gnome.shell.extensions.velora.gschema.xml",
+              extension / "schemas" / "org.gnome.shell.extensions.vliq.gschema.xml",
           ]
 
           missing = [str(path) for path in required if not path.is_file()]
           if missing:
               raise SystemExit("Missing release files:\n" + "\n".join(missing))
 
-          if metadata.get("uuid") != "velora@wonderer.tech":
+          if metadata.get("uuid") != "vliq@wonderer.tech":
               raise SystemExit("Unexpected extension UUID")
 
           if "50" not in [str(v) for v in metadata.get("shell-version", [])]:
@@ -126,7 +126,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          z = Path("dist/ego/velora@wonderer.tech.shell-extension.zip")
+          z = Path("dist/ego/vliq@wonderer.tech.shell-extension.zip")
           assert z.is_file() and z.stat().st_size > 0
           with ZipFile(z) as archive:
               assert archive.testzip() is None
@@ -142,14 +142,14 @@ jobs:
           ARCHIVE="vliq-${VERSION}.tar.gz"
 
           git archive --format=tar.gz --prefix="vliq-${VERSION}/" --output="${ARCHIVE}" "${TAG_COMMIT}"
-          cp dist/ego/velora@wonderer.tech.shell-extension.zip .
-          sha256sum "${ARCHIVE}" velora@wonderer.tech.shell-extension.zip > SHA256SUMS
+          cp dist/ego/vliq@wonderer.tech.shell-extension.zip .
+          sha256sum "${ARCHIVE}" vliq@wonderer.tech.shell-extension.zip > SHA256SUMS
 
           {
             echo "## Release artifact"
             echo
             echo "- \`${ARCHIVE}\` — complete VLIQ source tree for this tag"
-            echo "- \`velora@wonderer.tech.shell-extension.zip\` — GNOME Extensions Store upload package (GNOME 50)"
+            echo "- \`vliq@wonderer.tech.shell-extension.zip\` — GNOME Extensions Store upload package (GNOME 50)"
             echo "- \`SHA256SUMS\` — SHA-256 checksum"
             echo
             echo "Install after extraction:"
@@ -184,4 +184,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "${TAG}" "vliq-${TAG#v}.tar.gz" "velora@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "VLIQ ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+          gh release create "${TAG}" "vliq-${TAG#v}.tar.gz" "vliq@wonderer.tech.shell-extension.zip" "SHA256SUMS" --title "VLIQ ${TAG}" --notes-file RELEASE_NOTES.md --verify-tag

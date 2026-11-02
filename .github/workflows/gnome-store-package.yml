@@ -35,14 +35,14 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile
 
-          archive = Path('dist/ego/velora@wonderer.tech.shell-extension.zip')
+          archive = Path('dist/ego/vliq@wonderer.tech.shell-extension.zip')
           target = Path('dist/ego/inspect')
           with ZipFile(archive) as z:
               assert z.testzip() is None
               z.extractall(target)
               names = z.namelist()
               assert names.count('metadata.json') == 1
-              assert 'schemas/org.gnome.shell.extensions.velora.gschema.xml' in names
+              assert 'schemas/org.gnome.shell.extensions.vliq.gschema.xml' in names
               assert any(n.startswith('schemas/org.gnome.shell.extensions.liquid-glass@')
                          for n in names)
               assert not any(n.endswith('gschemas.compiled') for n in names)
@@ -64,7 +64,7 @@ jobs:
         run: |
           python3 -m pip install -r tools/ego-review-requirements.txt
           set +e
-          shexli dist/ego/velora@wonderer.tech.shell-extension.zip --format text             > dist/ego/SHEXLI_REPORT.txt 2>&1
+          shexli dist/ego/vliq@wonderer.tech.shell-extension.zip --format text             > dist/ego/SHEXLI_REPORT.txt 2>&1
           status=$?
           set -e
           cat dist/ego/SHEXLI_REPORT.txt
@@ -77,22 +77,22 @@ jobs:
           fi
 
       - name: Upload actual EGO submission ZIP
-        if: always() && hashFiles('dist/ego/velora@wonderer.tech.shell-extension.zip') != ''
+        if: always() && hashFiles('dist/ego/vliq@wonderer.tech.shell-extension.zip') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: velora-gnome-store-upload-zip
-          path: dist/ego/velora@wonderer.tech.shell-extension.zip
+          name: vliq-gnome-store-upload-zip
+          path: dist/ego/vliq@wonderer.tech.shell-extension.zip
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
 
       - name: Upload manifest and static-review evidence
-        if: always() && hashFiles('dist/ego/velora-ego-manifest.json') != ''
+        if: always() && hashFiles('dist/ego/vliq-ego-manifest.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: velora-gnome-store-review-evidence
+          name: vliq-gnome-store-review-evidence
           path: |
-            dist/ego/velora-ego-manifest.json
+            dist/ego/vliq-ego-manifest.json
             dist/ego/SHEXLI_REPORT.txt
             dist/ego/SHEXLI_EXIT_STATUS.txt
           if-no-files-found: warn
