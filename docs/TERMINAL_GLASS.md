@@ -19,7 +19,7 @@ an additional GPU blur pass. This integration is still subject to real GNOME
 ## 1. Verify your terminal and existing transparency
 
 ```bash
-cd ~/Documents/code/vliq-desktop
+cd ~/Documents/code/vliq
 git pull origin main
 python3 tools/vliq_terminal_glass.py status
 ```
@@ -35,7 +35,7 @@ python3 tools/vliq_terminal_glass.py apply --opacity 0.88
 ```
 
 This developer utility saves the original Ptyxis opacity under
-`~/.local/state/vliq-desktop/terminal-glass.json`, with restrictive
+`~/.local/state/vliq/terminal-glass.json`, with restrictive
 permissions, and supports full restoration. **Never use sudo.**
 
 ## 2. Install the new native blur runtime
@@ -86,7 +86,7 @@ nearly indistinguishable from an opaque window.
 Before debugging the compositor, perform this controlled A/B test:
 
 ```bash
-cd ~/Documents/code/vliq-desktop
+cd ~/Documents/code/vliq
 python3 tools/vliq_terminal_glass.py status
 ```
 
