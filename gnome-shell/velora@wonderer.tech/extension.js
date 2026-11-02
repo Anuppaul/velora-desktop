@@ -287,7 +287,7 @@ export default class VLIQBootstrap extends Extension {
             try {
                 this._runtime.disable();
             } catch (error) {
-                logError(error, 'VLIQ Desktop: runtime disable failed');
+                logError(error, 'VLIQ: runtime disable failed');
             }
         }
 
@@ -309,7 +309,7 @@ export default class VLIQBootstrap extends Extension {
     }
 
     _recordError(error) {
-        logError(error, 'VLIQ Desktop runtime reload failed');
+        logError(error, 'VLIQ runtime reload failed');
 
         if (!this._settings)
             return;
