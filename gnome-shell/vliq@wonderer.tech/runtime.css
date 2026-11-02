@@ -1642,3 +1642,20 @@
 .vliq-spotlight-result-labels {
     spacing: 1px;
 }
+
+/* VLIQ desktop clock: quiet milky-glass typography, no second border. */
+.vliq-desktop-clock {
+    padding: 22px 26px;
+    border-radius: 24px;
+    background-color: rgba(230, 239, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.vliq-desktop-clock-time {
+    color: #ffffff;
+    font-size: 42px;
+    font-weight: 700;
+}
+.vliq-desktop-clock-date {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 14px;
+}
