@@ -1,6 +1,6 @@
-# Velora Community Hub
+# VLIQ Community Hub
 
-Welcome to the Velora community.
+Welcome to the VLIQ community.
 
 You do not need to be a GNOME Shell expert to contribute. Testing, documentation, accessibility feedback, design review and reproducible bug reports are all useful.
 
@@ -79,7 +79,7 @@ Useful topics include:
 
 ## How work is coordinated
 
-Velora uses lightweight coordination:
+VLIQ uses lightweight coordination:
 
 1. pick or open an issue;
 2. comment with your plan;
@@ -94,7 +94,7 @@ There is no permanent issue reservation system. If work becomes inactive, anothe
 
 The core rule is:
 
-> **Native GNOME/Ubuntu behavior first. Velora changes supported material and adds focused Velora features without replacing the desktop interaction model.**
+> **Native GNOME/Ubuntu behavior first. VLIQ changes supported material and adds focused VLIQ features without replacing the desktop interaction model.**
 
 That means contributions should preserve native layout, controls, hit targets, accessibility and animation wherever possible.
 
