@@ -664,7 +664,7 @@ export class LiquidGlassIntegration {
         this._setupTopPanelGlass();
 
         // Orb is a VLIQ-owned surface. The upstream Liquid Glass extension
-        // never knows about vliq-desktop-layer, so it must be attached even
+        // never knows about vliq-layer, so it must be attached even
         // when we reuse an already-active upstream renderer stack.
         try {
             this._orbGlassManager =
