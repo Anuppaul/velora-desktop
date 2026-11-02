@@ -13,6 +13,7 @@ an existing user installation; it is never shipped in the EGO Store ZIP.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 from pathlib import Path
@@ -142,6 +143,56 @@ def is_active(uuid: str) -> bool:
     return uuid in output.splitlines()
 
 
+def read_shell_extension_list(key: str) -> list[str]:
+    """Use GNOME's persisted extension flags, not just current-session state.
+
+    A first install can be invisible to the running Wayland Shell until the
+    next login. Ignoring the persisted list could re-enable BOTH UUIDs at
+    the next login even when the old extension isn't currently active.
+    """
+    if key not in ("enabled-extensions", "disabled-extensions"):
+        raise ValueError("Unsupported GNOME extension-list key")
+    raw = command(["gsettings", "get", "org.gnome.shell", key]).strip()
+    if raw.startswith("@as "):
+        raw = raw[4:].strip()
+    try:
+        values = ast.literal_eval(raw)
+    except (ValueError, SyntaxError) as error:
+        raise RuntimeError(f"Invalid GNOME {key} value") from error
+    if not isinstance(values, list) or not all(
+        isinstance(value, str) for value in values
+    ):
+        raise RuntimeError(f"Unexpected GNOME {key} type")
+    return values
+
+
+def set_shell_extension_membership(uuid: str, enabled: bool) -> None:
+    """Move only one UUID between GNOME's user extension lists.
+
+    Keep every other extension and its order untouched, including Ubuntu
+    Dock. This is separate from GNOME's live enable/disable RPC, which may
+    fail when a newly installed UUID is not yet discovered on Wayland.
+    """
+    enabled_list = read_shell_extension_list("enabled-extensions")
+    disabled_list = read_shell_extension_list("disabled-extensions")
+    enabled_list = [item for item in enabled_list if item != uuid]
+    disabled_list = [item for item in disabled_list if item != uuid]
+    if enabled:
+        enabled_list.append(uuid)
+    else:
+        disabled_list.append(uuid)
+
+    def render(values: list[str]) -> str:
+        return "[" + ", ".join(repr(value) for value in values) + "]"
+
+    # Apply the disabled list first: during migration, preventing two
+    # simultaneously active shaders is more important than eager enable.
+    command(["gsettings", "set", "org.gnome.shell",
+             "disabled-extensions", render(disabled_list)])
+    command(["gsettings", "set", "org.gnome.shell",
+             "enabled-extensions", render(enabled_list)])
+
+
 def prepare() -> None:
     if not shutil.which("dconf"):
         # New installations don't need dconf for a migration. If the old
@@ -153,7 +204,7 @@ def prepare() -> None:
         print("VLIQ: no previous dconf state to migrate.")
         return
 
-    legacy = command(["dconf", "dump", LEGACY_DCONF], required=False)
+    legacy = command(["dconf", "dump", LEGACY_DCONF])
     found = old_extension_dir().is_dir() or bool(legacy.strip())
     if not found:
         print("VLIQ: fresh installation; no legacy extension detected.")
@@ -172,7 +223,7 @@ def prepare() -> None:
         if not backup.exists():
             atomic_private_write(backup, legacy)
 
-    existing_new = command(["dconf", "dump", NEW_DCONF], required=False)
+    existing_new = command(["dconf", "dump", NEW_DCONF])
     migrated = False
     filtered = filter_user_settings(legacy)
     if filtered.strip() and not existing_new.strip():
@@ -198,22 +249,58 @@ def retire() -> None:
         return
     if state.get("retired"):
         return
-    if is_active(LEGACY_UUID):
-        command(["gnome-extensions", "disable", LEGACY_UUID])
-        state["retired"] = True
-        save_state(state)
-        print("VLIQ: disabled previous extension to prevent dual rendering.")
-    else:
-        print("VLIQ: previous extension is not active.")
+
+    was_active = is_active(LEGACY_UUID)
+    was_enabled = LEGACY_UUID in read_shell_extension_list(
+        "enabled-extensions"
+    )
+    if not (was_active or was_enabled):
+        print("VLIQ: previous extension was already disabled.")
+        return
+
+    # The Shell may not currently know about an installed old UUID, even
+    # though it remains enabled in org.gnome.shell for the NEXT login.
+    # Persist the new membership independently of the live shell state.
+    state["legacy_was_enabled"] = True
+    state["retirement_pending"] = True
+    save_state(state)
+    try:
+        if was_active:
+            command(["gnome-extensions", "disable", LEGACY_UUID])
+        set_shell_extension_membership(LEGACY_UUID, False)
+    except Exception:
+        # Do not strand the user with the old extension disabled and new
+        # UUID undiscovered. Preserve the checkpoint if recovery fails.
+        try:
+            set_shell_extension_membership(LEGACY_UUID, True)
+            command(["gnome-extensions", "enable", LEGACY_UUID],
+                    required=False)
+        finally:
+            raise
+
+    state["retirement_pending"] = False
+    state["retired"] = True
+    save_state(state)
+    print("VLIQ: previous extension disabled for current and next sessions.")
 
 
 def rollback() -> None:
     state = load_state()
-    if not state.get("retired"):
-        return
+    # Even on a fresh install, a failure after persist_extension_enabled
+    # must remove the new UUID from the *next* session's enabled list.
     command(["gnome-extensions", "disable", NEW_UUID], required=False)
-    command(["gnome-extensions", "enable", LEGACY_UUID])
+    set_shell_extension_membership(NEW_UUID, False)
+
+    if not (state.get("retired") or state.get("retirement_pending")):
+        print("VLIQ: failed new extension disabled; no previous runtime to restore.")
+        return
+
+    if state.get("legacy_was_enabled", True):
+        set_shell_extension_membership(LEGACY_UUID, True)
+        command(["gnome-extensions", "enable", LEGACY_UUID],
+                required=False)
     state["retired"] = False
+    state["retirement_pending"] = False
     save_state(state)
     print("VLIQ: rollback restored the previous extension.")
 
