@@ -1,6 +1,6 @@
 # Issue and Pull Request Triage
 
-This document defines a lightweight triage process for Velora.
+This document defines a lightweight triage process for VLIQ.
 
 ## Issue quality
 
@@ -11,7 +11,7 @@ Useful fields include:
 - GNOME Shell version;
 - distribution/version;
 - Wayland/X11 session;
-- Velora revision;
+- VLIQ revision;
 - reproduction steps;
 - expected vs actual behavior;
 - relevant logs;
@@ -21,7 +21,7 @@ If information is missing, ask for the smallest additional evidence needed.
 
 ## Core labels
 
-Velora uses GitHub's standard labels where they fit:
+VLIQ uses GitHub's standard labels where they fit:
 
 - `bug` — reproducible incorrect behavior;
 - `enhancement` — improvement or feature request;
@@ -73,7 +73,7 @@ Draft PRs are appropriate for early technical feedback.
 
 ## Inactivity
 
-Velora does not automatically close valid issues merely because they are old.
+VLIQ does not automatically close valid issues merely because they are old.
 
 An issue may be closed when:
 
