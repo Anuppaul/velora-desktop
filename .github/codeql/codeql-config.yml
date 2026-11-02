@@ -1,7 +1,7 @@
-name: Velora CodeQL config
+name: VLIQ CodeQL config
 
 paths:
-  - gnome-shell/velora@wonderer.tech
+  - gnome-shell/vliq@wonderer.tech
 
 paths-ignore:
-  - gnome-shell/velora@wonderer.tech/vendor
+  - gnome-shell/vliq@wonderer.tech/vendor
