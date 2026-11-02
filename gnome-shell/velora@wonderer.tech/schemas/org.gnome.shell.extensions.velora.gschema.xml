@@ -24,17 +24,17 @@
 
     <key name="orb-enabled" type="b">
       <default>true</default>
-      <summary>Show the Velora Orb</summary>
+      <summary>Show the VLIQ Orb</summary>
     </key>
     <key name="orb-size" type="i">
       <default>44</default>
       <range min="20" max="80"/>
-      <summary>Velora Orb size</summary>
+      <summary>VLIQ Orb size</summary>
     </key>
     <key name="orb-opacity" type="i">
       <default>100</default>
       <range min="0" max="100"/>
-      <summary>Velora Orb opacity percentage</summary>
+      <summary>VLIQ Orb opacity percentage</summary>
     </key>
     <key name="orb-icon" type="s">
       <default>'start-here-symbolic'</default>
@@ -153,7 +153,7 @@
 
     <!-- Terminal Glass is opt-in because native BACKGROUND blur adds a
          compositor GPU pass per visible Ptyxis window. Ptyxis supplies
-         alpha for its background; Velora never changes window text opacity. -->
+         alpha for its background; VLIQ never changes window text opacity. -->
     <key name="terminal-backdrop-blur-enabled" type="b">
       <default>false</default>
       <summary>Enable real compositor background blur beneath native Ptyxis windows</summary>
@@ -167,28 +167,28 @@
     </key>
     <key name="terminal-backdrop-blur-status" type="s">
       <default>'Off'</default>
-      <summary>Read-only Velora Terminal Glass compositor attachment status</summary>
+      <summary>Read-only VLIQ Terminal Glass compositor attachment status</summary>
       <description>Written by the Shell runtime to report detected or attached Ptyxis windows. This is diagnostic text, not proof of visible blurred pixels.</description>
     </key>
 
     <key name="spotlight-enabled" type="b">
       <default>true</default>
-      <summary>Enable Velora Spotlight search</summary>
-      <description>Shows the centered Velora application search with Super+Space.</description>
+      <summary>Enable VLIQ Spotlight search</summary>
+      <description>Shows the centered VLIQ application search with Super+Space.</description>
     </key>
     <key name="spotlight-keybinding" type="as">
       <default>['&lt;Super&gt;space']</default>
-      <summary>Velora Spotlight shortcut</summary>
+      <summary>VLIQ Spotlight shortcut</summary>
     </key>
     <key name="spotlight-vertical-position" type="i">
       <default>18</default>
       <range min="8" max="55"/>
-      <summary>Velora Spotlight vertical position</summary>
+      <summary>VLIQ Spotlight vertical position</summary>
       <description>Search bar position as a percentage from the top of the active monitor.</description>
     </key>
 
     <!-- GNOME 50 shows the hardware brightness slider only when the
-         brightness manager has a supported backlight. Velora keeps that
+         brightness manager has a supported backlight. VLIQ keeps that
          native slider, or provides a reversible software dim fallback for
          external desktop monitors that have no hardware backlight. -->
     <key name="quick-brightness-enabled" type="b">
@@ -226,11 +226,11 @@
       <description>Vertical paint offset in pixels. Positive values move the floating dock upward; negative values move it downward. Panel mode ignores this setting.</description>
     </key>
 
-    <!-- Velora Atmosphere is opt-in. Original disables the wallpaper GPU
+    <!-- VLIQ Atmosphere is opt-in. Original disables the wallpaper GPU
          shader completely. Slider defaults are the Atmosphere profile and
          remain saved across preset changes and Original toggles. -->
     <key name="wallpaper-runtime-status" type="s">
-      <default>'Not initialized — install or reload Velora'</default>
+      <default>'Not initialized — install or reload VLIQ'</default>
       <summary>Diagnostic status of attached Atmosphere wallpaper shader effects</summary>
       <description>Updated by the running GNOME Shell extension only; not a user setting. Reports source effects attached, not measured pixel output.</description>
     </key>
@@ -243,7 +243,7 @@
         <choice value="atmosphere"/>
         <choice value="custom"/>
       </choices>
-      <summary>Velora Atmosphere wallpaper treatment</summary>
+      <summary>VLIQ Atmosphere wallpaper treatment</summary>
       <description>Original leaves GNOME wallpaper rendering unchanged. Other profiles apply static GPU-native visual grading to wallpaper sources.</description>
     </key>
     <key name="wallpaper-filmic" type="i">
@@ -272,7 +272,7 @@
       <summary>Wallpaper adaptive contrast intensity</summary>
     </key>
 
-    <!-- Velora material picker. Liquid remains the installed default. The
+    <!-- VLIQ material picker. Liquid remains the installed default. The
          Frosted Crystal controls are independent: switching must not rewrite
          the user's existing liquid optics, tint or blur preferences. -->
     <key name="glass-style" type="s">
@@ -281,7 +281,7 @@
         <choice value="liquid"/>
         <choice value="frosted"/>
       </choices>
-      <summary>Velora glass material style</summary>
+      <summary>VLIQ glass material style</summary>
       <description>Liquid Glass preserves the v10 refractive material, while Frosted Crystal uses a matte-diffused surface with grain and soft edge light.</description>
     </key>
     <key name="frost-density" type="i">
@@ -303,7 +303,7 @@
     <key name="glass-optics-profile-version" type="i">
       <default>0</default>
       <range min="0" max="100"/>
-      <summary>Internal Velora full-glass optics profile version</summary>
+      <summary>Internal VLIQ full-glass optics profile version</summary>
     </key>
     <key name="glass-opacity" type="i">
       <default>3</default>
