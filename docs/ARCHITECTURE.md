@@ -1,19 +1,19 @@
-# Velora Architecture
+# VLIQ Architecture
 
 ## Product contract
 
-Velora is a GNOME Shell material replacement, not a replacement desktop UI.
+VLIQ is a GNOME Shell material replacement, not a replacement desktop UI.
 
-The Velora Orb remains with its full radial launcher, tooltips, running indicators, live app previews, drag behavior and idle hide/fade. The separate floating dock and unrelated desktop-replacement paths are retired.
+The VLIQ Orb remains with its full radial launcher, tooltips, running indicators, live app previews, drag behavior and idle hide/fade. The separate floating dock and unrelated desktop-replacement paths are retired.
 
-For every supported Shell surface Velora preserves:
+For every supported Shell surface VLIQ preserves:
 
 - native geometry and content;
 - native controls and hit targets;
 - native GNOME animation and interaction;
 - accessibility semantics.
 
-Velora changes the painted material underneath that content.
+VLIQ changes the painted material underneath that content.
 
 ## Renderer
 
@@ -39,7 +39,7 @@ GNOME Shell 50 creates a PopupMenu as:
 
 Ubuntu/Yaru paints the normal popup card on .popup-menu-content. Date Menu adds .datemenu-popover primarily for its radius.
 
-Velora therefore does not place a second card in Main.uiGroup and chase popup geometry.
+VLIQ therefore does not place a second card in Main.uiGroup and chase popup geometry.
 
 PopupGlassManager patches PopupMenu.PopupMenu.prototype.open. On first open it safely transforms:
 
@@ -59,7 +59,7 @@ Because the material is inside BoxPointer, GNOME automatically carries native po
 
 The wallpaper clone is counter-transformed during paint so the sampled wallpaper remains fixed in stage space while the glass surface itself follows BoxPointer animation.
 
-Disable/cleanup first reparents menu.box back into BoxPointer.bin, then destroys the Velora overlay. This prevents native Shell content from being destroyed with the extension actor.
+Disable/cleanup first reparents menu.box back into BoxPointer.bin, then destroys the VLIQ overlay. This prevents native Shell content from being destroyed with the extension actor.
 
 ## Coverage
 
@@ -69,7 +69,7 @@ The generic PopupMenu adapter covers:
 - Quick Settings outer menu;
 - panel/status menus;
 - application/context/background menus implemented as PopupMenu;
-- future standard PopupMenu instances created while Velora is enabled.
+- future standard PopupMenu instances created while VLIQ is enabled.
 
 Nested PopupSubMenu content sits inside the parent glass and receives a light translucent material treatment instead of another expensive blur layer.
 
@@ -106,11 +106,11 @@ The Orb is draggable, supports idle hide/fade, toggles GNOME Applications on cli
 
 ## GTK/libadwaita boundary
 
-A GNOME Shell extension cannot transparently replace the internal rendering of arbitrary GTK/libadwaita applications. Velora's Shell material layer covers Shell-owned surfaces. A separate GTK/libadwaita theme layer is required for matching application interiors.
+A GNOME Shell extension cannot transparently replace the internal rendering of arbitrary GTK/libadwaita applications. VLIQ's Shell material layer covers Shell-owned surfaces. A separate GTK/libadwaita theme layer is required for matching application interiors.
 
 
 ## Optical source
 
-Full refraction requires source pixels to bend. Velora does not read the framebuffer back to the CPU and does not create screenshot cards. Popup, notification and generic Shell-card surfaces use the vendored WindowCloneManager, which composes the shared wallpaper mirror with live compositor Meta.WindowActor clones entirely in the Clutter/Mutter GPU scene graph.
+Full refraction requires source pixels to bend. VLIQ does not read the framebuffer back to the CPU and does not create screenshot cards. Popup, notification and generic Shell-card surfaces use the vendored WindowCloneManager, which composes the shared wallpaper mirror with live compositor Meta.WindowActor clones entirely in the Clutter/Mutter GPU scene graph.
 
 LiquidEffect receives optical sampling headroom around the native card. The shader mask still equals the exact native GNOME card bounds, so the extra source region is invisible but allows the edge lens, dispersion, shadow and rim terms to sample beyond the card boundary.
