@@ -208,7 +208,7 @@ export default class VLIQRuntime extends Extension {
             } catch (error) {
                 logError(
                     error,
-                    'VLIQ Desktop: failed to retire duplicate runtime'
+                    'VLIQ: failed to retire duplicate runtime'
                 );
             }
         }
@@ -226,7 +226,7 @@ export default class VLIQRuntime extends Extension {
         } catch (error) {
             logError(
                 error,
-                'VLIQ Desktop: canonical settings load failed; using bootstrap schema'
+                'VLIQ: canonical settings load failed; using bootstrap schema'
             );
             this._settings = this.getSettings();
         }
@@ -452,7 +452,7 @@ export default class VLIQRuntime extends Extension {
                 } catch (error) {
                     logError(
                         error,
-                        'VLIQ Desktop: stale layer cleanup failed'
+                        'VLIQ: stale layer cleanup failed'
                     );
                 }
             }
@@ -1246,7 +1246,7 @@ export default class VLIQRuntime extends Extension {
         if (!showAppsButton) {
             logError(
                 new Error('GNOME Applications button is unavailable'),
-                'VLIQ Desktop: failed to open Applications view'
+                'VLIQ: failed to open Applications view'
             );
             return;
         }
