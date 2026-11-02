@@ -219,7 +219,7 @@ export const LiquidEffect = GObject.registerClass({
                 // Grain/edge changes only update one shader uniform; do not
                 // reconfigure the blur kernel for unrelated slider events.
                 if (blurChanged && this._requestedBlurRadius !== null)
-                    this._applyVeloraBlurRadius();
+                    this._applyVLIQBlurRadius();
                 if (!initial)
                     this.queue_repaint();
             }
@@ -1085,7 +1085,7 @@ export const LiquidEffect = GObject.registerClass({
         this._uniforms.set('shadow_max_radius', radius);
     }
     setBlurMethod(method) { this._blur.setBlurMethod(method); }
-    _applyVeloraBlurRadius() {
+    _applyVLIQBlurRadius() {
         const base = this._requestedBlurRadius;
         if (base === null)
             return;
@@ -1113,7 +1113,7 @@ export const LiquidEffect = GObject.registerClass({
     setBlurRadius(radius) {
         this._requestedBlurRadius =
             Number.isFinite(radius) ? Math.max(0, radius) : 0;
-        this._applyVeloraBlurRadius();
+        this._applyVLIQBlurRadius();
     }
     /**
      * [DEBUG] Forces glass.frag (and the downsample/upsample shaders) to be
