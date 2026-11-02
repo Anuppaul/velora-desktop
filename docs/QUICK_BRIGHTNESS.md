@@ -29,7 +29,7 @@ The fallback never claims to control the physical monitor. It is labeled
 ## Install / hot reload
 
 ```bash
-cd ~/Documents/code/vliq-desktop
+cd ~/Documents/code/vliq
 git pull origin main
 bash gnome-shell/install.sh
 ```

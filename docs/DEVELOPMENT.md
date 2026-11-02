@@ -15,8 +15,8 @@ gnome-shell --version
 ## Clone
 
 ```bash
-git clone https://github.com/Anuppaul/vliq-desktop.git
-cd vliq-desktop
+git clone https://github.com/Anuppaul/vliq.git
+cd vliq
 ```
 
 For contribution work, create a focused branch:

@@ -13,7 +13,7 @@ has accepted the extension.
 | Name | VLIQ |
 | UUID | `vliq@wonderer.tech` |
 | Target Shell | GNOME Shell **50** only |
-| Repository | https://github.com/Anuppaul/vliq-desktop |
+| Repository | https://github.com/Anuppaul/vliq |
 | Uploaded artifact | `vliq@wonderer.tech.shell-extension.zip` |
 | License | MIT, including third-party upstream attribution |
 | Release workflow | [GNOME Store package](../.github/workflows/gnome-store-package.yml) |
