@@ -14,12 +14,12 @@ uniform float edge_smoothing;
 uniform float profile_shape_n;
 uniform float ior;
 uniform float chroma_strength;
-// Velora's two retained material modes. Liquid = 0.0 exactly preserves the
+// VLIQ's two retained material modes. Liquid = 0.0 exactly preserves the
 // proven v10 path; Frosted Crystal softly diffuses the SAME backdrop in the
 // existing composite shader. No extra render pass or texture allocations.
-uniform float velora_frost_amount;
-uniform float velora_frost_grain;
-uniform float velora_frost_edge_glow;
+uniform float vliq_frost_amount;
+uniform float vliq_frost_grain;
+uniform float vliq_frost_edge_glow;
 uniform float blur_strength;
 uniform float tint_strength;
 uniform float tint_r;
@@ -618,9 +618,9 @@ vec3 sampleBackdrop(vec2 uvc, vec2 ext, vec2 texel, vec2 resolution) {
 // layer (not a CSS overlay). Applying it ahead of the user tint preserves
 // the tint color/strength and leaves the output alpha exactly unchanged.
 // It is sampled once per pixel, requires no extra texture or render pass.
-const float VELORA_MILKY_WHITE_SHADE = 0.15;
+const float VLIQ_MILKY_WHITE_SHADE = 0.15;
 
-// Velora premium glass grain: fine, screen-static monochrome microtexture.
+// VLIQ premium glass grain: fine, screen-static monochrome microtexture.
 // Reuse the existing single hash/dither evaluation, with a subtle but visible
 // ~3% peak-to-peak RGB luminance range (about +/- 0.014 per channel).
 // No texture fetch, extra shader pass, animation, or per-frame randomness.
@@ -629,17 +629,17 @@ const float VELORA_MILKY_WHITE_SHADE = 0.15;
 // Grain is applied ONLY to the glass body in both the flat-interior fast path
 // and the full refractive path. It never touches the drop shadow, transparent
 // margin or optional solid panel fallback.
-float veloraGlassGrain(vec2 p) {
+float vliqGlassGrain(vec2 p) {
     vec2 pixel = floor(p);
     return (fract(sin(dot(pixel, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.028;
 }
 
-// Velora Frosted Crystal: a genuine satin-matte *material*, not another
+// VLIQ Frosted Crystal: a genuine satin-matte *material*, not another
 // semi-transparent CSS pane. Dense neutral diffusion flattens the backdrop's
 // fine color/contrast while leaving a hint of its broad wallpaper tones.
 // Frost=0 is an identity operation, preserving every Liquid v10 pixel.
-vec3 veloraCrystalBody(vec3 color) {
-    float frost = clamp(velora_frost_amount, 0.0, 1.0);
+vec3 vliqCrystalBody(vec3 color) {
+    float frost = clamp(vliq_frost_amount, 0.0, 1.0);
     if (frost < 0.0001)
         return color;
 
@@ -660,14 +660,14 @@ vec3 veloraCrystalBody(vec3 color) {
 // fine frost dust + a subtle 4px mineral-facet grain. This reuses the same
 // hash, no noise image, animated time uniform, or second GPU render pass.
 // The second hash is evaluated ONLY in Frosted mode, never for Liquid v10.
-float veloraCrystalGrain(vec2 pixel) {
-    float fine = veloraGlassGrain(pixel);
-    float frost = clamp(velora_frost_amount, 0.0, 1.0);
+float vliqCrystalGrain(vec2 pixel) {
+    float fine = vliqGlassGrain(pixel);
+    float frost = clamp(vliq_frost_amount, 0.0, 1.0);
     if (frost < 0.0001)
         return fine;
-    float grain = clamp(velora_frost_grain, 0.0, 1.0);
+    float grain = clamp(vliq_frost_grain, 0.0, 1.0);
     float micro = fine * (1.0 + frost * (0.25 + 3.40 * grain));
-    float facet = veloraGlassGrain(floor(pixel * 0.25) * 4.0) *
+    float facet = vliqGlassGrain(floor(pixel * 0.25) * 4.0) *
         frost * grain * 0.70;
     return micro + facet;
 }
@@ -679,7 +679,7 @@ float veloraCrystalGrain(vec2 pixel) {
 // it stays a pale icy blue. The bright-side blend is also reduced below.
 // A dense matte crystal is brighter than its backdrop, so prefer its actual
 // surface luminance when determining contrast with the inside of that card.
-vec3 veloraAdaptiveCardEdgeColor(
+vec3 vliqAdaptiveCardEdgeColor(
     vec3 backdrop, vec3 body, float frost
 ) {
     float backdropLuma = dot(backdrop, vec3(0.2126, 0.7152, 0.0722));
@@ -701,7 +701,7 @@ vec3 veloraAdaptiveCardEdgeColor(
 // The signed distance is negative inside the native rounded glass shape.
 // All smoothstep intervals are strictly increasing (avoids GNOME/GLES driver
 // bugs previously encountered in this shader).
-float veloraAdaptiveCardEdgeCoverage(float signedDistance) {
+float vliqAdaptiveCardEdgeCoverage(float signedDistance) {
     float depth = max(-signedDistance, 0.0);
     float hairline = 1.0 - smoothstep(0.12, 1.48, depth);
     float innerFeather = 1.0 - smoothstep(0.70, 3.10, depth);
@@ -947,9 +947,9 @@ void main() {
         flatRgb = mix(flatRgb, activeTint, activeBaseStrength);
         // Match the full refractive path: brighten only the glass body,
         // then apply the existing user-customizable tint on top.
-        flatRgb = mix(flatRgb, vec3(1.0), VELORA_MILKY_WHITE_SHADE);
+        flatRgb = mix(flatRgb, vec3(1.0), VLIQ_MILKY_WHITE_SHADE);
         flatRgb = mix(flatRgb, vec3(tint_r, tint_g, tint_b), tint_strength);
-        flatRgb = veloraCrystalBody(flatRgb);
+        flatRgb = vliqCrystalBody(flatRgb);
 
         // Specular and sheen at N = (0, 0, 1). reflect(-L, N) is
         // (-L.x, -L.y, L.z), so dot(reflectDir, viewDir) is L.z; the sheen's
@@ -967,7 +967,7 @@ void main() {
         addedFlat *= mix(
             1.0,
             0.15,
-            smoothstep(0.0, 0.8, clamp(velora_frost_amount, 0.0, 1.0))
+            smoothstep(0.0, 0.8, clamp(vliq_frost_amount, 0.0, 1.0))
         );
 
         // Screen blend, then the same overflow normalization as the full path.
@@ -980,7 +980,7 @@ void main() {
 
         // The fast path must carry the SAME grain as the full glass path;
         // otherwise a flat interior would turn glossy/smooth abruptly.
-        litFlat = max(litFlat + veloraCrystalGrain(pixel_coord), 0.0);
+        litFlat = max(litFlat + vliqCrystalGrain(pixel_coord), 0.0);
 
         // alpha == insideMask == 1, so the shadow and panel terms are both 0.
         cogl_color_out = vec4(litFlat, 1.0) * cogl_color_in;
@@ -1222,9 +1222,9 @@ void main() {
     vec2 dispPx = disp * resolution * lensShape * lensScale;
     // A real frosted surface diffuses light; it is not a magnifying Liquid
     // lens. Strongly suppress curved refraction only while Frosted is active.
-    // The original exact refraction survives when velora_frost_amount=0.
+    // The original exact refraction survives when vliq_frost_amount=0.
     float crystalLensSuppression = smoothstep(
-        0.0, 0.72, clamp(velora_frost_amount, 0.0, 1.0)
+        0.0, 0.72, clamp(vliq_frost_amount, 0.0, 1.0)
     );
     dispPx *= mix(1.0, 0.09, crystalLensSuppression);
     float dispLenPx = length(dispPx);
@@ -1283,7 +1283,7 @@ void main() {
     // At normal Frosted density, this also takes the shader's faster
     // achromatic sampling path rather than doing three RGB fetch groups.
     float crystalChroma = 1.0 - smoothstep(
-        0.0, 0.45, clamp(velora_frost_amount, 0.0, 1.0)
+        0.0, 0.45, clamp(vliq_frost_amount, 0.0, 1.0)
     );
     vec2 chromaVec = chromaDir *
         (chroma_strength / resolution) * lensShape * crystalChroma;
@@ -1371,7 +1371,7 @@ void main() {
     vec3 insideBaseColor = mix(refracted, activeTint, activeBaseStrength);
     // Exactly the same white shade as the flat-interior early exit.
     // Keep the user's chosen tint on top and leave glass alpha untouched.
-    insideBaseColor = mix(insideBaseColor, vec3(1.0), VELORA_MILKY_WHITE_SHADE);
+    insideBaseColor = mix(insideBaseColor, vec3(1.0), VLIQ_MILKY_WHITE_SHADE);
     insideBaseColor = mix(insideBaseColor, vec3(tint_r, tint_g, tint_b), tint_strength);
 
     // [FIX] Do NOT multiply by insideMask here. insideMask is the same
@@ -1394,7 +1394,7 @@ void main() {
     // below already zeroes the drop shadow correctly at shadow_radius=0);
     // the ring persists even with the drop shadow fully disabled, which is
     // exactly the "Shadow Radius 0, Edge Smoothing >0" symptom reported.
-    vec3 baseColor = veloraCrystalBody(insideBaseColor);
+    vec3 baseColor = vliqCrystalBody(insideBaseColor);
 
     // ------------------------------------------------------------------
     // Inner depth effects — make the glass look 3D on LIGHT backgrounds
@@ -1529,8 +1529,8 @@ void main() {
     // Frosted Crystal swaps Liquid's harsh specular glints for a broad,
     // pale blue-white crystalline rim. Its intensity remains user-tunable
     // without introducing an overlay actor, shadow or shader pass.
-    float frostAmount = clamp(velora_frost_amount, 0.0, 1.0);
-    float crystalEdgeGlow = clamp(velora_frost_edge_glow, 0.0, 1.0);
+    float frostAmount = clamp(vliq_frost_amount, 0.0, 1.0);
+    float crystalEdgeGlow = clamp(vliq_frost_edge_glow, 0.0, 1.0);
     float frostMatte = smoothstep(0.0, 0.75, frostAmount);
     addedLight *= mix(
         1.0, 0.09 + 0.14 * crystalEdgeGlow, frostMatte
@@ -1567,10 +1567,10 @@ void main() {
     // opaque frames and the old fullscreen-darkening regression.
     if (surface_light_enabled > 0.5 &&
         d > -3.10 && d < edgeFeather) {
-        vec3 edgeBlue = veloraAdaptiveCardEdgeColor(
-            adjustedRefracted, litColor, velora_frost_amount
+        vec3 edgeBlue = vliqAdaptiveCardEdgeColor(
+            adjustedRefracted, litColor, vliq_frost_amount
         );
-        float edgeCoverage = veloraAdaptiveCardEdgeCoverage(d);
+        float edgeCoverage = vliqAdaptiveCardEdgeCoverage(d);
         // White backgrounds need a quieter blue-gray stroke; dark edges
         // must remain unchanged. The selected edge color ALREADY encodes
         // context brightness in its red channel (0.76 dark → 0.54 light).
@@ -1585,7 +1585,7 @@ void main() {
         edgeCoverage *= mix(
             1.0,
             0.87,
-            clamp(velora_frost_amount, 0.0, 1.0)
+            clamp(vliq_frost_amount, 0.0, 1.0)
         );
         litColor = mix(litColor, edgeBlue, edgeCoverage);
     }
@@ -1634,7 +1634,7 @@ void main() {
     // Micro-grain belongs to the GLASS, not its drop shadow or panel fill.
     // Premultiply by insideMask (alpha), never finalAlpha: the latter also
     // includes shadow/panel coverage and would add a noisy exterior halo.
-    finalRgb = max(finalRgb + veloraCrystalGrain(pixel_coord) * alpha, 0.0);
+    finalRgb = max(finalRgb + vliqCrystalGrain(pixel_coord) * alpha, 0.0);
 
     // Output with premultiplied alpha format, required by Clutter/Cogl pipeline.
     cogl_color_out = vec4(finalRgb, finalAlpha) * cogl_color_in;
