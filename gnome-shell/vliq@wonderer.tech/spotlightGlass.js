@@ -3,15 +3,15 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
 export const SPOTLIGHT_GLASS_ENTRY_CLASS =
-    'velora-spotlight-glass-entry';
+    'vliq-spotlight-glass-entry';
 export const SPOTLIGHT_GLASS_RESULTS_CLASS =
-    'velora-spotlight-glass-results';
+    'vliq-spotlight-glass-results';
 
 const PAD = 20;
 // Entry height is 68px; 34px keeps the search bar fully pill-shaped while
@@ -165,7 +165,7 @@ export class SpotlightGlassManager {
         const root =
             new this._vendor.UnpickableActor({
                 name:
-                    'velora-spotlight-glass-root',
+                    'vliq-spotlight-glass-root',
                 reactive: false,
             });
         root.set_no_layout?.(true);
@@ -179,7 +179,7 @@ export class SpotlightGlassManager {
         const liquidBox =
             new this._vendor.UnpickableActor({
                 name:
-                    'velora-spotlight-glass-box',
+                    'vliq-spotlight-glass-box',
                 reactive: false,
             });
         liquidBox.set_no_layout?.(true);
@@ -196,7 +196,7 @@ export class SpotlightGlassManager {
         const sceneRoot =
             new this._vendor.UnpickableActor({
                 name:
-                    'velora-spotlight-glass-scene',
+                    'vliq-spotlight-glass-scene',
                 reactive: false,
             });
         sceneRoot.set_no_layout?.(true);
@@ -211,13 +211,13 @@ export class SpotlightGlassManager {
             new this._vendor.WindowCloneManager(
                 sceneRoot,
                 null,
-                'velora-spotlight-glass-scene'
+                'vliq-spotlight-glass-scene'
             );
 
         const breaker =
             new this._vendor.UnpickableActor({
                 name:
-                    'velora-spotlight-glass-breaker',
+                    'vliq-spotlight-glass-breaker',
                 reactive: false,
             });
         breaker.set_no_layout?.(true);
@@ -231,7 +231,7 @@ export class SpotlightGlassManager {
                     this._vendor.root,
                 settings: this._settings,
                 owner:
-                    'velora-spotlight-search',
+                    'vliq-spotlight-search',
             });
 
         effect.setPadding?.(PAD);
@@ -409,7 +409,7 @@ export class SpotlightGlassManager {
 
         const [x, y, w, h] = rect;
         const adapter =
-            VELORA_GLASS_ADAPTERS
+            VLIQ_GLASS_ADAPTERS
                 .spotlight;
 
         let focused = false;
@@ -547,7 +547,7 @@ export class SpotlightGlassManager {
             return;
 
         const adapter =
-            VELORA_GLASS_ADAPTERS
+            VLIQ_GLASS_ADAPTERS
                 .spotlight;
         const nowUs =
             GLib.get_monotonic_time();
@@ -681,7 +681,7 @@ export class SpotlightGlassManager {
         this._appearance = state;
 
         const role =
-            VELORA_GLASS_ROLES
+            VLIQ_GLASS_ROLES
                 .innerCard;
 
         let brightness = null;
@@ -703,7 +703,7 @@ export class SpotlightGlassManager {
                 );
         } catch {}
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             this._effect,
             role,
             {

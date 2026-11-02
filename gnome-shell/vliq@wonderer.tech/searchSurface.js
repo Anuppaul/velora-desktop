@@ -1,7 +1,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export const SEARCH_SURFACE_CLASS =
-    'velora-search-surface';
+    'vliq-search-surface';
 
 export function decorateSearchEntry(actor) {
     if (!actor?.add_style_class_name)

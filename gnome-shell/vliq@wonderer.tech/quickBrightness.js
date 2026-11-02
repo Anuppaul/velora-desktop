@@ -1,4 +1,4 @@
-// Velora Quick Settings Brightness (GNOME Shell 50).
+// VLIQ Quick Settings Brightness (GNOME Shell 50).
 //
 // GNOME already ships a native BrightnessItem, but hides it when
 // Main.brightnessManager.globalScale is null (common on desktop PCs with
@@ -23,8 +23,8 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {QuickSlider} from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
-const SOFTWARE_EFFECT_NAME = 'velora-quick-brightness-software-dim';
-const SOFTWARE_SLIDER_CLASS = 'velora-software-brightness';
+const SOFTWARE_EFFECT_NAME = 'vliq-quick-brightness-software-dim';
+const SOFTWARE_SLIDER_CLASS = 'vliq-software-brightness';
 const MIN_SOFT_PERCENT = 30;
 const MAX_SOFT_DIM = 0.50;
 
@@ -127,7 +127,7 @@ export class QuickBrightnessManager {
                 );
             } catch (error) {
                 console.warn(
-                    '[Velora][Brightness] hardware manager signal unavailable: ' +
+                    '[VLIQ][Brightness] hardware manager signal unavailable: ' +
                     error
                 );
             }
@@ -149,7 +149,7 @@ export class QuickBrightnessManager {
             );
         } catch (error) {
             console.warn(
-                '[Velora][Brightness] grid lifecycle signal unavailable: ' +
+                '[VLIQ][Brightness] grid lifecycle signal unavailable: ' +
                 error
             );
         }
@@ -256,7 +256,7 @@ export class QuickBrightnessManager {
                 grid.set_child_below_sibling(item, null);
         } catch (error) {
             console.warn(
-                '[Velora][Brightness] native slider position restore failed: ' +
+                '[VLIQ][Brightness] native slider position restore failed: ' +
                 error
             );
         }
@@ -321,7 +321,7 @@ export class QuickBrightnessManager {
             try { item.destroy(); } catch {}
             this._publishStatus('Unavailable: cannot add native brightness slider');
             console.warn(
-                '[Velora][Brightness] QuickSlider insertion failed: ' + error
+                '[VLIQ][Brightness] QuickSlider insertion failed: ' + error
             );
         }
     }
@@ -380,7 +380,7 @@ export class QuickBrightnessManager {
                 'Unavailable: cannot keep fullscreen video dimmed'
             );
             console.warn(
-                '[Velora][Brightness] disable_unredirect failed: ' + error
+                '[VLIQ][Brightness] disable_unredirect failed: ' + error
             );
             return false;
         }
@@ -399,7 +399,7 @@ export class QuickBrightnessManager {
             compositor?.enable_unredirect?.();
         } catch (error) {
             console.warn(
-                '[Velora][Brightness] enable_unredirect failed: ' + error
+                '[VLIQ][Brightness] enable_unredirect failed: ' + error
             );
         }
     }
@@ -456,7 +456,7 @@ export class QuickBrightnessManager {
                 this._removeEffect();
                 this._publishStatus('Unavailable: software dimming failed');
                 console.warn(
-                    '[Velora][Brightness] software GPU effect unavailable: ' +
+                    '[VLIQ][Brightness] software GPU effect unavailable: ' +
                     error
                 );
                 return false;
@@ -468,7 +468,7 @@ export class QuickBrightnessManager {
                 this._removeEffect();
                 this._publishStatus('Unavailable: software dimming update failed');
                 console.warn(
-                    '[Velora][Brightness] dimming update failed: ' + error
+                    '[VLIQ][Brightness] dimming update failed: ' + error
                 );
                 return false;
             }
@@ -486,7 +486,7 @@ export class QuickBrightnessManager {
                 host.remove_effect(effect);
             } catch (error) {
                 console.warn(
-                    '[Velora][Brightness] remove owned GPU effect failed: ' +
+                    '[VLIQ][Brightness] remove owned GPU effect failed: ' +
                     error
                 );
             }
@@ -535,7 +535,7 @@ export class QuickBrightnessManager {
             }
 
             // No recognized hardware backlight. GNOME's BrightnessItem
-            // stays hidden; leave it alone and expose one Velora-native
+            // stays hidden; leave it alone and expose one VLIQ-native
             // fallback QuickSlider directly below the Sound slider.
             this._restoreNative();
             this._createSoftwareSlider(menu, grid, output);
@@ -559,7 +559,7 @@ export class QuickBrightnessManager {
         } catch (error) {
             this._removeEffect();
             this._publishStatus('Unavailable: brightness setup failed');
-            console.warn('[Velora][Brightness] setup error: ' + error);
+            console.warn('[VLIQ][Brightness] setup error: ' + error);
         } finally {
             this._syncing = false;
         }

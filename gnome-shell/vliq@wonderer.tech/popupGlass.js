@@ -11,18 +11,18 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {
     GLASS_TEXT_PALETTE,
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
     resolveGlassInteractionTarget,
     stepGlassInteraction,
 } from './glassMaterialSystem.js';
 
-const GLASS_CLASS = 'velora-liquid-popup-content';
-const SHELL_CLASS = 'velora-liquid-popup-shell';
-const DATE_SHELL_CLASS = 'velora-liquid-date-menu-shell';
-const QUICK_SHELL_CLASS = 'velora-liquid-quick-menu-shell';
-const QUICK_ROOT_CLASS = 'velora-liquid-quick-menu-root';
+const GLASS_CLASS = 'vliq-liquid-popup-content';
+const SHELL_CLASS = 'vliq-liquid-popup-shell';
+const DATE_SHELL_CLASS = 'vliq-liquid-date-menu-shell';
+const QUICK_SHELL_CLASS = 'vliq-liquid-quick-menu-shell';
+const QUICK_ROOT_CLASS = 'vliq-liquid-quick-menu-root';
 const DEFAULT_RADIUS = 18;
 const GLASS_EDGE_PAD = 20;
 const SAMPLE_MARGIN_MIN = 64;
@@ -60,13 +60,13 @@ const QUICK_INNER_CARD_CLASSES = new Set([
 const DATE_INNER_PAD = 20;
 const MAX_INNER_GLASS_REGIONS = 16;
 const DATE_INNER_SCAN_INTERVAL_US = 500000;
-const DATE_TEXT_LIGHT_CLASS = 'velora-date-text-light';
-const DATE_TEXT_DARK_CLASS = 'velora-date-text-dark';
-const DATE_CARD_TEXT_LIGHT_CLASS = 'velora-date-card-text-light';
-const DATE_CARD_TEXT_DARK_CLASS = 'velora-date-card-text-dark';
-const QUICK_CARD_TEXT_LIGHT_CLASS = 'velora-quick-card-text-light';
-const QUICK_CARD_TEXT_DARK_CLASS = 'velora-quick-card-text-dark';
-const QUICK_ACTIVE_CLASS = 'velora-quick-active';
+const DATE_TEXT_LIGHT_CLASS = 'vliq-date-text-light';
+const DATE_TEXT_DARK_CLASS = 'vliq-date-text-dark';
+const DATE_CARD_TEXT_LIGHT_CLASS = 'vliq-date-card-text-light';
+const DATE_CARD_TEXT_DARK_CLASS = 'vliq-date-card-text-dark';
+const QUICK_CARD_TEXT_LIGHT_CLASS = 'vliq-quick-card-text-light';
+const QUICK_CARD_TEXT_DARK_CLASS = 'vliq-quick-card-text-dark';
+const QUICK_ACTIVE_CLASS = 'vliq-quick-active';
 const DATE_LIGHT_TEXT = GLASS_TEXT_PALETTE.light;
 const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
@@ -255,7 +255,7 @@ const DATE_DARK_LUMA = hexLuminance(DATE_DARK_TEXT);
  *          └─ BoxPointer.bin
  *               └─ menu.box (.popup-menu-content)
  *
- * Velora adds a separate, unpickable, full-monitor paint layer directly below
+ * VLIQ adds a separate, unpickable, full-monitor paint layer directly below
  * menu.actor in Main.uiGroup. Its shader mask follows menu.box's transformed
  * stage rect. This avoids participating in BoxPointer layout/allocation at all.
  */
@@ -338,11 +338,11 @@ class PopupGlassSurface {
 
         this._surfaceAdapter =
             this._isDateMenu
-                ? VELORA_GLASS_ADAPTERS.dateMenu
+                ? VLIQ_GLASS_ADAPTERS.dateMenu
                 : (
                     this._isQuickSettings
-                        ? VELORA_GLASS_ADAPTERS.quickMenu
-                        : VELORA_GLASS_ADAPTERS.popupMenu
+                        ? VLIQ_GLASS_ADAPTERS.quickMenu
+                        : VLIQ_GLASS_ADAPTERS.popupMenu
                 );
         this._lastSceneSyncUs = 0;
         this._overviewWindowCaptureEnabled = null;
@@ -393,7 +393,7 @@ class PopupGlassSurface {
         // BoxPointer._border is a St.DrawingArea that paints GNOME/Yaru's
         // own full rounded popover outline. Keeping it allocated but fully
         // transparent preserves native geometry while removing the second
-        // visible card edge behind Velora's LiquidEffect rim.
+        // visible card edge behind VLIQ's LiquidEffect rim.
         if (border.opacity !== 0)
             border.opacity = 0;
         border.queue_repaint?.();
@@ -432,12 +432,12 @@ class PopupGlassSurface {
             return Boolean(this._root);
         }
 
-        // Recover stale wrapper/direct-material remnants from older Velora
+        // Recover stale wrapper/direct-material remnants from older VLIQ
         // revisions before installing the stage-level material.
         const currentChild = this._bin.get_child?.() ?? null;
         if (
             currentChild !== this._box &&
-            currentChild?.get_name?.() === 'velora-popup-glass-stack' &&
+            currentChild?.get_name?.() === 'vliq-popup-glass-stack' &&
             this._box.get_parent?.() === currentChild
         ) {
             try {
@@ -446,7 +446,7 @@ class PopupGlassSurface {
                 currentChild.destroy?.();
             } catch (error) {
                 console.error(
-                    '[Velora][PopupGlass] stale wrapper recovery failed: ' +
+                    '[VLIQ][PopupGlass] stale wrapper recovery failed: ' +
                     error
                 );
                 return false;
@@ -456,7 +456,7 @@ class PopupGlassSurface {
         for (const child of this._boxPointer.get_children?.() ?? []) {
             if (
                 child !== this._bin &&
-                child.get_name?.() === 'velora-popup-glass-material'
+                child.get_name?.() === 'vliq-popup-glass-material'
             ) {
                 try {
                     child.destroy?.();
@@ -473,14 +473,14 @@ class PopupGlassSurface {
         this._paintRoot = this._resolvePaintRoot();
 
         const root = new this._vendor.UnpickableActor({
-            name: 'velora-popup-material-root',
+            name: 'vliq-popup-material-root',
             reactive: false,
         });
         root.set_size(1, 1);
         root.hide();
 
         const liquidBox = new this._vendor.UnpickableActor({
-            name: 'velora-popup-liquid-box',
+            name: 'vliq-popup-liquid-box',
             reactive: false,
         });
         liquidBox.set_clip_to_allocation(true);
@@ -491,7 +491,7 @@ class PopupGlassSurface {
         // One scene-selection policy for ALL native popups:
         // - desktop: live Meta.WindowActor clones over shared wallpaper;
         // - Overview/App Grid: GNOME's actual native overviewGroup pixels,
-        //   including Velora's existing blurred Overview backdrop/icons;
+        //   including VLIQ's existing blurred Overview backdrop/icons;
         // - empty desktop: just the shared wallpaper.
         //
         // Do NOT clone Main.uiGroup/global.stage: those contain popup
@@ -505,7 +505,7 @@ class PopupGlassSurface {
             new this._vendor.WindowCloneManager(
                 liquidBox,
                 null,
-                'velora-popup-scene'
+                'vliq-popup-scene'
             );
 
         let overviewSceneClone = null;
@@ -529,7 +529,7 @@ class PopupGlassSurface {
                     reactive: false,
                 });
                 overviewSceneClone.set_name?.(
-                    'velora-popup-native-overview-scene'
+                    'vliq-popup-native-overview-scene'
                 );
                 overviewSceneClone.set_no_layout?.(true);
                 overviewSceneClone.set_position(0, 0);
@@ -545,14 +545,14 @@ class PopupGlassSurface {
                 try { overviewSceneClone?.destroy?.(); } catch {}
                 overviewSceneClone = null;
                 console.warn(
-                    '[Velora][PopupGlass] Overview scene clone unavailable: ' +
+                    '[VLIQ][PopupGlass] Overview scene clone unavailable: ' +
                     error
                 );
             }
         }
 
         const breaker = new this._vendor.UnpickableActor({
-            name: 'velora-popup-optimization-breaker',
+            name: 'vliq-popup-optimization-breaker',
             reactive: false,
         });
         breaker.set_size(1, 1);
@@ -562,7 +562,7 @@ class PopupGlassSurface {
         const effect = new this._vendor.LiquidEffect({
             extensionPath: this._vendor.root,
             settings: this._settings,
-            owner: 'velora-popup',
+            owner: 'vliq-popup',
         });
         effect.setPadding?.(
             this._surfaceAdapter?.shaderPadding ??
@@ -575,8 +575,8 @@ class PopupGlassSurface {
         liquidBox.add_effect(effect);
 
         const filterLayer = new St.Widget({
-            name: 'velora-popup-white-filter',
-            style_class: 'velora-glass-white-filter',
+            name: 'vliq-popup-white-filter',
+            style_class: 'vliq-glass-white-filter',
             reactive: false,
         });
         root.add_child(filterLayer);
@@ -588,14 +588,14 @@ class PopupGlassSurface {
 
         if (this._isDateMenu || this._isQuickSettings) {
             dateInnerRoot = new this._vendor.UnpickableActor({
-                name: 'velora-popup-inner-material-root',
+                name: 'vliq-popup-inner-material-root',
                 reactive: false,
             });
             dateInnerRoot.set_size(1, 1);
             dateInnerRoot.hide();
 
             dateInnerLiquidBox = new this._vendor.UnpickableActor({
-                name: 'velora-popup-inner-liquid-box',
+                name: 'vliq-popup-inner-liquid-box',
                 reactive: false,
             });
             dateInnerLiquidBox.set_clip_to_allocation(true);
@@ -617,7 +617,7 @@ class PopupGlassSurface {
             dateInnerEffect = new this._vendor.LiquidEffect({
                 extensionPath: this._vendor.root,
                 settings: this._settings,
-                owner: 'velora-popup-inner-cards',
+                owner: 'vliq-popup-inner-cards',
             });
             dateInnerEffect.setPadding?.(DATE_INNER_PAD);
             dateInnerEffect.setIsDock?.(false);
@@ -679,7 +679,7 @@ class PopupGlassSurface {
             } catch {}
 
             console.error(
-                '[Velora][PopupGlass] stage material attach failed: ' +
+                '[VLIQ][PopupGlass] stage material attach failed: ' +
                 error
             );
             return false;
@@ -781,7 +781,7 @@ class PopupGlassSurface {
         this._sync(false);
 
         console.log(
-            '[Velora][PopupGlass] attached ' +
+            '[VLIQ][PopupGlass] attached ' +
             this._manager.describeMenu(this._menu)
         );
         return true;
@@ -1200,7 +1200,7 @@ class PopupGlassSurface {
                 hasPseudo(actor, 'focus');
         }
 
-        const role = VELORA_GLASS_ROLES.innerCard;
+        const role = VLIQ_GLASS_ROLES.innerCard;
         const target = resolveGlassInteractionTarget(
             {
                 pressed,
@@ -1276,7 +1276,7 @@ class PopupGlassSurface {
                 : quickCardClass(actor);
 
             const quickAdapter =
-                VELORA_GLASS_ADAPTERS.quickMenu;
+                VLIQ_GLASS_ADAPTERS.quickMenu;
             const state =
                 this._isQuickSettings
                     ? quickCardState(actor)
@@ -1955,9 +1955,9 @@ class PopupGlassSurface {
         }
 
         if (this._isQuickSettings) {
-            applyVeloraGlassRole(
+            applyVLIQGlassRole(
                 this._effect,
-                VELORA_GLASS_ROLES.quickMenuCard,
+                VLIQ_GLASS_ROLES.quickMenuCard,
                 {
                     tintColor: [
                         (profile.r ?? 255) / 255,
@@ -1966,7 +1966,7 @@ class PopupGlassSurface {
                     ],
                     tintStrength:
                         profile.opacity ??
-                        VELORA_GLASS_ROLES.quickMenuCard.tintStrength,
+                        VLIQ_GLASS_ROLES.quickMenuCard.tintStrength,
                     // Outer popup tracks the System Blur slider exactly;
                     // nested pods retain the role's slightly clearer scaling.
                     blurRadius: profile.blur ?? 7,
@@ -2001,9 +2001,9 @@ class PopupGlassSurface {
             this._dateInnerEffect &&
             (this._isDateMenu || this._isQuickSettings)
         ) {
-            applyVeloraGlassRole(
+            applyVLIQGlassRole(
                 this._dateInnerEffect,
-                VELORA_GLASS_ROLES.innerCard,
+                VLIQ_GLASS_ROLES.innerCard,
                 {
                     tintColor: [
                         (profile.r ?? 255) / 255,
@@ -2075,7 +2075,7 @@ class PopupGlassSurface {
         // Prefer the newer vendor manager, whose sync() also skips work
         // while cloned windows are disabled. The canonical vendor modules
         // are GJS-import cached for the duration of the Shell process;
-        // a Velora hot-swap may still hold the PREVIOUS class without
+        // a VLIQ hot-swap may still hold the PREVIOUS class without
         // setWindowCaptureEnabled(), even after replacing vendor files.
         const nativeChanged =
             scene.setWindowCaptureEnabled?.(enabled) === true;
@@ -2107,7 +2107,7 @@ class PopupGlassSurface {
             return false;
 
         // This actual native Overview/App Grid subtree contains the icons,
-        // workspace/search views and Velora's existing background blur.
+        // workspace/search views and VLIQ's existing background blur.
         // All popups use it when GNOME paints Overview. Desktop Browser
         // clones are excluded ONLY in that context, not forever as the
         // previous Calendar-only workaround did.
@@ -2895,8 +2895,8 @@ export class PopupGlassManager {
     constructor(params) {
         this._vendor = params.vendor;
         this._settings = params.settings;
-        this._veloraSettings =
-            params.veloraSettings ?? null;
+        this._vliqSettings =
+            params.vliqSettings ?? null;
         this._readAppearance = params.readAppearance;
         this._surfaces = new Map();
         this._enabled = false;
@@ -2934,10 +2934,10 @@ export class PopupGlassManager {
         const prototype = PopupMenu.PopupMenu.prototype;
 
         this._originalOpen =
-            prototype.open?._veloraOriginalOpen ??
+            prototype.open?._vliqOriginalOpen ??
             prototype.open;
         this._originalDestroy =
-            prototype.destroy?._veloraOriginalDestroy ??
+            prototype.destroy?._vliqOriginalDestroy ??
             prototype.destroy;
 
         const manager = this;
@@ -2948,7 +2948,7 @@ export class PopupGlassManager {
                 animation ===
                 BoxPointer.PopupAnimation.FADE;
             const confirmedPanelHover =
-                this._veloraPanelHoverConfirmed === true;
+                this._vliqPanelHoverConfirmed === true;
 
             if (
                 manager._enabled &&
@@ -3006,9 +3006,9 @@ export class PopupGlassManager {
             return manager._originalDestroy.apply(this, args);
         };
 
-        this._patchedOpen._veloraOriginalOpen =
+        this._patchedOpen._vliqOriginalOpen =
             this._originalOpen;
-        this._patchedDestroy._veloraOriginalDestroy =
+        this._patchedDestroy._vliqOriginalDestroy =
             this._originalDestroy;
 
         prototype.open = this._patchedOpen;
@@ -3023,14 +3023,14 @@ export class PopupGlassManager {
         this._syncStageLoopState();
 
         console.log(
-            '[Velora][PopupGlass] global PopupMenu adapter active'
+            '[VLIQ][PopupGlass] global PopupMenu adapter active'
         );
     }
 
     _panelHoverSwitchEnabled() {
         try {
             return Boolean(
-                this._veloraSettings?.get_boolean?.(
+                this._vliqSettings?.get_boolean?.(
                     'panel-menu-hover-switch'
                 )
             );
@@ -3044,7 +3044,7 @@ export class PopupGlassManager {
     _panelHoverSwitchDelayMs() {
         try {
             const value =
-                this._veloraSettings?.get_int?.(
+                this._vliqSettings?.get_int?.(
                     'panel-menu-hover-delay-ms'
                 );
             if (Number.isFinite(value))
@@ -3212,7 +3212,7 @@ export class PopupGlassManager {
                 // If another panel source was entered meanwhile, its _changeMenu
                 // call replaced this target/timer before we get here.
                 try {
-                    newMenu._veloraPanelHoverConfirmed =
+                    newMenu._vliqPanelHoverConfirmed =
                         true;
                     this._originalPanelChangeMenu?.call(
                         panelManager,
@@ -3221,9 +3221,9 @@ export class PopupGlassManager {
                 } finally {
                     try {
                         delete newMenu
-                            ._veloraPanelHoverConfirmed;
+                            ._vliqPanelHoverConfirmed;
                     } catch {
-                        newMenu._veloraPanelHoverConfirmed =
+                        newMenu._vliqPanelHoverConfirmed =
                             false;
                     }
                 }
@@ -3251,7 +3251,7 @@ export class PopupGlassManager {
             panelManager._changeMenu;
         const originalChangeMenu =
             currentChangeMenu
-                ?._veloraOriginalChangeMenu ??
+                ?._vliqOriginalChangeMenu ??
             currentChangeMenu;
         if (
             typeof originalChangeMenu !==
@@ -3264,14 +3264,14 @@ export class PopupGlassManager {
             panelManager.addMenu;
         const originalAddMenu =
             currentAddMenu
-                ?._veloraOriginalAddMenu ??
+                ?._vliqOriginalAddMenu ??
             currentAddMenu;
 
         const currentRemoveMenu =
             panelManager.removeMenu;
         const originalRemoveMenu =
             currentRemoveMenu
-                ?._veloraOriginalRemoveMenu ??
+                ?._vliqOriginalRemoveMenu ??
             currentRemoveMenu;
 
         this._panelMenuManager =
@@ -3350,7 +3350,7 @@ export class PopupGlassManager {
             };
 
         this._patchedPanelChangeMenu
-            ._veloraOriginalChangeMenu =
+            ._vliqOriginalChangeMenu =
                 originalChangeMenu;
 
         panelManager._changeMenu =
@@ -3372,7 +3372,7 @@ export class PopupGlassManager {
                 };
 
             this._patchedPanelAddMenu
-                ._veloraOriginalAddMenu =
+                ._vliqOriginalAddMenu =
                     originalAddMenu;
 
             panelManager.addMenu =
@@ -3392,7 +3392,7 @@ export class PopupGlassManager {
                 };
 
             this._patchedPanelRemoveMenu
-                ._veloraOriginalRemoveMenu =
+                ._vliqOriginalRemoveMenu =
                     originalRemoveMenu;
 
             panelManager.removeMenu =
@@ -3407,12 +3407,12 @@ export class PopupGlassManager {
         }
 
         if (
-            this._veloraSettings &&
+            this._vliqSettings &&
             !this._panelHoverSettingId
         ) {
             try {
                 this._panelHoverSettingId =
-                    this._veloraSettings.connect(
+                    this._vliqSettings.connect(
                         'changed::panel-menu-hover-switch',
                         () => {
                             this._cancelPanelHoverSwitch();
@@ -3424,12 +3424,12 @@ export class PopupGlassManager {
         }
 
         if (
-            this._veloraSettings &&
+            this._vliqSettings &&
             !this._panelHoverDelaySettingId
         ) {
             try {
                 this._panelHoverDelaySettingId =
-                    this._veloraSettings.connect(
+                    this._vliqSettings.connect(
                         'changed::panel-menu-hover-delay-ms',
                         () => {
                             this._cancelPanelHoverSwitch();
@@ -3445,11 +3445,11 @@ export class PopupGlassManager {
         this._cancelPanelHoverSwitch();
 
         if (
-            this._veloraSettings &&
+            this._vliqSettings &&
             this._panelHoverSettingId
         ) {
             try {
-                this._veloraSettings.disconnect(
+                this._vliqSettings.disconnect(
                     this._panelHoverSettingId
                 );
             } catch {}
@@ -3457,11 +3457,11 @@ export class PopupGlassManager {
         this._panelHoverSettingId = 0;
 
         if (
-            this._veloraSettings &&
+            this._vliqSettings &&
             this._panelHoverDelaySettingId
         ) {
             try {
-                this._veloraSettings.disconnect(
+                this._vliqSettings.disconnect(
                     this._panelHoverDelaySettingId
                 );
             } catch {}
@@ -3565,7 +3565,7 @@ export class PopupGlassManager {
                             this.attach(menu);
                         } catch (error) {
                             console.error(
-                                '[Velora][PopupGlass] system popup prewarm failed: ' +
+                                '[VLIQ][PopupGlass] system popup prewarm failed: ' +
                                 error
                             );
                         }
@@ -3599,7 +3599,7 @@ export class PopupGlassManager {
                         surface.syncFrame();
                     } catch (error) {
                         console.error(
-                            '[Velora][PopupGlass] frame sync failed; restoring native popup: ' +
+                            '[VLIQ][PopupGlass] frame sync failed; restoring native popup: ' +
                             error +
                             '\n' +
                             (error?.stack ?? '')
@@ -3684,7 +3684,7 @@ export class PopupGlassManager {
                     this.attach(menu);
                 } catch (error) {
                     console.error(
-                        '[Velora][PopupGlass] idle panel attach failed: ' +
+                        '[VLIQ][PopupGlass] idle panel attach failed: ' +
                         error
                     );
                 }
@@ -3737,7 +3737,7 @@ export class PopupGlassManager {
                     this.attach(menu);
                 } catch (error) {
                     console.error(
-                        '[Velora][PopupGlass] deferred hover attach failed: ' +
+                        '[VLIQ][PopupGlass] deferred hover attach failed: ' +
                         error
                     );
                 }
@@ -3843,7 +3843,7 @@ export class PopupGlassManager {
         this._appearance = null;
 
         console.log(
-            '[Velora][PopupGlass] global PopupMenu adapter stopped'
+            '[VLIQ][PopupGlass] global PopupMenu adapter stopped'
         );
     }
 }

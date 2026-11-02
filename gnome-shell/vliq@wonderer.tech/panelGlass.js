@@ -1,12 +1,12 @@
-// A true Velora Liquid Glass material limited to the native Ubuntu Dock panel.
+// A true VLIQ Liquid Glass material limited to the native Ubuntu Dock panel.
 // Follows the established ShellCardSurface architecture, NOT the fullscreen
 // DashManager FBO that caused PR #35's whole-screen black regression.
 import GLib from 'gi://GLib';
 import {frameDue} from './frameBudget.js';
 
 import {
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
 const SCENE_FPS = 24;
@@ -35,7 +35,7 @@ export class PanelGlassSurface {
         let manager = null;
         try {
             material = new this._vendor.UnpickableActor({
-                name: 'velora-native-panel-liquid-glass',
+                name: 'vliq-native-panel-liquid-glass',
                 reactive: false,
             });
             material.set_no_layout?.(true);
@@ -44,7 +44,7 @@ export class PanelGlassSurface {
             material.set_opacity(0);
 
             const scene = new this._vendor.UnpickableActor({
-                name: 'velora-native-panel-liquid-scene',
+                name: 'vliq-native-panel-liquid-scene',
                 reactive: false,
             });
             scene.set_no_layout?.(true);
@@ -52,7 +52,7 @@ export class PanelGlassSurface {
 
             // Nonempty capture during the first GL paint/allocation.
             const breaker = new this._vendor.UnpickableActor({
-                name: 'velora-panel-capture-breaker',
+                name: 'vliq-panel-capture-breaker',
                 reactive: false,
             });
             breaker.set_no_layout?.(true);
@@ -63,7 +63,7 @@ export class PanelGlassSurface {
             const effect = new this._vendor.LiquidEffect({
                 extensionPath: this._vendor.root,
                 settings: this._settings,
-                owner: 'velora-panel-local',
+                owner: 'vliq-panel-local',
             });
             effect.setPadding?.(0);
             effect.setShadowMaxRadius?.(0);
@@ -78,7 +78,7 @@ export class PanelGlassSurface {
             group.insert_child_below(material, dockRoot);
 
             manager = new this._vendor.WindowCloneManager(
-                scene, null, 'velora-native-panel-local'
+                scene, null, 'vliq-native-panel-local'
             );
 
             this._material = material;
@@ -91,7 +91,7 @@ export class PanelGlassSurface {
         } catch (error) {
             try { manager?.destroy?.(); } catch {}
             try { material?.destroy?.(); } catch {}
-            console.warn('[Velora][PanelGlass] bounded material attach failed: ' + error);
+            console.warn('[VLIQ][PanelGlass] bounded material attach failed: ' + error);
             return false;
         }
     }
@@ -108,9 +108,9 @@ export class PanelGlassSurface {
             contrast = this._settings.get_double('dock-contrast');
             saturation = this._settings.get_double('dock-saturation');
         } catch {}
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             this._effect,
-            VELORA_GLASS_ROLES.dock,
+            VLIQ_GLASS_ROLES.dock,
             {
                 tintColor: [
                     (state.r ?? 255) / 255,

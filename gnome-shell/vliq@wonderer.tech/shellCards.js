@@ -5,13 +5,13 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    VELORA_GLASS_ADAPTERS,
-    VELORA_GLASS_ROLES,
-    applyVeloraGlassRole,
+    VLIQ_GLASS_ADAPTERS,
+    VLIQ_GLASS_ROLES,
+    applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 
-const CARD_CLASS = 'velora-liquid-shell-card';
-const PREVIEW_CARD_CLASS = 'velora-app-preview-card';
+const CARD_CLASS = 'vliq-liquid-shell-card';
+const PREVIEW_CARD_CLASS = 'vliq-app-preview-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
@@ -91,14 +91,14 @@ class ShellCardSurface {
             return false;
 
         const material = new this._vendor.UnpickableActor({
-            name: 'velora-shell-card-material',
+            name: 'vliq-shell-card-material',
             reactive: false,
         });
         material.set_no_layout?.(true);
         material.set_clip_to_allocation(true);
 
         const sceneRoot = new this._vendor.UnpickableActor({
-            name: 'velora-shell-card-live-scene',
+            name: 'vliq-shell-card-live-scene',
             reactive: false,
         });
         sceneRoot.set_no_layout?.(true);
@@ -107,7 +107,7 @@ class ShellCardSurface {
         let wallpaperMirror = null;
 
         const breaker = new this._vendor.UnpickableActor({
-            name: 'velora-shell-card-breaker',
+            name: 'vliq-shell-card-breaker',
             reactive: false,
         });
         breaker.set_size(1, 1);
@@ -119,8 +119,8 @@ class ShellCardSurface {
             extensionPath: this._vendor.root,
             settings: this._settings,
             owner: this._wallpaperOnly
-                ? 'velora-app-grid-wallpaper'
-                : 'velora-shell-card',
+                ? 'vliq-app-grid-wallpaper'
+                : 'vliq-shell-card',
         });
         effect.setPadding?.(20);
         effect.setShadowMaxRadius?.(
@@ -140,7 +140,7 @@ class ShellCardSurface {
                 this._parent.get_child?.() === this._target
             ) {
                 const overlay = new St.Widget({
-                    name: 'velora-shell-card-stack',
+                    name: 'vliq-shell-card-stack',
                     layout_manager: new Clutter.BinLayout(),
                     x_expand: true,
                     y_expand: true,
@@ -170,7 +170,7 @@ class ShellCardSurface {
             } catch (error) {
                 material.destroy?.();
                 console.error(
-                    '[Velora][ShellCards] attach failed: ' + error
+                    '[VLIQ][ShellCards] attach failed: ' + error
                 );
                 return false;
             }
@@ -221,7 +221,7 @@ class ShellCardSurface {
         this._sync();
 
         console.log(
-            '[Velora][ShellCards] attached [' +
+            '[VLIQ][ShellCards] attached [' +
             classesOf(this._target).join(' ') +
             ']'
         );
@@ -233,9 +233,9 @@ class ShellCardSurface {
             return;
 
         const role =
-            VELORA_GLASS_ROLES.shellCard;
+            VLIQ_GLASS_ROLES.shellCard;
         const adapter =
-            VELORA_GLASS_ADAPTERS.shellCard;
+            VLIQ_GLASS_ADAPTERS.shellCard;
         const radius = Math.max(0, radiusOf(this._target));
 
         let brightness = null;
@@ -253,7 +253,7 @@ class ShellCardSurface {
             // Shared material defaults remain valid.
         }
 
-        applyVeloraGlassRole(
+        applyVLIQGlassRole(
             this._effect,
             role,
             {
@@ -289,7 +289,7 @@ class ShellCardSurface {
             new this._vendor.WindowCloneManager(
                 this._sceneRoot,
                 null,
-                'velora-shell-card-scene'
+                'vliq-shell-card-scene'
             );
         this._lastSceneSyncUs = 0;
         this._lastCaptureX = NaN;
@@ -618,7 +618,7 @@ class ShellCardSurface {
                         this._wrappedBinParent.set_child(this._target);
                 } catch (error) {
                     console.error(
-                        '[Velora][ShellCards] native Bin restore failed: ' +
+                        '[VLIQ][ShellCards] native Bin restore failed: ' +
                         error
                     );
                 }
@@ -644,7 +644,7 @@ class ShellCardSurface {
                 this._material?.destroy?.();
             } catch {}
             console.warn(
-                '[Velora][ShellCards] kept neutral wrapper to protect native card content'
+                '[VLIQ][ShellCards] kept neutral wrapper to protect native card content'
             );
         }
 
@@ -674,7 +674,7 @@ export class ShellCardGlassManager {
         this._vendor = params.vendor;
         this._settings = params.settings;
         this._readAppearance = params.readAppearance;
-        // Preview cards live under Velora's separately managed desktop layer.
+        // Preview cards live under VLIQ's separately managed desktop layer.
         // In manual-only mode we reuse the same effect pipeline without
         // traversing the Shell tree or installing another polling loop.
         this._manualOnly = Boolean(params.manualOnly);
@@ -697,7 +697,7 @@ export class ShellCardGlassManager {
         this._syncStageLoopState();
 
         console.log(
-            '[Velora][ShellCards] event-driven Shell card registry active'
+            '[VLIQ][ShellCards] event-driven Shell card registry active'
         );
     }
 
@@ -723,7 +723,7 @@ export class ShellCardGlassManager {
                         surface.syncFrame();
                     } catch (error) {
                         console.error(
-                            '[Velora][ShellCards] frame sync failed; restoring native card: ' +
+                            '[VLIQ][ShellCards] frame sync failed; restoring native card: ' +
                             error +
                             '\n' +
                             (error?.stack ?? '')
@@ -777,7 +777,7 @@ export class ShellCardGlassManager {
 
         const name = actor.get_name?.() ?? '';
         if (
-            name.startsWith('velora-') ||
+            name.startsWith('vliq-') ||
             name.startsWith('lg-')
         ) {
             return;
@@ -881,6 +881,6 @@ export class ShellCardGlassManager {
         }
         this._watched.clear();
 
-        console.log('[Velora][ShellCards] registry stopped');
+        console.log('[VLIQ][ShellCards] registry stopped');
     }
 }

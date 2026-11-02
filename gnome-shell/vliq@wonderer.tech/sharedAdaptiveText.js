@@ -10,14 +10,14 @@ import {
     GLASS_TEXT_PALETTE,
 } from './glassMaterialSystem.js';
 
-const TEXT_LIGHT_CLASS = 'velora-shared-text-light';
-const TEXT_DARK_CLASS = 'velora-shared-text-dark';
+const TEXT_LIGHT_CLASS = 'vliq-shared-text-light';
+const TEXT_DARK_CLASS = 'vliq-shared-text-dark';
 
-const SHELL_CARD_CLASS = 'velora-liquid-shell-card';
-const POPUP_CLASS = 'velora-liquid-popup-content';
+const SHELL_CARD_CLASS = 'vliq-liquid-shell-card';
+const POPUP_CLASS = 'vliq-liquid-popup-content';
 const SEARCH_PROVIDER_CLASS = 'search-section-content';
 const SPOTLIGHT_SEARCH_CLASS =
-    'velora-spotlight-glass-entry';
+    'vliq-spotlight-glass-entry';
 
 const SCAN_INTERVAL_US = 1000000;
 const FRAME_TICK_GATE_US = 250000;
@@ -168,7 +168,7 @@ export class SharedAdaptiveTextManager {
         );
 
         console.log(
-            '[Velora][AdaptiveText] shared Shell text polarity active'
+            '[VLIQ][AdaptiveText] shared Shell text polarity active'
         );
     }
 
@@ -227,12 +227,12 @@ export class SharedAdaptiveTextManager {
             const name = actor.get_name?.() ?? '';
             const spotlightTree =
                 name.startsWith(
-                    'velora-spotlight'
+                    'vliq-spotlight'
                 );
 
             if (
                 (
-                    name.startsWith('velora-') &&
+                    name.startsWith('vliq-') &&
                     !spotlightTree
                 ) ||
                 name.startsWith('lg-')
@@ -940,7 +940,7 @@ export class SharedAdaptiveTextManager {
         this._lastPanelSampleUs = 0;
 
         console.log(
-            '[Velora][AdaptiveText] stopped'
+            '[VLIQ][AdaptiveText] stopped'
         );
     }
 }

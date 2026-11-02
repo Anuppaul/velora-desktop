@@ -276,7 +276,7 @@ export class SpotlightSearchController {
         }
 
         // If the user's input-source action does not own Super+Space, register
-        // Velora's dedicated binding without touching their keyboard settings.
+        // VLIQ's dedicated binding without touching their keyboard settings.
         let action = Meta.KeyBindingAction.NONE;
         try {
             action = Main.wm.addKeybinding(
@@ -296,7 +296,7 @@ export class SpotlightSearchController {
 
         if (!this._spotlightKeybindingInstalled) {
             console.error(
-                '[Velora][Spotlight] unable to register Super+Space'
+                '[VLIQ][Spotlight] unable to register Super+Space'
             );
         }
     }
@@ -333,7 +333,7 @@ export class SpotlightSearchController {
                 }
             } catch (error) {
                 console.error(
-                    '[Velora][Spotlight] failed to restore input-source handler: ' +
+                    '[VLIQ][Spotlight] failed to restore input-source handler: ' +
                     error
                 );
             }
@@ -543,8 +543,8 @@ export class SpotlightSearchController {
             return;
 
         this._layer = new St.Widget({
-            name: 'velora-spotlight-layer',
-            style_class: 'velora-spotlight-layer',
+            name: 'vliq-spotlight-layer',
+            style_class: 'vliq-spotlight-layer',
             reactive: true,
             can_focus: false,
             layout_manager:
@@ -557,8 +557,8 @@ export class SpotlightSearchController {
         this._layer.hide();
 
         this._card = new St.BoxLayout({
-            name: 'velora-spotlight-card',
-            style_class: 'velora-spotlight-card',
+            name: 'vliq-spotlight-card',
+            style_class: 'vliq-spotlight-card',
             reactive: true,
             orientation: Clutter.Orientation.VERTICAL,
         });
@@ -592,7 +592,7 @@ export class SpotlightSearchController {
 
         this._resultsBox = new St.BoxLayout({
             style_class:
-                'search-section-content velora-spotlight-results',
+                'search-section-content vliq-spotlight-results',
             orientation: Clutter.Orientation.VERTICAL,
             visible: false,
         });
@@ -608,7 +608,7 @@ export class SpotlightSearchController {
 
         this._emptyLabel = new St.Label({
             style_class:
-                'search-statustext velora-spotlight-empty',
+                'search-statustext vliq-spotlight-empty',
             text: 'No applications found',
             visible: false,
         });
@@ -630,7 +630,7 @@ export class SpotlightSearchController {
             );
         } catch (error) {
             console.error(
-                '[Velora][Spotlight] core glass attach failed: ' +
+                '[VLIQ][Spotlight] core glass attach failed: ' +
                 error
             );
         }
@@ -694,14 +694,14 @@ export class SpotlightSearchController {
 
         const iconBin = new St.Bin({
             style_class:
-                'velora-spotlight-result-icon-bin',
+                'vliq-spotlight-result-icon-bin',
             y_align: Clutter.ActorAlign.CENTER,
         });
         row.add_child(iconBin);
 
         const labels = new St.BoxLayout({
             style_class:
-                'velora-spotlight-result-labels',
+                'vliq-spotlight-result-labels',
             orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
@@ -1090,7 +1090,7 @@ export class SpotlightSearchController {
             app.activate();
         } catch (error) {
             console.error(
-                '[Velora][Spotlight] app activation failed: ' +
+                '[VLIQ][Spotlight] app activation failed: ' +
                 error
             );
         }
