@@ -10,7 +10,7 @@ export const VELORA_BOOTSTRAP_GENERATION = '2026-09-28-b';
 const BASE_REVISION = 'base';
 const BOOTSTRAP_REVISION_FILE = '.velora-bootstrap-revision';
 
-export default class VLIQBootstrap extends Extension {
+export default class VeloraBootstrap extends Extension {
     async enable() {
         this._enabled = true;
         this._settings = this.getSettings();
