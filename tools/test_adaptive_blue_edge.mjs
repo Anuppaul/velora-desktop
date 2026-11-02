@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-// Regression for Velora's *one* adaptive icy-blue edge, within the existing
+// Regression for VLIQ's *one* adaptive icy-blue edge, within the existing
 // LiquidEffect shader. Tests its source-level SDF/alpha/contrast contract and
 // a numeric reproduction of its documented coefficients. These assertions
 // are not a replacement for live GNOME Shell 50 compositor screenshots.
-const base = '../gnome-shell/velora@wonderer.tech/';
+const base = '../gnome-shell/vliq@wonderer.tech/';
 const shader = await readFile(
     new URL(base + 'vendor/liquid-glass/shaders/glass.frag', import.meta.url),
     'utf8'
@@ -14,7 +14,7 @@ const css = await readFile(
     new URL(base + 'runtime.css', import.meta.url), 'utf8'
 );
 
-const start = shader.indexOf('vec3 veloraAdaptiveCardEdgeColor(');
+const start = shader.indexOf('vec3 vliqAdaptiveCardEdgeColor(');
 const end = shader.indexOf('// [NEW] Adjust color saturation, contrast, brightness', start);
 assert.ok(start > 0 && end > start);
 const helpers = shader.slice(start, end);
@@ -23,7 +23,7 @@ const premultiply = shader.indexOf('vec3 finalRgb   = litColor * alpha');
 const earlierExit = shader.indexOf('if (early_exit_enabled > 0.5 && debug_view < 0.5 && -d >= interiorThreshold)');
 assert.ok(blend > earlierExit && premultiply > blend,
     'the new rim must be applied only at full-path edges before premultiplied-alpha');
-assert.equal(shader.split('veloraAdaptiveCardEdgeCoverage(d);').length - 1, 1,
+assert.equal(shader.split('vliqAdaptiveCardEdgeCoverage(d);').length - 1, 1,
     'one actual rim per glass region, not layered strokes');
 
 assert.match(helpers, /vec3\(0\.76, 0\.88, 1\.00\)/,
@@ -53,7 +53,7 @@ assert.doesNotMatch(shader.slice(blend - 600, premultiply), /cogl_color_out\s*=/
 
 // The existing native preview remains a single refractive material: a
 // separate CSS border/veil must not silently return.
-const preview = css.match(/\.velora-app-preview-card\.velora-liquid-shell-card\s*\{([^}]*)\}/)?.[1];
+const preview = css.match(/\.vliq-app-preview-card\.vliq-liquid-shell-card\s*\{([^}]*)\}/)?.[1];
 assert.ok(preview);
 assert.match(preview, /background-color:\s*transparent\s*!important/);
 assert.match(preview, /border-color:\s*transparent\s*!important/);

@@ -3,7 +3,7 @@
 
 No Git command, executable binary, compiled schema, development installer,
 TypeScript source or nested upstream extension is shipped. The package
-contains the actual Velora GJS runtime and the vendored MIT renderer's
+contains the actual VLIQ GJS runtime and the vendored MIT renderer's
 reviewable JavaScript, GLSL and licenses.
 
 Usage:
@@ -26,11 +26,11 @@ from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
-EXT = ROOT / "gnome-shell" / "velora@wonderer.tech"
+EXT = ROOT / "gnome-shell" / "vliq@wonderer.tech"
 VENDOR = EXT / "vendor" / "liquid-glass"
-ARCHIVE_NAME = "velora@wonderer.tech.shell-extension.zip"
+ARCHIVE_NAME = "vliq@wonderer.tech.shell-extension.zip"
 
-CANONICAL_SCHEMA = "org.gnome.shell.extensions.velora.gschema.xml"
+CANONICAL_SCHEMA = "org.gnome.shell.extensions.vliq.gschema.xml"
 VENDOR_SCHEMA = (
     "org.gnome.shell.extensions.liquid-glass@thinkingcoding1231.gmail.com.gschema.xml"
 )
@@ -61,7 +61,7 @@ def collect() -> dict[str, bytes]:
     add(EXT / "metadata.json")
 
     # EGO requires the top-level schema XML. Copy the vendored renderer's
-    # schema XML ALONGSIDE Velora's canonical schema so the GNOME extension
+    # schema XML ALONGSIDE VLIQ's canonical schema so the GNOME extension
     # installer can compile both in one standard schemas/ pass. Do NOT ship
     # vendor/..../schemas/gschemas.compiled; the user should not need to run
     # install.sh, build binaries or precompile the vendor schema after install.
@@ -135,11 +135,11 @@ def verify(payload: dict[str, bytes]) -> dict[str, str]:
         raise ValueError("Bundled npm dependencies are not permitted")
 
     meta = json.loads(payload["metadata.json"].decode("utf-8"))
-    if meta.get("uuid") != "velora@wonderer.tech":
+    if meta.get("uuid") != "vliq@wonderer.tech":
         raise ValueError("Incorrect EGO extension UUID")
     if meta.get("shell-version") != ["50"]:
         raise ValueError("The supported shell version must be GNOME 50 only")
-    if meta.get("settings-schema") != "org.gnome.shell.extensions.velora":
+    if meta.get("settings-schema") != "org.gnome.shell.extensions.vliq":
         raise ValueError("Canonical GSettings schema mismatch")
 
     for key in ("schemas/" + CANONICAL_SCHEMA, "schemas/" + VENDOR_SCHEMA):
@@ -219,9 +219,9 @@ def main() -> None:
         return
     path = args.out_dir / ARCHIVE_NAME
     create_zip(path, payload)
-    manifest = args.out_dir / "velora-ego-manifest.json"
+    manifest = args.out_dir / "vliq-ego-manifest.json"
     manifest.write_text(json.dumps({
-        "uuid": "velora@wonderer.tech",
+        "uuid": "vliq@wonderer.tech",
         "gnome_shell": ["50"],
         "archive_name": path.name,
         "archive_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),

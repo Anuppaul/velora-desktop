@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // GJS loads .js as ES modules; Node on CI may default to CommonJS.
 // Load the exact shipped helper source as an ESM data URL for this test.
 const source = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/frameBudget.js', import.meta.url
+    '../gnome-shell/vliq@wonderer.tech/frameBudget.js', import.meta.url
 ), 'utf8');
 const {frameDue} = await import(
     `data:text/javascript,${encodeURIComponent(source)}`

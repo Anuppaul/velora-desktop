@@ -9,7 +9,7 @@ import {readFile} from 'node:fs/promises';
 // These tests EXECUTE the shipped popup methods in a lightweight GNOME
 // actor mock. They cannot replace on-device GNOME Shell 50 visual tests.
 const popup = await readFile(new URL(
-    '../gnome-shell/velora@wonderer.tech/popupGlass.js',
+    '../gnome-shell/vliq@wonderer.tech/popupGlass.js',
     import.meta.url
 ), 'utf8');
 

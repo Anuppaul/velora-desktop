@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 // Exercise the exact production source without GJS/Clutter availability.
-const root = new URL('../gnome-shell/velora@wonderer.tech/', import.meta.url);
+const root = new URL('../gnome-shell/vliq@wonderer.tech/', import.meta.url);
 const src = await readFile(new URL('fullscreenPanelGuard.js', root), 'utf8');
 const integrator = await readFile(new URL('liquidGlassDock.js', root), 'utf8');
 const installer = await readFile(
@@ -129,7 +129,7 @@ function fixture() {
     f.display.setFullscreen(0, true);
     assert.equal(f.panelBox.visible, false, 'native GNOME panel must hide');
     assert.equal(f.manager.bgActor.opacity, 0,
-        'independent Velora glass must vanish with native panel');
+        'independent VLIQ glass must vanish with native panel');
     assert.equal(f.manager.gate(), false,
         'DashManager must not repaint its glass while fullscreen');
     assert.equal(f.guard._forcedNativeHide, true);
@@ -153,7 +153,7 @@ function fixture() {
     assert.equal(f.panelBox.count, 0);
     assert.equal(f.panel.count, 0);
     assert.equal(f.manager.gate, null,
-        'no stale vendor callback after Velora hot-swap');
+        'no stale vendor callback after VLIQ hot-swap');
 }
 
 {
@@ -166,7 +166,7 @@ function fixture() {
     assert.equal(f.guard._forcedNativeHide, false,
         'do not claim ownership of native GNOME fullscreen visibility');
     assert.equal(f.manager.bgActor.opacity, 0,
-        'hide only Velora glass if native panel already hidden');
+        'hide only VLIQ glass if native panel already hidden');
     f.guard.cleanup();
     assert.equal(f.panelBox.visible, false,
         'cleanup must not show native panel during fullscreen');
