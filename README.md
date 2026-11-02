@@ -1,4 +1,4 @@
-# VLIQ Desktop
+# VLIQ
 
 <p align="center">
   <strong>Make GNOME Shell 50 feel extraordinary. Keep everything native.</strong>
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/velora-app-grid.png" alt="VLIQ Desktop on GNOME Shell 50" width="100%">
+  <img src="docs/screenshots/velora-app-grid.png" alt="VLIQ on GNOME Shell 50" width="100%">
 </p>
 
 <p align="center">
@@ -49,7 +49,7 @@ VLIQ follows one rule:
 It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, duplicate the calendar, or replace GNOME's controls. GNOME still owns geometry, hit targets, accessibility, input and animation. VLIQ works beneath supported Shell surfaces and changes the material they are painted with.
 
 <p align="center">
-  <img src="docs/graphics/velora-glass-system.svg" alt="VLIQ Desktop visual system" width="100%">
+  <img src="docs/graphics/velora-glass-system.svg" alt="VLIQ visual system" width="100%">
 </p>
 
 ## Features
@@ -69,7 +69,7 @@ It does not place a second Dock over Ubuntu Dock, recreate Quick Settings, dupli
 
 ## VLIQ Atmosphere — Premium Wallpaper
 
-Open **GNOME Extensions → VLIQ Desktop → Preferences → Wallpaper**.
+Open **GNOME Extensions → VLIQ → Preferences → Wallpaper**.
 
 Atmosphere changes the wallpaper's material and depth without changing
 GNOME's wallpaper files, image URI or desktop color scheme. It is deliberately
@@ -122,7 +122,7 @@ Liquid/Frosted glass controls and native popup scene selection are untouched.
 
 ## Choose a Glass Material
 
-Open **GNOME Extensions → VLIQ Desktop → Preferences → Appearance → Glass Material** and select **Liquid Glass** or **Frosted Crystal**. The mode switches live; it stays selected after logout or restart.
+Open **GNOME Extensions → VLIQ → Preferences → Appearance → Glass Material** and select **Liquid Glass** or **Frosted Crystal**. The mode switches live; it stays selected after logout or restart.
 
 | Material | Appearance | Adjustable controls |
 | --- | --- | --- |
@@ -231,7 +231,7 @@ remain unchanged.
 
 ## Manage Ubuntu Dock from VLIQ
 
-Open **GNOME Extensions → VLIQ Desktop → Preferences → Dock**. VLIQ
+Open **GNOME Extensions → VLIQ → Preferences → Dock**. VLIQ
 detects the installed Ubuntu Dock settings schema and provides its native
 controls directly, without copying or replacing the dock.
 
@@ -322,7 +322,7 @@ same self-contained package we intend to submit for official review:
 gnome-extensions install --force velora@wonderer.tech.shell-extension.zip
 ```
 
-Enable **VLIQ Desktop** in the GNOME Extensions app. On Wayland, a
+Enable **VLIQ** in the GNOME Extensions app. On Wayland, a
 **Log Out → Log In** is the recommended way to discover new extensions.
 
 **Do not run the developer installer for a Store/review ZIP.** The upload
@@ -560,13 +560,13 @@ See [SECURITY.md](SECURITY.md) for the responsible-disclosure process.
 
 ## License
 
-VLIQ Desktop is released under the **MIT License**. See [LICENSE](LICENSE).
+VLIQ is released under the **MIT License**. See [LICENSE](LICENSE).
 
 VLIQ also vendors/adapts third-party material whose copyright, license and provenance remain preserved. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
 <p align="center">
-  <strong>VLIQ Desktop</strong><br>
+  <strong>VLIQ</strong><br>
   <sub>Native GNOME behavior, refracted.</sub>
 </p>
