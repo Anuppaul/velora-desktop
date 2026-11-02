@@ -1,11 +1,11 @@
-# Velora Quick Settings — Brightness directly below Sound
+# VLIQ Quick Settings — Brightness directly below Sound
 
 GNOME Shell 50 includes a native **Brightness QuickSlider**, but hides it
 when `Main.brightnessManager.globalScale` is unavailable. This commonly
 happens on desktop PCs using an external monitor without a GNOME-controlled
 hardware backlight.
 
-Velora makes this control usable in both cases, with **the same native
+VLIQ makes this control usable in both cases, with **the same native
 slider design and glass styling as Sound**, immediately below the volume
 output slider. No new desktop package, DDC/CI utility or daemon is required.
 
@@ -14,7 +14,7 @@ output slider. No new desktop package, DDC/CI utility or daemon is required.
 | Display type | Quick Settings Brightness control | Effect |
 | --- | --- | --- |
 | Supported native backlight | GNOME's existing BrightnessItem | Native hardware brightness; GNOME owns updates |
-| External monitor / no native backlight | One Velora QuickSlider | Software brightness reduction, 30–100% |
+| External monitor / no native backlight | One VLIQ QuickSlider | Software brightness reduction, 30–100% |
 | Feature disabled | Original GNOME layout | Software GPU effect immediately removed |
 
 **Important difference:** software dimming lowers perceived image brightness
@@ -35,12 +35,12 @@ bash gnome-shell/install.sh
 ```
 
 The existing developer installer hot-swaps the new runtime on GNOME 50
-without logout when Velora's compatible bootstrap is already active.
+without logout when VLIQ's compatible bootstrap is already active.
 
 Open **Quick Settings** from the top right. The sound slider appears first,
 with the new Brightness row directly below. On a laptop with hardware
-backlight, Velora only repositions GNOME's own slider. On a desktop without
-supported hardware backlight, Velora inserts the fallback in the same
+backlight, VLIQ only repositions GNOME's own slider. On a desktop without
+supported hardware backlight, VLIQ inserts the fallback in the same
 `QuickSettingsMenu._grid` and gives it the same two-column span.
 
 ## Preferences
@@ -62,8 +62,8 @@ Then **Menus → Quick Settings Brightness**:
   dimming is in use.
 
 Only one QuickSlider is displayed for brightness: native when available,
-Velora fallback otherwise. Input-volume and other Quick Settings entries
-are not replaced. If native hardware support changes while running, Velora
+VLIQ fallback otherwise. Input-volume and other Quick Settings entries
+are not replaced. If native hardware support changes while running, VLIQ
 switches modes and destroys the fallback before showing native brightness.
 
 ## Fullscreen video and Mutter direct scanout
@@ -77,18 +77,18 @@ native brightness while the software brightness slider was still below
 GNOME Shell 50 exposes the same balanced compositor API used by its own
 on-screen-display controls:
 
-- **30–99% software brightness:** Velora calls
+- **30–99% software brightness:** VLIQ calls
   `global.compositor.disable_unredirect()` exactly once while its
   `uiGroup` GPU brightness effect is active. Fullscreen video must then
   pass through the Shell compositor, which applies the same dimming.
 - **100%, hardware-backlight switch, feature OFF, runtime hot-swap or GPU
-  attach failure:** Velora removes its GPU effect and calls
+  attach failure:** VLIQ removes its GPU effect and calls
   `enable_unredirect()` **once** on the *same compositor instance*.
 - **No compositor API:** fail closed with an Unavailable status; never
   claim to dim fullscreen content while the compositor bypasses the
   effect. The slider remains safe but cannot enforce software brightness.
 - Other extensions and GNOME OSD controls also hold compositor inhibitors.
-  This method is **reference counted**; Velora releases only its own hold.
+  This method is **reference counted**; VLIQ releases only its own hold.
 
 **Performance trade-off:** While below 100%, fullscreen video and games
 cannot use direct scanout. They must be composited, which can increase GPU
@@ -108,7 +108,7 @@ The software fallback uses one bounded
 `Clutter.BrightnessContrastEffect` on **`Main.layoutManager.uiGroup`**.
 GNOME Shell 50 groups the normal desktop windows, top/always-on-top
 windows, wallpaper, top panel, Quick Settings and other Shell-owned chrome
-under this actor. Previously Velora attached the effect only to
+under this actor. Previously VLIQ attached the effect only to
 `global.window_group`; this left the top panel and Quick Settings undimmed
 and made the effect appear **not fullscreen**.
 
@@ -116,7 +116,7 @@ The new host affects the **whole GNOME desktop scene** at once, including
 fullscreen applications while Mutter composites the scene. It is **not**
 the dangerous root `global.stage`, and it does not create a fullscreen
 overlay. If the GNOME scene tree does not contain both normal and
-top-window groups, Velora fails closed rather than silently reverting to
+top-window groups, VLIQ fails closed rather than silently reverting to
 partial window-only brightness.
 
 At 100% the effect is removed completely and direct scanout can
@@ -128,8 +128,8 @@ This is compositor software dimming, not hardware backlight control.
 Unusual display/compositor/HDR paths still require device-specific
 verification; test GNOME 50.1 with ordinary and fullscreen browser video.
 
-Disable the feature or disable Velora to remove only the GPU effect owned
-by Velora and restore native Quick Settings ordering. Any changes to a
+Disable the feature or disable VLIQ to remove only the GPU effect owned
+by VLIQ and restore native Quick Settings ordering. Any changes to a
 native GNOME hardware brightness slider remain managed by GNOME itself.
 
 If the full-screen effect looks wrong, restore normal brightness immediately:
@@ -139,8 +139,8 @@ GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.
   gsettings set org.gnome.shell.extensions.velora quick-soft-brightness 100
 ```
 
-Or use **Velora Preferences → Menus → Quick Settings Brightness → OFF**.
-Both paths remove the Velora-owned GPU effect, leaving the native display
+Or use **VLIQ Preferences → Menus → Quick Settings Brightness → OFF**.
+Both paths remove the VLIQ-owned GPU effect, leaving the native display
 brightness and other extensions' effects alone.
 
 For accessibility, the software slider's accessible name identifies that
@@ -157,7 +157,7 @@ it is not a hardware backlight control.
   changing monitor hardware. A maximum brightness of 100% is the original
   monitor output, not an enhancement.
 - Other extensions that apply color/brightness effects to the same actor
-  may combine with this effect. Velora creates only its own named effect and
+  may combine with this effect. VLIQ creates only its own named effect and
   does not remove other extensions' effects.
 - GSettings values remain within the extension's private schema directory.
   Read status with:
@@ -172,7 +172,7 @@ GSETTINGS_SCHEMA_DIR="$HOME/.local/share/gnome-shell/extensions/velora@wonderer.
 The unfinished Ptyxis Terminal Glass backdrop implementation is not
 modified by this feature. To prevent its current frame-edge blur issue
 from affecting testing, turn **Terminal → Real backdrop blur OFF** in
-Velora Preferences. Native Ptyxis background transparency can remain on.
+VLIQ Preferences. Native Ptyxis background transparency can remain on.
 
 ## Source references
 
