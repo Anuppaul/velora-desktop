@@ -1,6 +1,6 @@
 # VLIQ — branding migration
 
-**Public name: VLIQ.** Not "VLIQ Desktop."
+**Public name: VLIQ.** No suffix.
 
 VLIQ is the public-facing brand for the GNOME Shell 50 Liquid Glass and
 Frosted Crystal project previously presented as Velora.
