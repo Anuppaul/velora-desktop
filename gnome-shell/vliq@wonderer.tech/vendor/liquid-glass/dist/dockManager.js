@@ -342,7 +342,7 @@ export class DashManager {
 
         // Paint-only Ubuntu Dock integration must not style the icon/reveal
         // container at all. The real sibling .dash-background is made
-        // transparent directly by Velora, so generic glass classes are
+        // transparent directly by VLIQ, so generic glass classes are
         // unnecessary here and can interfere with native autohide transitions.
         if (!this._preserveNativeGeometry) {
             this.targetActor.add_style_class_name(
