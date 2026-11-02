@@ -1,4 +1,4 @@
-"""Unit tests for Velora's optional, non-destructive Ptyxis terminal styling."""
+"""Unit tests for VLIQ's optional, non-destructive Ptyxis terminal styling."""
 from __future__ import annotations
 
 import importlib.util
@@ -9,8 +9,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-SCRIPT = Path(__file__).with_name("velora_terminal_glass.py")
-spec = importlib.util.spec_from_file_location("velora_terminal_glass", SCRIPT)
+SCRIPT = Path(__file__).with_name("vliq_terminal_glass.py")
+spec = importlib.util.spec_from_file_location("vliq_terminal_glass", SCRIPT)
 terminal = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(terminal)
 
@@ -163,14 +163,14 @@ class TerminalGlassTests(unittest.TestCase):
         import contextlib
         import io
         output = io.StringIO()
-        with patch.object(terminal, "read_velora_compositor_status",
+        with patch.object(terminal, "read_vliq_compositor_status",
                           return_value=("true", "'Attached: 1 Ptyxis window(s)'")):
             with contextlib.redirect_stdout(output):
                 terminal.status(None, self.path)
         text = output.getvalue()
         self.assertIn("effectively opaque", text)
         self.assertIn("Blur behind an opaque", text)
-        self.assertIn("Velora compositor blur enabled: true", text)
+        self.assertIn("VLIQ compositor blur enabled: true", text)
         self.assertIn("attachment status does not verify visible blur", text)
         self.assertFalse(self.path.exists())
         self.assertFalse(any(
@@ -182,7 +182,7 @@ class TerminalGlassTests(unittest.TestCase):
         import io
         self.ptyxis.opacity = 0.88
         out = io.StringIO()
-        with patch.object(terminal, "read_velora_compositor_status",
+        with patch.object(terminal, "read_vliq_compositor_status",
                           return_value=None):
             with contextlib.redirect_stdout(out):
                 terminal.status(None, self.path)

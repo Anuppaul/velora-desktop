@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in Velora-inspired native Ptyxis terminal transparency.
+"""Opt-in VLIQ-inspired native Ptyxis terminal transparency.
 
 Does not install fonts, modify global GTK themes, touch GNOME Shell, or
 provide background blur. Requires an existing native Ptyxis GSettings profile.
@@ -28,7 +28,7 @@ PROFILE_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
 def state_path() -> Path:
     base = os.environ.get("XDG_STATE_HOME")
     root = Path(base).expanduser() if base else Path.home() / ".local" / "state"
-    return root / "velora-desktop" / BACKUP_FILE
+    return root / "vliq-desktop" / BACKUP_FILE
 
 
 def run_command(argv: list[str], *, allow_failure: bool = False) -> str:
@@ -182,17 +182,17 @@ def identify_terminal() -> str:
     return "unknown (xterm-256color is a terminal capability, not an app name)"
 
 
-def read_velora_compositor_status() -> tuple[str, str] | None:
+def read_vliq_compositor_status() -> tuple[str, str] | None:
     """Read extension-scoped GSettings (not registered system-wide).
 
     A GNOME extension's compiled schema lives below its own schemas/
-    directory. Plain 'gsettings get org.gnome.shell.extensions.velora ...'
+    directory. Plain 'gsettings get org.gnome.shell.extensions.vliq ...'
     therefore normally says 'No such schema'. This does not mean the Shell
     runtime or blur manager failed. No writes are performed.
     """
     schema_dir = (
         Path.home() / ".local" / "share" / "gnome-shell" /
-        "extensions" / "velora@wonderer.tech" / "schemas"
+        "extensions" / "vliq@wonderer.tech" / "schemas"
     )
     if not (schema_dir / "gschemas.compiled").is_file():
         return None
@@ -206,7 +206,7 @@ def read_velora_compositor_status() -> tuple[str, str] | None:
     ):
         try:
             result = subprocess.run(
-                ["gsettings", "get", "org.gnome.shell.extensions.velora", key],
+                ["gsettings", "get", "org.gnome.shell.extensions.vliq", key],
                 capture_output=True, text=True, check=False, timeout=8,
                 env=env,
             )
@@ -219,7 +219,7 @@ def read_velora_compositor_status() -> tuple[str, str] | None:
 
 
 def status(profile_override: str | None, path: Path) -> None:
-    print("Velora Terminal Glass — read-only status")
+    print("VLIQ Terminal Glass — read-only status")
     print(f"Detected terminal process: {identify_terminal()}")
     print(f"Session: {os.environ.get('XDG_SESSION_TYPE', 'unknown')}")
     print("Renderer: native terminal translucency ONLY; no wallpaper blur/refraction")
@@ -237,7 +237,7 @@ def status(profile_override: str | None, path: Path) -> None:
                 "Blur behind an opaque Ptyxis surface cannot be seen."
             )
             print(
-                "To test translucency: python3 tools/velora_terminal_glass.py "
+                "To test translucency: python3 tools/vliq_terminal_glass.py "
                 "apply --opacity 0.78"
             )
         elif current >= 0.85:
@@ -249,15 +249,15 @@ def status(profile_override: str | None, path: Path) -> None:
             "NOTE: Individual Ptyxis tabs can use a non-default profile. "
             "Check the active tab's profile if this value differs visually."
         )
-    blur = read_velora_compositor_status()
+    blur = read_vliq_compositor_status()
     if blur:
         enabled, attachment = blur
-        print(f"Velora compositor blur enabled: {enabled}")
-        print(f"Velora attachment status: {attachment}")
+        print(f"VLIQ compositor blur enabled: {enabled}")
+        print(f"VLIQ attachment status: {attachment}")
         print("Note: attachment status does not verify visible blur pixels.")
     else:
         print(
-            "Velora compositor status unavailable here; the Shell extension "
+            "VLIQ compositor status unavailable here; the Shell extension "
             "uses a private GSettings schema directory."
         )
     if backup:
@@ -265,7 +265,7 @@ def status(profile_override: str | None, path: Path) -> None:
         print(f"Last applied opacity: {backup['applied']:.3f}")
         print(f"Backup: {path}")
     else:
-        print("No Velora-managed terminal settings have been applied.")
+        print("No VLIQ-managed terminal settings have been applied.")
 
 
 def apply(profile_override: str | None, path: Path, opacity: float) -> None:
@@ -285,7 +285,7 @@ def apply(profile_override: str | None, path: Path, opacity: float) -> None:
         roughly_equal(current, float(existing["before"]))
     ):
         raise RuntimeError(
-            "Ptyxis opacity was changed outside Velora. Refusing to overwrite it."
+            "Ptyxis opacity was changed outside VLIQ. Refusing to overwrite it."
         )
     if roughly_equal(current, opacity):
         print(f"Opacity is already {opacity:.3f}; no change required.")
@@ -307,13 +307,13 @@ def apply(profile_override: str | None, path: Path, opacity: float) -> None:
     print(f"Ptyxis profile {profile}: opacity {current:.3f} → {opacity:.3f}")
     print("No sudo, GNOME extension restart, or logout required.")
     print("If the terminal does not redraw, close and reopen Ptyxis.")
-    print("This is translucency, not Velora's GPU blur/refraction.")
+    print("This is translucency, not VLIQ's GPU blur/refraction.")
 
 
 def restore(path: Path, *, force: bool = False) -> None:
     record = load_state(path)
     if not record:
-        print("Nothing to restore; no Velora terminal backup exists.")
+        print("Nothing to restore; no VLIQ terminal backup exists.")
         return
     profile, spec, current = read_profile(record["profile"])
     if spec != record["schema"]:
@@ -323,7 +323,7 @@ def restore(path: Path, *, force: bool = False) -> None:
         roughly_equal(current, float(record["before"]))
     ):
         raise RuntimeError(
-            "Opacity was changed outside Velora; use restore --force if intended."
+            "Opacity was changed outside VLIQ; use restore --force if intended."
         )
     if record["original_is_default"] is True:
         run_command(["gsettings", "reset", spec, "opacity"])
@@ -368,7 +368,7 @@ def main() -> int:
             restore(path, force=args.force)
         return 0
     except (OSError, RuntimeError) as exc:
-        print(f"Velora Terminal Glass: {exc}", file=sys.stderr)
+        print(f"VLIQ Terminal Glass: {exc}", file=sys.stderr)
         return 1
 
 

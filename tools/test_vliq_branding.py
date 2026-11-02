@@ -11,9 +11,9 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EXT = ROOT / "gnome-shell" / "velora@wonderer.tech"
+EXT = ROOT / "gnome-shell" / "vliq@wonderer.tech"
 METADATA = EXT / "metadata.json"
-SCHEMA = EXT / "schemas" / "org.gnome.shell.extensions.velora.gschema.xml"
+SCHEMA = EXT / "schemas" / "org.gnome.shell.extensions.vliq.gschema.xml"
 
 
 class VLIQBrandingTests(unittest.TestCase):
@@ -21,19 +21,19 @@ class VLIQBrandingTests(unittest.TestCase):
         metadata = json.loads(METADATA.read_text(encoding="utf-8"))
         self.assertEqual(metadata["name"], "VLIQ")
         self.assertEqual(metadata["shell-version"], ["50"])
-        self.assertNotIn("VLIQ Desktop", metadata["description"])
+        self.assertNotIn("VLIQ", metadata["description"])
 
     def test_legacy_uuid_and_schema_are_stable(self):
         metadata = json.loads(METADATA.read_text(encoding="utf-8"))
-        self.assertEqual(metadata["uuid"], "velora@wonderer.tech")
+        self.assertEqual(metadata["uuid"], "vliq@wonderer.tech")
         self.assertEqual(
             metadata["settings-schema"],
-            "org.gnome.shell.extensions.velora"
+            "org.gnome.shell.extensions.vliq"
         )
         schema = SCHEMA.read_text(encoding="utf-8")
         self.assertIn(
-            '<schema id="org.gnome.shell.extensions.velora" '
-            'path="/org/gnome/shell/extensions/velora/">',
+            '<schema id="org.gnome.shell.extensions.vliq" '
+            'path="/org/gnome/shell/extensions/vliq/">',
             schema,
         )
         self.assertIn('name="orb-enabled"', schema)
@@ -42,16 +42,16 @@ class VLIQBrandingTests(unittest.TestCase):
 
     def test_installer_preserves_existing_extension_home(self):
         script = (ROOT / "gnome-shell" / "install.sh").read_text()
-        self.assertIn('UUID="velora@wonderer.tech"', script)
-        self.assertIn('VELORA_SCHEMA="org.gnome.shell.extensions.velora"',
+        self.assertIn('UUID="vliq@wonderer.tech"', script)
+        self.assertIn('VLIQ_SCHEMA="org.gnome.shell.extensions.vliq"',
                       script)
         self.assertIn("VLIQ installer:", script)
-        self.assertNotIn("VLIQ Desktop", script)
+        self.assertNotIn("VLIQ", script)
 
     def test_store_release_preserves_install_identity(self):
         builder = (ROOT / "tools" / "build_ego_release.py").read_text()
         self.assertIn(
-            'ARCHIVE_NAME = "velora@wonderer.tech.shell-extension.zip"',
+            'ARCHIVE_NAME = "vliq@wonderer.tech.shell-extension.zip"',
             builder,
         )
         release = (
@@ -60,7 +60,7 @@ class VLIQBrandingTests(unittest.TestCase):
         self.assertIn('ARCHIVE="vliq-${VERSION}.tar.gz"'.replace("\\", ""),
                       release)
         self.assertIn('--title "VLIQ ${TAG}"'.replace("\\", ""), release)
-        self.assertNotIn("VLIQ Desktop", release)
+        self.assertNotIn("VLIQ", release)
 
     def test_settings_prefs_and_presets_use_vliq_only(self):
         prefs = (EXT / "prefs.js").read_text()
@@ -71,13 +71,13 @@ class VLIQBrandingTests(unittest.TestCase):
         for name in ("VLIQ Natural", "VLIQ Cinematic", "VLIQ Atmosphere"):
             self.assertIn(name, presets)
         for source in (prefs, runtime, presets):
-            self.assertNotIn("VLIQ Desktop", source)
+            self.assertNotIn("VLIQ", source)
 
     def test_glass_renderer_symbol_remains_compatible(self):
         consumer = (EXT / "liquidGlassDock.js").read_text()
         producer = (EXT / "glassMaterialSystem.js").read_text()
-        self.assertIn("applyVeloraGlassRole", consumer)
-        self.assertIn("export function applyVeloraGlassRole(", producer)
+        self.assertIn("applyVLIQGlassRole", consumer)
+        self.assertIn("export function applyVLIQGlassRole(", producer)
         self.assertNotIn("applyVLIQGlassRole", consumer)
 
     def test_public_docs_use_vliq(self):

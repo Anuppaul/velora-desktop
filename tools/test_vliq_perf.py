@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from velora_perf import FIELDS, proc_ticks, summarize, compare
+from vliq_perf import FIELDS, proc_ticks, summarize, compare
 
 
 class CaptureTests(unittest.TestCase):

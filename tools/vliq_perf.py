@@ -101,7 +101,7 @@ def read_csv(path: Path) -> list[dict]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         if not set(METRICS).issubset(reader.fieldnames or []):
-            raise ValueError(f"Not a Velora capture: {path}")
+            raise ValueError(f"Not a VLIQ capture: {path}")
         data = list(reader)
     if not data:
         raise ValueError(f"Empty capture: {path}")
@@ -119,7 +119,7 @@ def compare(args):
                   f"p95 {a['p95']} -> {b['p95']}")
         else:
             print(f"{key}: not available in both captures")
-    print("Only meaningful under matching workload/settings. No FPS or Velora-only GPU attribution.")
+    print("Only meaningful under matching workload/settings. No FPS or VLIQ-only GPU attribution.")
 
 
 def capture(args):
@@ -133,13 +133,13 @@ def capture(args):
         x if x.isalnum() or x in "-_" else "_" for x in args.label
     ) or "capture"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    output = args.output or Path("dist/velora-perf") / f"{stamp}-{label}.csv"
+    output = args.output or Path("dist/vliq-perf") / f"{stamp}-{label}.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     gpu_ok = not args.no_gpu and shutil.which("nvidia-smi") is not None
     print(f"Measuring PID {pid} / {args.label} in {args.delay:g}s "
           f"for {args.seconds:g}s (interval {args.interval:g}s)")
     print("Switch to the target surface during the delay; do not return until sampling ends.")
-    print("GPU numbers apply to the entire NVIDIA GPU, not Velora. No FPS measurements.")
+    print("GPU numbers apply to the entire NVIDIA GPU, not VLIQ. No FPS measurements.")
     time.sleep(args.delay)
 
     rows = []

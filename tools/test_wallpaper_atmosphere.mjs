@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const base = '../gnome-shell/velora@wonderer.tech/';
+const base = '../gnome-shell/vliq@wonderer.tech/';
 const read = name => readFile(new URL(base + name, import.meta.url), 'utf8');
 const [configSource, managerSource, effectSource, schema,
     integration, appGrid, install] = await Promise.all([
     read('wallpaperAtmosphereConfig.js'),
     read('wallpaperAtmosphere.js'),
     read('wallpaperAtmosphereEffect.js'),
-    read('schemas/org.gnome.shell.extensions.velora.gschema.xml'),
+    read('schemas/org.gnome.shell.extensions.vliq.gschema.xml'),
     read('liquidGlassDock.js'),
     read('appGridBackdrop.js'),
     readFile(new URL('../gnome-shell/install.sh', import.meta.url), 'utf8'),
@@ -128,7 +128,7 @@ const Type=new Function('GLib','Meta','Main','ATMOSPHERE_KEYS',
 class Settings extends Emitter {
     constructor(){super();this.data=new Map(Object.entries({
         'wallpaper-style':'original',
-        'wallpaper-runtime-status':'Not initialized — install or reload Velora',
+        'wallpaper-runtime-status':'Not initialized — install or reload VLIQ',
         ...defaultValues,
     }));}
     get_string(k){return this.data.get(k);}
@@ -186,7 +186,7 @@ assert.equal(native.effects.size,1);
 assert.equal(mirror.effects.size,1);
 assert.equal(gridBg.effects.size,1);
 assert.equal(unloaded.effects.size,0,'never render a null background');
-const effectOf=actor=>actor.effects.get('velora-atmosphere-wallpaper');
+const effectOf=actor=>actor.effects.get('vliq-atmosphere-wallpaper');
 for(const actor of [native,mirror,gridBg])
     assert.deepEqual(effectOf(actor).profiles.at(-1),[62,52,54,3,56],
         'named Atmosphere must upgrade from stale pre-PR #62 slider values');
@@ -240,7 +240,7 @@ manager.unwatchContainer(overviewWidget);
 assert.equal(manager._containers.has(overviewWidget),false);
 
 // Cleanup removes all signal connections and source tracking. Disabling
-// Velora must NEVER delete actual GNOME/Meta background actors.
+// VLIQ must NEVER delete actual GNOME/Meta background actors.
 manager.cleanup();
 assert.equal(manager._actors.size,0);
 assert.equal(manager._containers.size,0);
@@ -250,7 +250,7 @@ assert.match(settings.get_string('wallpaper-runtime-status'),
     /Inactive: VLIQ Atmosphere runtime stopped/);
 
 // Packaging and runtime integration must be real, not just mock tests.
-assert.match(integration,/new WallpaperAtmosphereManager\(this\._veloraSettings\)/);
+assert.match(integration,/new WallpaperAtmosphereManager\(this\._vliqSettings\)/);
 assert.match(integration,/new AppGridBackdropManager\(\{\s*atmosphereManager:/);
 assert.match(integration,/cleanup\(\s*'wallpaperAtmosphereManager'/);
 assert.match(appGrid,/this\._atmosphereManager\?\.watchContainer\(widget\)/);

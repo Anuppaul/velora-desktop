@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 // Not a screenshot/GPU benchmark: numeric reproduction of the shipped
 // static fragment's calibrated color equations at representative pixels.
 // The source checks keep this test tied to the same shader coefficients.
-const dir = '../gnome-shell/velora@wonderer.tech/';
+const dir = '../gnome-shell/vliq@wonderer.tech/';
 const [config, shader] = await Promise.all([
     readFile(new URL(dir + 'wallpaperAtmosphereConfig.js',
         import.meta.url), 'utf8'),

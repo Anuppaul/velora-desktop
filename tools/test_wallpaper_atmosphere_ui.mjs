@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
-const base = '../gnome-shell/velora@wonderer.tech/';
+const base = '../gnome-shell/vliq@wonderer.tech/';
 const [uiSource,configSource,effectSource,prefs] = await Promise.all([
     'wallpaperAtmospherePreferences.js',
     'wallpaperAtmosphereConfig.js',
@@ -217,7 +217,7 @@ assert.match(shaderDecl,/color = max\(color, original\.rgb/,
     'strong grading preserves dark wallpaper details');
 assert.match(shaderDecl,/float protectHighlights = smoothstep\(0\.86, 1\.0, luma\) \* 0\.72/,
     'near-white wallpapers retain original highlight detail');
-assert.match(effectSource,/const CACHE_KEY = Symbol\.for\('velora\.atmosphere\.effect\.class\.v2'\)/,
+assert.match(effectSource,/const CACHE_KEY = Symbol\.for\('vliq\.atmosphere\.effect\.class\.v2'\)/,
     'fresh GObject shader type avoids V1 live-import cache');
 
 // GObject type is registered only ONCE across live runtime imports.
@@ -240,11 +240,11 @@ const Shell={GLSLEffect:Base};
 const Clutter={ShaderEffect:class{}};
 const Cogl={SnippetHook:{FRAGMENT:1}};
 const GObject={registerClass(options,klass){
-    assert.equal(options.GTypeName,'VeloraAtmosphereShaderEffectV2');
+    assert.equal(options.GTypeName,'VLIQAtmosphereShaderEffectV2');
     typeRegistrations++;return klass;
 }};
 const symbols=Object.getOwnPropertySymbols(globalThis);
-const cacheKey=Symbol.for('velora.atmosphere.effect.class.v2');
+const cacheKey=Symbol.for('vliq.atmosphere.effect.class.v2');
 const oldType=globalThis[cacheKey];
 delete globalThis[cacheKey];
 try{
