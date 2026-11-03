@@ -235,9 +235,14 @@ for (const [index, group] of [
     panel._leftBox, panel._centerBox, panel._rightBox,
 ].entries()) {
     assert.ok(!group.classes.has('vliq-panel-island'));
-    assert.deepEqual(group.children,
-        index === 2 ? [...controls[2], {role: 'late-system-indicator'}] :
-            controls[index]);
+    assert.equal(group.children.length,
+        controls[index].length + (index === 2 ? 1 : 0));
+    for (let j = 0; j < controls[index].length; j++) {
+        assert.equal(group.children[j], controls[index][j],
+            'original GNOME panel input actors keep their identities');
+    }
+    if (index === 2)
+        assert.equal(group.children.at(-1).role, 'late-system-indicator');
     assert.equal(group.signals.size, 0,
         'hot reload must not leak native actor signal handlers');
 }
