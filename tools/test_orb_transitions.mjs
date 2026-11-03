@@ -395,34 +395,6 @@ assert.deepEqual(legacyDrag._orb.get_position(), [87, 86],
     'GNOME legacy per-event delta fallback remains incremental');
 legacyDrag._panGesture.emit('end');
 
-// Moving Orb capture should use a stable overscanned cull region. The
-// previous exact-pixel clip changed every pan event while the texture
-// compositor could still be rendering the preceding offscreen snapshot.
-const glassDragging = new OrbGlass({
-    vendor: {}, settings: {}, readAppearance: () => ({}),
-});
-glassDragging._batches = [{lastCullRect: [1, 1, 1, 1]}];
-const queued = [];
-glassDragging._root = {queue_redraw() {queued.push(true);}};
-glassDragging.setDragActive(true);
-assert.equal(glassDragging._dragActive, true);
-assert.equal(glassDragging._batches[0].lastCullRect, null);
-const cull1 = glassDragging._captureCullRect(
-    100, 100, 180, 180, 1280, 720, 0);
-const cull2 = glassDragging._captureCullRect(
-    110, 120, 190, 200, 1280, 720, 0);
-assert.deepEqual(cull1, cull2, 'capture clip stable for small drag');
-assert.deepEqual(glassDragging._captureCullRect(
-    100, 100, 180, 180, 1280, 720, 1), [100, 100, 80, 80],
-'only Orb batch uses stable drag capture');
-glassDragging.setDragActive(false);
-assert.equal(glassDragging._dragActive, false);
-assert.equal(glassDragging._glyphSampleDirty, true);
-assert.deepEqual(glassDragging._captureCullRect(
-    100, 100, 180, 180, 1280, 720, 0), [100, 100, 80, 80],
-'stopped drag returns to efficient exact capture');
-assert.equal(queued.length, 2);
-
 // Check that the native Overview shader radius does not toggle while the
 // first Apps grid is opening or when switching between Overview states.
 const Backdrop = await loadClass(
@@ -498,4 +470,33 @@ assert.equal(glass._vendor.writes, 0, 'stationary grid skips extra scan');
 glass._regionMotionActive = true;
 glass._syncRegions();
 assert.equal(glass._vendor.writes, 1, 'moving grid runs on this frame');
+// Moving Orb capture should use a stable overscanned cull region. The
+// previous exact-pixel clip changed every pan event while the texture
+// compositor could still be rendering the preceding offscreen snapshot.
+const glassDragging = new OrbGlass({
+    vendor: {}, settings: {}, readAppearance: () => ({}),
+});
+glassDragging._batches = [{lastCullRect: [1, 1, 1, 1]}];
+const queued = [];
+glassDragging._root = {queue_redraw() {queued.push(true);}};
+glassDragging.setDragActive(true);
+assert.equal(glassDragging._dragActive, true);
+assert.equal(glassDragging._batches[0].lastCullRect, null);
+const cull1 = glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 0);
+const cull2 = glassDragging._captureCullRect(
+    110, 120, 190, 200, 1280, 720, 0);
+assert.deepEqual(cull1, cull2, 'capture clip stable for small drag');
+assert.deepEqual(glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 1), [100, 100, 80, 80],
+'only Orb batch uses stable drag capture');
+glassDragging.setDragActive(false);
+assert.equal(glassDragging._dragActive, false);
+assert.equal(glassDragging._glyphSampleDirty, true);
+assert.deepEqual(glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 0), [100, 100, 80, 80],
+'stopped drag returns to efficient exact capture');
+assert.equal(queued.length, 2);
+
+
 console.log('Orb native transitions, glass expansion, and Overview blur tests passed.');
