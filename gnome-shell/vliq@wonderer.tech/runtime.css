@@ -303,7 +303,9 @@
 }
 /* Invisible/empty native groups must not leave orphaned CSS fallback pills.
  * Optical material opacity is already zero in this state. */
-#panel.vliq-three-islands .vliq-panel-island.vliq-panel-island-inactive {
+#panel.vliq-three-islands #panelLeft.vliq-panel-island.vliq-panel-island-inactive,
+#panel.vliq-three-islands #panelCenter.vliq-panel-island.vliq-panel-island-inactive,
+#panel.vliq-three-islands #panelRight.vliq-panel-island.vliq-panel-island-inactive {
     background-color: transparent !important;
     background-image: none !important;
     border-color: transparent !important;
