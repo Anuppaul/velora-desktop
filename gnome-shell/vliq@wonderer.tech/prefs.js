@@ -1050,28 +1050,12 @@ export default class VLIQPreferences extends ExtensionPreferences {
             '24-hour time',
             'Switch between 24-hour and 12-hour clock formats.');
 
-        const clockStyleValues = ['liquid', 'frosted'];
-        const clockStyle = new Adw.ComboRow({
-            title: 'Clock material',
-            subtitle: 'Choose VLIQ Liquid Glass or Frosted Crystal for this widget.',
-            model: Gtk.StringList.new(['Liquid Glass', 'Frosted Crystal']),
-        });
-        const syncClockStyle = () => {
-            const index = clockStyleValues.indexOf(
-                settings.get_string('clock-widget-style')
-            );
-            const desired = Math.max(0, index);
-            if (clockStyle.selected !== desired)
-                clockStyle.selected = desired;
-        };
-        clockStyle.connect('notify::selected', () => {
-            const value = clockStyleValues[clockStyle.selected];
-            if (value && settings.get_string('clock-widget-style') !== value)
-                settings.set_string('clock-widget-style', value);
-        });
-        settings.connect('changed::clock-widget-style', syncClockStyle);
-        syncClockStyle();
-        clockGroup.add(clockStyle);
+        // Clock is a VLIQ surface, not a separate material ecosystem.
+        // Appearance -> Glass Material remains the single source of truth.
+        clockGroup.add(new Adw.ActionRow({
+            title: 'Glass material',
+            subtitle: 'Automatically follows Appearance → Glass Material (Liquid Glass or Frosted Crystal).',
+        }));
 
         const positionRow = new Adw.ActionRow({
             title: 'Desktop position',
