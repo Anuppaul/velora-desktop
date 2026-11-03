@@ -677,6 +677,7 @@ if command -v unzip >/dev/null 2>&1; then
         "extension.js"
         "desktopClockWidget.js"
         "desktopCalendarWidget.js"
+        "topBarIslands.js"
         "prefs.js"
         "stylesheet.css"
         "runtime.js"
@@ -750,7 +751,7 @@ record_bootstrap_identity
 refresh_prefs_process
 
 for installed_file in \
-    metadata.json extension.js desktopClockWidget.js desktopCalendarWidget.js prefs.js nativeDockPreferences.js wallpaperAtmospherePreferences.js wallpaperAtmosphereConfig.js stylesheet.css \
+    metadata.json extension.js desktopClockWidget.js desktopCalendarWidget.js topBarIslands.js prefs.js nativeDockPreferences.js wallpaperAtmospherePreferences.js wallpaperAtmosphereConfig.js stylesheet.css \
     runtime.js orbThemeRuntime.js terminalBackdropBlur.js runtime.css apps.js geometry.js \
     liquidGlassDock.js notificationGlass.js popupGlass.js shellCards.js; do
     [[ -f "${TARGET_DIR}/${installed_file}" ]] ||
