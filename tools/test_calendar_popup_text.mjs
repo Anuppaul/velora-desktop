@@ -122,7 +122,7 @@ assert.match(css, /color: #ffffff !important;/);
 const integration = await file('liquidGlassDock.js');
 const accentSection = integration.slice(integration.indexOf(
     '/* VLIQ semantic accent: preserve'
-), integration.indexOf('/* VLIQ semantic accent: preserve') + 460);
+), integration.indexOf('/* VLIQ semantic accent: preserve') + 1000);
 assert.match(accentSection, /background-color:/);
 assert.match(accentSection, /color: #ffffff !important/);
 assert.doesNotMatch(accentSection, /color: ' \+ accentColor/);
