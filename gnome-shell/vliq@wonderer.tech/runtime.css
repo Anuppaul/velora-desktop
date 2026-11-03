@@ -1657,11 +1657,18 @@
     background-color: rgba(228, 239, 250, 0.48);
     border-color: rgba(255, 255, 255, 0.46);
 }
+/* Retain a subtle material backing while LiquidEffect finishes its
+ * asynchronous shader compile. The old fully-transparent override caused
+ * the desktop clock card to vanish during or after hot updates. */
 .vliq-desktop-clock.vliq-liquid-shell-card {
-    background-color: transparent !important;
+    background-color: rgba(228, 240, 255, 0.13) !important;
     background-image: none !important;
-    border-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
     box-shadow: none !important;
+}
+.vliq-desktop-clock.vliq-clock-frosted.vliq-liquid-shell-card {
+    background-color: rgba(231, 241, 251, 0.26) !important;
+    border-color: rgba(255, 255, 255, 0.36) !important;
 }
 .vliq-clock-drag-surface {
     padding: 4px 0 3px 0;
