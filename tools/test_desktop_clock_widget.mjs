@@ -176,13 +176,13 @@ const stylesheet = await readFile(new URL(
 assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
 assert.doesNotMatch(stylesheet, /\.vliq-clock-resize-grip/,
     'resize CSS must be absent');
-assert.match(stylesheet, /\\.vliq-clock-glass-ready/,
+assert.match(stylesheet, /\.vliq-clock-glass-ready/,
     'CSS must retain a visible card while the shader runs');
-assert.match(stylesheet, /background-color:\\s*rgba\\(236, 244, 255, 0\\.16\\)/,
+assert.match(stylesheet, /background-color:\s*rgba\(236, 244, 255, 0\.16\)/,
     'Liquid Glass clock card must remain translucent and visible');
-assert.match(stylesheet, /background-color:\\s*rgba\\(239, 245, 255, 0\\.38\\)/,
+assert.match(stylesheet, /background-color:\s*rgba\(239, 245, 255, 0\.38\)/,
     'Frosted Crystal clock card must use a denser material');
-assert.doesNotMatch(stylesheet, /vliq-clock-glass-ready[^}]*background-color:\\s*transparent/,
+assert.doesNotMatch(stylesheet, /vliq-clock-glass-ready[^}]*background-color:\s*transparent/,
     'ready shader must never erase the Clock card');
 
 // Even if shared GPU material construction throws, the desktop card should
