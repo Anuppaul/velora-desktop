@@ -765,7 +765,9 @@ class PopupGlassSurface {
             return;
 
         const hotspotActive =
-            toggle._itemBinding?.source?.is_hotspot === true;
+            toggle._itemBinding?.source?.is_hotspot === true ||
+            [...(toggle._items?.values?.() ?? [])]
+                .some(item => item?.is_hotspot === true);
         const marked =
             toggle.has_style_class_name?.(QUICK_HOTSPOT_CLASS) === true;
         if (hotspotActive === marked)
@@ -775,6 +777,13 @@ class PopupGlassSurface {
             toggle.add_style_class_name?.(QUICK_HOTSPOT_CLASS);
         else
             toggle.remove_style_class_name?.(QUICK_HOTSPOT_CLASS);
+
+        // Log state transitions only, never SSIDs or sensitive network
+        // details. This also tells us that the real GNOME tile was found.
+        console.log(
+            '[VLIQ][Hotspot] adaptive tile ' +
+            (hotspotActive ? 'enabled' : 'disabled')
+        );
 
         // First paint stays white until the existing screenshot samples
         // the hotspot tile's actual glass backdrop.
