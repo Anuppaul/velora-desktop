@@ -46,6 +46,8 @@ class Actor {
         this.visible = true;
         this.mapped = true;
         this.classes = new Set();
+        this.classAdds = 0;
+        this.classRemoves = 0;
     }
     add_child(child) {
         child.parent?.remove_child(child);
@@ -77,8 +79,8 @@ class Actor {
         return [this.x + px, this.y + py];
     }
     get_transformed_size() {return [this.width, this.height];}
-    add_style_class_name(name) {this.classes.add(name);}
-    remove_style_class_name(name) {this.classes.delete(name);}
+    add_style_class_name(name) {this.classAdds++; this.classes.add(name);}
+    remove_style_class_name(name) {this.classRemoves++; this.classes.delete(name);}
     add_effect(effect) {this.effect = effect;}
     queue_redraw() {}
     destroy() {
@@ -205,6 +207,31 @@ stage.tick();
 assert.equal(card.classes.has('vliq-clock-panel-glass-ready'), true,
     'native glass becomes visible after the first real composite');
 
+// This was the second repeated-rendering bug: every before-update stage
+// callback re-added the SAME CSS glass-ready class and rewrote identical
+// coordinates, invalidating GNOME's stylesheet and repainting the card.
+let clockBoundsWrites = 0;
+const originalClockBounds = surface.setBounds.bind(surface);
+surface.setBounds = (...args) => {
+    clockBoundsWrites++;
+    return originalClockBounds(...args);
+};
+const clockAdds = card.classAdds;
+const clockRemoves = card.classRemoves;
+const clockSceneBefore = surface._sceneManager.syncs;
+for (let i = 0; i < 8; i++) {
+    us += 50000;
+    stage.tick();
+}
+assert.equal(clockBoundsWrites, 0,
+    'unchanged clock must not rewrite bounds on every compositor frame');
+assert.equal(card.classAdds, clockAdds,
+    'unchanged clock must not repeatedly add glass-ready class');
+assert.equal(card.classRemoves, clockRemoves,
+    'unchanged clock must not repeatedly remove glass-ready class');
+assert.ok(surface._sceneManager.syncs > clockSceneBefore,
+    'stable clock still receives live scene updates through syncFrame()');
+
 appearance.opacity = 0.08;
 appearance.blur = 17;
 instance.updateClockWidgetGlass(card);
@@ -241,6 +268,29 @@ assert.deepEqual(calendarGlass._sceneManager.cullRect,
 assert.equal(instance.updateCalendarWidgetGlass(calendarCard), true);
 assert.equal(calendarGlass._effect.appearance.tintStrength, 0.08);
 assert.equal(calendarGlass._effect.appearance.baseBlur, 17);
+calendarGlass._effect._shadersLoaded = true;
+calendarGlass._effect._diagCompositedPaintCount = 1;
+us += 50000;
+stage.tick();
+assert.ok(calendarCard.classes.has('vliq-calendar-panel-glass-ready'));
+let calendarBoundsWrites = 0;
+const originalCalendarBounds = calendarGlass.setBounds.bind(calendarGlass);
+calendarGlass.setBounds = (...args) => {
+    calendarBoundsWrites++;
+    return originalCalendarBounds(...args);
+};
+const calendarAdds = calendarCard.classAdds;
+const calendarRemoves = calendarCard.classRemoves;
+for (let i = 0; i < 8; i++) {
+    us += 50000;
+    stage.tick();
+}
+assert.equal(calendarBoundsWrites, 0,
+    'unchanged calendar cannot rewrite native glass bounds per frame');
+assert.equal(calendarCard.classAdds, calendarAdds,
+    'unchanged calendar must not re-add readiness CSS every frame');
+assert.equal(calendarCard.classRemoves, calendarRemoves,
+    'unchanged calendar must not re-remove readiness CSS every frame');
 assert.ok(instance._clockPanelGlass === surface,
     'calendar must not replace the clock material');
 calendarCard.visible = false;
@@ -249,7 +299,19 @@ assert.equal(calendarGlass._material.opacity, 0,
     'calendar glass must not remain over other windows');
 assert.equal(surface._material.opacity, 255,
     'hiding calendar must not affect the Clock');
-
+const calendarHideRemove = calendarCard.classRemoves;
+for (let i = 0; i < 4; i++) {
+    us += 50000;
+    stage.tick();
+}
+assert.equal(calendarCard.classRemoves, calendarHideRemove,
+    'hidden calendar must not repeatedly invalidate its CSS fallback');
+calendarCard.visible = true;
+us += 50000;
+stage.tick();
+assert.equal(calendarBoundsWrites, 1,
+    'calendar must restore glass opacity once after being unhidden');
+assert.ok(calendarCard.classes.has('vliq-calendar-panel-glass-ready'));
 card.visible = false;
 stage.tick();
 assert.equal(surface._material.opacity, 0,
