@@ -1623,6 +1623,29 @@
 }
 
 
+/* Hotspot uses GNOME 50's active Wi-Fi QuickMenuToggle. Its hotspot
+ * indicator and subtitle must follow the same white-only adaptive policy as
+ * Calendar, even when GNOME's checked/accent rules would otherwise override
+ * the tile's foreground. Normal active toggles retain their accent colour.
+ * The runtime marks this specific actor only while is_hotspot is true. */
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light StLabel,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light StIcon,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-title,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-icon {
+    color: #ffffff !important;
+}
+
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark StLabel,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark StIcon,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-title,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-subtitle,
+.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-icon {
+    color: #111111 !important;
+}
+
 /* VLIQ Spotlight ------------------------------------------------------- */
 
 /*
