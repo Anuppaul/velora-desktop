@@ -1937,6 +1937,19 @@ export class LiquidGlassIntegration {
             '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
+            // Clock reuses the SAME global filter strength as other VLIQ
+            // Shell glass surfaces. The native card remains a graceful
+            // fallback only until the shared refractive shader is ready.
+            // No card outline, top line, shadow, or separate clock opacity.
+            '.vliq-clock-card.vliq-liquid-shell-card.vliq-clock-glass-ready,\n' +
+            '.vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card.vliq-clock-glass-ready {\n' +
+            '  background-color: rgba(255,255,255,' +
+            filterOpacity.toFixed(3) +
+            ') !important;\n' +
+            '  background-image: none !important;\n' +
+            '  border: 0 !important;\n' +
+            '  box-shadow: none !important;\n' +
+            '}\n' +
             '#panel.vliq-liquid-top-panel {\n' +
             '  background-color: rgba(255,255,255,' +
             barFilterOpacity.toFixed(3) +
