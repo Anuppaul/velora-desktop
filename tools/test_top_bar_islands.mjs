@@ -249,12 +249,14 @@ assert.ok(!center.actor.classes.has('vliq-panel-island-inactive'));
 
 // GNOME can stretch a panel box when adding status indicators. Fit the
 // optical card to the real visible child allocation, not the empty box.
-const dateActor = new Actor({x: 8, y: 0, width: 120, height: 36});
+const dateActor = new Actor({x: 8, y: 8, width: 120, height: 20});
 panel._centerBox.width = 410;
 panel._centerBox.add_child(dateActor);
 stage.tick();
 assert.ok(center.surface.bounds.w <= 150,
     'glass should tightly fit the visible child, not a wide GNOME box');
+assert.equal(center.surface.bounds.h, 32,
+    'all three islands retain the native 36px panel height minus 2px inset');
 panel._centerBox.remove_child(dateActor);
 panel._centerBox.width = originalCenter.width;
 stage.tick();
