@@ -2132,32 +2132,6 @@ export class LiquidGlassIntegration {
             '.vliq-liquid-quick-menu-root .vliq-quick-active .quick-toggle-subtitle {\n' +
             '  color: ' + accentColor + ' !important;\n' +
             '}\n' +
-            // Hotspot text must outrank this late-loaded dynamic accent sheet.
-            // The class is present only on GNOME's active Wi-Fi hotspot tile.
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light StLabel,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light StIcon,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-title,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-subtitle,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-icon,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light StLabel,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light StIcon,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-title,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-subtitle,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light .quick-toggle-icon {\n' +
-            '  color: #ffffff !important;\n' +
-            '}\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark StLabel,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark StIcon,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-title,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-subtitle,\n' +
-            '.vliq-liquid-popup-content.quick-settings .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-icon,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark StLabel,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark StIcon,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-title,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-subtitle,\n' +
-            '.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark .quick-toggle-icon {\n' +
-            '  color: #111111 !important;\n' +
-            '}\n' +
             '#overviewGroup .workspace-thumbnail-indicator {\n' +
             '  border-color: ' + accentColor + ' !important;\n' +
             '}\n' +
