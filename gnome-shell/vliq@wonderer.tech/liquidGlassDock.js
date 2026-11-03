@@ -478,6 +478,9 @@ export class LiquidGlassIntegration {
         this._popupGlassManager = null;
         this._shellCardGlassManager = null;
         this._previewGlassManager = null;
+        this._clockPanelGlass = null;
+        this._clockPanelTarget = null;
+        this._clockPanelFrameId = 0;
         this._appGridBackdropManager = null;
         this._wallpaperAtmosphereManager = null;
         this._overviewCloseGlassManager = null;
@@ -551,19 +554,116 @@ export class LiquidGlassIntegration {
         return attached;
     }
 
-    attachClockWidgetGlass(target, style, density = 0.88) {
+    // Clock uses the EXACT native-panel LiquidEffect capture, not the
+    // 104px-margined ShellCardSurface that drew the cropped horizontal line.
+    // Fixed 296x148 desktop clock, 24px rounded corners, no outside shadow.
+    attachClockWidgetGlass(target) {
+        if (this._clockPanelGlass && this._clockPanelTarget === target)
+            return true;
+        this.detachClockWidgetGlass();
+
+        if (!target || !this._vendor || !this._settings)
+            return false;
+        const group = target.get_parent?.();
+        if (!group)
+            return false;
+
+        let glass = null;
         try {
-            return this._previewGlassManager
-                ?.attachWidget?.(target, style, density) ?? false;
+            glass = new PanelGlassSurface(
+                this._vendor,
+                this._settings,
+                () => this._readSharedCardAppearance(),
+                {cornerRadius: 24, clockCard: true}
+            );
+            if (!glass.attach(group, target)) {
+                glass.destroy();
+                return false;
+            }
+            this._clockPanelGlass = glass;
+            this._clockPanelTarget = target;
+            // Same damage-budgeted 24fps frame sync as the real native
+            // panel. The callback is removed on disable/hot-reload.
+            this._clockPanelFrameId = global.stage.connect(
+                'before-update',
+                () => this._syncClockWidgetGlass()
+            );
+            this._syncClockWidgetGlass();
+            console.log('[VLIQ][Clock] native panel LiquidEffect attached');
+            return true;
         } catch (error) {
-            console.warn('[VLIQ][ClockGlass] translucent fallback: ' + error);
+            try { glass?.destroy(); } catch {}
+            this.detachClockWidgetGlass();
+            console.warn('[VLIQ][Clock] native panel glass unavailable: ' + error);
             return false;
         }
     }
 
-    updateClockWidgetGlass(target, style, density = 0.88) {
-        return this._previewGlassManager
-            ?.updateWidgetMaterial?.(target, style, density) ?? false;
+    updateClockWidgetGlass(target) {
+        if (!this._clockPanelGlass || target !== this._clockPanelTarget)
+            return false;
+        this._clockPanelGlass.updateAppearance();
+        this._syncClockWidgetGlass();
+        return true;
+    }
+
+    syncClockWidgetGlass(target) {
+        if (target === this._clockPanelTarget)
+            this._syncClockWidgetGlass();
+    }
+
+    _syncClockWidgetGlass() {
+        const card = this._clockPanelTarget;
+        const glass = this._clockPanelGlass;
+        if (!card || !glass)
+            return;
+
+        if (!card.mapped || !card.visible) {
+            glass.hide();
+            card.remove_style_class_name?.('vliq-clock-panel-glass-ready');
+            return;
+        }
+
+        const group = card.get_parent?.();
+        if (!group) {
+            glass.hide();
+            return;
+        }
+        // Positions passed to PanelGlassSurface are relative to its parent;
+        // WindowCloneManager separately handles stage coordinates.
+        const [absX, absY] = card.get_transformed_position?.() ?? [NaN, NaN];
+        const [parentX, parentY] =
+            group.get_transformed_position?.() ?? [0, 0];
+        const [width, height] = card.get_transformed_size?.() ??
+            [card.width ?? 0, card.height ?? 0];
+        if (![absX, absY, parentX, parentY, width, height].every(Number.isFinite) ||
+            width <= 1 || height <= 1) {
+            glass.hide();
+            return;
+        }
+
+        glass.setBounds(absX - parentX, absY - parentY, width, height, 255);
+        if (glass.ready)
+            card.add_style_class_name?.('vliq-clock-panel-glass-ready');
+        else
+            card.remove_style_class_name?.('vliq-clock-panel-glass-ready');
+    }
+
+    detachClockWidgetGlass(target = null) {
+        if (target && this._clockPanelTarget !== target)
+            return;
+        if (this._clockPanelFrameId) {
+            try { global.stage.disconnect(this._clockPanelFrameId); } catch {}
+            this._clockPanelFrameId = 0;
+        }
+        try {
+            this._clockPanelTarget?.remove_style_class_name?.(
+                'vliq-clock-panel-glass-ready'
+            );
+        } catch {}
+        try { this._clockPanelGlass?.destroy(); } catch {}
+        this._clockPanelGlass = null;
+        this._clockPanelTarget = null;
     }
 
     attachPreviewGlass(target) {
@@ -1640,6 +1740,7 @@ export class LiquidGlassIntegration {
         this._popupGlassManager?.updateAppearance(state);
         this._shellCardGlassManager?.updateAppearance(state);
         this._previewGlassManager?.updateAppearance(state);
+        this._clockPanelGlass?.updateAppearance();
         this._appGridBackdropManager?.updateAppearance(state);
         this._overviewCloseGlassManager?.updateAppearance(state);
         this._orbGlassManager?.updateAppearance(state);
@@ -5862,6 +5963,7 @@ export class LiquidGlassIntegration {
         );
         this._shellCardGlassManager = null;
 
+        this.detachClockWidgetGlass();
         cleanup('previewGlassManager', this._previewGlassManager);
         this._previewGlassManager = null;
 
