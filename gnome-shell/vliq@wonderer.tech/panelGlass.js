@@ -133,10 +133,16 @@ export class PanelGlassSurface {
         this._effect.setShadowMaxRadius?.(0);
         this._effect.setCornerRadius?.(this._cornerRadius);
         if (this._clockCard) {
-            // Match the panel's real LiquidEffect while keeping the clock
-            // shadowless and free of the horizontal optical edge streak.
-            // Shared MaterialSettings still owns blur/tint/Frosted diffusion.
-            this._effect.setSurfaceLightEnabled?.(false);
+            // Clock must use the SAME illuminated optical material as VLIQ's
+            // Dock/cards. Turning surface light off also removed Fresnel rim,
+            // specular highlights and sheen, leaving a flat, dull backdrop
+            // despite a successfully composited shader. The old horizontal
+            // streak came from the retired 104px-margined preview material;
+            // Clock now uses the bounded native panel compositor instead.
+            // Keep surface lighting enabled while suppressing only the rear
+            // and inner shadow. The shared material controls still own tint,
+            // refraction, blur, Frosted Crystal grain and optical strength.
+            this._effect.setSurfaceLightEnabled?.(true);
             this._effect._uniforms?.set?.('ao_intensity', 0.0);
             this._effect._uniforms?.set?.('shadow_radius', 0.0);
             this._effect._uniforms?.set?.('shadow_intensity', 0.0);
