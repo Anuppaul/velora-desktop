@@ -170,4 +170,18 @@ const stylesheet = await readFile(new URL(
 ), 'utf8');
 assert.match(stylesheet, /\.vliq-desktop-clock\.vliq-liquid-shell-card/);
 assert.match(stylesheet, /\.vliq-clock-resize-grip/);
-console.log('VLIQ desktop clock: drag, resize, persistence, glass mode, occlusion and cleanup PASS.');
+assert.match(stylesheet, /background-color:\s*rgba\(228, 240, 255, 0\.13\)/,
+    'clock must not become fully transparent while shader compiles');
+
+// Even if shared GPU material construction throws, the desktop card should
+// remain visible and draggable as native St actors (no GNOME logout needed).
+const broken = new Widget(settings, {
+    attachClockWidgetGlass: () => {throw Error('simulated shader failure');},
+});
+broken.enable();
+assert.equal(broken._actor.visible, true,
+    'shader failure must not hide the desktop clock');
+assert.equal(broken._materialAttached, false,
+    'failed glass attachment should retain native fallback');
+broken.disable();
+console.log('VLIQ desktop clock: drag, resize, persistence, glass fallback, occlusion and cleanup PASS.');
