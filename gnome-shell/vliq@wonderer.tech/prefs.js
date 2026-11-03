@@ -1045,7 +1045,7 @@ export default class VLIQPreferences extends ExtensionPreferences {
         widgetsPage.add(clockGroup);
         addSwitch(clockGroup, settings, 'clock-widget-enabled',
             'Show desktop clock',
-            'Display the clock in the upper-right desktop area.');
+            'Show a clock card at the top right of your desktop (behind application windows).');
         addSwitch(clockGroup, settings, 'clock-widget-24h',
             '24-hour time',
             'Switch between 24-hour and 12-hour clock formats.');
