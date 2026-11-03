@@ -84,6 +84,7 @@ export class DesktopClockWidget {
             'clock-widget-enabled',
             'clock-widget-24h',
             'clock-widget-style',
+            'frost-density',
             'clock-widget-scale',
             'clock-widget-x',
             'clock-widget-y',
@@ -181,12 +182,14 @@ export class DesktopClockWidget {
             this._dragGrab?.dismiss();
             this._dragGrab = null;
 
+            // Persist location before emitting a scale change; the scale
+            // listener re-positions from settings immediately.
+            this._savePosition();
             if (kind === 'resize') {
                 const newScale = this._currentScale;
                 if (newScale !== current.scale)
                     this._settings.set_int('clock-widget-scale', newScale);
             }
-            this._savePosition();
             this._refresh();
         };
         gesture.connect('end', finish);
@@ -291,7 +294,7 @@ export class DesktopClockWidget {
     }
 
     _onSettingsChanged(key) {
-        if (key === 'clock-widget-style')
+        if (key === 'clock-widget-style' || key === 'frost-density')
             this._setMaterial();
         if (key === 'clock-widget-scale' ||
             key === 'clock-widget-x' ||
