@@ -93,7 +93,14 @@ class Actor {
     }
 }
 class MockEffect {
-    constructor({owner}) {this.owner = owner; this.glassGeometry = null;}
+    constructor({owner}) {
+        this.owner = owner;
+        this.glassGeometry = null;
+        this.uniformValues = new Map();
+        this._uniforms = {
+            set: (name, value) => this.uniformValues.set(name, value),
+        };
+    }
     setPadding(value) {this.padding = value;}
     setShadowMaxRadius(value) {this.shadowMargin = value;}
     setIsDock(value) {this.isDock = value;}
@@ -240,6 +247,28 @@ assert.equal(MockWindowClones.destroyed, 1);
 const second = makePreview();
 second.mapped = true;
 assert.equal(manager.attachPreview(second), true);
+assert.equal(manager._surfaces.size, 1);
+
+// The Clock shares the proven preview pipeline, but each widget may select
+// its own Liquid/Frosted material without rewriting system-wide settings.
+const clock = new Actor({style_class: 'vliq-desktop-clock'});
+clock.set_position(360, 140);
+clock.set_size(296, 148);
+cardLayer.add_child(clock);
+assert.equal(manager.attachWidget(clock, 'frosted', 0.88), true);
+const clockSurface = manager._surfaces.get(clock);
+assert.equal(clockSurface._material.parent, clock);
+assert.equal(clockSurface._previewInTarget, true);
+assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
+    0.88, 'Frosted density must be local to this clock effect');
+assert.equal(manager.updateWidgetMaterial(clock, 'liquid', 0), true);
+assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
+    0, 'Liquid must restore the original lens rather than global Frosted');
+assert.equal(manager._surfaces.get(second)._widgetMaterialStyle, null,
+    'Clock style must never change another preview surface');
+clock.destroy();
+assert.equal(manager._surfaces.has(clock), false,
+    'destroying clock must release its dedicated glass surface');
 assert.equal(manager._surfaces.size, 1);
 manager.cleanup();
 assert.equal(manager._surfaces.size, 0);
