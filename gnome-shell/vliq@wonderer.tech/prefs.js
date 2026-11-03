@@ -1072,6 +1072,35 @@ export default class VLIQPreferences extends ExtensionPreferences {
         positionRow.add_suffix(resetClockPosition);
         clockGroup.add(positionRow);
 
+        // The Calendar is an independent desktop widget, not a new
+        // material theme. Both widgets follow Appearance -> Glass Material.
+        const calendarGroup = new Adw.PreferencesGroup({
+            title: 'Calendar',
+            description: 'Monthly calendar on the desktop with the same VLIQ Liquid Glass or Frosted Crystal material.',
+        });
+        widgetsPage.add(calendarGroup);
+        addSwitch(calendarGroup, settings, 'calendar-widget-enabled',
+            'Show desktop calendar',
+            'Display the current month. Use the arrows to browse months and drag the month title to move the card.');
+        calendarGroup.add(new Adw.ActionRow({
+            title: 'Glass material',
+            subtitle: 'Automatically follows Appearance → Glass Material.',
+        }));
+        const calendarPositionRow = new Adw.ActionRow({
+            title: 'Desktop position',
+            subtitle: 'Move using the month heading. The position is saved automatically.',
+        });
+        const resetCalendarPosition = new Gtk.Button({
+            label: 'Reset position',
+            valign: Gtk.Align.CENTER,
+        });
+        resetCalendarPosition.connect('clicked', () => {
+            settings.reset('calendar-widget-x');
+            settings.reset('calendar-widget-y');
+        });
+        calendarPositionRow.add_suffix(resetCalendarPosition);
+        calendarGroup.add(calendarPositionRow);
+
         // -----------------------------------------------------------------
         // Performance
         // -----------------------------------------------------------------
