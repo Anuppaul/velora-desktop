@@ -1753,6 +1753,7 @@
 .vliq-calendar-cell {
     min-width: 40px;
     min-height: 30px;
+    padding: 0;
 }
 .vliq-calendar-weekday {
     min-width: 30px;
@@ -1767,11 +1768,15 @@
 .vliq-calendar-week {
     spacing: 0px;
 }
-.vliq-calendar-day {
+.vliq-calendar-day-badge {
     min-width: 30px;
     min-height: 30px;
     padding: 0;
     border-radius: 11px;
+    background-color: transparent;
+}
+.vliq-calendar-day {
+    padding: 0;
     color: rgba(255, 255, 255, 0.96);
     font-size: 13px;
     font-weight: 550;
