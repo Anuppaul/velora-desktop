@@ -54,6 +54,7 @@ RUNTIME_FILES=(
     "sharedAdaptiveText.js"
     "orbGlass.js"
     "panelGlass.js"
+    "topBarIslands.js"
     "frameBudget.js"
 )
 
