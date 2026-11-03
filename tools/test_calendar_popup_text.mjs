@@ -120,9 +120,12 @@ assert.match(css, /color: #111111 !important;/);
 assert.match(css, /\.calendar \.calendar-month-label,/);
 assert.match(css, /color: #ffffff !important;/);
 const integration = await file('liquidGlassDock.js');
-const accentSection = integration.slice(integration.indexOf(
-    '/* VLIQ semantic accent: preserve'
-), integration.indexOf('/* VLIQ semantic accent: preserve') + 1000);
+const accentBegin = integration.indexOf('/* VLIQ semantic accent: preserve');
+const accentEnd = integration.indexOf(
+    "'.vliq-liquid-popup-content.quick-settings", accentBegin
+);
+assert.ok(accentBegin >= 0 && accentEnd > accentBegin);
+const accentSection = integration.slice(accentBegin, accentEnd);
 assert.match(accentSection, /background-color:/);
 assert.match(accentSection, /color: #ffffff !important/);
 assert.doesNotMatch(accentSection, /color: ' \+ accentColor/);
