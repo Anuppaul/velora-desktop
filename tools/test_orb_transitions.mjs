@@ -202,6 +202,68 @@ assert.equal(large._radialActors.length, 63,
 assert.equal(large._orbPageCount, Math.ceil(1000 / 63));
 assert.equal(large._orbPageSession.rings, 2);
 
+// Check the shipped geometry planner against real monitor edges. A fitted
+// shape may have fewer levels than requested, but must not drop individual
+// icons outside the screen or stack them on top of each other.
+const geometrySource = await readFile(new URL(
+    '../gnome-shell/vliq@wonderer.tech/geometry.js', import.meta.url
+), 'utf8');
+const geometry = new Function(
+    geometrySource.replace(/^export\s+/gm, '') +
+    '\nreturn {slotsForGeometry, arcForPosition, effectiveRingGap};'
+)();
+const monitors = [
+    {x: 0, y: 0, width: 1366, height: 768},
+    {x: 0, y: 0, width: 800, height: 600},
+    {x: 1366, y: 0, width: 1920, height: 1080},
+];
+let fittedCases = 0;
+for (const monitor of monitors) {
+    const points = [
+        [monitor.x + 8, monitor.y + 8],
+        [monitor.x + monitor.width - 60, monitor.y + 8],
+        [monitor.x + 8, monitor.y + monitor.height - 60],
+        [monitor.x + monitor.width - 60, monitor.y + monitor.height - 60],
+        [monitor.x + monitor.width / 2 - 25,
+            monitor.y + monitor.height / 2 - 25],
+    ];
+    for (const [orbX, orbY] of points) {
+        for (const shape of ['orbit', 'star', 'molecule',
+            'spiral', 'petal']) {
+            const orbSize = 54, iconSize = 40, iconGap = 6, depth = 8;
+            const spacing = geometry.effectiveRingGap(iconSize, 20);
+            const cx = orbX + orbSize / 2;
+            const cy = orbY + orbSize / 2;
+            const arc = geometry.arcForPosition(cx, cy,
+                orbSize / 2 + depth * spacing, iconSize, monitor);
+            const groups = geometry.slotsForGeometry(
+                shape, cx, cy, orbSize, spacing, depth, arc,
+                iconSize, iconGap, monitor, 8);
+            assert.ok(groups.length <= depth,
+                shape + ': fitted depth cannot exceed requested depth');
+            const positions = groups.flat();
+            for (const p of positions) {
+                assert.ok(p.x >= monitor.x + 7 &&
+                    p.y >= monitor.y + 7 &&
+                    p.x + iconSize <= monitor.x + monitor.width - 7 &&
+                    p.y + iconSize <= monitor.y + monitor.height - 7,
+                    shape + ': icon escaped monitor bounds');
+            }
+            for (let i = 0; i < positions.length; i++) {
+                for (let j = i + 1; j < positions.length; j++) {
+                    assert.ok(Math.hypot(
+                        positions[i].x - positions[j].x,
+                        positions[i].y - positions[j].y
+                    ) >= iconSize * 0.7,
+                    shape + ': overlapping icon centres');
+                }
+            }
+            fittedCases++;
+        }
+    }
+}
+assert.equal(fittedCases, 75, '75 shape/monitor/position combinations');
+
 // Check that the native Overview shader radius does not toggle while the
 // first Apps grid is opening or when switching between Overview states.
 const Backdrop = await loadClass(
