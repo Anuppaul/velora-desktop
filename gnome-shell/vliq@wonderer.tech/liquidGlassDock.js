@@ -2165,10 +2165,10 @@ export class LiquidGlassIntegration {
             '  border-color: transparent !important;\n' +
             '  box-shadow: none !important;\n' +
             '}\n' +
+            // Never repaint a white sheet behind the three detached
+            // optical islands when global Appearance filter changes.
             '#panel.vliq-liquid-top-panel {\n' +
-            '  background-color: rgba(255,255,255,' +
-            barFilterOpacity.toFixed(3) +
-            ') !important;\n' +
+            '  background-color: transparent !important;\n' +
             '  background-image: none !important;\n' +
             '  border-radius: 0px !important;\n' +
             '  box-shadow: none !important;\n' +
