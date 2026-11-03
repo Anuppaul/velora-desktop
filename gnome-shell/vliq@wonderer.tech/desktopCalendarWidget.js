@@ -7,6 +7,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const CARD_WIDTH = 326;
 const CARD_HEIGHT = 342;
 const EDGE_MARGIN = 12;
+const GRID_CELL_WIDTH = 40;
+const DAY_BADGE_SIZE = 30;
 const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 function clamp(value, lower, upper) {
@@ -99,13 +101,26 @@ export class DesktopCalendarWidget {
             x_expand: true,
         });
         content.add_child(weekdayRow);
+        // Identical seven-column cell geometry for headings AND dates.
+        // Previously each St.Label centered at its natural text width;
+        // today's background therefore did not align consistently with
+        // the weekday heading and adjacent date columns.
         for (const day of DAY_HEADERS) {
-            weekdayRow.add_child(new St.Label({
+            const heading = new St.Label({
                 text: day,
                 style_class: 'vliq-calendar-weekday',
-                x_expand: true,
+                width: DAY_BADGE_SIZE,
                 x_align: Clutter.ActorAlign.CENTER,
-            }));
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            const cell = new St.Bin({
+                style_class: 'vliq-calendar-cell',
+                width: GRID_CELL_WIDTH,
+                x_expand: true,
+                x_align: Clutter.ActorAlign.FILL,
+                child: heading,
+            });
+            weekdayRow.add_child(cell);
         }
 
         this._grid = new St.BoxLayout({
@@ -124,13 +139,25 @@ export class DesktopCalendarWidget {
             });
             this._grid.add_child(week);
             for (let col = 0; col < 7; col++) {
+                // Equal-width wrappers define the columns. The date badge
+                // (including Today's highlight) is a fixed 30x30 box
+                // centered in its cell, regardless of 1- or 2-digit text.
                 const label = new St.Label({
                     style_class: 'vliq-calendar-day',
                     text: '',
-                    x_expand: true,
+                    width: DAY_BADGE_SIZE,
+                    height: DAY_BADGE_SIZE,
                     x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
                 });
-                week.add_child(label);
+                const cell = new St.Bin({
+                    style_class: 'vliq-calendar-cell',
+                    width: GRID_CELL_WIDTH,
+                    x_expand: true,
+                    x_align: Clutter.ActorAlign.FILL,
+                    child: label,
+                });
+                week.add_child(cell);
                 this._days.push(label);
             }
         }
