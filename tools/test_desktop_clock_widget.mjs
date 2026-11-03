@@ -176,27 +176,29 @@ const stylesheet = await readFile(new URL(
 assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
 assert.doesNotMatch(stylesheet, /\.vliq-clock-resize-grip/,
     'resize CSS must be absent');
-assert.match(stylesheet, /\.vliq-clock-glass-ready/,
-    'CSS must retain a visible card while the shader runs');
 assert.match(stylesheet, /background-color:\s*rgba\(236, 244, 255, 0\.16\)/,
-    'Liquid Glass clock card must remain translucent and visible');
+    'Liquid fallback must remain visible until its shader is ready');
 assert.match(stylesheet, /background-color:\s*rgba\(239, 245, 255, 0\.38\)/,
-    'Frosted Crystal clock card must use a denser material');
-assert.doesNotMatch(stylesheet, /vliq-clock-glass-ready[^}]*background-color:\s*transparent/,
-    'ready shader must never erase the Clock card');
-const clockMaterial = stylesheet.match(
-    /\.vliq-clock-card\.vliq-liquid-shell-card\.vliq-clock-glass-ready\s*\{([^}]*)\}/
-)?.[1];
-const frostMaterial = stylesheet.match(
-    /\.vliq-clock-card\.vliq-clock-frosted\.vliq-liquid-shell-card\.vliq-clock-glass-ready\s*\{([^}]*)\}/
-)?.[1];
-assert.ok(clockMaterial && frostMaterial, 'both glass card modes must exist');
-for (const declaration of [clockMaterial, frostMaterial]) {
-    assert.match(declaration, /box-shadow:\s*none\s*!important/,
-        'no shadow behind clock card in either material');
-    assert.match(declaration, /border-top:\s*0\s*!important/,
-        'no horizontal top line on clock card in either material');
-}
+    'Frosted fallback must remain visible until its shader is ready');
+assert.doesNotMatch(stylesheet, /text-shadow:\s*(?!none)/,
+    'Clock time/date must not have font shadows');
+const clockCss = stylesheet.slice(stylesheet.indexOf('/* Clock fallback:'));
+assert.match(clockCss, /border:\s*0\s*!important/,
+    'Clock must not draw a horizontal border');
+assert.match(clockCss, /box-shadow:\s*none\s*!important/,
+    'Clock must not draw any rear shadow');
+assert.doesNotMatch(clockCss, /border-top:\s*1px/,
+    'Clock must not draw a horizontal top line');
+
+const appearanceSource = await readFile(new URL(
+    '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js', import.meta.url
+), 'utf8');
+assert.match(appearanceSource,
+    /\.vliq-clock-card\.vliq-liquid-shell-card\.vliq-clock-glass-ready/,
+    'Ready clock must receive the shared filter from VLIQ appearance manager');
+assert.match(appearanceSource,
+    /filterOpacity\.toFixed\(3\)/,
+    'Clock must inherit the global glass-filter-opacity control');
 
 // Even if shared GPU material construction throws, the desktop card should
 // remain visible and draggable as native St actors (no GNOME logout needed).
