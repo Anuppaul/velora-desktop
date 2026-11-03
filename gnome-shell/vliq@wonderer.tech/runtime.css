@@ -1668,8 +1668,6 @@
 }
 .vliq-clock-content {
     spacing: 0;
-    x-align: center;
-    y-align: center;
 }
 .vliq-clock-drag-surface {
     padding: 4px 0 3px 0;
