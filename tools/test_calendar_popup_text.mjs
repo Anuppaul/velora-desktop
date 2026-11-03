@@ -98,7 +98,7 @@ expectCalendarText([241, 196, 219], false); // bright pink != white
 
 // The two thresholds avoid flicker on patterned near-white wallpaper.
 let measured = policy._dateCardLuminance(
-    pixelFrame([255, 255, 255], 89), calendar);
+    pixelFrame([255, 255, 255], 85), calendar);
 const whiteRatio = policy._calendarNearWhiteRatio.get(calendar);
 assert.ok(whiteRatio > EXIT && whiteRatio < ENTER,
     'mixed pixels must fall inside hysteresis band');
