@@ -483,10 +483,14 @@ export class LiquidGlassIntegration {
         this._clockPanelTarget = null;
         this._clockPanelFrameId = 0;
         this._clockPanelReadyReported = false;
+        this._clockPanelStyleReady = false;
+        this._clockPanelLastBounds = null;
         this._calendarPanelGlass = null;
         this._calendarPanelTarget = null;
         this._calendarPanelFrameId = 0;
         this._calendarPanelReadyReported = false;
+        this._calendarPanelStyleReady = false;
+        this._calendarPanelLastBounds = null;
         this._appGridBackdropManager = null;
         this._wallpaperAtmosphereManager = null;
         this._overviewCloseGlassManager = null;
@@ -588,6 +592,8 @@ export class LiquidGlassIntegration {
             this._clockPanelGlass = glass;
             this._clockPanelTarget = target;
             this._clockPanelReadyReported = false;
+            this._clockPanelStyleReady = false;
+            this._clockPanelLastBounds = null;
             // Same damage-budgeted 24fps frame sync as the real native
             // panel. The callback is removed on disable/hot-reload.
             this._clockPanelFrameId = global.stage.connect(
@@ -619,44 +625,84 @@ export class LiquidGlassIntegration {
     }
 
     _syncClockWidgetGlass() {
-        const card = this._clockPanelTarget;
-        const glass = this._clockPanelGlass;
+        this._syncBoundedWidgetGlass('clock');
+    }
+
+    // Clock and Calendar share the same bounded optical capture. Each
+    // widget writes geometry only when it actually moves/resizes and
+    // changes its CSS readiness class only when the shader changes state.
+    // Stable frames continue PanelGlassSurface's 24 FPS live scene sync,
+    // without re-triggering GObject allocation or stylesheet invalidation.
+    _syncBoundedWidgetGlass(kind) {
+        const clock = kind === 'clock';
+        const prefix = clock ? '_clockPanel' : '_calendarPanel';
+        const card = this[prefix + 'Target'];
+        const glass = this[prefix + 'Glass'];
         if (!card || !glass)
             return;
 
-        if (!card.mapped || !card.visible) {
+        const readyClass = clock
+            ? 'vliq-clock-panel-glass-ready'
+            : 'vliq-calendar-panel-glass-ready';
+        const hide = () => {
             glass.hide();
-            card.remove_style_class_name?.('vliq-clock-panel-glass-ready');
+            // setBounds MUST restore opacity after hide even at identical
+            // coordinates; never reuse stale bounds across visibility.
+            this[prefix + 'LastBounds'] = null;
+            if (this[prefix + 'StyleReady']) {
+                card.remove_style_class_name?.(readyClass);
+                this[prefix + 'StyleReady'] = false;
+            }
+        };
+
+        if (!card.mapped || !card.visible) {
+            hide();
             return;
         }
-
         const group = card.get_parent?.();
         if (!group) {
-            glass.hide();
-            return;
-        }
-        // Positions passed to PanelGlassSurface are relative to its parent;
-        // WindowCloneManager separately handles stage coordinates.
-        const [absX, absY] = card.get_transformed_position?.() ?? [NaN, NaN];
-        const [parentX, parentY] =
-            group.get_transformed_position?.() ?? [0, 0];
-        const [width, height] = card.get_transformed_size?.() ??
-            [card.width ?? 0, card.height ?? 0];
-        if (![absX, absY, parentX, parentY, width, height].every(Number.isFinite) ||
-            width <= 1 || height <= 1) {
-            glass.hide();
+            hide();
             return;
         }
 
-        glass.setBounds(absX - parentX, absY - parentY, width, height, 255);
-        if (glass.ready) {
-            card.add_style_class_name?.('vliq-clock-panel-glass-ready');
-            if (!this._clockPanelReadyReported) {
-                this._clockPanelReadyReported = true;
-                console.log('[VLIQ][Clock] native panel glass first composite READY');
-            }
+        const [absX, absY] =
+            card.get_transformed_position?.() ?? [NaN, NaN];
+        const [parentX, parentY] =
+            group.get_transformed_position?.() ?? [0, 0];
+        const [width, height] =
+            card.get_transformed_size?.() ??
+            [card.width ?? 0, card.height ?? 0];
+        if (![absX, absY, parentX, parentY, width, height]
+            .every(Number.isFinite) || width <= 1 || height <= 1) {
+            hide();
+            return;
+        }
+
+        const bounds = [absX - parentX, absY - parentY,
+            width, height, 255];
+        const previous = this[prefix + 'LastBounds'];
+        if (!previous || bounds.some((value, index) =>
+            value !== previous[index])) {
+            glass.setBounds(...bounds);
+            this[prefix + 'LastBounds'] = bounds;
         } else {
-            card.remove_style_class_name?.('vliq-clock-panel-glass-ready');
+            glass.syncFrame?.();
+        }
+
+        const ready = Boolean(glass.ready);
+        if (ready !== Boolean(this[prefix + 'StyleReady'])) {
+            if (ready)
+                card.add_style_class_name?.(readyClass);
+            else
+                card.remove_style_class_name?.(readyClass);
+            this[prefix + 'StyleReady'] = ready;
+        }
+        if (ready && !this[prefix + 'ReadyReported']) {
+            this[prefix + 'ReadyReported'] = true;
+            console.log(
+                '[VLIQ][' + (clock ? 'Clock' : 'Calendar') +
+                '] native panel glass first composite READY'
+            );
         }
     }
 
@@ -676,6 +722,8 @@ export class LiquidGlassIntegration {
         this._clockPanelGlass = null;
         this._clockPanelTarget = null;
         this._clockPanelReadyReported = false;
+        this._clockPanelStyleReady = false;
+        this._clockPanelLastBounds = null;
     }
 
     // Calendar uses the exact same native panel shader/material as Clock.
@@ -706,6 +754,8 @@ export class LiquidGlassIntegration {
             this._calendarPanelGlass = glass;
             this._calendarPanelTarget = target;
             this._calendarPanelReadyReported = false;
+            this._calendarPanelStyleReady = false;
+            this._calendarPanelLastBounds = null;
             this._calendarPanelFrameId = global.stage.connect(
                 'before-update', () => this._syncCalendarWidgetGlass()
             );
@@ -735,46 +785,7 @@ export class LiquidGlassIntegration {
     }
 
     _syncCalendarWidgetGlass() {
-        const card = this._calendarPanelTarget;
-        const glass = this._calendarPanelGlass;
-        if (!card || !glass)
-            return;
-
-        if (!card.mapped || !card.visible) {
-            glass.hide();
-            card.remove_style_class_name?.('vliq-calendar-panel-glass-ready');
-            return;
-        }
-        const group = card.get_parent?.();
-        if (!group) {
-            glass.hide();
-            return;
-        }
-        const [absX, absY] =
-            card.get_transformed_position?.() ?? [NaN, NaN];
-        const [parentX, parentY] =
-            group.get_transformed_position?.() ?? [0, 0];
-        const [width, height] =
-            card.get_transformed_size?.() ??
-            [card.width ?? 0, card.height ?? 0];
-        if (![absX, absY, parentX, parentY, width, height].every(Number.isFinite) ||
-            width <= 1 || height <= 1) {
-            glass.hide();
-            return;
-        }
-
-        glass.setBounds(absX - parentX, absY - parentY, width, height, 255);
-        if (glass.ready) {
-            card.add_style_class_name?.('vliq-calendar-panel-glass-ready');
-            if (!this._calendarPanelReadyReported) {
-                this._calendarPanelReadyReported = true;
-                console.log(
-                    '[VLIQ][Calendar] native panel glass first composite READY'
-                );
-            }
-        } else {
-            card.remove_style_class_name?.('vliq-calendar-panel-glass-ready');
-        }
+        this._syncBoundedWidgetGlass('calendar');
     }
 
     detachCalendarWidgetGlass(target = null) {
@@ -793,6 +804,8 @@ export class LiquidGlassIntegration {
         this._calendarPanelGlass = null;
         this._calendarPanelTarget = null;
         this._calendarPanelReadyReported = false;
+        this._calendarPanelStyleReady = false;
+        this._calendarPanelLastBounds = null;
     }
 
     attachPreviewGlass(target) {
