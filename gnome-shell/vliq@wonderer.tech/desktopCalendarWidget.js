@@ -2,7 +2,6 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
-import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const CARD_WIDTH = 326;
@@ -31,6 +30,7 @@ export class DesktopCalendarWidget {
         this._materialAttached = false;
         this._bounds = null;
         this._days = [];
+        this._dayBadges = [];
         this._viewOffset = 0;
         this._visibleYear = null;
         this._visibleMonth = null;
@@ -107,22 +107,22 @@ export class DesktopCalendarWidget {
         // today's background therefore did not align consistently with
         // the weekday heading and adjacent date columns.
         for (const day of DAY_HEADERS) {
-            const heading = new St.Label({
+            const cell = new St.Widget({
+                style_class: 'vliq-calendar-cell',
+                layout_manager: new Clutter.BinLayout(),
+                width: GRID_CELL_WIDTH,
+                height: DAY_BADGE_SIZE,
+                x_expand: true,
+            });
+            // Center the actual text actor, not its Pango line inside a
+            // fixed-width St.Label. Clutter BinLayout makes the glyph and
+            // column share the same center regardless of font metrics.
+            cell.add_child(new St.Label({
                 text: day,
                 style_class: 'vliq-calendar-weekday',
-                width: DAY_BADGE_SIZE,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
-            });
-            // Center the visible weekday glyph within the fixed badge.
-            heading.clutter_text.set_line_alignment(Pango.Alignment.CENTER);
-            const cell = new St.Bin({
-                style_class: 'vliq-calendar-cell',
-                width: GRID_CELL_WIDTH,
-                x_expand: true,
-                x_align: Clutter.ActorAlign.FILL,
-                child: heading,
-            });
+            }));
             weekdayRow.add_child(cell);
         }
 
@@ -142,29 +142,37 @@ export class DesktopCalendarWidget {
             });
             this._grid.add_child(week);
             for (let col = 0; col < 7; col++) {
-                // Equal-width wrappers define the columns. The date badge
-                // (including Today's highlight) is a fixed 30x30 box
-                // centered in its cell, regardless of 1- or 2-digit text.
+                // Never paint the highlight on St.Label: its text can use
+                // a natural glyph width while its 30px CSS background paints
+                // at a different origin (the screenshot's detached bubble).
+                // Put the 30x30 background on a separate badge actor, and
+                // center the natural-size text WITHIN that exact badge.
                 const label = new St.Label({
                     style_class: 'vliq-calendar-day',
                     text: '',
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                });
+                const badge = new St.Widget({
+                    style_class: 'vliq-calendar-day-badge',
+                    layout_manager: new Clutter.BinLayout(),
                     width: DAY_BADGE_SIZE,
                     height: DAY_BADGE_SIZE,
                     x_align: Clutter.ActorAlign.CENTER,
                     y_align: Clutter.ActorAlign.CENTER,
                 });
-                // Single and double digit dates share the exact same
-                // centered text placement inside the 30px highlight badge.
-                label.clutter_text.set_line_alignment(Pango.Alignment.CENTER);
-                const cell = new St.Bin({
+                badge.add_child(label);
+                const cell = new St.Widget({
                     style_class: 'vliq-calendar-cell',
+                    layout_manager: new Clutter.BinLayout(),
                     width: GRID_CELL_WIDTH,
+                    height: DAY_BADGE_SIZE,
                     x_expand: true,
-                    x_align: Clutter.ActorAlign.FILL,
-                    child: label,
                 });
+                cell.add_child(badge);
                 week.add_child(cell);
                 this._days.push(label);
+                this._dayBadges.push(badge);
             }
         }
 
@@ -322,7 +330,8 @@ export class DesktopCalendarWidget {
         for (let index = 0; index < this._days.length; index++) {
             const day = index - firstWeekday + 1;
             const label = this._days[index];
-            label.remove_style_class_name('vliq-calendar-today');
+            const badge = this._dayBadges[index];
+            badge.remove_style_class_name('vliq-calendar-today');
             label.remove_style_class_name('vliq-calendar-weekend');
             label.text = day > 0 && day <= daysInMonth ? String(day) : '';
             if (day > 0 && day <= daysInMonth && index % 7 >= 5)
@@ -330,7 +339,7 @@ export class DesktopCalendarWidget {
             if (day === now.getDate() &&
                 year === now.getFullYear() &&
                 month === now.getMonth()) {
-                label.add_style_class_name('vliq-calendar-today');
+                badge.add_style_class_name('vliq-calendar-today');
             }
         }
     }
@@ -428,6 +437,7 @@ export class DesktopCalendarWidget {
         this._actor?.destroy();
         this._actor = null;
         this._days = [];
+        this._dayBadges = [];
         this._monthTitle = null;
         this._monthDrag = null;
         this._grid = null;
