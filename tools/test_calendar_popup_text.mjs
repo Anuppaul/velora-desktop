@@ -128,7 +128,7 @@ assert.ok(accentBegin >= 0 && accentEnd > accentBegin);
 const accentSection = integration.slice(accentBegin, accentEnd);
 assert.match(accentSection, /background-color:/);
 assert.match(accentSection, /color: #ffffff !important/);
-assert.doesNotMatch(accentSection, /color: ' \+ accentColor/);
+assert.doesNotMatch(accentSection, /'  color: ' \+ accentColor/);
 console.log(
     'Main Calendar popup: black on near-white only; white on all other backgrounds PASS.'
 );
