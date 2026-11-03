@@ -10,6 +10,7 @@ const source = (await readFile(new URL(
     .replace('export class TopBarIslands', 'class TopBarIslands');
 
 let nextSignal = 1;
+let stageTimeUs = 1000000;
 const stageSignals = new Map();
 const stage = {
     connect(signal, fn) {
@@ -19,7 +20,10 @@ const stage = {
         return id;
     },
     disconnect(id) {stageSignals.delete(id);},
-    tick() {for (const fn of [...stageSignals.values()]) fn();},
+    tick(elapsedUs = 50000) {
+        stageTimeUs += elapsedUs;
+        for (const fn of [...stageSignals.values()]) fn();
+    },
 };
 
 class Actor {
@@ -83,6 +87,8 @@ class MockPanelGlassSurface {
         this._ready = false;
         this.visible = true;
         this.updates = 0;
+        this.boundsWrites = 0;
+        this.sceneSyncChecks = 0;
         glassSurfaces.push(this);
     }
     attach(host, root) {
@@ -92,9 +98,11 @@ class MockPanelGlassSurface {
         return true;
     }
     setBounds(x, y, w, h, opacity) {
+        this.boundsWrites++;
         this.bounds = {x, y, w, h, opacity};
         this.visible = true;
     }
+    syncFrame() {this.sceneSyncChecks++;}
     hide() {this.visible = false;}
     get ready() {return this._ready;}
     updateAppearance() {this.updates++;}
@@ -128,14 +136,18 @@ layout.primaryMonitor = monitor;
 const display = new Actor();
 let fullscreen = false;
 const TopBarIslands = new Function(
-    'Main', 'global', 'PanelGlassSurface', 'primaryPanelIsFullscreen', 'console',
+    'Main', 'global', 'PanelGlassSurface', 'primaryPanelIsFullscreen',
+    'console', 'GLib', 'frameDue',
     source + '\nreturn TopBarIslands;'
 )(
     {panel, layoutManager: layout},
     {stage, display},
     MockPanelGlassSurface,
     () => fullscreen,
-    {log() {}, warn() {}}
+    {log() {}, warn() {}},
+    {get_monotonic_time: () => stageTimeUs},
+    (now, last, fps) =>
+        !last || now < last || now - last >= 1000000 / fps
 );
 const instance = new TopBarIslands({
     vendor: {}, settings: {}, readAppearance: () => ({opacity: 0.05}),
@@ -146,6 +158,10 @@ assert.equal(glassSurfaces.length, 3);
 assert.equal(stageSignals.size, 1, 'one stage sync for all three islands');
 assert.equal(instance._regions.length, 3);
 assert.ok(panel.classes.has('vliq-three-islands'));
+assert.equal(instance.setup(), true, 'repeated setup is idempotent');
+assert.equal(stageSignals.size, 1, 'repeated setup never adds a frame callback');
+assert.equal(glassSurfaces.length, 3,
+    'repeated setup never creates duplicate glass actors');
 for (let i = 0; i < 3; i++) {
     const region = instance._regions[i];
     const group = [panel._leftBox, panel._centerBox, panel._rightBox][i];
@@ -164,6 +180,29 @@ for (let i = 0; i < 3; i++) {
         'GNOME native panel controls must never be reparented');
 }
 const [left, center, right] = instance._regions;
+
+// A fixed top bar formerly repeated setBounds() for all 3 regions every
+// compositor frame, causing redundant GObject reads and scene relayout.
+const initialBoundsWrites = glassSurfaces.map(x => x.boundsWrites);
+stage.tick();
+assert.deepEqual(glassSurfaces.map(x => x.boundsWrites),
+    initialBoundsWrites, 'idle stage frame cannot rewrite stable bounds');
+assert.ok(glassSurfaces.every(x => x.sceneSyncChecks > 0),
+    'stable glass still receives damage-bounded scene synchronization');
+
+// Simulate a 60 FPS session for two seconds. Geometry sampling and scene
+// sync are capped at the established 24 FPS material budget; mandatory
+// fullscreen/indicator signal callbacks bypass that budget immediately.
+const checksBefore = glassSurfaces.map(x => x.sceneSyncChecks);
+for (let i = 0; i < 120; i++)
+    stage.tick(16667);
+const checks = glassSurfaces.map((x, i) =>
+    x.sceneSyncChecks - checksBefore[i]);
+assert.ok(checks.every(n => n >= 35 && n <= 52),
+    '60 FPS should perform approximately 24 geometry/scene checks per second');
+assert.deepEqual(glassSurfaces.map(x => x.boundsWrites),
+    initialBoundsWrites, 'two seconds of idle paint must not duplicate bounds writes');
+
 assert.ok(center.surface.bounds.x > left.surface.bounds.x +
     left.surface.bounds.w + 100, 'left and center are separate');
 assert.ok(right.surface.bounds.x > center.surface.bounds.x +
@@ -319,6 +358,18 @@ assert.ok(!panel.classes.has('vliq-three-islands'));
 assert.equal(panel.signals.size, 0);
 assert.equal(display.signals.size, 0);
 assert.equal(layout.signals.size, 0);
+
+// Every hot reload must release old effects and frame hooks before a new
+// runtime starts, or the same three glass cards render multiple times.
+assert.equal(instance.setup(), true, 'fresh setup after cleanup must succeed');
+assert.equal(glassSurfaces.length, 6,
+    'each live runtime owns exactly three material actors');
+assert.equal(stageSignals.size, 1,
+    'hot reload must leave only one active top-bar frame callback');
+instance.cleanup();
+assert.equal(stageSignals.size, 0, 'second cleanup removes last frame hook');
+assert.equal(uiGroup.children.filter(x => x !== panelBox).length, 0,
+    'no duplicate glass actors survive multiple enable/disable cycles');
 
 const css = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
