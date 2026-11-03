@@ -44,6 +44,7 @@ import {
     applyVLIQGlassRole,
 } from './glassMaterialSystem.js';
 import {PanelGlassSurface} from './panelGlass.js';
+import {TopBarIslands} from './topBarIslands.js';
 import {FullscreenPanelChromeGuard} from './fullscreenPanelGuard.js';
 
 const UPSTREAM_EXTENSION_UUID =
@@ -502,9 +503,8 @@ export class LiquidGlassIntegration {
         this._notificationGlassManager = null;
         this._osdManager = null;
         this._nativeDashEntries = [];
-        this._topPanelManager = null;
+        this._topPanelIslands = null;
         this._fullscreenPanelChromeGuard = null;
-        this._topPanelSettingIds = [];
         this._dashToDockSettings = null;
         this._dashToDockPanelModeId = 0;
         this._dashToDockFixedModeId = 0;
@@ -1879,10 +1879,7 @@ export class LiquidGlassIntegration {
         this._applyCardAppearanceStylesheet(state);
         this._applyAllNativeNotificationAppearances(state);
         this._osdManager?.updateMaterialAppearance?.(state);
-        this._applySharedDashMaterial(
-            this._topPanelManager,
-            'topPanel'
-        );
+        this._topPanelIslands?.updateAppearance();
         for (const entry of this._nativeDashEntries) {
             if (entry.manager)
                 this._applySharedDashMaterial(entry.manager, 'dock');
@@ -2223,33 +2220,32 @@ export class LiquidGlassIntegration {
     }
 
     _setupTopPanelGlass() {
-        if (this._topPanelManager || !Main.panel)
+        if (this._topPanelIslands || !Main.panel)
             return;
 
+        // Three independent rounded optical cards track GNOME's native
+        // left/center/right allocations. Never reparent controls, override
+        // popup menus, or draw the previous full-width DashManager backdrop.
+        let manager = null;
         try {
-            const manager = new this._vendor.DashManager(
-                this._vendor.root,
-                Main.panel,
-                this._settings,
-                this._logger
-            );
-            manager.setup();
+            manager = new TopBarIslands({
+                vendor: this._vendor,
+                settings: this._settings,
+                readAppearance: () => this._readSharedCardAppearance(),
+            });
+            if (!manager.setup()) {
+                manager.cleanup();
+                console.warn(
+                    '[VLIQ][TopBar] native panel boxes unavailable; ' +
+                    'leaving GNOME controls functional without glass'
+                );
+                return;
+            }
 
-            // Top-panel glass is a VLIQ surface of its own. Keep it active
-            // even if the upstream Dock surface switch is off.
-            if (!manager.effect)
-                manager._applyEffect?.();
+            this._topPanelIslands = manager;
 
-            this._topPanelManager = manager;
-            Main.panel.add_style_class_name?.(
-                'vliq-liquid-top-panel'
-            );
-            this._applyTopPanelOverrides();
-
-            // GNOME panelBox already tracks fullscreen, but DashManager
-            // inserts an independent glass actor into uiGroup. Coordinate
-            // that actor with native fullscreen visibility so a bright
-            // glass top bar cannot remain on fullscreen video.
+            // Retain the GNOME 50 fullscreen guard: the native panelBox and
+            // all three independent glass actors must hide with fullscreen.
             this._fullscreenPanelChromeGuard =
                 new FullscreenPanelChromeGuard({
                     layout: Main.layoutManager,
@@ -2259,136 +2255,30 @@ export class LiquidGlassIntegration {
                 });
             this._fullscreenPanelChromeGuard.setup();
 
-            for (const key of [
-                'dock-margin-bottom',
-                'dock-glass-expand',
-                'dock-corner-radius',
-                'enable-dock-glass',
-            ]) {
-                this._topPanelSettingIds.push(
-                    this._settings.connect(
-                        'changed::' + key,
-                        () => {
-                            GLib.idle_add(
-                                GLib.PRIORITY_DEFAULT_IDLE,
-                                () => {
-                                    if (
-                                        this._enabled &&
-                                        this._topPanelManager
-                                    ) {
-                                        if (
-                                            !this._topPanelManager.effect
-                                        ) {
-                                            this._topPanelManager
-                                                ._applyEffect?.();
-                                        }
-                                        this._applyTopPanelOverrides();
-                                        this._fullscreenPanelChromeGuard?.sync();
-                                    }
-                                    return GLib.SOURCE_REMOVE;
-                                }
-                            );
-                        }
-                    )
-                );
-            }
-
             console.log(
-                '[VLIQ][LiquidGlass] topPanel active'
+                '[VLIQ][LiquidGlass] three rounded top-bar islands active'
             );
         } catch (error) {
             try { this._fullscreenPanelChromeGuard?.cleanup(); } catch {}
             this._fullscreenPanelChromeGuard = null;
+            try { manager?.cleanup(); } catch {}
+            this._topPanelIslands = null;
             console.error(
-                '[VLIQ][LiquidGlass] topPanel setup failed: ' +
-                error +
-                '\n' +
-                (error?.stack ?? '')
+                '[VLIQ][LiquidGlass] top bar islands setup failed: ' +
+                error + '\n' + (error?.stack ?? '')
             );
-        }
-    }
-
-    _applyTopPanelOverrides() {
-        const manager = this._topPanelManager;
-        if (!manager)
-            return;
-
-        // DashManager normally adds a dock edge margin. A system top bar must
-        // stay pinned to y=0, so remove that inline margin immediately.
-        manager._marginValue = 0;
-        manager._glassExpand = 0;
-        manager._currentMarginStyle = '';
-
-        if (
-            manager.targetActor &&
-            manager._originalStyle !== undefined
-        ) {
-            manager.targetActor.set_style(
-                manager._originalStyle
-            );
-        }
-
-        // Only the full-width top header has square corners. Shader
-        // radius stays 0 and static/dynamic CSS resets the native border
-        // radius; other glass surfaces retain their own rounded geometry.
-        // Geometry remains owned by DashManager.
-        manager.setMaterialOverride?.(
-            () => this._applySharedDashMaterial(
-                manager,
-                'topPanel'
-            )
-        );
-        manager.effect?.setCornerRadius(0);
-        this._applySharedDashMaterial(manager, 'topPanel');
-
-        // DashManager also marks its parent transparent for dock themes. For
-        // Main.panel that parent is a broad Shell container, not part of the
-        // panel material. Remove the class there so the glass scope stays local
-        // to the top bar and cannot affect unrelated Shell children.
-        try {
-            if (
-                manager._dockParent &&
-                manager._dockParent !== Main.panel
-            ) {
-                manager._dockParent.remove_style_class_name?.(
-                    'liquid-glass-transparent'
-                );
-            }
-        } catch {
-            // Parent may already be rebuilding.
         }
     }
 
     _cleanupTopPanelGlass() {
         try { this._fullscreenPanelChromeGuard?.cleanup(); } catch {}
         this._fullscreenPanelChromeGuard = null;
-        for (const id of this._topPanelSettingIds) {
-            try {
-                this._settings?.disconnect(id);
-            } catch {
-                // Settings may already be tearing down.
-            }
-        }
-        this._topPanelSettingIds = [];
-
-        if (this._topPanelManager) {
-            try {
-                this._topPanelManager.cleanup();
-            } catch (error) {
-                console.error(
-                    '[VLIQ][LiquidGlass] topPanel cleanup failed: ' +
-                    error
-                );
-            }
-        }
-        try {
-            Main.panel?.remove_style_class_name?.(
-                'vliq-liquid-top-panel'
+        try { this._topPanelIslands?.cleanup(); } catch (error) {
+            console.warn(
+                '[VLIQ][TopBar] cleanup warning: ' + error
             );
-        } catch {
-            // Panel may already be tearing down.
         }
-        this._topPanelManager = null;
+        this._topPanelIslands = null;
     }
 
     _setupNativeNotificationStyler() {
@@ -5890,7 +5780,7 @@ export class LiquidGlassIntegration {
                     globalThis.global?._lgGlass?.count?.() ?? null,
                 nativeDashManagers:
                     this._nativeDashEntries.length,
-                topPanel: Boolean(this._topPanelManager),
+                topPanel: Boolean(this._topPanelIslands),
                 popupGlassManager: Boolean(
                     this._popupGlassManager
                 ),
