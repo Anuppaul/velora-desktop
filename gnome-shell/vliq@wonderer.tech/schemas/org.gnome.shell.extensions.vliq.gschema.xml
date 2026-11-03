@@ -357,5 +357,28 @@
       <default>false</default>
       <summary>Display clock in 24-hour format</summary>
     </key>
+    <key name="clock-widget-style" type="s">
+      <default>'liquid'</default>
+      <choices>
+        <choice value="liquid"/>
+        <choice value="frosted"/>
+      </choices>
+      <summary>Clock widget glass material</summary>
+    </key>
+    <key name="clock-widget-scale" type="i">
+      <default>100</default>
+      <range min="65" max="200"/>
+      <summary>Clock widget scale percentage</summary>
+    </key>
+    <key name="clock-widget-x" type="d">
+      <default>0.95</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized clock widget horizontal position</summary>
+    </key>
+    <key name="clock-widget-y" type="d">
+      <default>0.14</default>
+      <range min="0.0" max="1.0"/>
+      <summary>Normalized clock widget vertical position</summary>
+    </key>
   </schema>
 </schemalist>
