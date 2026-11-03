@@ -174,7 +174,7 @@ assert.equal(settings.handlers.size, 0, 'no stale settings listeners');
 const stylesheet = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
-assert.match(stylesheet, /\.vliq-desktop-clock\.vliq-liquid-shell-card/);
+assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
 assert.match(stylesheet, /\.vliq-clock-resize-grip/);
 assert.match(stylesheet, /background-color:\s*rgba\(228, 240, 255, 0\.13\)/,
     'clock must not become fully transparent while shader compiles');
