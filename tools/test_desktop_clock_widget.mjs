@@ -104,7 +104,7 @@ const Widget = new Function(
     {stage: {grab: () => ({dismiss: () => grabDismissed++})},
         workspace_manager: {get_active_workspace: () => 7},
         get_window_actors: () => windows},
-    {log() {}}
+    {log() {}, warn() {}}
 );
 const clock = new Widget(settings, {
     attachClockWidgetGlass: (_actor, style) => {
