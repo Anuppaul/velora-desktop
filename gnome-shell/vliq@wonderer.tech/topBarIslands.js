@@ -2,10 +2,13 @@
 // Never reparent GNOME's panel buttons or modify their input handling.
 // Reuse the same bounded native PanelGlassSurface used by VLIQ's Dock panel,
 // Clock and Calendar; no full-width DashManager FBO and no new shader path.
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {frameDue} from './frameBudget.js';
 import {PanelGlassSurface} from './panelGlass.js';
 import {primaryPanelIsFullscreen} from './fullscreenPanelGuard.js';
 
+const STAGE_SYNC_FPS = 24;
 const RADIUS = 16;
 const INSET_Y = 2;
 const SIDE_MARGIN = 6;
@@ -40,6 +43,8 @@ export class TopBarIslands {
         this._host = null;
         this._panelRoot = null;
         this._hasReportedReady = false;
+        this._lastStageSyncUs = 0;
+        this._syncing = false;
     }
 
     setVisibilityGate(callback) {
@@ -92,7 +97,7 @@ export class TopBarIslands {
                 }
                 actor.add_style_class_name('vliq-panel-island');
                 actor.add_style_class_name('vliq-panel-island-' + role);
-                this._regions.push({role, actor, surface, ready: false, inactive: false});
+                this._regions.push({role, actor, surface, ready: false, inactive: false, lastBounds: null});
             }
 
             this._enabled = true;
@@ -100,7 +105,7 @@ export class TopBarIslands {
             // receive late system indicators. Derive glass rectangles from
             // transformed native allocations, not saved/stale coordinates.
             this._stageSignal = global.stage.connect(
-                'before-update', () => this.sync()
+                'before-update', () => this._syncStageFrame()
             );
             for (const [actor, signal] of [
                 [layout, 'monitors-changed'],
@@ -132,6 +137,20 @@ export class TopBarIslands {
         }
     }
 
+    // All three native boxes share ONE compositor frame callback. Stable
+    // panels need geometry sampling only at the same 24 FPS budget already
+    // used by PanelGlassSurface's window-clone capture. GNOME signals and
+    // fullscreen transitions still use sync() immediately, bypassing this
+    // budget. No GLib timer, extra stage actor, or idle repaint loop.
+    _syncStageFrame() {
+        if (!this._enabled)
+            return;
+        const nowUs = GLib.get_monotonic_time();
+        if (!frameDue(nowUs, this._lastStageSyncUs, STAGE_SYNC_FPS))
+            return;
+        this.sync();
+    }
+
     _canShow() {
         if (!this._enabled)
             return false;
@@ -148,6 +167,10 @@ export class TopBarIslands {
 
     _hideRegion(region) {
         region.surface.hide();
+        // A hidden actor must force the material opacity back on even if
+        // its old rectangle has not changed. Otherwise de-duplication
+        // could leave a newly visible island permanently transparent.
+        region.lastBounds = null;
         // Material opacity alone is insufficient: the native box still
         // paints its 13% CSS fallback even if every indicator is hidden.
         // Mark the box inactive until it has valid visible content again.
@@ -162,8 +185,18 @@ export class TopBarIslands {
     }
 
     sync() {
-        if (!this._enabled)
+        if (!this._enabled || this._syncing)
             return;
+        this._syncing = true;
+        try {
+            this._lastStageSyncUs = GLib.get_monotonic_time();
+            this._syncNow();
+        } finally {
+            this._syncing = false;
+        }
+    }
+
+    _syncNow() {
         if (!this._canShow()) {
             for (const region of this._regions)
                 this._hideRegion(region);
@@ -300,9 +333,22 @@ export class TopBarIslands {
                 );
                 region.inactive = false;
             }
-            region.surface.setBounds(
-                left - hostX, top - hostY, width, height, opacity
-            );
+            const bx = left - hostX;
+            const by = top - hostY;
+            const prior = region.lastBounds;
+            if (!prior ||
+                prior[0] !== bx || prior[1] !== by ||
+                prior[2] !== width || prior[3] !== height ||
+                prior[4] !== opacity) {
+                // Only real geometry/opacity changes can write GObject
+                // position, size or opacity. Stable regions still update
+                // live wallpaper/window clones at PanelGlassSurface's
+                // own bounded scene FPS via syncFrame().
+                region.surface.setBounds(bx, by, width, height, opacity);
+                region.lastBounds = [bx, by, width, height, opacity];
+            } else {
+                region.surface.syncFrame?.();
+            }
             const ready = region.surface.ready;
             if (ready !== region.ready) {
                 region.ready = ready;
@@ -359,5 +405,7 @@ export class TopBarIslands {
         this._host = null;
         this._panelRoot = null;
         this._hasReportedReady = false;
+        this._lastStageSyncUs = 0;
+        this._syncing = false;
     }
 }
