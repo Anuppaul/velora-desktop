@@ -638,6 +638,10 @@ for source_name in "${RUNTIME_FILES[@]}"; do
     PACK_ARGS+=(--extra-source="${source_name}")
 done
 
+# GNOME's pack command does not automatically include arbitrary JS modules
+# imported by the bootstrap. Explicitly package the desktop widget module.
+PACK_ARGS+=(--extra-source="desktopClockWidget.js")
+
 PACK_ARGS+=("${SOURCE_DIR}")
 
 echo "Building GNOME extension bundle..."
