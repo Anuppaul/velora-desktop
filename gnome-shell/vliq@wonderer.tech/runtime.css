@@ -1693,3 +1693,89 @@
     text-shadow: none !important;
 }
 
+
+/* VLIQ monthly calendar: the same panel LiquidEffect used by Clock.
+ * A subtle painted fallback remains until the real renderer composites.
+ * No drop shadows, duplicate optical rims, or extra blur passes. */
+.vliq-calendar-card {
+    padding: 18px 17px 15px 17px;
+    border-radius: 24px;
+    border: 0;
+    box-shadow: none;
+    background-color: rgba(236, 244, 255, 0.16) !important;
+}
+.vliq-calendar-card.vliq-calendar-frosted {
+    background-color: rgba(239, 245, 255, 0.38) !important;
+}
+.vliq-calendar-card.vliq-calendar-panel-glass-ready,
+.vliq-calendar-card.vliq-calendar-frosted.vliq-calendar-panel-glass-ready {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+.vliq-calendar-content {
+    spacing: 10px;
+}
+.vliq-calendar-header {
+    spacing: 5px;
+    padding: 0 0 6px 0;
+}
+.vliq-calendar-month-drag {
+    padding: 5px 0;
+}
+.vliq-calendar-month-title {
+    color: #ffffff;
+    font-size: 19px;
+    font-weight: 700;
+    text-shadow: none;
+}
+.vliq-calendar-nav {
+    min-width: 30px;
+    min-height: 32px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.94);
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+    font-size: 24px;
+}
+.vliq-calendar-nav:hover,
+.vliq-calendar-nav:focus {
+    background-color: rgba(255, 255, 255, 0.17);
+}
+.vliq-calendar-weekdays {
+    spacing: 0px;
+}
+.vliq-calendar-weekday {
+    min-width: 34px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 11px;
+    font-weight: 700;
+    text-shadow: none;
+}
+.vliq-calendar-grid {
+    spacing: 3px;
+}
+.vliq-calendar-week {
+    spacing: 0px;
+}
+.vliq-calendar-day {
+    min-width: 34px;
+    min-height: 30px;
+    padding: 5px 0;
+    border-radius: 11px;
+    color: rgba(255, 255, 255, 0.96);
+    font-size: 13px;
+    font-weight: 550;
+    text-shadow: none;
+}
+.vliq-calendar-weekend {
+    color: rgba(255, 255, 255, 0.77);
+}
+.vliq-calendar-today {
+    background-color: rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+    font-weight: 800;
+}
