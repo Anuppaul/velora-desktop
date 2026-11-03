@@ -167,6 +167,82 @@ assert.match(accentSection, /background-color:/);
 assert.match(accentSection, /color: #ffffff !important/);
 assert.doesNotMatch(accentSection, /'  color: ' \+ accentColor/);
 assert.match(css, /\.calendar-day\.calendar-today/);
+// GNOME 50 represents an active Wi-Fi hotspot using the existing Wi-Fi
+// QuickMenuToggle (the network indicator's _wirelessToggle), not a new tile.
+// Verify detection is stateful and never changes ordinary toggle colours.
+const hotspotClasses = new Set();
+const hotspot = {
+    _itemBinding: {source: {is_hotspot: true}},
+    has_style_class_name: name => hotspotClasses.has(name),
+    add_style_class_name: name => hotspotClasses.add(name),
+    remove_style_class_name: name => hotspotClasses.delete(name),
+};
+const main = {panel: {statusArea: {quickSettings: {
+    _network: {_wirelessToggle: hotspot},
+}}}};
+const hotspotMethods = methods(popup,
+    '    _quickHotspotToggle() {',
+    '    _applyQuickThemeForegroundPolarity() {'
+);
+const HotspotPolicy = new Function(
+    'Main', 'QUICK_HOTSPOT_CLASS',
+    'return class HotspotPolicy {\n' + hotspotMethods + '\n}'
+)(main, 'vliq-quick-hotspot');
+const hotPolicy = new HotspotPolicy();
+hotPolicy._isQuickSettings = true;
+hotPolicy._dateCardActors = [hotspot];
+hotPolicy._dateCardTextState = new Map();
+const initialPolarity = [];
+hotPolicy._applyDateCardTextPolarity = (actor, black) => {
+    initialPolarity.push(black);
+    hotPolicy._dateCardTextState.set(actor, black);
+};
+hotPolicy._syncQuickHotspotState();
+assert.ok(hotspotClasses.has('vliq-quick-hotspot'));
+assert.deepEqual(initialPolarity, [false], 'hotspot first paint stays white');
+hotPolicy._syncQuickHotspotState();
+assert.deepEqual(initialPolarity, [false], 'stable hotspot state needs no repaint');
+hotspot._itemBinding.source.is_hotspot = false;
+hotPolicy._syncQuickHotspotState();
+assert.ok(!hotspotClasses.has('vliq-quick-hotspot'),
+    'normal Wi-Fi loses hotspot override');
+hotPolicy._dateCardTextState.set(hotspot, true);
+hotspot._itemBinding.source.is_hotspot = true;
+hotPolicy._syncQuickHotspotState();
+assert.ok(hotspotClasses.has('vliq-quick-hotspot'),
+    'hotspot reactivation is detected');
+assert.deepEqual(initialPolarity, [false],
+    'existing near-white sampled polarity is preserved');
+hotPolicy._dateCardActors = [];
+hotPolicy._syncQuickHotspotState();
+assert.ok(hotspotClasses.has('vliq-quick-hotspot'),
+    'non-member actor must not be modified');
+main.panel.statusArea.quickSettings._network = null;
+assert.equal(hotPolicy._quickHotspotToggle(), null);
+hotPolicy._isQuickSettings = false;
+hotPolicy._syncQuickHotspotState();
+assert.match(popup, /this\._syncQuickHotspotState\(\)/);
+assert.match(popup, /notify::icon-name/);
+assert.match(popup, /notify::title/);
+assert.doesNotMatch(popup, /rgbLuminance\(/,
+    'theme luminance must not override the sampled glass polarity');
+const activeAccent = css.indexOf('.vliq-liquid-quick-menu-root .vliq-quick-active StLabel');
+const hotspotLightRule = css.indexOf(
+    '.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-light StLabel'
+);
+const hotspotDarkRule = css.indexOf(
+    '.vliq-liquid-quick-menu-root .vliq-quick-hotspot.vliq-quick-card-text-dark StLabel'
+);
+assert.ok(activeAccent > 0 && hotspotLightRule > activeAccent &&
+    hotspotDarkRule > hotspotLightRule,
+'Hotspot rules must outrank native active accent rule');
+assert.match(css.slice(hotspotLightRule, hotspotDarkRule),
+    /color: #ffffff !important;/);
+assert.match(css.slice(hotspotDarkRule, hotspotDarkRule + 1200),
+    /color: #111111 !important;/);
+assert.match(css, /\.vliq-quick-hotspot\.vliq-quick-card-text-light \.quick-toggle-subtitle/);
+assert.match(css, /\.vliq-quick-hotspot\.vliq-quick-card-text-dark \.quick-toggle-icon/);
+
 console.log(
     'VLIQ adaptive text: Calendar, Date cards, Quick Settings + overlays, ' +
     'notification banners, near-white hysteresis and accent states PASS.'
