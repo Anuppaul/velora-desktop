@@ -259,4 +259,28 @@ assert.match(css, /#panelLeft\.vliq-panel-island/);
 assert.match(css, /#panelCenter\.vliq-panel-island/);
 assert.match(css, /#panelRight\.vliq-panel-island/);
 assert.match(css, /#panelLeft\.vliq-panel-island-ready/);
+
+const integration = await readFile(new URL(
+    '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js',
+    import.meta.url
+), 'utf8');
+const begin = integration.indexOf('    _setupTopPanelGlass() {');
+const finish = integration.indexOf('    _setupNativeNotificationStyler() {', begin);
+assert.ok(begin >= 0 && finish > begin);
+const topSetup = integration.slice(begin, finish);
+assert.match(topSetup, /new TopBarIslands\(/,
+    'new top bar must use the three-island manager');
+assert.doesNotMatch(topSetup, /new this\._vendor\.DashManager\(/,
+    'do not recreate the old single full-width glass strip');
+assert.match(integration, /this\._topPanelIslands\?\.updateAppearance\(\)/,
+    'global Material Appearance must refresh all three island shaders');
+assert.match(integration,
+    /'#panel\.vliq-liquid-top-panel \{\\n' \+\s*\/\/[^]*?'  background-color: transparent !important;/,
+    'dynamic CSS must keep the native full-width panel transparent');
+
+const installer = await readFile(new URL(
+    '../gnome-shell/install.sh', import.meta.url
+), 'utf8');
+assert.match(installer, /"topBarIslands\.js"/,
+    'split top bar must be included in hot-reload and Store ZIP packaging');
 console.log('Top Bar: 3 rounded native glass islands, geometry, fullscreen, input ownership and teardown PASS.');
