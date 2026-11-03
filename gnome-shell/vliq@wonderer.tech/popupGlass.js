@@ -72,6 +72,12 @@ const DATE_DARK_TEXT = GLASS_TEXT_PALETTE.dark;
 const DATE_TEXT_SWITCH_ADVANTAGE = 1.18;
 const DATE_MIN_READABLE_CONTRAST = 4.5;
 const DATE_CARD_SAMPLE_GRID = 28;
+// Main Calendar: black text ONLY over white / nearly-white neutral glass.
+// Bright colored wallpapers (yellow, green, cyan, etc.) remain white text.
+const CALENDAR_WHITE_MIN_CHANNEL = 226;
+const CALENDAR_WHITE_MAX_SPREAD = 24;
+const CALENDAR_WHITE_ENTER_RATIO = 0.74;
+const CALENDAR_WHITE_EXIT_RATIO = 0.62;
 
 function finiteRect(values) {
     return values.every(Number.isFinite) &&
@@ -296,6 +302,7 @@ class PopupGlassSurface {
         this._dateCardActors = [];
         this._dateCardResponses = new Map();
         this._dateCardTextState = new Map();
+        this._calendarNearWhiteRatio = new WeakMap();
         this._quickSelectedState = new Map();
         this._dateInnerRegionCount = 0;
         this._dateInnerRadius = 16;
@@ -1616,6 +1623,9 @@ class PopupGlassSurface {
         );
 
         const values = [];
+        const calendar = klass === 'calendar' && this._isDateMenu;
+        let nearWhite = 0;
+        let samples = 0;
         const {data, stride, channels} = frame;
 
         for (let py = top; py < bottom; py += step) {
@@ -1653,15 +1663,43 @@ class PopupGlassSurface {
                 }
 
                 values.push(rgbLuminance(r, g, b));
+                if (calendar) {
+                    samples++;
+                    if (Math.min(r, g, b) >= CALENDAR_WHITE_MIN_CHANNEL &&
+                        Math.max(r, g, b) - Math.min(r, g, b) <=
+                            CALENDAR_WHITE_MAX_SPREAD)
+                        nearWhite++;
+                }
             }
         }
 
+        if (calendar) {
+            // Store the ratio from the SAME existing screenshot/readback.
+            // No second capture, GPU pass, or polling loop is needed.
+            this._calendarNearWhiteRatio.set(
+                actor, samples ? nearWhite / samples : 0
+            );
+        }
         return trimmedMean(values, 0.30);
     }
 
     _chooseDateCardDarkText(actor, luminance) {
         if (!Number.isFinite(luminance))
             return null;
+
+        if (this._isDateMenu && dateCardClass(actor) === 'calendar') {
+            // White-only rule. Use a small hysteresis band so that tiny
+            // changes in a wallpaper/video frame don't flash text colors.
+            // Calendar's default CSS is white until a white background has
+            // actually been sampled.
+            const whiteRatio = this._calendarNearWhiteRatio.get(actor) ?? 0;
+            const previous = this._dateCardTextState.get(actor);
+            return whiteRatio >= (
+                previous === true
+                    ? CALENDAR_WHITE_EXIT_RATIO
+                    : CALENDAR_WHITE_ENTER_RATIO
+            );
+        }
 
         const lightContrast = contrastRatio(
             luminance,
