@@ -184,12 +184,10 @@ export class DesktopClockWidget {
 
             // Persist location before emitting a scale change; the scale
             // listener re-positions from settings immediately.
+            const newScale = this._currentScale;
             this._savePosition();
-            if (kind === 'resize') {
-                const newScale = this._currentScale;
-                if (newScale !== current.scale)
-                    this._settings.set_int('clock-widget-scale', newScale);
-            }
+            if (kind === 'resize' && newScale !== current.scale)
+                this._settings.set_int('clock-widget-scale', newScale);
             this._refresh();
         };
         gesture.connect('end', finish);
