@@ -19,7 +19,6 @@ BOOTSTRAP_FILES=(
 
 HOT_AUX_FILES=(
     "prefs.js"
-    "desktopClockWidget.js"
     "nativeDockPreferences.js"
     "wallpaperAtmospherePreferences.js"
     "wallpaperAtmosphereConfig.js"
@@ -29,6 +28,7 @@ HOT_AUX_FILES=(
 RUNTIME_FILES=(
     "runtime.js"
     "orbThemeRuntime.js"
+    "desktopClockWidget.js"
     "runtime.css"
     "apps.js"
     "geometry.js"
@@ -638,9 +638,6 @@ for source_name in "${RUNTIME_FILES[@]}"; do
     PACK_ARGS+=(--extra-source="${source_name}")
 done
 
-# GNOME's pack command does not automatically include arbitrary JS modules
-# imported by the bootstrap. Explicitly package the desktop widget module.
-PACK_ARGS+=(--extra-source="desktopClockWidget.js")
 
 PACK_ARGS+=("${SOURCE_DIR}")
 
