@@ -274,9 +274,15 @@ assert.doesNotMatch(topSetup, /new this\._vendor\.DashManager\(/,
     'do not recreate the old single full-width glass strip');
 assert.match(integration, /this\._topPanelIslands\?\.updateAppearance\(\)/,
     'global Material Appearance must refresh all three island shaders');
-assert.match(integration,
-    /'#panel\.vliq-liquid-top-panel \{\\n' \+\s*\/\/[^]*?'  background-color: transparent !important;/,
+const dynamicPanel = integration.indexOf(
+    "'#panel.vliq-liquid-top-panel {"
+);
+assert.ok(dynamicPanel >= 0);
+const dynamicPanelCss = integration.slice(dynamicPanel, dynamicPanel + 275);
+assert.match(dynamicPanelCss, /background-color: transparent !important/,
     'dynamic CSS must keep the native full-width panel transparent');
+assert.doesNotMatch(dynamicPanelCss, /background-color: rgba/,
+    'global Appearance updates cannot repaint a full-width tint');
 
 const installer = await readFile(new URL(
     '../gnome-shell/install.sh', import.meta.url
