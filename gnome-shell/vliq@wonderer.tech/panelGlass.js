@@ -143,6 +143,11 @@ export class PanelGlassSurface {
             // and inner shadow. The shared material controls still own tint,
             // refraction, blur, Frosted Crystal grain and optical strength.
             this._effect.setSurfaceLightEnabled?.(true);
+            // Disable only the Clock's long straight-edge sheen; keep the
+            // shared shader's broad interior sheen, corner glints and lens.
+            this._effect._uniforms?.set?.(
+                'vliq_clock_straight_edge_guard', 1.0
+            );
             this._effect._uniforms?.set?.('ao_intensity', 0.0);
             this._effect._uniforms?.set?.('shadow_radius', 0.0);
             this._effect._uniforms?.set?.('shadow_intensity', 0.0);
