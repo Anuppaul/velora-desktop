@@ -184,10 +184,13 @@ const hotspotMethods = methods(popup,
     '    _quickHotspotToggle() {',
     '    _applyQuickThemeForegroundPolarity() {'
 );
+const hotspotTransitions = [];
 const HotspotPolicy = new Function(
-    'Main', 'QUICK_HOTSPOT_CLASS',
+    'Main', 'QUICK_HOTSPOT_CLASS', 'console',
     'return class HotspotPolicy {\n' + hotspotMethods + '\n}'
-)(main, 'vliq-quick-hotspot');
+)(main, 'vliq-quick-hotspot', {
+    log: message => hotspotTransitions.push(message),
+});
 const hotPolicy = new HotspotPolicy();
 hotPolicy._isQuickSettings = true;
 hotPolicy._dateCardActors = [hotspot];
@@ -211,8 +214,22 @@ hotspot._itemBinding.source.is_hotspot = true;
 hotPolicy._syncQuickHotspotState();
 assert.ok(hotspotClasses.has('vliq-quick-hotspot'),
     'hotspot reactivation is detected');
+assert.deepEqual(hotspotTransitions, [
+    '[VLIQ][Hotspot] adaptive tile enabled',
+    '[VLIQ][Hotspot] adaptive tile disabled',
+    '[VLIQ][Hotspot] adaptive tile enabled',
+], 'log only actual ON/OFF transitions');
 assert.deepEqual(initialPolarity, [false],
     'existing near-white sampled polarity is preserved');
+// The binding source can temporarily lag the device map while NM swaps
+// primary connections. The item map still identifies an active hotspot.
+hotspotClasses.clear();
+hotspot._itemBinding.source.is_hotspot = false;
+hotspot._items = new Map([['wifi', {is_hotspot: true}]]);
+hotPolicy._syncQuickHotspotState();
+assert.ok(hotspotClasses.has('vliq-quick-hotspot'),
+    'fallback item map detects hotspot during binding replacement');
+hotspot._items.clear();
 hotPolicy._dateCardActors = [];
 hotPolicy._syncQuickHotspotState();
 assert.ok(hotspotClasses.has('vliq-quick-hotspot'),
