@@ -251,7 +251,7 @@ assert.equal(manager._surfaces.size, 1);
 
 // The Clock shares the proven preview pipeline, but each widget may select
 // its own Liquid/Frosted material without rewriting system-wide settings.
-const clock = new Actor({style_class: 'vliq-desktop-clock'});
+const clock = new Actor({style_class: 'vliq-clock-card'});
 clock.set_position(360, 140);
 clock.set_size(296, 148);
 cardLayer.add_child(clock);
