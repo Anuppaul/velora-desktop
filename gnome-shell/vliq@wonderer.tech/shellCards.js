@@ -12,7 +12,6 @@ import {
 
 const CARD_CLASS = 'vliq-liquid-shell-card';
 const PREVIEW_CARD_CLASS = 'vliq-app-preview-card';
-const CLOCK_CARD_CLASS = 'vliq-clock-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
@@ -22,7 +21,6 @@ const TARGET_CLASSES = new Set([
     'workspace-thumbnails',
     'dash-background',
     PREVIEW_CARD_CLASS,
-    CLOCK_CARD_CLASS,
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
@@ -66,9 +64,7 @@ class ShellCardSurface {
         // leaves only the nearly invisible fallback. Child composition follows
         // the card's native opacity/scale automatically, without double fades.
         this._previewInTarget =
-            classesOf(target).includes(PREVIEW_CARD_CLASS) ||
-            classesOf(target).includes(CLOCK_CARD_CLASS);
-        this._widgetMaterialStyle = null;
+            classesOf(target).includes(PREVIEW_CARD_CLASS);
         this._overlay = null;
         this._wrappedBinParent = null;
         this._material = null;
@@ -282,38 +278,7 @@ class ShellCardSurface {
             }
         );
 
-        this._applyWidgetMaterial();
         this._material?.queue_redraw?.();
-    }
-
-    setWidgetMaterial(style) {
-        // Only track the visual role. The actual Liquid/Frosted renderer is
-        // driven by VLIQ's shared MaterialSettings and the globally synced
-        // vliq-frost-amount/grain/edge uniforms. Never copy a second
-        // per-widget density value or override the global material choice.
-        this._widgetMaterialStyle = style === 'frosted'
-            ? 'frosted' : 'liquid';
-        this._applyWidgetMaterial();
-    }
-
-    _applyWidgetMaterial() {
-        const effect = this._effect;
-        if (!effect || !this._widgetMaterialStyle ||
-            !classesOf(this._target).includes(CLOCK_CARD_CLASS))
-            return;
-
-        // The user explicitly wants no white horizontal glint and no rear
-        // shadows on Clock. Suppress ONLY the clock's edge-light/shadow
-        // channels while preserving the shared refraction, blur, tint,
-        // Frosted Crystal diffusion, grain and live appearance updates.
-        // This is an optical cleanup of one LiquidEffect instance;
-        // never mutate the global GLASS SETTINGS or other VLIQ surfaces.
-        effect.setSurfaceLightEnabled?.(false);
-        effect._uniforms?.set?.('rim_intensity', 0.0);
-        effect._uniforms?.set?.('ao_intensity', 0.0);
-        effect._uniforms?.set?.('shadow_radius', 0.0);
-        effect._uniforms?.set?.('shadow_intensity', 0.0);
-        effect.queue_repaint?.();
     }
 
     _ensureSceneManager() {
@@ -455,30 +420,6 @@ class ShellCardSurface {
 
         this._ensureSceneManager();
         this._syncSceneLayers();
-        this._syncClockMaterialVisibility();
-    }
-
-    // Clock's native fallback is painted by the CARD itself, above its
-    // child LiquidEffect. Keep the fallback until shader + composite pipeline
-    // are actually ready, then clear the CARD paint to reveal true refraction.
-    // This is specific to Clock: all existing Shell Card/preview behaviour
-    // remains untouched. Never guess readiness from "attached" alone.
-    _syncClockMaterialVisibility() {
-        if (!classesOf(this._target).includes(CLOCK_CARD_CLASS))
-            return;
-        const ready = Boolean(
-            this._material?.mapped &&
-            this._effect?._shadersLoaded &&
-            this._effect?._pipelines?.composite
-        );
-        const name = 'vliq-clock-glass-ready';
-        if (ready === Boolean(this._clockGlassReady))
-            return;
-        this._clockGlassReady = ready;
-        if (ready)
-            this._target.add_style_class_name?.(name);
-        else
-            this._target.remove_style_class_name?.(name);
     }
 
     syncFrame() {
@@ -651,12 +592,6 @@ class ShellCardSurface {
         }
         this._signals = [];
 
-        // Clear the clock-only readiness flag on teardown so a new
-        // runtime never inherits a transparent card with no shader.
-        try {
-            this._target?.remove_style_class_name?.('vliq-clock-glass-ready');
-        } catch {}
-        this._clockGlassReady = false;
         if (removeClass) {
             try {
                 this._target?.remove_style_class_name?.(
@@ -878,21 +813,6 @@ export class ShellCardGlassManager {
             return false;
         this._maybeAttach(actor);
         return this._surfaces.has(actor);
-    }
-
-    attachWidget(actor, style = 'liquid', density = 0.88) {
-        if (!this._enabled || !classesOf(actor).includes(CLOCK_CARD_CLASS))
-            return false;
-        this._maybeAttach(actor);
-        const surface = this._surfaces.get(actor);
-        surface?.setWidgetMaterial(style, density);
-        return Boolean(surface);
-    }
-
-    updateWidgetMaterial(actor, style, density = 0.88) {
-        const surface = this._surfaces.get(actor);
-        surface?.setWidgetMaterial(style, density);
-        return Boolean(surface);
     }
 
     _maybeAttach(actor) {
