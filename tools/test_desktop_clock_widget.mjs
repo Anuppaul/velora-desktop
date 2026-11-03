@@ -175,6 +175,7 @@ assert.match(stylesheet, /background-color:\s*rgba\(228, 240, 255, 0\.13\)/,
 
 // Even if shared GPU material construction throws, the desktop card should
 // remain visible and draggable as native St actors (no GNOME logout needed).
+windows = [];
 const broken = new Widget(settings, {
     attachClockWidgetGlass: () => {throw Error('simulated shader failure');},
 });
