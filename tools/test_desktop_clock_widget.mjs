@@ -80,6 +80,8 @@ class Settings {
 }
 const settings = new Settings();
 const updates = [];
+let synced = 0;
+let detached = 0;
 let sourceRemoved = 0;
 let grabDismissed = 0;
 const screen = {x: 0, y: 0, width: 1920, height: 1080};
@@ -117,6 +119,8 @@ const clock = new Widget(settings, {
         updates.push('update:' + style);
         return true;
     },
+    syncClockWidgetGlass: () => synced++,
+    detachClockWidgetGlass: () => detached++,
 });
 clock.enable();
 assert.equal(clock._actor.visible, true);
@@ -140,6 +144,7 @@ assert.equal(clock._actor.x - startX, 90,
 move.emit('end');
 assert.ok(settings.get_double('clock-widget-x') > 0.30,
     'freehand position must persist');
+assert.ok(synced >= 3, 'native panel material follows the dragged clock');
 
 const materialUpdates = updates.length;
 settings.set_string('clock-widget-style', 'liquid');
@@ -167,13 +172,15 @@ assert.equal(clock._actor.visible, false,
 clock.disable();
 assert.equal(sourceRemoved, 1);
 assert.equal(clock._actor, null);
+assert.equal(detached, 1, 'panel glass sibling detached before clock teardown');
 assert.ok(grabDismissed >= 1);
 assert.equal(settings.handlers.size, 0, 'no stale settings listeners');
 
 const stylesheet = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
-assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
+assert.match(stylesheet, /\.vliq-clock-card\.vliq-clock-panel-glass-ready/,
+    'real native panel glass is revealed only after its first composited frame');
 assert.doesNotMatch(stylesheet, /\.vliq-clock-resize-grip/,
     'resize CSS must be absent');
 assert.match(stylesheet, /background-color:\s*rgba\(236, 244, 255, 0\.16\)/,
@@ -196,11 +203,14 @@ const appearanceSource = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js', import.meta.url
 ), 'utf8');
 assert.match(appearanceSource,
-    /\.vliq-clock-card\.vliq-liquid-shell-card\.vliq-clock-glass-ready/,
-    'Ready clock must receive the shared filter from VLIQ appearance manager');
+    /new PanelGlassSurface\(/,
+    'Clock must reuse the real native panel renderer');
 assert.match(appearanceSource,
-    /filterOpacity\.toFixed\(3\)/,
-    'Clock must inherit the global glass-filter-opacity control');
+    /this\._clockPanelGlass\?\.updateAppearance\(\)/,
+    'Clock must follow shared VLIQ appearance changes');
+assert.doesNotMatch(appearanceSource,
+    /\.vliq-clock-card\.vliq-liquid-shell-card\.vliq-clock-glass-ready/,
+    'retired 104px ShellCard renderer filter must not control Clock');
 
 // Even if shared GPU material construction throws, the desktop card should
 // remain visible and draggable as native St actors (no GNOME logout needed).
