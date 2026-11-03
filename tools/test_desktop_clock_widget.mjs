@@ -184,6 +184,19 @@ assert.match(stylesheet, /background-color:\s*rgba\(239, 245, 255, 0\.38\)/,
     'Frosted Crystal clock card must use a denser material');
 assert.doesNotMatch(stylesheet, /vliq-clock-glass-ready[^}]*background-color:\s*transparent/,
     'ready shader must never erase the Clock card');
+const clockMaterial = stylesheet.match(
+    /\.vliq-clock-card\.vliq-liquid-shell-card\.vliq-clock-glass-ready\s*\{([^}]*)\}/
+)?.[1];
+const frostMaterial = stylesheet.match(
+    /\.vliq-clock-card\.vliq-clock-frosted\.vliq-liquid-shell-card\.vliq-clock-glass-ready\s*\{([^}]*)\}/
+)?.[1];
+assert.ok(clockMaterial && frostMaterial, 'both glass card modes must exist');
+for (const declaration of [clockMaterial, frostMaterial]) {
+    assert.match(declaration, /box-shadow:\s*none\s*!important/,
+        'no shadow behind clock card in either material');
+    assert.match(declaration, /border-top:\s*0\s*!important/,
+        'no horizontal top line on clock card in either material');
+}
 
 // Even if shared GPU material construction throws, the desktop card should
 // remain visible and draggable as native St actors (no GNOME logout needed).
