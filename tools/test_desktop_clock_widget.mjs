@@ -180,9 +180,9 @@ assert.match(stylesheet, /background-color:\s*rgba\(236, 244, 255, 0\.16\)/,
     'Liquid fallback must remain visible until its shader is ready');
 assert.match(stylesheet, /background-color:\s*rgba\(239, 245, 255, 0\.38\)/,
     'Frosted fallback must remain visible until its shader is ready');
-assert.doesNotMatch(stylesheet, /text-shadow:\s*(?!none)/,
-    'Clock time/date must not have font shadows');
 const clockCss = stylesheet.slice(stylesheet.indexOf('/* Clock fallback:'));
+assert.doesNotMatch(clockCss, /text-shadow:\s*(?!none)/,
+    'Clock time/date must not have font shadows');
 assert.match(clockCss, /border:\s*0\s*!important/,
     'Clock must not draw a horizontal border');
 assert.match(clockCss, /box-shadow:\s*none\s*!important/,
