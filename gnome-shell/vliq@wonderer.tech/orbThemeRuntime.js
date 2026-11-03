@@ -15,6 +15,7 @@ import {SpotlightSearchController} from './spotlightSearch.js';
 import {TerminalBackdropBlurManager} from './terminalBackdropBlur.js';
 import {QuickBrightnessManager} from './quickBrightness.js';
 import {DesktopClockWidget} from './desktopClockWidget.js';
+import {DesktopCalendarWidget} from './desktopCalendarWidget.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -263,6 +264,7 @@ export default class VLIQRuntime extends Extension {
         this._terminalBackdropBlurManager = null;
         this._quickBrightnessManager = null;
         this._desktopClockWidget = null;
+        this._desktopCalendarWidget = null;
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
@@ -365,6 +367,19 @@ export default class VLIQRuntime extends Extension {
             console.warn('[VLIQ][Clock] setup skipped: ' + error);
         }
 
+        // Independent opt-in Calendar, backed by the same native panel
+        // LiquidEffect as Clock. Failure is isolated and never breaks Orb.
+        try {
+            this._desktopCalendarWidget = new DesktopCalendarWidget(
+                this._settings, this._liquidGlassIntegration
+            );
+            this._desktopCalendarWidget.enable();
+        } catch (error) {
+            try { this._desktopCalendarWidget?.disable(); } catch {}
+            this._desktopCalendarWidget = null;
+            console.warn('[VLIQ][Calendar] setup skipped: ' + error);
+        }
+
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
         );
@@ -392,6 +407,8 @@ export default class VLIQRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._desktopCalendarWidget?.disable();
+        this._desktopCalendarWidget = null;
         this._desktopClockWidget?.disable();
         this._desktopClockWidget = null;
         this._quickBrightnessManager?.cleanup();
