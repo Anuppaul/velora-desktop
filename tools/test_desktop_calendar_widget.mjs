@@ -86,7 +86,7 @@ const monitor = {x: 0, y: 0, width: 1920, height: 1080};
 let windows = [];
 
 const Calendar = new Function(
-    'GLib', 'Meta', 'St', 'Clutter', 'Main', 'global', 'console', 'Pango',
+    'GLib', 'Meta', 'St', 'Clutter', 'Main', 'global', 'console',
     source + '\nreturn DesktopCalendarWidget;'
 )(
     {
@@ -109,8 +109,7 @@ const Calendar = new Function(
     {stage: {grab: () => ({dismiss: () => dismissed++})},
     workspace_manager: {get_active_workspace: () => 7},
     get_window_actors: () => windows},
-    {log() {}, warn() {}},
-    {Alignment: {CENTER: 1}}
+    {log() {}, warn() {}}
 );
 const calendar = new Calendar(settings, {
     attachCalendarWidgetGlass: (_actor) => {
@@ -127,26 +126,43 @@ assert.equal(calendar._actor.height, 342);
 assert.equal(calendar._days.length, 42,
     'all months must share the same 6x7 layout');
 
-// Every date badge is a fixed 30px square centered in an identical 40px
-// column. The weekday labels use those SAME columns, preventing today's
-// highlighted box drifting away from its weekday position.
+// Regression for the screenshot: 3 was drawn to the LEFT of its highlighted
+// circle. The highlight and the glyph must now have distinct actors, inside
+// identical BinLayout geometry for weekday headings and date slots.
 const calendarContent = calendar._actor.children[0];
 const weekdayCells = calendarContent.children[1].children;
-assert.equal(weekdayCells.length, 7);
 const dateCells = calendar._grid.children[0].children;
+assert.equal(weekdayCells.length, 7);
 assert.equal(dateCells.length, 7);
+assert.equal(calendar._dayBadges.length, 42);
 for (let col = 0; col < 7; col++) {
-    assert.equal(weekdayCells[col].width, 40);
-    assert.equal(dateCells[col].width, 40);
-    assert.equal(weekdayCells[col].x_expand, true);
-    assert.equal(dateCells[col].x_expand, true);
-    assert.equal(weekdayCells[col].child.clutter_text.alignment, 1);
-    assert.equal(dateCells[col].child, calendar._days[col]);
-    assert.equal(dateCells[col].child.clutter_text.alignment, 1);
+    const headingCell = weekdayCells[col];
+    const dateCell = dateCells[col];
+    const badge = dateCell.children[0];
+    const label = badge.children[0];
+    assert.equal(headingCell.width, 40);
+    assert.equal(dateCell.width, 40);
+    assert.equal(headingCell.x_expand, true);
+    assert.equal(dateCell.x_expand, true);
+    assert.ok(headingCell.layout_manager, 'weekday uses BinLayout');
+    assert.ok(dateCell.layout_manager, 'date slot uses matching BinLayout');
+    assert.ok(badge.layout_manager, 'badge centers its own text using BinLayout');
+    assert.equal(badge.width, 30);
+    assert.equal(badge.height, 30);
+    assert.equal(badge.x_align, 0, 'badge centered horizontally');
+    assert.equal(label.x_align, 0, 'glyph centered horizontally inside badge');
+    assert.equal(label.y_align, 0, 'glyph centered vertically inside badge');
+    assert.equal(calendar._days[col], label);
+    assert.equal(calendar._dayBadges[col], badge);
 }
-for (const label of calendar._days) {
-    assert.equal(label.width, 30, 'all date cells have a uniform badge width');
-    assert.equal(label.height, 30, 'all date cells have a uniform badge height');
+for (let index = 0; index < 42; index++) {
+    const label = calendar._days[index];
+    const badge = calendar._dayBadges[index];
+    assert.equal(badge.width, 30);
+    assert.equal(badge.height, 30);
+    assert.equal(badge.children[0], label);
+    assert.notEqual(label.width, 30,
+        'date GLYPH should keep natural text width, not 30px background width');
 }
 assert.equal(calendar._actor.visible, true);
 assert.ok(updates.includes('attach'));
@@ -159,16 +175,21 @@ assert.equal(calendar._days[firstWeekday].text, '1',
     'calendar must use Monday as first weekday');
 const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 assert.equal(calendar._days[firstWeekday + days - 1].text, String(days));
-assert.equal(calendar._days.filter(day =>
-    day.classes.has('vliq-calendar-today')).length, 1,
-'current month must mark exactly one today cell');
+assert.equal(calendar._dayBadges.filter(badge =>
+    badge.classes.has('vliq-calendar-today')).length, 1,
+    'current month must mark exactly one background badge');
+assert.equal(calendar._days.filter(label =>
+    label.classes.has('vliq-calendar-today')).length, 0,
+    'never paint the date highlight directly on text');
 const todayIndex = firstWeekday + now.getDate() - 1;
 const todayCell = calendar._grid.children[Math.floor(todayIndex / 7)]
     .children[todayIndex % 7];
-assert.equal(todayCell.child, calendar._days[todayIndex],
-    'today highlight must be centered in its weekday column');
+assert.equal(todayCell.children[0], calendar._dayBadges[todayIndex],
+    'today square background is centered in the weekday column');
+assert.equal(todayCell.children[0].children[0], calendar._days[todayIndex],
+    'today text renders centered INSIDE its own background badge');
 assert.equal(todayCell.width, weekdayCells[todayIndex % 7].width,
-    'today badge and weekday header must share the same column alignment');
+    'today and weekday share identical 40px column width');
 
 const initialMonth = calendar._monthTitle.text;
 calendar._next.click();
@@ -229,5 +250,8 @@ const css = await readFile(new URL(
 assert.match(css, /\.vliq-calendar-card\.vliq-calendar-panel-glass-ready/);
 assert.match(css, /\.vliq-calendar-today\s*\{/);
 assert.match(css, /\.vliq-calendar-cell\s*\{\s*min-width:\s*40px/);
-assert.match(css, /\.vliq-calendar-day\s*\{\s*min-width:\s*30px;\s*min-height:\s*30px/);
+assert.match(css, /\.vliq-calendar-day-badge\s*\{\s*min-width:\s*30px;\s*min-height:\s*30px/);
+const labelCss = css.match(/\.vliq-calendar-day\s*\{([^}]*)\}/)?.[1] ?? '';
+assert.doesNotMatch(labelCss, /background-color|min-width|min-height|border-radius/,
+    'text must not own the highlight size or its background');
 console.log('Calendar widget: aligned today badge, date grid, navigation, drag, glass and cleanup PASS.');
