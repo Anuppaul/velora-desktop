@@ -551,6 +551,21 @@ export class LiquidGlassIntegration {
         return attached;
     }
 
+    attachClockWidgetGlass(target, style, density = 0.88) {
+        try {
+            return this._previewGlassManager
+                ?.attachWidget?.(target, style, density) ?? false;
+        } catch (error) {
+            console.warn('[VLIQ][ClockGlass] translucent fallback: ' + error);
+            return false;
+        }
+    }
+
+    updateClockWidgetGlass(target, style, density = 0.88) {
+        return this._previewGlassManager
+            ?.updateWidgetMaterial?.(target, style, density) ?? false;
+    }
+
     attachPreviewGlass(target) {
         // Manual-only reuse of ShellCardSurface: same refractive shader,
         // stage-local 104px optical headroom and window-clone ROI clipping.
