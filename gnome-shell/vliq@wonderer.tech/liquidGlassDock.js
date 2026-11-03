@@ -1876,6 +1876,13 @@ export class LiquidGlassIntegration {
         effect.setIsDock?.(true);
     }
 
+    // Drag lifecycle bridge: keep the Orb foreground actor and the separate
+    // stage-level refractive material in the same compositor update cadence.
+    // Other system glass surfaces are deliberately unaffected.
+    setOrbDragging(active) {
+        this._orbGlassManager?.setDragActive?.(active);
+    }
+
     _applySharedCardAppearance() {
         const state = this._readSharedCardAppearance();
 
