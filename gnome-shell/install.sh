@@ -66,17 +66,27 @@ fail() {
 }
 
 refresh_prefs_process() {
-    # GNOME Extensions can keep prefs.js imported from the same URI after
-    # the file changes. Quit the app after prefs/schema sync so the next
-    # preferences window imports the current module.
+    # Ensure the new preferences module is on disk before closing the old
+    # GNOME Extensions process (which may cache the previous JS module).
+    [[ -f "${TARGET_DIR}/prefs.js" ]] ||
+        fail "VLIQ preferences file was not installed."
+    cmp -s "${SOURCE_DIR}/prefs.js" "${TARGET_DIR}/prefs.js" ||
+        fail "Installed preferences differ from the requested checkout."
+    grep -Fq "'Widgets'," "${TARGET_DIR}/prefs.js" ||
+        fail "Widgets page missing from installed preferences."
+    grep -Fq "clock-widget-enabled" "${TARGET_DIR}/schemas/org.gnome.shell.extensions.vliq.gschema.xml" ||
+        fail "Clock schema missing from installed extension."
+
     if command -v gapplication >/dev/null 2>&1; then
         gapplication quit org.gnome.Extensions >/dev/null 2>&1 || true
     fi
+    echo "Verified: Widgets preferences and clock schema installed."
+    echo "Open settings with: gnome-extensions prefs ${UUID}"
 }
 
 for command_name in \
     gnome-shell gnome-extensions glib-compile-schemas gsettings python3 \
-    mktemp sed grep sha256sum mkdir cp rm sleep cat head tr env dirname find sort; do
+    mktemp sed grep sha256sum mkdir cp cmp rm sleep cat head tr env dirname find sort; do
     command -v "${command_name}" >/dev/null 2>&1 ||
         fail "${command_name} was not found."
 done
