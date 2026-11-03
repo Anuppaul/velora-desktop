@@ -149,6 +149,8 @@ const integrationClass = new Function(
     '  this._vendor = null; this._settings = null;\n' +
     '  this._clockPanelGlass = null; this._clockPanelTarget = null;\n' +
     '  this._clockPanelFrameId = 0;\n' +
+    '  this._calendarPanelGlass = null; this._calendarPanelTarget = null;\n' +
+    '  this._calendarPanelFrameId = 0; this._calendarPanelReadyReported = false;\n' +
     '}\n' +
     '_readSharedCardAppearance() {return appearance;}\n' +
     methods + '\n}'
@@ -213,6 +215,41 @@ assert.equal(surface._effect.appearance.baseBlur, 17,
 assert.equal(surface._effect._uniformValues.has('vliq_frost_amount'), false,
     'never override global MaterialSettings Frosted uniform');
 
+// Calendar is a SECOND bounded glass surface. Turning it on must never
+// destroy, displace or reconfigure the original Clock material.
+const calendarCard = new Actor();
+calendarCard.set_size(326, 342);
+calendarCard.set_position(52, 220);
+group.add_child(calendarCard);
+assert.equal(instance.attachCalendarWidgetGlass(calendarCard), true);
+assert.equal(stageSignals.size, 2,
+    'Calendar and Clock each own one bounded render lifecycle');
+const calendarGlass = instance._calendarPanelGlass;
+assert.ok(calendarGlass instanceof PanelGlassSurface);
+assert.deepEqual(calendarGlass._material.get_size(), [326, 342],
+    'calendar native panel surface may be taller than a normal panel');
+assert.equal(calendarGlass._effect.cornerRadius, 24);
+assert.equal(calendarGlass._effect.surfaceLight, true);
+calendarGlass._material.mapped = true;
+us += 50000;
+stage.tick();
+calendarGlass._effect.paintHook();
+assert.deepEqual(calendarGlass._effect.resolution, [326, 342]);
+assert.deepEqual(calendarGlass._effect.geometry, [0, 0, 326, 342]);
+assert.deepEqual(calendarGlass._sceneManager.cullRect,
+    [52, 220, 326, 342]);
+assert.equal(instance.updateCalendarWidgetGlass(calendarCard), true);
+assert.equal(calendarGlass._effect.appearance.tintStrength, 0.08);
+assert.equal(calendarGlass._effect.appearance.baseBlur, 17);
+assert.ok(instance._clockPanelGlass === surface,
+    'calendar must not replace the clock material');
+calendarCard.visible = false;
+stage.tick();
+assert.equal(calendarGlass._material.opacity, 0,
+    'calendar glass must not remain over other windows');
+assert.equal(surface._material.opacity, 255,
+    'hiding calendar must not affect the Clock');
+
 card.visible = false;
 stage.tick();
 assert.equal(surface._material.opacity, 0,
@@ -223,9 +260,13 @@ stage.tick();
 assert.equal(surface._material.opacity, 255,
     'glass reappears on desktop without logout');
 instance.detachClockWidgetGlass(card);
-assert.equal(stageSignals.size, 0, 'no leaked stage hook');
+assert.equal(stageSignals.size, 1,
+    'Calendar must remain active after Clock is detached');
 assert.equal(surface._material, null);
 assert.equal(card.classes.has('vliq-clock-panel-glass-ready'), false);
+instance.detachCalendarWidgetGlass(calendarCard);
+assert.equal(stageSignals.size, 0, 'both widget stage hooks cleaned');
+assert.equal(calendarGlass._material, null);
 
 // The existing shared shader already clips rim highlights to opposite
 // corners. This is what keeps horizontal edge streaks gone while global
