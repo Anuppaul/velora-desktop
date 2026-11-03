@@ -280,6 +280,43 @@
     box-shadow: none;
 }
 
+/* GNOME 50 top bar: THREE detached dock-style glass islands.
+ * Main.panel remains the native GNOME input host (Activities, Date Menu,
+ * Quick Settings). Only its long background is cleared. Each native box
+ * keeps a rounded low-opacity fallback until its own bounded LiquidEffect
+ * has actually composited, at which point the true refractive material
+ * underneath becomes visible. Do not alter native box width/padding/menus. */
+#panel.vliq-liquid-top-panel.vliq-three-islands {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+#panel.vliq-three-islands #panelLeft.vliq-panel-island,
+#panel.vliq-three-islands #panelCenter.vliq-panel-island,
+#panel.vliq-three-islands #panelRight.vliq-panel-island {
+    background-color: rgba(232, 242, 255, 0.13) !important;
+    background-image: none !important;
+    border-radius: 16px !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+#panel.vliq-three-islands #panelLeft.vliq-panel-island-ready,
+#panel.vliq-three-islands #panelCenter.vliq-panel-island-ready,
+#panel.vliq-three-islands #panelRight.vliq-panel-island-ready {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+#panel.vliq-three-islands .panel-corner {
+    -panel-corner-radius: 0px;
+    -panel-corner-background-color: transparent;
+    -panel-corner-border-color: transparent;
+}
+
+/* End independent panel islands. Native GNOME menu controls are untouched. */
+
 /* Top Panel controls: keep GNOME spacing/iconography untouched. Only hover,
  * focus and active paint are softened to sit on the parent glass material. */
 .vliq-liquid-top-panel .panel-button {
