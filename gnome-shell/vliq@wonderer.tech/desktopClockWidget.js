@@ -39,8 +39,8 @@ export class DesktopClockWidget {
         // composited as a background in BinLayout, not inserted as a child
         // of a vertical St.BoxLayout (which can move the clock off-screen).
         const card = new St.Widget({
-            name: 'vliq-desktop-clock-card',
-            style_class: 'vliq-desktop-clock',
+            name: 'vliq-clock-card-card',
+            style_class: 'vliq-clock-card',
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
             width: BASE_WIDTH,
@@ -63,10 +63,10 @@ export class DesktopClockWidget {
             reactive: true,
         });
         this._time = new St.Label({
-            style_class: 'vliq-desktop-clock-time',
+            style_class: 'vliq-clock-card-time',
         });
         this._date = new St.Label({
-            style_class: 'vliq-desktop-clock-date',
+            style_class: 'vliq-clock-card-date',
         });
         this._face.add_child(this._time);
         this._face.add_child(this._date);
