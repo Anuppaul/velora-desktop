@@ -117,6 +117,91 @@ for (const actor of paging._radialActors) {
     assert.equal(actor.animation, undefined, 'paging does not rerun radial entrance');
 }
 
+// Regression: GNOME can fit fewer rings than the requested depth when
+// Orb sits at a screen corner. Undefined outer slots must NEVER be indexed.
+// This previously made a fixed 4-ring Orb fail to open entirely.
+const CornerRuntime = await loadClass(
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js',
+    'VLIQRuntime', {
+        Extension: class {},
+        GLib: {get_monotonic_time: () => 1000000},
+        Clutter: {AnimationMode: {EASE_OUT_QUAD: 1, EASE_IN_QUAD: 2}},
+        collectOrbApps: () => sourceApps,
+        effectiveRingGap: (_, gap) => gap,
+        arcForPosition: () => 90,
+        // Only one ring fits: monitor-safe geometry removed the outer 3.
+        slotsForGeometry: () => [slots],
+        totalCapacity: lengths => lengths.reduce((a, b) => a + b, 0),
+        allocateAcrossRings: n => [n],
+        selectGeometrySlots: (ring, n) => {
+            assert.ok(Array.isArray(ring), 'never index a discarded ring');
+            return ring.slice(0, n);
+        },
+        clamp: (n, low, high) => Math.max(low, Math.min(high, n)),
+    }
+);
+const cornerRuntime = createRuntime();
+Object.setPrototypeOf(cornerRuntime, CornerRuntime.prototype);
+const oldGetString = cornerRuntime._settings.get_string;
+cornerRuntime._settings.get_string = key =>
+    key === 'ring-mode' ? '4' : oldGetString(key);
+cornerRuntime._openMenu();
+assert.equal(cornerRuntime._radialActors.length, 3,
+    'corner-fit must still render all three apps');
+assert.equal(cornerRuntime._orbPageSession.rings, 1,
+    'session caches actual fitted ring depth, not requested four');
+assert.deepEqual(cornerRuntime._orbPageSession.capacities, [3]);
+
+// A large All Apps library needs only a single page of fitted slots, not
+// 1000 slots in a giant, squeezed 8-ring radial layout. At 63 visible
+// regions per page the remaining apps are paged without oversubscribing
+// OrbGlass's four 16-region shader batches.
+let geometryCalls = 0;
+const hugeApps = Array.from({length: 1000}, (_, i) => 'App ' + i);
+const bigSlots = Array.from({length: 40}, (_, i) => ({
+    x: (i % 10) * 56 + 80, y: Math.floor(i / 10) * 58 + 95,
+}));
+const LargeRuntime = await loadClass(
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js',
+    'VLIQRuntime', {
+        Extension: class {},
+        GLib: {get_monotonic_time: () => 1000000},
+        Clutter: {AnimationMode: {EASE_OUT_QUAD: 1, EASE_IN_QUAD: 2}},
+        collectOrbApps: () => hugeApps,
+        effectiveRingGap: (_, gap) => gap,
+        arcForPosition: () => 180,
+        slotsForGeometry: (...args) => {
+            geometryCalls++;
+            const depth = args[5];
+            return Array.from({length: depth}, (_, i) =>
+                bigSlots.map(p => ({x: p.x + 5 * i, y: p.y + 5 * i})));
+        },
+        totalCapacity: lengths => lengths.reduce((a, b) => a + b, 0),
+        allocateAcrossRings: (n, capacities) => {
+            let remaining = n;
+            return capacities.map(capacity => {
+                const current = Math.min(remaining, capacity);
+                remaining -= current;
+                return current;
+            });
+        },
+        selectGeometrySlots: (ring, n) => ring.slice(0, n),
+        clamp: (n, low, high) => Math.max(low, Math.min(high, n)),
+    }
+);
+const large = createRuntime();
+Object.setPrototypeOf(large, LargeRuntime.prototype);
+const sourceSetting = large._settings.get_string;
+large._settings.get_string = key =>
+    key === 'ring-mode' ? 'auto' : sourceSetting(key);
+large._openMenu();
+assert.equal(geometryCalls, 2,
+    'auto depth stops once 63 usable page slots exist');
+assert.equal(large._radialActors.length, 63,
+    'one page must never exceed four 16-region glass batches');
+assert.equal(large._orbPageCount, Math.ceil(1000 / 63));
+assert.equal(large._orbPageSession.rings, 2);
+
 // Check that the native Overview shader radius does not toggle while the
 // first Apps grid is opening or when switching between Overview states.
 const Backdrop = await loadClass(
