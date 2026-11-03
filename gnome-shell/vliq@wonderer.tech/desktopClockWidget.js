@@ -4,8 +4,6 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-const MIN_SCALE = 65;
-const MAX_SCALE = 200;
 const BASE_WIDTH = 296;
 const BASE_HEIGHT = 148;
 const EDGE_MARGIN = 12;
@@ -14,8 +12,8 @@ function clamp(value, low, high) {
     return Math.min(high, Math.max(low, value));
 }
 
-// One desktop-only clock. The user can drag the face or resize with the
-// bottom-right grip; both values persist in the canonical VLIQ GSettings.
+// One desktop-only clock. Move the fixed-size card freely; the position
+// persists in canonical VLIQ GSettings. Resize intentionally disabled.
 // The glass renderer is shared with VLIQ's existing preview material pipeline.
 export class DesktopClockWidget {
     constructor(settings, glassIntegration = null) {
@@ -39,7 +37,7 @@ export class DesktopClockWidget {
         // composited as a background in BinLayout, not inserted as a child
         // of a vertical St.BoxLayout (which can move the clock off-screen).
         const card = new St.Widget({
-            name: 'vliq-clock-card-card',
+            name: 'vliq-clock-card',
             style_class: 'vliq-clock-card',
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
@@ -55,8 +53,7 @@ export class DesktopClockWidget {
         });
         card.add_child(this._content);
 
-        // Gestures live on separate foreground children; the resize grip
-        // does not fight the clock-face drag gesture.
+        // Drag only. No resize grip or scale action.
         this._face = new St.BoxLayout({
             style_class: 'vliq-clock-drag-surface',
             vertical: true,
@@ -72,15 +69,6 @@ export class DesktopClockWidget {
         this._face.add_child(this._date);
         this._content.add_child(this._face);
 
-        this._resizeGrip = new St.Button({
-            style_class: 'vliq-clock-resize-grip',
-            label: '⤡',
-            can_focus: false,
-            reactive: true,
-            x_align: Clutter.ActorAlign.END,
-        });
-        this._content.add_child(this._resizeGrip);
-
         // Chrome remains above DING's desktop window. Application occlusion
         // is controlled below, so the card cannot cover normal app windows.
         Main.layoutManager.addChrome(card, {
@@ -88,15 +76,13 @@ export class DesktopClockWidget {
             trackFullscreen: false,
         });
 
-        this._setupGesture(this._face, 'move');
-        this._setupGesture(this._resizeGrip, 'resize');
+        this._setupDrag();
 
         for (const key of [
             'clock-widget-enabled',
             'clock-widget-24h',
             'clock-widget-style',
             'frost-density',
-            'clock-widget-scale',
             'clock-widget-x',
             'clock-widget-y',
         ]) {
@@ -124,129 +110,62 @@ export class DesktopClockWidget {
                 return GLib.SOURCE_CONTINUE;
             }
         );
-        console.log('[VLIQ][Clock] draggable, resizable clock initialized');
+        console.log('[VLIQ][Clock] movable fixed-size glass clock initialized');
     }
 
-    _setupGesture(target, kind) {
+    _setupDrag() {
         const gesture = new Clutter.PanGesture();
         gesture.set_required_button(Clutter.BUTTON_PRIMARY);
         gesture.set_begin_threshold(2);
-        target.add_action(gesture);
+        this._face.add_action(gesture);
 
         gesture.connect('recognize', () => {
             if (!this._actor)
                 return Clutter.EVENT_PROPAGATE;
             this._interaction = {
-                kind,
                 x: this._actor.x,
                 y: this._actor.y,
-                scale: this._settings.get_int('clock-widget-scale'),
             };
             this._dragGrab?.dismiss();
-            this._dragGrab = global.stage.grab(target);
+            this._dragGrab = global.stage.grab(this._face);
             return Clutter.EVENT_STOP;
         });
 
-        gesture.connect('pan-update', gestureAction => {
-            const interaction = this._interaction;
-            if (!interaction || interaction.kind !== kind)
+        gesture.connect('pan-update', action => {
+            if (!this._interaction || !this._actor)
                 return;
-            const delta = gestureAction.get_delta_abs();
+            const delta = action.get_delta_abs();
             if (!delta)
                 return;
-            const dx = delta.get_x();
-            const dy = delta.get_y();
-
-            if (kind === 'move') {
-                const size = this._renderedSize();
-                const monitor = Main.layoutManager.primaryMonitor;
-                if (!monitor)
-                    return;
-                const x = clamp(
-                    interaction.x + dx, monitor.x,
-                    monitor.x + Math.max(0, monitor.width - size.width)
-                );
-                const y = clamp(
-                    interaction.y + dy, monitor.y,
-                    monitor.y + Math.max(0, monitor.height - size.height)
-                );
-                this._actor.set_position(Math.round(x), Math.round(y));
-                // Clutter.PanGesture returns the delta since the previous
-                // update. Keep the unrounded position for smooth motion.
-                interaction.x = x;
-                interaction.y = y;
-            } else {
-                const next = clamp(
-                    Math.round(
-                        this._currentScale +
-                        ((dx + dy) / 2 / BASE_WIDTH) * 100
-                    ),
-                    MIN_SCALE,
-                    MAX_SCALE
-                );
-                this._setScale(next);
-                const monitor = Main.layoutManager.primaryMonitor;
-                if (monitor) {
-                    const size = this._renderedSize();
-                    this._actor.set_position(
-                        Math.round(clamp(
-                            this._actor.x, monitor.x,
-                            monitor.x + Math.max(0, monitor.width - size.width)
-                        )),
-                        Math.round(clamp(
-                            this._actor.y, monitor.y,
-                            monitor.y + Math.max(0, monitor.height - size.height)
-                        ))
-                    );
-                }
-            }
-
+            const monitor = Main.layoutManager.primaryMonitor;
+            if (!monitor)
+                return;
+            const {width, height} = this._renderedSize();
+            const x = clamp(this._interaction.x + delta.get_x(),
+                monitor.x, monitor.x + Math.max(0, monitor.width - width));
+            const y = clamp(this._interaction.y + delta.get_y(),
+                monitor.y, monitor.y + Math.max(0, monitor.height - height));
+            this._interaction.x = x;
+            this._interaction.y = y;
+            this._actor.set_position(Math.round(x), Math.round(y));
             this._updateBounds();
         });
 
         const finish = () => {
-            if (!this._interaction ||
-                this._interaction.kind !== kind)
+            if (!this._interaction)
                 return;
-            const current = this._interaction;
             this._interaction = null;
             this._dragGrab?.dismiss();
             this._dragGrab = null;
-
-            // Persist location before emitting a scale change; the scale
-            // listener re-positions from settings immediately.
-            const newScale = this._currentScale;
             this._savePosition();
-            if (kind === 'resize' && newScale !== current.scale)
-                this._settings.set_int('clock-widget-scale', newScale);
             this._refresh();
         };
         gesture.connect('end', finish);
         gesture.connect('cancel', finish);
     }
 
-    _setScale(percent) {
-        if (!this._actor)
-            return;
-        const scale = clamp(percent, MIN_SCALE, MAX_SCALE);
-        this._currentScale = scale;
-        const factor = scale / 100;
-        this._actor.set_scale(factor, factor);
-        this._updateBounds();
-    }
-
     _renderedSize() {
-        if (!this._actor)
-            return {width: BASE_WIDTH, height: BASE_HEIGHT};
-        const factor = (this._currentScale ?? 100) / 100;
-        // The card height is natural-content driven. A conservative
-        // fallback avoids early layout frames placing it off-screen.
-        const height = this._actor.height > 1
-            ? this._actor.height : BASE_HEIGHT;
-        return {
-            width: BASE_WIDTH * factor,
-            height: height * factor,
-        };
+        return {width: BASE_WIDTH, height: BASE_HEIGHT};
     }
 
     _positionFromSettings() {
@@ -256,7 +175,6 @@ export class DesktopClockWidget {
         if (!monitor)
             return;
         this._actor.set_size(BASE_WIDTH, BASE_HEIGHT);
-        this._setScale(this._settings.get_int('clock-widget-scale'));
         const {width, height} = this._renderedSize();
         const usableX = Math.max(0, monitor.width - width - 2 * EDGE_MARGIN);
         const usableY = Math.max(0, monitor.height - height - 2 * EDGE_MARGIN);
@@ -334,9 +252,7 @@ export class DesktopClockWidget {
     _onSettingsChanged(key) {
         if (key === 'clock-widget-style' || key === 'frost-density')
             this._setMaterial();
-        if (key === 'clock-widget-scale' ||
-            key === 'clock-widget-x' ||
-            key === 'clock-widget-y')
+        if (key === 'clock-widget-x' || key === 'clock-widget-y')
             this._positionFromSettings();
         this._refresh();
     }
@@ -411,7 +327,6 @@ export class DesktopClockWidget {
         this._actor = null;
         this._content = null;
         this._face = null;
-        this._resizeGrip = null;
         this._time = null;
         this._date = null;
         this._clockBounds = null;
