@@ -50,6 +50,8 @@ export class DesktopClockWidget {
             vertical: true,
             x_expand: true,
             y_expand: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         card.add_child(this._content);
 
@@ -81,7 +83,7 @@ export class DesktopClockWidget {
         for (const key of [
             'clock-widget-enabled',
             'clock-widget-24h',
-            'clock-widget-style',
+            'glass-style',
             'frost-density',
             'clock-widget-x',
             'clock-widget-y',
@@ -216,7 +218,9 @@ export class DesktopClockWidget {
     _setMaterial() {
         if (!this._actor)
             return;
-        const mode = this._settings.get_string('clock-widget-style');
+        // Follow Appearance's canonical VLIQ material selection. The
+        // widget never owns or overrides the user's global glass style.
+        const mode = this._settings.get_string('glass-style');
         const frosted = mode === 'frosted';
         this._actor.remove_style_class_name('vliq-clock-frosted');
         this._actor.remove_style_class_name('vliq-clock-liquid');
@@ -250,7 +254,7 @@ export class DesktopClockWidget {
     }
 
     _onSettingsChanged(key) {
-        if (key === 'clock-widget-style' || key === 'frost-density')
+        if (key === 'glass-style' || key === 'frost-density')
             this._setMaterial();
         if (key === 'clock-widget-x' || key === 'clock-widget-y')
             this._positionFromSettings();
