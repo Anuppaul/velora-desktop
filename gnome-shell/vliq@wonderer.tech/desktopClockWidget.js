@@ -99,9 +99,11 @@ export class DesktopClockWidget {
                 this._refresh();
             }
         );
-        this._setMaterial();
+        // Position first: the shader should never take away the native
+        // fallback on an unmapped, zero-size desktop chrome actor.
         this._positionFromSettings();
         this._refresh();
+        this._setMaterial();
 
         // A once-per-second clock tick also handles overview and window
         // occlusion, without global pointer hooks or expensive redraw loops.
@@ -296,16 +298,25 @@ export class DesktopClockWidget {
         const amount = frosted
             ? clamp(this._settings.get_int('frost-density') / 100, 0.05, 1)
             : 0;
-        if (this._materialAttached) {
-            this._glassIntegration?.updateClockWidgetGlass?.(
-                this._actor, mode, amount
-            );
-        } else {
-            this._materialAttached = Boolean(
-                this._glassIntegration?.attachClockWidgetGlass?.(
+        // Material attachment is optional: failure or asynchronous shader
+        // loading must NEVER make the native clock disappear.
+        try {
+            if (this._materialAttached) {
+                this._glassIntegration?.updateClockWidgetGlass?.(
                     this._actor, mode, amount
-                )
-            );
+                );
+            } else if (this._actor.mapped !== false &&
+                       this._actor.width > 1 &&
+                       this._actor.visible) {
+                this._materialAttached = Boolean(
+                    this._glassIntegration?.attachClockWidgetGlass?.(
+                        this._actor, mode, amount
+                    )
+                );
+            }
+        } catch (error) {
+            this._materialAttached = false;
+            console.warn('[VLIQ][Clock] glass fallback active: ' + error);
         }
     }
 
@@ -364,6 +375,11 @@ export class DesktopClockWidget {
         this._actor.visible = Boolean(this._interaction) ||
             this._isDesktopExposed();
         this._updateBounds();
+        // Retry only after Clutter maps the actor. One existing second
+        // tick is enough; do not add another polling loop.
+        if (this._actor.visible && !this._materialAttached &&
+            this._actor.mapped !== false)
+            this._setMaterial();
     }
 
     disable() {
