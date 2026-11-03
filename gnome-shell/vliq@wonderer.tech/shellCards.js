@@ -69,8 +69,6 @@ class ShellCardSurface {
             classesOf(target).includes(PREVIEW_CARD_CLASS) ||
             classesOf(target).includes(CLOCK_CARD_CLASS);
         this._widgetMaterialStyle = null;
-        this._widgetFrostDensity = 0.88;
-        this._widgetFrostSignal = 0;
         this._overlay = null;
         this._wrappedBinParent = null;
         this._material = null;
@@ -288,48 +286,33 @@ class ShellCardSurface {
         this._material?.queue_redraw?.();
     }
 
-    setWidgetMaterial(style, density = 0.88) {
-        this._widgetMaterialStyle = style === 'frosted' ? 'frosted' : 'liquid';
-        this._widgetFrostDensity = Math.max(0, Math.min(1, density));
-        // Vendor MaterialSettings reacts to global style on every effect.
-        // Reassert this specific widget's choice AFTER the vendor callback.
-        if (!this._widgetFrostSignal) {
-            try {
-                this._widgetFrostSignal = this._settings.connect(
-                    'changed::vliq-frost-amount',
-                    () => this._applyWidgetMaterial()
-                );
-            } catch {
-                // Compatibility with earlier renderer schema versions.
-            }
-        }
+    setWidgetMaterial(style) {
+        // Only track the visual role. The actual Liquid/Frosted renderer is
+        // driven by VLIQ's shared MaterialSettings and the globally synced
+        // vliq-frost-amount/grain/edge uniforms. Never copy a second
+        // per-widget density value or override the global material choice.
+        this._widgetMaterialStyle = style === 'frosted'
+            ? 'frosted' : 'liquid';
         this._applyWidgetMaterial();
     }
 
     _applyWidgetMaterial() {
         const effect = this._effect;
-        if (!effect || !this._widgetMaterialStyle)
+        if (!effect || !this._widgetMaterialStyle ||
+            !classesOf(this._target).includes(CLOCK_CARD_CLASS))
             return;
-        const amount = this._widgetMaterialStyle === 'frosted'
-            ? this._widgetFrostDensity : 0;
-        // This is VLIQ's vendored renderer; its local uniform is scoped to
-        // one LiquidEffect instance and does not mutate global GSettings.
-        effect._uniforms?.set?.('vliq_frost_amount', amount);
-        // Clock-only optical cleanup: remove the bright horizontal rim streak
-        // and rear drop shadow without changing the user's shared glass
-        // settings or removing the underlying refraction / blur.
-        // The remaining native rounded card carries a subtle side/bottom
-        // outline, so disabling the glint cannot make its body disappear.
-        if (classesOf(this._target).includes(CLOCK_CARD_CLASS)) {
-            effect._uniforms?.set?.('rim_intensity', 0.0);
-            effect._uniforms?.set?.('vliq_frost_edge_glow', 0.0);
-            effect._uniforms?.set?.('shadow_radius', 0.0);
-            effect._uniforms?.set?.('shadow_intensity', 0.0);
-        }
-        if (effect._frostAmount !== amount) {
-            effect._frostAmount = amount;
-            effect._applyVLIQBlurRadius?.();
-        }
+
+        // The user explicitly wants no white horizontal glint and no rear
+        // shadows on Clock. Suppress ONLY the clock's edge-light/shadow
+        // channels while preserving the shared refraction, blur, tint,
+        // Frosted Crystal diffusion, grain and live appearance updates.
+        // This is an optical cleanup of one LiquidEffect instance;
+        // never mutate the global GLASS SETTINGS or other VLIQ surfaces.
+        effect.setSurfaceLightEnabled?.(false);
+        effect._uniforms?.set?.('rim_intensity', 0.0);
+        effect._uniforms?.set?.('ao_intensity', 0.0);
+        effect._uniforms?.set?.('shadow_radius', 0.0);
+        effect._uniforms?.set?.('shadow_intensity', 0.0);
         effect.queue_repaint?.();
     }
 
@@ -682,10 +665,6 @@ class ShellCardSurface {
             } catch {}
         }
 
-        if (this._widgetFrostSignal) {
-            try { this._settings.disconnect(this._widgetFrostSignal); } catch {}
-            this._widgetFrostSignal = 0;
-        }
         this._releaseSceneManager();
 
         let safeToDestroyOverlay = true;
