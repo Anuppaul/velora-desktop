@@ -142,7 +142,7 @@ const PanelGlassSurface = new Function(
     {warn() {}}
 );
 const integrationClass = new Function(
-    'PanelGlassSurface', 'global', 'console',
+    'PanelGlassSurface', 'global', 'console', 'appearance',
     'return class ClockPanelIntegration {\n' +
     'constructor() {\n' +
     '  this._vendor = null; this._settings = null;\n' +
@@ -152,7 +152,7 @@ const integrationClass = new Function(
     '_readSharedCardAppearance() {return appearance;}\n' +
     methods + '\n}'
 )(
-    PanelGlassSurface, {stage}, {log() {}, warn() {}}
+    PanelGlassSurface, {stage}, {log() {}, warn() {}}, appearance
 );
 const group = new Actor();
 const card = new Actor();
