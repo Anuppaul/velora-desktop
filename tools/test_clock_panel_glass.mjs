@@ -129,7 +129,7 @@ const appearance = {
 let us = 1000000;
 const PanelGlassSurface = new Function(
     'GLib', 'frameDue', 'VLIQ_GLASS_ROLES',
-    'applyVLIQGlassRole', 'console',
+    'applyVLIQGlassRole', 'console', 'global',
     panelSource + '\nreturn PanelGlassSurface;'
 )(
     {get_monotonic_time: () => us},
@@ -139,7 +139,8 @@ const PanelGlassSurface = new Function(
         effect.appearance = options;
         effect.setCornerRadius(options.cornerRadius);
     },
-    {warn() {}}
+    {warn() {}},
+    {stage}
 );
 const integrationClass = new Function(
     'PanelGlassSurface', 'global', 'console', 'appearance',
