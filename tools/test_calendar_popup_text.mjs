@@ -243,6 +243,43 @@ assert.match(css.slice(hotspotDarkRule, hotspotDarkRule + 1200),
 assert.match(css, /\.vliq-quick-hotspot\.vliq-quick-card-text-light \.quick-toggle-subtitle/);
 assert.match(css, /\.vliq-quick-hotspot\.vliq-quick-card-text-dark \.quick-toggle-icon/);
 
+// The late-generated system-accent CSS originally overrode hotspot text,
+// even when the Quick Settings sampler had correctly assigned white/black.
+// Check stylesheet ordering and every visible hotspot foreground target.
+const accentIndex = integration.indexOf(
+    "'.vliq-liquid-quick-menu-root .vliq-quick-active StLabel"
+);
+const lightOverrideIndex = integration.indexOf(
+    "'.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-light StLabel"
+);
+const darkOverrideIndex = integration.indexOf(
+    "'.vliq-liquid-quick-menu-root .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-dark StLabel"
+);
+assert.ok(accentIndex > 0 && lightOverrideIndex > accentIndex &&
+    darkOverrideIndex > lightOverrideIndex,
+    'hotspot must outrank the dynamically loaded accent in the same sheet');
+for (const root of [
+    '.vliq-liquid-popup-content.quick-settings',
+    '.vliq-liquid-quick-menu-root',
+]) {
+    for (const polarity of ['light', 'dark']) {
+        const rule = root +
+            ' .vliq-quick-active.vliq-quick-hotspot.vliq-quick-card-text-' +
+            polarity;
+        for (const target of [
+            'StLabel', 'StIcon', '.quick-toggle-title',
+            '.quick-toggle-subtitle', '.quick-toggle-icon',
+        ]) {
+            assert.ok(integration.includes(rule + ' ' + target),
+                polarity + ' hotspot ' + target + ' missing ' + root);
+        }
+    }
+}
+assert.match(integration.slice(lightOverrideIndex, darkOverrideIndex),
+    /color: #ffffff !important;/);
+assert.match(integration.slice(darkOverrideIndex, darkOverrideIndex + 700),
+    /color: #111111 !important;/);
+
 console.log(
     'VLIQ adaptive text: Calendar, Date cards, Quick Settings + overlays, ' +
     'notification banners, near-white hysteresis and accent states PASS.'
