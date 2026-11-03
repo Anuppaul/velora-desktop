@@ -182,6 +182,8 @@ assert.equal(surface._effect.surfaceLight, true,
     'Clock must retain the global Dock glass Fresnel, sheen and specular lighting');
 for (const uniform of ['ao_intensity', 'shadow_radius', 'shadow_intensity'])
     assert.equal(surface._effect._uniformValues.get(uniform), 0);
+assert.equal(surface._effect._uniformValues.get('vliq_clock_straight_edge_guard'),
+    1, 'straight-edge sheen is removed on the Clock only, not the global glass');
 
 surface._material.mapped = true;
 us += 50000;
@@ -236,6 +238,12 @@ assert.match(shader, /float finalRimLight = rimShape \* cornerGlint/,
     'clock must reuse corner-clipped optical rim');
 assert.match(shader, /specularLight \*= specMask \* cornerGlint/,
     'global specular highlights must remain corner-clipped');
+assert.match(shader, /uniform float vliq_clock_straight_edge_guard;/,
+    'clock-only shader uniform must exist');
+assert.match(shader, /float clockStraightEdge = edgeBand \* \(1\.0 - cornerGlint\);/,
+    'clock straight-edge sheen must be masked without removing broad interior sheen');
+assert.match(shader, /sheenColor \*= 1\.0 - clamp\(vliq_clock_straight_edge_guard/,
+    'existing global glass surfaces must retain their original sheen at default zero');
 
 const css = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
