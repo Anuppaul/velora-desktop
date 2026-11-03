@@ -141,8 +141,9 @@ move.emit('end');
 assert.ok(settings.get_double('clock-widget-x') > 0.30,
     'freehand position must persist');
 
+const materialUpdates = updates.length;
 settings.set_string('clock-widget-style', 'liquid');
-assert.equal(updates.at(-1), 'attach:liquid',
+assert.equal(updates.length, materialUpdates,
     'legacy per-clock material must not override Appearance');
 settings.set_string('glass-style', 'frosted');
 assert.ok(updates.includes('update:frosted'),
