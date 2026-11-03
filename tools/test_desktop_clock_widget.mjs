@@ -24,6 +24,7 @@ class Actor {
     add_child(actor) {this.children.push(actor);}
     add_action(action) {this.action = action;}
     set_width(width) {this.width = width;}
+    set_size(width, height) {this.width = width; this.height = height;}
     set_position(x, y) {this.x = x; this.y = y;}
     set_scale(x, y) {this.scale_x = x; this.scale_y = y;}
     add_style_class_name(name) {this.classes.add(name);}
@@ -95,9 +96,10 @@ const Widget = new Function(
         DateTime: {new_now_local: () => ({format: pattern => pattern})},
     },
     {WindowType: {DESKTOP: 1, DOCK: 2, NORMAL: 3}},
-    {BoxLayout: Actor, Label: Actor, Button: Actor},
+    {Widget: Actor, BoxLayout: Actor, Label: Actor, Button: Actor},
     {ActorAlign: {START: 0, END: 1}, BUTTON_PRIMARY: 1,
-        EVENT_STOP: 1, EVENT_PROPAGATE: 0, PanGesture},
+        EVENT_STOP: 1, EVENT_PROPAGATE: 0, PanGesture,
+        BinLayout: class BinLayout {}},
     {layoutManager: {primaryMonitor: screen, addChrome() {},
         connect: () => 11, disconnect() {}},
     overview: {visible: false}, sessionMode: {isLocked: false}},
@@ -118,6 +120,10 @@ const clock = new Widget(settings, {
 });
 clock.enable();
 assert.equal(clock._actor.visible, true);
+assert.equal(clock._actor.children[0], clock._content,
+    'clock content must live in a BinLayout overlay, not a glass-displacing vertical root');
+assert.ok(clock._actor.layout_manager,
+    'glass background must use BinLayout and never enter the text layout');
 assert.equal(updates[0], 'attach:liquid');
 assert.equal(settings.handlers.size, 7, 'listens to controls and frost density');
 
