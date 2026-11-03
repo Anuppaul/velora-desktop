@@ -315,6 +315,17 @@ class ShellCardSurface {
         // This is VLIQ's vendored renderer; its local uniform is scoped to
         // one LiquidEffect instance and does not mutate global GSettings.
         effect._uniforms?.set?.('vliq_frost_amount', amount);
+        // Clock-only optical cleanup: remove the bright horizontal rim streak
+        // and rear drop shadow without changing the user's shared glass
+        // settings or removing the underlying refraction / blur.
+        // The remaining native rounded card carries a subtle side/bottom
+        // outline, so disabling the glint cannot make its body disappear.
+        if (classesOf(this._target).includes(CLOCK_CARD_CLASS)) {
+            effect._uniforms?.set?.('rim_intensity', 0.0);
+            effect._uniforms?.set?.('vliq_frost_edge_glow', 0.0);
+            effect._uniforms?.set?.('shadow_radius', 0.0);
+            effect._uniforms?.set?.('shadow_intensity', 0.0);
+        }
         if (effect._frostAmount !== amount) {
             effect._frostAmount = amount;
             effect._applyVLIQBlurRadius?.();
