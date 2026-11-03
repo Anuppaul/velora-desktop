@@ -1643,42 +1643,33 @@
     spacing: 1px;
 }
 
-/* Clock fallback paints only while its actual VLIQ LiquidEffect starts.
- * Once attached, ShellCardSurface draws the optical glass underneath content;
- * the native actor must not paint a second border or veil. */
-.vliq-clock-card {
-    padding: 18px 22px 10px 22px;
+/* VLIQ clock: native card chrome stays visible over the refractive surface.
+ * The optical LiquidEffect is a child below the time/date; removing every
+ * background/border when its shader compiled left only floating text.
+ * A translucent veil is intentionally retained, like VLIQ's other cards.
+ * These clock-specific selectors also beat the generic dynamic
+ * '.vliq-liquid-shell-card' filter without changing other Shell surfaces. */
+.vliq-clock-card,
+.vliq-clock-card.vliq-liquid-shell-card,
+.vliq-clock-card.vliq-liquid-shell-card.vliq-clock-glass-ready {
+    padding: 18px 22px 14px 22px;
     border-radius: 24px;
-    background-color: rgba(231, 242, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.32);
-    box-shadow: 0 10px 24px rgba(12, 22, 36, 0.16);
-}
-.vliq-clock-card.vliq-clock-frosted {
-    background-color: rgba(228, 239, 250, 0.48);
-    border-color: rgba(255, 255, 255, 0.46);
-}
-/* Retain a subtle material backing while LiquidEffect finishes its
- * asynchronous shader compile. The old fully-transparent override caused
- * the desktop clock card to vanish during or after hot updates. */
-.vliq-clock-card.vliq-liquid-shell-card {
-    background-color: rgba(228, 240, 255, 0.13) !important;
+    background-color: rgba(236, 244, 255, 0.16) !important;
     background-image: none !important;
-    border-color: rgba(255, 255, 255, 0.22) !important;
-    box-shadow: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.44) !important;
+    box-shadow: 0 10px 28px rgba(9, 15, 31, 0.25) !important;
 }
-.vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card {
-    background-color: rgba(231, 241, 251, 0.26) !important;
-    border-color: rgba(255, 255, 255, 0.36) !important;
-}
-/* St paints a card's own CSS background ABOVE its refractive child.
- * Once the real LiquidEffect has compiled and mounted, remove only this
- * fallback paint so the shader (refraction, blur, lens) is visible. */
-.vliq-clock-card.vliq-liquid-shell-card.vliq-clock-glass-ready,
+.vliq-clock-card.vliq-clock-frosted,
+.vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card,
 .vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card.vliq-clock-glass-ready {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
+    background-color: rgba(239, 245, 255, 0.38) !important;
+    border-color: rgba(255, 255, 255, 0.61) !important;
+    box-shadow: 0 12px 30px rgba(9, 15, 31, 0.21) !important;
+}
+.vliq-clock-content {
+    spacing: 0;
+    x-align: center;
+    y-align: center;
 }
 .vliq-clock-drag-surface {
     padding: 4px 0 3px 0;
