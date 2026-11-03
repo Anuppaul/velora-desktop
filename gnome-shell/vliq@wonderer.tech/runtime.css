@@ -1656,9 +1656,20 @@
     border: 0 !important;
     box-shadow: none !important;
 }
-.vliq-clock-card.vliq-clock-frosted,
-.vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card {
+.vliq-clock-card.vliq-clock-frosted {
     background-color: rgba(239, 245, 255, 0.38) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* The real native-panel LiquidEffect is a SIBLING directly beneath the
+ * clock actor. Only after the shader COMPOSITES at least one frame, clear
+ * the native fallback paint to reveal the shared panel material. Do not
+ * touch its border, tint, blur, Fresnel, or Frosted Crystal pipeline. */
+.vliq-clock-card.vliq-clock-panel-glass-ready,
+.vliq-clock-card.vliq-clock-frosted.vliq-clock-panel-glass-ready {
+    background-color: transparent !important;
+    background-image: none !important;
     border: 0 !important;
     box-shadow: none !important;
 }
