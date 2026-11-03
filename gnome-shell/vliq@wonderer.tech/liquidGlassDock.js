@@ -482,6 +482,10 @@ export class LiquidGlassIntegration {
         this._clockPanelTarget = null;
         this._clockPanelFrameId = 0;
         this._clockPanelReadyReported = false;
+        this._calendarPanelGlass = null;
+        this._calendarPanelTarget = null;
+        this._calendarPanelFrameId = 0;
+        this._calendarPanelReadyReported = false;
         this._appGridBackdropManager = null;
         this._wallpaperAtmosphereManager = null;
         this._overviewCloseGlassManager = null;
@@ -672,6 +676,123 @@ export class LiquidGlassIntegration {
         this._clockPanelGlass = null;
         this._clockPanelTarget = null;
         this._clockPanelReadyReported = false;
+    }
+
+    // Calendar uses the exact same native panel shader/material as Clock.
+    // Its geometry is larger, but still tightly bounded (326x342), without
+    // creating a new shader implementation or fullscreen capture.
+    attachCalendarWidgetGlass(target) {
+        if (this._calendarPanelGlass && this._calendarPanelTarget === target)
+            return true;
+        this.detachCalendarWidgetGlass();
+
+        if (!target || !this._vendor || !this._settings)
+            return false;
+        const group = target.get_parent?.();
+        if (!group)
+            return false;
+
+        let glass = null;
+        try {
+            glass = new PanelGlassSurface(
+                this._vendor, this._settings,
+                () => this._readSharedCardAppearance(),
+                {cornerRadius: 24, widgetCard: true}
+            );
+            if (!glass.attach(group, target)) {
+                glass.destroy();
+                return false;
+            }
+            this._calendarPanelGlass = glass;
+            this._calendarPanelTarget = target;
+            this._calendarPanelReadyReported = false;
+            this._calendarPanelFrameId = global.stage.connect(
+                'before-update', () => this._syncCalendarWidgetGlass()
+            );
+            this._syncCalendarWidgetGlass();
+            console.log('[VLIQ][Calendar] native panel LiquidEffect attached');
+            return true;
+        } catch (error) {
+            try { glass?.destroy(); } catch {}
+            this.detachCalendarWidgetGlass();
+            console.warn('[VLIQ][Calendar] panel material fallback: ' + error);
+            return false;
+        }
+    }
+
+    updateCalendarWidgetGlass(target) {
+        if (!this._calendarPanelGlass ||
+            this._calendarPanelTarget !== target)
+            return false;
+        this._calendarPanelGlass.updateAppearance();
+        this._syncCalendarWidgetGlass();
+        return true;
+    }
+
+    syncCalendarWidgetGlass(target) {
+        if (target === this._calendarPanelTarget)
+            this._syncCalendarWidgetGlass();
+    }
+
+    _syncCalendarWidgetGlass() {
+        const card = this._calendarPanelTarget;
+        const glass = this._calendarPanelGlass;
+        if (!card || !glass)
+            return;
+
+        if (!card.mapped || !card.visible) {
+            glass.hide();
+            card.remove_style_class_name?.('vliq-calendar-panel-glass-ready');
+            return;
+        }
+        const group = card.get_parent?.();
+        if (!group) {
+            glass.hide();
+            return;
+        }
+        const [absX, absY] =
+            card.get_transformed_position?.() ?? [NaN, NaN];
+        const [parentX, parentY] =
+            group.get_transformed_position?.() ?? [0, 0];
+        const [width, height] =
+            card.get_transformed_size?.() ??
+            [card.width ?? 0, card.height ?? 0];
+        if (![absX, absY, parentX, parentY, width, height].every(Number.isFinite) ||
+            width <= 1 || height <= 1) {
+            glass.hide();
+            return;
+        }
+
+        glass.setBounds(absX - parentX, absY - parentY, width, height, 255);
+        if (glass.ready) {
+            card.add_style_class_name?.('vliq-calendar-panel-glass-ready');
+            if (!this._calendarPanelReadyReported) {
+                this._calendarPanelReadyReported = true;
+                console.log(
+                    '[VLIQ][Calendar] native panel glass first composite READY'
+                );
+            }
+        } else {
+            card.remove_style_class_name?.('vliq-calendar-panel-glass-ready');
+        }
+    }
+
+    detachCalendarWidgetGlass(target = null) {
+        if (target && this._calendarPanelTarget !== target)
+            return;
+        if (this._calendarPanelFrameId) {
+            try { global.stage.disconnect(this._calendarPanelFrameId); } catch {}
+            this._calendarPanelFrameId = 0;
+        }
+        try {
+            this._calendarPanelTarget?.remove_style_class_name?.(
+                'vliq-calendar-panel-glass-ready'
+            );
+        } catch {}
+        try { this._calendarPanelGlass?.destroy(); } catch {}
+        this._calendarPanelGlass = null;
+        this._calendarPanelTarget = null;
+        this._calendarPanelReadyReported = false;
     }
 
     attachPreviewGlass(target) {
@@ -1749,6 +1870,7 @@ export class LiquidGlassIntegration {
         this._shellCardGlassManager?.updateAppearance(state);
         this._previewGlassManager?.updateAppearance(state);
         this._clockPanelGlass?.updateAppearance();
+        this._calendarPanelGlass?.updateAppearance();
         this._appGridBackdropManager?.updateAppearance(state);
         this._overviewCloseGlassManager?.updateAppearance(state);
         this._orbGlassManager?.updateAppearance(state);
@@ -5958,6 +6080,7 @@ export class LiquidGlassIntegration {
         );
         this._shellCardGlassManager = null;
 
+        this.detachCalendarWidgetGlass();
         this.detachClockWidgetGlass();
         cleanup('previewGlassManager', this._previewGlassManager);
         this._previewGlassManager = null;
