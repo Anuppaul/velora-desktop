@@ -355,7 +355,9 @@ export default class VLIQRuntime extends Extension {
         // Managed by the hot-swappable runtime, not extension.js: a new
         // clock/widget module must NEVER force a GNOME Shell logout.
         try {
-            this._desktopClockWidget = new DesktopClockWidget(this._settings);
+            this._desktopClockWidget = new DesktopClockWidget(
+                this._settings, this._liquidGlassIntegration
+            );
             this._desktopClockWidget.enable();
         } catch (error) {
             try { this._desktopClockWidget?.disable(); } catch {}
