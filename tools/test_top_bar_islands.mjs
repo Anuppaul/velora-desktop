@@ -330,6 +330,12 @@ assert.match(css, /#panelRight\.vliq-panel-island/);
 assert.match(css, /#panelLeft\.vliq-panel-island-ready/);
 assert.match(css, /vliq-panel-island\.vliq-panel-island-inactive/,
     'inactive native glass islands need a transparent fallback');
+for (const id of ['panelLeft', 'panelCenter', 'panelRight']) {
+    const override = '#panel.vliq-three-islands #' + id +
+        '.vliq-panel-island.vliq-panel-island-inactive';
+    assert.ok(css.includes(override),
+        'hidden island must outrank native fallback via both ID selectors: ' + id);
+}
 
 const integration = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js',
