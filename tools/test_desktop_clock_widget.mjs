@@ -181,8 +181,10 @@ assert.match(stylesheet, /background-color:\s*rgba\(236, 244, 255, 0\.16\)/,
 assert.match(stylesheet, /background-color:\s*rgba\(239, 245, 255, 0\.38\)/,
     'Frosted fallback must remain visible until its shader is ready');
 const clockCss = stylesheet.slice(stylesheet.indexOf('/* Clock fallback:'));
-assert.doesNotMatch(clockCss, /text-shadow:\s*(?!none)/,
-    'Clock time/date must not have font shadows');
+const clockTextShadows = [...clockCss.matchAll(/text-shadow:\s*([^;]+);/g)]
+    .map(match => match[1].trim());
+assert.deepEqual(clockTextShadows, ['none !important', 'none !important'],
+    'Clock time/date must not have text shadows');
 assert.match(clockCss, /border:\s*0\s*!important/,
     'Clock must not draw a horizontal border');
 assert.match(clockCss, /box-shadow:\s*none\s*!important/,
