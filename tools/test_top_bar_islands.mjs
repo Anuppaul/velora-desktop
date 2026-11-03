@@ -206,6 +206,64 @@ panel._centerBox.children = [...controls[1]];
 stage.tick();
 assert.equal(center.surface.visible, true);
 
+// Narrow displays and third-party indicators can make *glass padding*
+// overlap while the native GNOME controls remain independent. Keep a true
+// visible wallpaper gap without moving/click-blocking any controls.
+const originalCenter = {x: panel._centerBox.x, y: panel._centerBox.y,
+    width: panel._centerBox.width, height: panel._centerBox.height};
+const originalRight = {x: panel._rightBox.x, width: panel._rightBox.width};
+panel._centerBox.x = 1140;
+panel._centerBox.width = 170;
+panel._rightBox.x = 1250;
+panel._rightBox.width = 290;
+stage.tick();
+assert.ok(
+    right.surface.bounds.x -
+    (center.surface.bounds.x + center.surface.bounds.w) >= 7.99,
+    'overlapping native group allocations must keep an 8px glass gap'
+);
+assert.deepEqual(panel._centerBox.children, controls[1],
+    'overlap repair must not mutate native Date Menu controls');
+panel._centerBox.x = originalCenter.x;
+panel._centerBox.width = originalCenter.width;
+panel._rightBox.x = originalRight.x;
+panel._rightBox.width = originalRight.width;
+
+// A hidden GNOME indicator remains parented during session transitions.
+// Do not leave a floating orphan-glass island behind invisible controls.
+const dateControl = controls[1][0];
+dateControl.visible = false;
+stage.tick();
+assert.equal(center.surface.visible, false,
+    'hidden native controls must hide their glass immediately');
+delete dateControl.visible;
+stage.tick();
+assert.equal(center.surface.visible, true);
+
+// GNOME can stretch a panel box when adding status indicators. Fit the
+// optical card to the real visible child allocation, not the empty box.
+const dateActor = new Actor({x: 8, y: 0, width: 120, height: 36});
+panel._centerBox.width = 410;
+panel._centerBox.add_child(dateActor);
+stage.tick();
+assert.ok(center.surface.bounds.w <= 150,
+    'glass should tightly fit the visible child, not a wide GNOME box');
+panel._centerBox.remove_child(dateActor);
+panel._centerBox.width = originalCenter.width;
+stage.tick();
+
+// Broken extensions sometimes report content extending below the panel.
+// Never let a 3-island glass material bleed onto the desktop underneath.
+panel._centerBox.y = -10;
+panel._centerBox.height = 90;
+stage.tick();
+assert.ok(center.surface.bounds.h <= panelBox.height,
+    'glass must be clipped to the real native top-panel height');
+assert.ok(center.surface.bounds.y >= 0);
+panel._centerBox.y = originalCenter.y;
+panel._centerBox.height = originalCenter.height;
+stage.tick();
+
 instance.updateAppearance();
 assert.deepEqual(glassSurfaces.map(s => s.updates), [1, 1, 1]);
 
