@@ -106,6 +106,9 @@ class MockEffect {
     setPadding(value) {this.padding = value;}
     setShadowMaxRadius(value) {this.shadowMargin = value;}
     setIsDock(value) {this.isDock = value;}
+    setSurfaceLightEnabled(enabled) {
+        this.uniformValues.set('surface_light_enabled', enabled ? 1 : 0);
+    }
     setLiveGeometryHook(callback) {this.geometryHook = callback;}
     setResolution(w, h) {this.resolution = [w, h];}
     setGlassGeometry(x, y, w, h) {this.glassGeometry = [x, y, w, h];}
@@ -261,16 +264,19 @@ assert.equal(manager.attachWidget(clock, 'frosted', 0.88), true);
 const clockSurface = manager._surfaces.get(clock);
 assert.equal(clockSurface._material.parent, clock);
 assert.equal(clockSurface._previewInTarget, true);
-assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
-    0.88, 'Frosted density must be local to this clock effect');
+// Clock follows the canonical renderer's globally synchronized Liquid/Frosted
+// uniforms. It must NEVER set vliq_frost_amount on its own effect (the former
+// code overrode global selection). The mode argument is only a semantic role.
+assert.equal(clockSurface._effect.uniformValues.has('vliq_frost_amount'), false,
+    'Clock must inherit shared Frosted settings rather than override them');
 assert.equal(manager.updateWidgetMaterial(clock, 'liquid', 0), true);
-assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
-    0, 'Liquid must restore the original lens rather than global Frosted');
+assert.equal(clockSurface._effect.uniformValues.has('vliq_frost_amount'), false,
+    'Liquid selection must still defer to the global MaterialSettings');
 assert.equal(manager._surfaces.get(second)._widgetMaterialStyle, null,
     'Clock style must never change another preview surface');
 for (const key of [
-    'rim_intensity', 'vliq_frost_edge_glow',
-    'shadow_radius', 'shadow_intensity',
+    'rim_intensity', 'ao_intensity',
+    'shadow_radius', 'shadow_intensity', 'surface_light_enabled',
 ]) {
     assert.equal(clockSurface._effect.uniformValues.get(key), 0,
         'Clock-only optical cleanup must disable ' + key);
@@ -279,8 +285,8 @@ for (const key of [
 }
 
 // The CSS on the clock itself masks child glass until the shader is ready.
-// The real LiquidEffect pipeline must trigger a clock-only readiness class
-// before native fallback paint is removed; a pending shader must never do so.
+// The actual LiquidEffect pipeline signals readiness to the shared global
+// appearance stylesheet rather than changing the clock's inline paint.
 clock.mapped = true;
 clock.emit('notify::mapped');
 clockSurface._material.mapped = true;
