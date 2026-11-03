@@ -35,17 +35,28 @@ export class DesktopClockWidget {
         if (this._actor)
             return;
 
-        const card = new St.BoxLayout({
+        // The glass material is a large 104px-padded actor. It MUST be
+        // composited as a background in BinLayout, not inserted as a child
+        // of a vertical St.BoxLayout (which can move the clock off-screen).
+        const card = new St.Widget({
             name: 'vliq-desktop-clock-card',
             style_class: 'vliq-desktop-clock',
-            vertical: true,
+            layout_manager: new Clutter.BinLayout(),
             reactive: true,
-            x_align: Clutter.ActorAlign.START,
+            width: BASE_WIDTH,
+            height: BASE_HEIGHT,
         });
         this._actor = card;
+        this._content = new St.BoxLayout({
+            style_class: 'vliq-clock-content',
+            vertical: true,
+            x_expand: true,
+            y_expand: true,
+        });
+        card.add_child(this._content);
 
-        // Gestures live on separate children, so the resize grip never
-        // conflicts with dragging the clock face.
+        // Gestures live on separate foreground children; the resize grip
+        // does not fight the clock-face drag gesture.
         this._face = new St.BoxLayout({
             style_class: 'vliq-clock-drag-surface',
             vertical: true,
@@ -59,7 +70,7 @@ export class DesktopClockWidget {
         });
         this._face.add_child(this._time);
         this._face.add_child(this._date);
-        card.add_child(this._face);
+        this._content.add_child(this._face);
 
         this._resizeGrip = new St.Button({
             style_class: 'vliq-clock-resize-grip',
@@ -68,7 +79,7 @@ export class DesktopClockWidget {
             reactive: true,
             x_align: Clutter.ActorAlign.END,
         });
-        card.add_child(this._resizeGrip);
+        this._content.add_child(this._resizeGrip);
 
         // Chrome remains above DING's desktop window. Application occlusion
         // is controlled below, so the card cannot cover normal app windows.
@@ -244,7 +255,7 @@ export class DesktopClockWidget {
         const monitor = Main.layoutManager.primaryMonitor;
         if (!monitor)
             return;
-        this._actor.set_width(BASE_WIDTH);
+        this._actor.set_size(BASE_WIDTH, BASE_HEIGHT);
         this._setScale(this._settings.get_int('clock-widget-scale'));
         const {width, height} = this._renderedSize();
         const usableX = Math.max(0, monitor.width - width - 2 * EDGE_MARGIN);
@@ -398,6 +409,7 @@ export class DesktopClockWidget {
         }
         this._actor?.destroy();
         this._actor = null;
+        this._content = null;
         this._face = null;
         this._resizeGrip = null;
         this._time = null;
