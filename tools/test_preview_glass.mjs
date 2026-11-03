@@ -268,6 +268,15 @@ assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
     0, 'Liquid must restore the original lens rather than global Frosted');
 assert.equal(manager._surfaces.get(second)._widgetMaterialStyle, null,
     'Clock style must never change another preview surface');
+for (const key of [
+    'rim_intensity', 'vliq_frost_edge_glow',
+    'shadow_radius', 'shadow_intensity',
+]) {
+    assert.equal(clockSurface._effect.uniformValues.get(key), 0,
+        'Clock-only optical cleanup must disable ' + key);
+    assert.equal(manager._surfaces.get(second)._effect.uniformValues.has(key),
+        false, 'Clock optical settings must not change preview ' + key);
+}
 
 // The CSS on the clock itself masks child glass until the shader is ready.
 // The real LiquidEffect pipeline must trigger a clock-only readiness class
