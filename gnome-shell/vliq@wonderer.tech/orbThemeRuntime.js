@@ -14,6 +14,7 @@ import {SearchSurfaceManager} from './searchSurface.js';
 import {SpotlightSearchController} from './spotlightSearch.js';
 import {TerminalBackdropBlurManager} from './terminalBackdropBlur.js';
 import {QuickBrightnessManager} from './quickBrightness.js';
+import {DesktopClockWidget} from './desktopClockWidget.js';
 import {
     allocateAcrossRings,
     arcForPosition,
@@ -261,6 +262,7 @@ export default class VLIQRuntime extends Extension {
         this._spotlightSearch = null;
         this._terminalBackdropBlurManager = null;
         this._quickBrightnessManager = null;
+        this._desktopClockWidget = null;
         this._orbPageIndex = 0;
         this._orbPageCount = 1;
         this._orbPageIndicator = null;
@@ -350,6 +352,17 @@ export default class VLIQRuntime extends Extension {
             console.warn('[VLIQ][TerminalBlur] unavailable: ' + error);
         }
 
+        // Managed by the hot-swappable runtime, not extension.js: a new
+        // clock/widget module must NEVER force a GNOME Shell logout.
+        try {
+            this._desktopClockWidget = new DesktopClockWidget(this._settings);
+            this._desktopClockWidget.enable();
+        } catch (error) {
+            try { this._desktopClockWidget?.disable(); } catch {}
+            this._desktopClockWidget = null;
+            console.warn('[VLIQ][Clock] setup skipped: ' + error);
+        }
+
         this._setOrbEnabled(
             this._settings.get_boolean('orb-enabled')
         );
@@ -377,6 +390,8 @@ export default class VLIQRuntime extends Extension {
         this._cancelOrbAutoFadeTimer();
         this._cancelAppPreviewHide();
         this._hideAppPreview(true);
+        this._desktopClockWidget?.disable();
+        this._desktopClockWidget = null;
         this._quickBrightnessManager?.cleanup();
         this._quickBrightnessManager = null;
         this._terminalBackdropBlurManager?.cleanup();
