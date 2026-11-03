@@ -121,7 +121,7 @@ export class PanelGlassSurface {
                 ],
                 tintStrength: state.opacity ?? 0.02,
                 baseBlur: state.blur ?? 7,
-                cornerRadius: 0,
+                cornerRadius: this._cornerRadius,
                 brightness,
                 contrast,
                 saturation,
