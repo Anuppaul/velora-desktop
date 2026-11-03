@@ -12,6 +12,7 @@ import {
 
 const CARD_CLASS = 'vliq-liquid-shell-card';
 const PREVIEW_CARD_CLASS = 'vliq-app-preview-card';
+const CLOCK_CARD_CLASS = 'vliq-desktop-clock';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
@@ -21,6 +22,7 @@ const TARGET_CLASSES = new Set([
     'workspace-thumbnails',
     'dash-background',
     PREVIEW_CARD_CLASS,
+    CLOCK_CARD_CLASS,
 ]);
 
 const OVERVIEW_ONLY_CLASSES = new Set([
@@ -64,7 +66,11 @@ class ShellCardSurface {
         // leaves only the nearly invisible fallback. Child composition follows
         // the card's native opacity/scale automatically, without double fades.
         this._previewInTarget =
-            classesOf(target).includes(PREVIEW_CARD_CLASS);
+            classesOf(target).includes(PREVIEW_CARD_CLASS) ||
+            classesOf(target).includes(CLOCK_CARD_CLASS);
+        this._widgetMaterialStyle = null;
+        this._widgetFrostDensity = 0.88;
+        this._widgetFrostSignal = 0;
         this._overlay = null;
         this._wrappedBinParent = null;
         this._material = null;
@@ -278,7 +284,42 @@ class ShellCardSurface {
             }
         );
 
+        this._applyWidgetMaterial();
         this._material?.queue_redraw?.();
+    }
+
+    setWidgetMaterial(style, density = 0.88) {
+        this._widgetMaterialStyle = style === 'frosted' ? 'frosted' : 'liquid';
+        this._widgetFrostDensity = Math.max(0, Math.min(1, density));
+        // Vendor MaterialSettings reacts to global style on every effect.
+        // Reassert this specific widget's choice AFTER the vendor callback.
+        if (!this._widgetFrostSignal) {
+            try {
+                this._widgetFrostSignal = this._settings.connect(
+                    'changed::vliq-frost-amount',
+                    () => this._applyWidgetMaterial()
+                );
+            } catch {
+                // Compatibility with earlier renderer schema versions.
+            }
+        }
+        this._applyWidgetMaterial();
+    }
+
+    _applyWidgetMaterial() {
+        const effect = this._effect;
+        if (!effect || !this._widgetMaterialStyle)
+            return;
+        const amount = this._widgetMaterialStyle === 'frosted'
+            ? this._widgetFrostDensity : 0;
+        // This is VLIQ's vendored renderer; its local uniform is scoped to
+        // one LiquidEffect instance and does not mutate global GSettings.
+        effect._uniforms?.set?.('vliq_frost_amount', amount);
+        if (effect._frostAmount !== amount) {
+            effect._frostAmount = amount;
+            effect._applyVLIQBlurRadius?.();
+        }
+        effect.queue_repaint?.();
     }
 
     _ensureSceneManager() {
@@ -600,6 +641,10 @@ class ShellCardSurface {
             } catch {}
         }
 
+        if (this._widgetFrostSignal) {
+            try { this._settings.disconnect(this._widgetFrostSignal); } catch {}
+            this._widgetFrostSignal = 0;
+        }
         this._releaseSceneManager();
 
         let safeToDestroyOverlay = true;
@@ -813,6 +858,21 @@ export class ShellCardGlassManager {
             return false;
         this._maybeAttach(actor);
         return this._surfaces.has(actor);
+    }
+
+    attachWidget(actor, style = 'liquid', density = 0.88) {
+        if (!this._enabled || !classesOf(actor).includes(CLOCK_CARD_CLASS))
+            return false;
+        this._maybeAttach(actor);
+        const surface = this._surfaces.get(actor);
+        surface?.setWidgetMaterial(style, density);
+        return Boolean(surface);
+    }
+
+    updateWidgetMaterial(actor, style, density = 0.88) {
+        const surface = this._surfaces.get(actor);
+        surface?.setWidgetMaterial(style, density);
+        return Boolean(surface);
     }
 
     _maybeAttach(actor) {
