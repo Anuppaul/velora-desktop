@@ -96,6 +96,8 @@ class MockEffect {
     constructor({owner}) {
         this.owner = owner;
         this.glassGeometry = null;
+        this._shadersLoaded = false;
+        this._pipelines = {composite: null};
         this.uniformValues = new Map();
         this._uniforms = {
             set: (name, value) => this.uniformValues.set(name, value),
@@ -266,7 +268,24 @@ assert.equal(clockSurface._effect.uniformValues.get('vliq_frost_amount'),
     0, 'Liquid must restore the original lens rather than global Frosted');
 assert.equal(manager._surfaces.get(second)._widgetMaterialStyle, null,
     'Clock style must never change another preview surface');
+
+// The CSS on the clock itself masks child glass until the shader is ready.
+// The real LiquidEffect pipeline must trigger a clock-only readiness class
+// before native fallback paint is removed; a pending shader must never do so.
+clock.mapped = true;
+clock.emit('notify::mapped');
+clockSurface._material.mapped = true;
+stage.update();
+assert.equal(clock._classes.has('vliq-clock-glass-ready'), false,
+    'do not clear native fallback while GPU material is not ready');
+clockSurface._effect._shadersLoaded = true;
+clockSurface._effect._pipelines.composite = {};
+stage.update();
+assert.equal(clock._classes.has('vliq-clock-glass-ready'), true,
+    'compiled LiquidEffect must reveal the real glass, not CSS overlay');
 clock.destroy();
+assert.equal(clock._classes.has('vliq-clock-glass-ready'), false,
+    'teardown must clear old shader readiness state');
 assert.equal(manager._surfaces.has(clock), false,
     'destroying clock must release its dedicated glass surface');
 assert.equal(manager._surfaces.size, 1);
