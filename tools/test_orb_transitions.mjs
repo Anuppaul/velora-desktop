@@ -264,6 +264,165 @@ for (const monitor of monitors) {
 }
 assert.equal(fittedCases, 75, '75 shape/monitor/position combinations');
 
+// Orb pan regression: test the shipped drag signal wiring with a moving
+// native Orb actor, including hidden-edge reveal, reversal and stage clamps.
+// The glass card is drawn in another layer and must follow the very same
+// native actor position, without an in-flight auto-hide ease animation.
+const orbSource = await readFile(new URL(
+    '../gnome-shell/vliq@wonderer.tech/orbThemeRuntime.js',
+    import.meta.url
+), 'utf8');
+const dragStart = orbSource.indexOf(
+    '        this._panGesture = new Clutter.PanGesture();');
+const dragEnd = orbSource.indexOf(
+    '    _setOrbVisualPseudoClass(name, enabled) {', dragStart);
+assert.ok(dragStart >= 0 && dragEnd > dragStart);
+const actualDragWiring = orbSource.slice(dragStart, dragEnd);
+class MockPan {
+    constructor() {this.handlers = new Map(); this.pointer = null;}
+    set_required_button() {}
+    set_begin_threshold() {}
+    connect(event, callback) {this.handlers.set(event, callback);}
+    emit(event) {return this.handlers.get(event)?.(this);}
+    get_centroid_abs() {
+        if (this.pointer === null)
+            return null;
+        return {
+            get_x: () => this.pointer[0],
+            get_y: () => this.pointer[1],
+        };
+    }
+    get_delta_abs() {
+        return {
+            get_x: () => this.dx,
+            get_y: () => this.dy,
+        };
+    }
+}
+const Grab = {dismissed: false, dismiss() {this.dismissed = true;}};
+const Wiring = new Function('Clutter', 'GLib', 'global',
+    'return class Wiring { _wire() {\n' +
+    actualDragWiring + '\n}'
+)({
+    PanGesture: MockPan, BUTTON_PRIMARY: 1, EVENT_STOP: 1,
+}, {get_monotonic_time: () => 1000000}, {
+    stage: {grab: () => Grab},
+});
+function makePanRuntime(hidden = false) {
+    const o = new Wiring();
+    let px = hidden ? -42 : 80;
+    let py = hidden ? 180 : 90;
+    o._orb = {
+        get_position() {return [px, py];},
+        set_position(x, y) {px = x; py = y;},
+        remove_all_transitions() {this.transitionsCancelled = true;},
+        fake_release() {},
+        add_action(action) {this.action = action;},
+    };
+    o._orbHidden = hidden;
+    o._settings = {get_int: () => 50};
+    o._dragging = false;
+    o._liquidGlassIntegration = {
+        states: [],
+        setOrbDragging(active) {this.states.push(active);},
+    };
+    o._clampPositionToVisibleMonitor = (x, y) => [
+        Math.max(0, Math.min(590, x)),
+        Math.max(0, Math.min(350, y)),
+    ];
+    o._clampOrbToStage = function() {
+        const [x, y] = this._orb.get_position();
+        this._orb.set_position(
+            ...this._clampPositionToVisibleMonitor(x, y)
+        );
+    };
+    o._storeOrbPosition = function() {this.stored = this._orb.get_position();};
+    o._syncOrbFromSettings = () => {
+        throw new Error('must not teleport hidden handle to saved position');
+    };
+    for (const method of [
+        '_cancelOpenTimer', '_cancelCloseTimer',
+        '_cancelOrbAutoHideTimer', '_cancelOrbAutoFadeTimer',
+        '_restoreOrbOpacity', '_closeMenu', '_setOrbVisualPseudoClass',
+        '_scheduleOrbAutoHide', '_scheduleOrbAutoFade',
+    ])
+        o[method] = () => {};
+    o._wire();
+    return o;
+}
+const drag = makePanRuntime();
+drag._panGesture.pointer = [230, 240];
+drag._panGesture.emit('recognize');
+assert.deepEqual(drag._liquidGlassIntegration.states, [true]);
+assert.equal(drag._orb.transitionsCancelled, true);
+drag._panGesture.pointer = [250, 263];
+drag._panGesture.emit('pan-update');
+assert.deepEqual(drag._orb.get_position(), [100, 113]);
+drag._panGesture.pointer = [260, 292];
+drag._panGesture.emit('pan-update');
+assert.deepEqual(drag._orb.get_position(), [110, 142]);
+drag._panGesture.pointer = [1000, 1200];
+drag._panGesture.emit('pan-update');
+assert.deepEqual(drag._orb.get_position(), [590, 350]);
+drag._panGesture.pointer = [240, 243];
+drag._panGesture.emit('pan-update');
+assert.deepEqual(drag._orb.get_position(), [90, 93],
+    'reversing from a clamped edge must use original pointer anchor');
+drag._panGesture.emit('end');
+assert.deepEqual(drag._liquidGlassIntegration.states, [true, false]);
+assert.deepEqual(drag.stored, [90, 93]);
+assert.equal(Grab.dismissed, true);
+
+const hiddenDrag = makePanRuntime(true);
+hiddenDrag._panGesture.pointer = [4, 205];
+hiddenDrag._panGesture.emit('recognize');
+assert.deepEqual(hiddenDrag._orb.get_position(), [0, 180],
+    'hidden handle expands in place; no jump to saved settings');
+assert.equal(hiddenDrag._orbHidden, false);
+hiddenDrag._panGesture.pointer = [22, 235];
+hiddenDrag._panGesture.emit('pan-update');
+assert.deepEqual(hiddenDrag._orb.get_position(), [18, 210]);
+hiddenDrag._panGesture.emit('cancel');
+assert.deepEqual(hiddenDrag._liquidGlassIntegration.states, [true, false]);
+
+const legacyDrag = makePanRuntime();
+legacyDrag._panGesture.pointer = null;
+legacyDrag._panGesture.emit('recognize');
+legacyDrag._panGesture.dx = 7;
+legacyDrag._panGesture.dy = -4;
+legacyDrag._panGesture.emit('pan-update');
+assert.deepEqual(legacyDrag._orb.get_position(), [87, 86],
+    'GNOME legacy per-event delta fallback remains incremental');
+legacyDrag._panGesture.emit('end');
+
+// Moving Orb capture should use a stable overscanned cull region. The
+// previous exact-pixel clip changed every pan event while the texture
+// compositor could still be rendering the preceding offscreen snapshot.
+const glassDragging = new OrbGlass({
+    vendor: {}, settings: {}, readAppearance: () => ({}),
+});
+glassDragging._batches = [{lastCullRect: [1, 1, 1, 1]}];
+const queued = [];
+glassDragging._root = {queue_redraw() {queued.push(true);}};
+glassDragging.setDragActive(true);
+assert.equal(glassDragging._dragActive, true);
+assert.equal(glassDragging._batches[0].lastCullRect, null);
+const cull1 = glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 0);
+const cull2 = glassDragging._captureCullRect(
+    110, 120, 190, 200, 1280, 720, 0);
+assert.deepEqual(cull1, cull2, 'capture clip stable for small drag');
+assert.deepEqual(glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 1), [100, 100, 80, 80],
+'only Orb batch uses stable drag capture');
+glassDragging.setDragActive(false);
+assert.equal(glassDragging._dragActive, false);
+assert.equal(glassDragging._glyphSampleDirty, true);
+assert.deepEqual(glassDragging._captureCullRect(
+    100, 100, 180, 180, 1280, 720, 0), [100, 100, 80, 80],
+'stopped drag returns to efficient exact capture');
+assert.equal(queued.length, 2);
+
 // Check that the native Overview shader radius does not toggle while the
 // first Apps grid is opening or when switching between Overview states.
 const Backdrop = await loadClass(
