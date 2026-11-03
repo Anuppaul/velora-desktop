@@ -481,6 +481,7 @@ export class LiquidGlassIntegration {
         this._clockPanelGlass = null;
         this._clockPanelTarget = null;
         this._clockPanelFrameId = 0;
+        this._clockPanelReadyReported = false;
         this._appGridBackdropManager = null;
         this._wallpaperAtmosphereManager = null;
         this._overviewCloseGlassManager = null;
@@ -582,6 +583,7 @@ export class LiquidGlassIntegration {
             }
             this._clockPanelGlass = glass;
             this._clockPanelTarget = target;
+            this._clockPanelReadyReported = false;
             // Same damage-budgeted 24fps frame sync as the real native
             // panel. The callback is removed on disable/hot-reload.
             this._clockPanelFrameId = global.stage.connect(
@@ -643,10 +645,15 @@ export class LiquidGlassIntegration {
         }
 
         glass.setBounds(absX - parentX, absY - parentY, width, height, 255);
-        if (glass.ready)
+        if (glass.ready) {
             card.add_style_class_name?.('vliq-clock-panel-glass-ready');
-        else
+            if (!this._clockPanelReadyReported) {
+                this._clockPanelReadyReported = true;
+                console.log('[VLIQ][Clock] native panel glass first composite READY');
+            }
+        } else {
             card.remove_style_class_name?.('vliq-clock-panel-glass-ready');
+        }
     }
 
     detachClockWidgetGlass(target = null) {
@@ -664,6 +671,7 @@ export class LiquidGlassIntegration {
         try { this._clockPanelGlass?.destroy(); } catch {}
         this._clockPanelGlass = null;
         this._clockPanelTarget = null;
+        this._clockPanelReadyReported = false;
     }
 
     attachPreviewGlass(target) {
