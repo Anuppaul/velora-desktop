@@ -158,10 +158,14 @@ export class DesktopClockWidget {
                     monitor.y + Math.max(0, monitor.height - size.height)
                 );
                 this._actor.set_position(Math.round(x), Math.round(y));
+                // Clutter.PanGesture returns the delta since the previous
+                // update. Keep the unrounded position for smooth motion.
+                interaction.x = x;
+                interaction.y = y;
             } else {
                 const next = clamp(
                     Math.round(
-                        interaction.scale +
+                        this._currentScale +
                         ((dx + dy) / 2 / BASE_WIDTH) * 100
                     ),
                     MIN_SCALE,
