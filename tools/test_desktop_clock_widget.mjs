@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 
 // Test the shipped GJS widget without GNOME Shell by substituting only its
 // native Clutter/St/GSettings dependencies. This protects drag semantics,
-// fixed card geometry, local glass material selection and teardown.
+// fixed card geometry, global glass material selection and teardown.
 const source = (await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/desktopClockWidget.js', import.meta.url
 ), 'utf8'))
@@ -47,7 +47,8 @@ class Settings {
         this.values = {
             'clock-widget-enabled': true,
             'clock-widget-24h': false,
-            'clock-widget-style': 'liquid',
+            'glass-style': 'liquid',
+            'clock-widget-style': 'frosted', // legacy setting must be ignored
             'clock-widget-x': 0.30,
             'clock-widget-y': 0.30,
             'frost-density': 88,
@@ -140,7 +141,10 @@ move.emit('end');
 assert.ok(settings.get_double('clock-widget-x') > 0.30,
     'freehand position must persist');
 
-settings.set_string('clock-widget-style', 'frosted');
+settings.set_string('clock-widget-style', 'liquid');
+assert.equal(updates.at(-1), 'attach:liquid',
+    'legacy per-clock material must not override Appearance');
+settings.set_string('glass-style', 'frosted');
 assert.ok(updates.includes('update:frosted'),
     'Frosted Crystal must use the shared glass renderer');
 settings.set_int('frost-density', 72);
@@ -171,10 +175,14 @@ const stylesheet = await readFile(new URL(
 assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
 assert.doesNotMatch(stylesheet, /\.vliq-clock-resize-grip/,
     'resize CSS must be absent');
-assert.match(stylesheet, /\.vliq-clock-glass-ready/,
-    'CSS must expose the shader once it is really ready');
-assert.match(stylesheet, /background-color:\s*rgba\(228, 240, 255, 0\.13\)/,
-    'clock must not become fully transparent while shader compiles');
+assert.match(stylesheet, /\\.vliq-clock-glass-ready/,
+    'CSS must retain a visible card while the shader runs');
+assert.match(stylesheet, /background-color:\\s*rgba\\(236, 244, 255, 0\\.16\\)/,
+    'Liquid Glass clock card must remain translucent and visible');
+assert.match(stylesheet, /background-color:\\s*rgba\\(239, 245, 255, 0\\.38\\)/,
+    'Frosted Crystal clock card must use a denser material');
+assert.doesNotMatch(stylesheet, /vliq-clock-glass-ready[^}]*background-color:\\s*transparent/,
+    'ready shader must never erase the Clock card');
 
 // Even if shared GPU material construction throws, the desktop card should
 // remain visible and draggable as native St actors (no GNOME logout needed).
