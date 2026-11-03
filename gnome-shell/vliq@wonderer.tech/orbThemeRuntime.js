@@ -1508,8 +1508,11 @@ export default class VLIQRuntime extends Extension {
                     break;
 
                 if (
+                    // 63 apps maximum per visible shader page. Avoid
+                    // chasing thousands of installed apps on one page,
+                    // which can compress geometry needlessly.
                     candidateCapacity >=
-                    requestedApps.length
+                    Math.min(requestedApps.length, MAX_VISIBLE_ORB_APPS)
                 ) {
                     break;
                 }
@@ -1534,6 +1537,9 @@ export default class VLIQRuntime extends Extension {
                 if (stagnantDepths >= 2)
                     break;
             }
+            // On small monitors/at corners, fitGeometryGroups can drop
+            // complete outer levels. Use the actual fitted slot depth.
+            rings = slotRings.length;
             this._orbPageSession = {
                 apps: requestedApps,
                 rings,
@@ -1592,13 +1598,17 @@ export default class VLIQRuntime extends Extension {
             placements = [];
             for (
                 let ring = 0;
-                ring < rings;
+                ring < slotRings.length;
                 ring++
             ) {
+                const slots = slotRings[ring] ?? [];
+                const count = counts[ring] ?? 0;
+                if (!slots.length || count <= 0)
+                    continue;
                 const selectedSlots =
                     selectGeometrySlots(
-                        slotRings[ring],
-                        counts[ring],
+                        slots,
+                        count,
                         geometry,
                         layoutArc
                     );
