@@ -66,6 +66,7 @@ const DATE_CARD_TEXT_DARK_CLASS = 'vliq-date-card-text-dark';
 const QUICK_CARD_TEXT_LIGHT_CLASS = 'vliq-quick-card-text-light';
 const QUICK_CARD_TEXT_DARK_CLASS = 'vliq-quick-card-text-dark';
 const QUICK_ACTIVE_CLASS = 'vliq-quick-active';
+const QUICK_HOTSPOT_CLASS = 'vliq-quick-hotspot';
 const DATE_CARD_SAMPLE_GRID = 28;
 // Shared by every Date Menu and Quick Settings card. Bright coloured glass
 // is NOT neutral white: it must keep white text regardless of luminance.
@@ -747,41 +748,54 @@ class PopupGlassSurface {
         this._lastScreenH = 0;
     }
 
-    _applyQuickThemeForegroundPolarity() {
-        if (
-            !this._isQuickSettings ||
-            !this._box
-        ) {
+    _quickHotspotToggle() {
+        // GNOME 50 Wi-Fi is a QuickMenuToggle. Its binding source is an
+        // NMWirelessDeviceItem (is_hotspot = true when sharing Wi-Fi).
+        // Avoid localized titles, new actors, and NetworkManager polling.
+        return Main.panel?.statusArea?.quickSettings
+            ?._network?._wirelessToggle ?? null;
+    }
+
+    _syncQuickHotspotState() {
+        if (!this._isQuickSettings)
             return;
-        }
 
-        try {
-            this._box.ensure_style?.();
-            const color =
-                this._box.get_theme_node?.()
-                    ?.get_foreground_color?.();
-            if (!color)
-                return;
+        const toggle = this._quickHotspotToggle();
+        if (!toggle || !this._dateCardActors.includes(toggle))
+            return;
 
-            const luma = rgbLuminance(
-                color.red,
-                color.green,
-                color.blue
-            );
+        const hotspotActive =
+            toggle._itemBinding?.source?.is_hotspot === true;
+        const marked =
+            toggle.has_style_class_name?.(QUICK_HOTSPOT_CLASS) === true;
+        if (hotspotActive === marked)
+            return;
 
-            // Light theme foreground is dark -> use dark text. Dark theme
-            // foreground is light -> use light text.
-            const useDarkText = luma < 0.5;
+        if (hotspotActive)
+            toggle.add_style_class_name?.(QUICK_HOTSPOT_CLASS);
+        else
+            toggle.remove_style_class_name?.(QUICK_HOTSPOT_CLASS);
 
-            for (const actor of this._dateCardActors) {
-                if (actor?.visible && actor?.mapped)
-                    this._applyDateCardTextPolarity(
-                        actor,
-                        useDarkText
-                    );
-            }
-        } catch {
-            // Backdrop sampling remains the correction path.
+        // First paint stays white until the existing screenshot samples
+        // the hotspot tile's actual glass backdrop.
+        if (hotspotActive &&
+            !this._dateCardTextState.has(toggle))
+            this._applyDateCardTextPolarity(toggle, false);
+    }
+
+    _applyQuickThemeForegroundPolarity() {
+        if (!this._isQuickSettings || !this._box)
+            return;
+
+        this._syncQuickHotspotState();
+
+        // A GNOME theme's foreground isn't the rendered glass background.
+        // Preserve the sampled polarity, falling back to white until a
+        // near-white background has actually been measured.
+        for (const actor of this._dateCardActors) {
+            if (actor?.visible && actor?.mapped &&
+                !this._dateCardTextState.has(actor))
+                this._applyDateCardTextPolarity(actor, false);
         }
     }
 
@@ -914,6 +928,16 @@ class PopupGlassSurface {
                 this._dateInnerRoot?.queue_redraw?.();
         };
 
+        const hotspotSignals =
+            actor === this._quickHotspotToggle()
+                ? [
+                    'notify::title',
+                    'notify::subtitle',
+                    'notify::icon-name',
+                    'notify::menu-enabled',
+                ]
+                : [];
+
         for (const signal of [
             'style-changed',
             'notify::checked',
@@ -921,6 +945,7 @@ class PopupGlassSurface {
             'notify::visible',
             'notify::mapped',
             'notify::allocation',
+            ...hotspotSignals,
         ]) {
             try {
                 const id = actor.connect(
@@ -1054,6 +1079,10 @@ class PopupGlassSurface {
         this._dateCardActors =
             found.map(item => item.actor);
 
+        // Hotspot uses GNOME's existing Wi-Fi tile, never a second tile.
+        if (this._isQuickSettings)
+            this._syncQuickHotspotState();
+
         // Initial paint is always white. An actual near-white sample is the
         // only event that may switch a card to black; avoid a theme-colour
         // flash while the asynchronous screenshot is in flight.
@@ -1101,6 +1130,9 @@ class PopupGlassSurface {
                 );
                 actor.remove_style_class_name?.(
                     QUICK_CARD_TEXT_DARK_CLASS
+                );
+                actor.remove_style_class_name?.(
+                    QUICK_HOTSPOT_CLASS
                 );
             } catch {}
             this._dateCardTextState.delete(actor);
@@ -1197,6 +1229,9 @@ class PopupGlassSurface {
 
         if (allowScan)
             this._scanDateCardActors(false);
+
+        if (this._isQuickSettings)
+            this._syncQuickHotspotState();
 
         const appearanceProfile =
             this._surfaceAdapter?.appearanceProfile ??
@@ -2701,6 +2736,9 @@ class PopupGlassSurface {
                     );
                     actor.remove_style_class_name?.(
                         QUICK_ACTIVE_CLASS
+                    );
+                    actor.remove_style_class_name?.(
+                        QUICK_HOTSPOT_CLASS
                     );
 
                     if (this._isQuickSettings) {
