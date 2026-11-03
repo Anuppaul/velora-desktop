@@ -2117,11 +2117,12 @@ export class LiquidGlassIntegration {
             this._readSystemAccentColor();
         const accentColor = systemAccent.color;
         const css =
-            '/* VLIQ semantic accent: use the actual desktop Appearance setting, not a stale Shell/Yaru token. */\n' +
+            '/* VLIQ semantic accent: preserve the desktop accent on the filled Today background, with white glyphs. */\n' +
             '.vliq-liquid-popup-content.datemenu-popover .calendar-day.calendar-today,\n' +
             '.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-light .calendar-day.calendar-today,\n' +
             '.vliq-liquid-popup-content.datemenu-popover .vliq-date-card-text-dark .calendar-day.calendar-today {\n' +
-            '  color: ' + accentColor + ' !important;\n' +
+            '  background-color: ' + accentColor + ' !important;\n' +
+            '  color: #ffffff !important;\n' +
             '}\n' +
             '.vliq-liquid-popup-content.quick-settings .vliq-quick-active StLabel,\n' +
             '.vliq-liquid-popup-content.quick-settings .vliq-quick-active .quick-toggle-title,\n' +
