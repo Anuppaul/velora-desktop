@@ -21,6 +21,10 @@ class Actor {
         this.children = [];
         this.classes = new Set();
         this.handlers = new Map();
+        this.clutter_text = {
+            alignment: null,
+            set_line_alignment: value => {this.clutter_text.alignment = value;},
+        };
     }
     add_child(child) {this.children.push(child);}
     add_action(action) {this.action = action;}
@@ -82,7 +86,7 @@ const monitor = {x: 0, y: 0, width: 1920, height: 1080};
 let windows = [];
 
 const Calendar = new Function(
-    'GLib', 'Meta', 'St', 'Clutter', 'Main', 'global', 'console',
+    'GLib', 'Meta', 'St', 'Clutter', 'Main', 'global', 'console', 'Pango',
     source + '\nreturn DesktopCalendarWidget;'
 )(
     {
@@ -95,7 +99,7 @@ const Calendar = new Function(
         })},
     },
     {WindowType: {DESKTOP: 1, DOCK: 2, NORMAL: 3}},
-    {Widget: Actor, BoxLayout: Actor, Label: Actor, Button: Actor},
+    {Widget: Actor, BoxLayout: Actor, Label: Actor, Button: Actor, Bin: Actor},
     {ActorAlign: {CENTER: 0, FILL: 1}, BUTTON_PRIMARY: 1,
         EVENT_STOP: 1, EVENT_PROPAGATE: 0,
         BinLayout: class BinLayout {}, PanGesture},
@@ -105,7 +109,8 @@ const Calendar = new Function(
     {stage: {grab: () => ({dismiss: () => dismissed++})},
     workspace_manager: {get_active_workspace: () => 7},
     get_window_actors: () => windows},
-    {log() {}, warn() {}}
+    {log() {}, warn() {}},
+    {Alignment: {CENTER: 1}}
 );
 const calendar = new Calendar(settings, {
     attachCalendarWidgetGlass: (_actor) => {
@@ -121,6 +126,28 @@ assert.equal(calendar._actor.width, 326);
 assert.equal(calendar._actor.height, 342);
 assert.equal(calendar._days.length, 42,
     'all months must share the same 6x7 layout');
+
+// Every date badge is a fixed 30px square centered in an identical 40px
+// column. The weekday labels use those SAME columns, preventing today's
+// highlighted box drifting away from its weekday position.
+const calendarContent = calendar._actor.children[0];
+const weekdayCells = calendarContent.children[1].children;
+assert.equal(weekdayCells.length, 7);
+const dateCells = calendar._grid.children[0].children;
+assert.equal(dateCells.length, 7);
+for (let col = 0; col < 7; col++) {
+    assert.equal(weekdayCells[col].width, 40);
+    assert.equal(dateCells[col].width, 40);
+    assert.equal(weekdayCells[col].x_expand, true);
+    assert.equal(dateCells[col].x_expand, true);
+    assert.equal(weekdayCells[col].child.clutter_text.alignment, 1);
+    assert.equal(dateCells[col].child, calendar._days[col]);
+    assert.equal(dateCells[col].child.clutter_text.alignment, 1);
+}
+for (const label of calendar._days) {
+    assert.equal(label.width, 30, 'all date cells have a uniform badge width');
+    assert.equal(label.height, 30, 'all date cells have a uniform badge height');
+}
 assert.equal(calendar._actor.visible, true);
 assert.ok(updates.includes('attach'));
 assert.equal(settings.handlers.size, 5);
@@ -135,6 +162,13 @@ assert.equal(calendar._days[firstWeekday + days - 1].text, String(days));
 assert.equal(calendar._days.filter(day =>
     day.classes.has('vliq-calendar-today')).length, 1,
 'current month must mark exactly one today cell');
+const todayIndex = firstWeekday + now.getDate() - 1;
+const todayCell = calendar._grid.children[Math.floor(todayIndex / 7)]
+    .children[todayIndex % 7];
+assert.equal(todayCell.child, calendar._days[todayIndex],
+    'today highlight must be centered in its weekday column');
+assert.equal(todayCell.width, weekdayCells[todayIndex % 7].width,
+    'today badge and weekday header must share the same column alignment');
 
 const initialMonth = calendar._monthTitle.text;
 calendar._next.click();
@@ -194,4 +228,6 @@ const css = await readFile(new URL(
 ), 'utf8');
 assert.match(css, /\.vliq-calendar-card\.vliq-calendar-panel-glass-ready/);
 assert.match(css, /\.vliq-calendar-today\s*\{/);
-console.log('Calendar widget: date grid, navigation, drag, persistence, global glass and cleanup PASS.');
+assert.match(css, /\.vliq-calendar-cell\s*\{\s*min-width:\s*40px/);
+assert.match(css, /\.vliq-calendar-day\s*\{\s*min-width:\s*30px;\s*min-height:\s*30px/);
+console.log('Calendar widget: aligned today badge, date grid, navigation, drag, glass and cleanup PASS.');
