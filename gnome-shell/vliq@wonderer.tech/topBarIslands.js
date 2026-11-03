@@ -92,7 +92,7 @@ export class TopBarIslands {
                 }
                 actor.add_style_class_name('vliq-panel-island');
                 actor.add_style_class_name('vliq-panel-island-' + role);
-                this._regions.push({role, actor, surface, ready: false});
+                this._regions.push({role, actor, surface, ready: false, inactive: false});
             }
 
             this._enabled = true;
@@ -148,6 +148,13 @@ export class TopBarIslands {
 
     _hideRegion(region) {
         region.surface.hide();
+        // Material opacity alone is insufficient: the native box still
+        // paints its 13% CSS fallback even if every indicator is hidden.
+        // Mark the box inactive until it has valid visible content again.
+        if (!region.inactive) {
+            region.actor.add_style_class_name('vliq-panel-island-inactive');
+            region.inactive = true;
+        }
         if (region.ready) {
             region.actor.remove_style_class_name('vliq-panel-island-ready');
             region.ready = false;
@@ -277,6 +284,12 @@ export class TopBarIslands {
                 this._hideRegion(region);
                 continue;
             }
+            if (region.inactive) {
+                region.actor.remove_style_class_name(
+                    'vliq-panel-island-inactive'
+                );
+                region.inactive = false;
+            }
             region.surface.setBounds(
                 left - hostX, top - hostY, width, height, opacity
             );
@@ -320,6 +333,7 @@ export class TopBarIslands {
             try { region.surface.destroy(); } catch {}
             for (const name of [
                 'vliq-panel-island-ready',
+                'vliq-panel-island-inactive',
                 'vliq-panel-island-' + region.role,
                 'vliq-panel-island',
             ]) {
