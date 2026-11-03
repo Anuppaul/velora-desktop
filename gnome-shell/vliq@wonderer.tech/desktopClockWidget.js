@@ -151,6 +151,7 @@ export class DesktopClockWidget {
             this._interaction.y = y;
             this._actor.set_position(Math.round(x), Math.round(y));
             this._updateBounds();
+            this._glassIntegration?.syncClockWidgetGlass?.(this._actor);
         });
 
         const finish = () => {
@@ -306,8 +307,9 @@ export class DesktopClockWidget {
         this._actor.visible = Boolean(this._interaction) ||
             this._isDesktopExposed();
         this._updateBounds();
-        // Retry only after Clutter maps the actor. One existing second
-        // tick is enough; do not add another polling loop.
+        // The bounded panel material is a sibling of the card. Keep its
+        // visibility/geometry in sync so it never floats over app windows.
+        this._glassIntegration?.syncClockWidgetGlass?.(this._actor);
         if (this._actor.visible && !this._materialAttached &&
             this._actor.mapped !== false)
             this._setMaterial();
@@ -327,6 +329,9 @@ export class DesktopClockWidget {
             Main.layoutManager.disconnect(this._monitorSignal);
             this._monitorSignal = 0;
         }
+        // Sibling glass MUST be detached before the card is destroyed.
+        // It is never owned by the card's own Clutter child tree.
+        this._glassIntegration?.detachClockWidgetGlass?.(this._actor);
         this._actor?.destroy();
         this._actor = null;
         this._content = null;
