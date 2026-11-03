@@ -10,6 +10,7 @@ const RADIUS = 16;
 const INSET_Y = 2;
 const SIDE_MARGIN = 6;
 const ISLAND_PAD_X = 9;
+const ISLAND_GAP = 8;
 const MIN_WIDTH = 22;
 const MIN_HEIGHT = 14;
 const REGIONS = Object.freeze([
@@ -106,7 +107,10 @@ export class TopBarIslands {
                 [layout.panelBox, 'notify::visible'],
                 [panel, 'notify::mapped'],
                 [this._display, 'in-fullscreen-changed'],
-                ...actors.map(({actor}) => [actor, 'child-added']),
+                ...actors.flatMap(({actor}) => [
+                    [actor, 'child-added'],
+                    [actor, 'child-removed'],
+                ]),
             ]) {
                 try {
                     if (!actor?.connect)
@@ -168,21 +172,66 @@ export class TopBarIslands {
             host.get_transformed_position?.() ?? [0, 0];
         const leftLimit = monitor.x + SIDE_MARGIN;
         const rightLimit = monitor.x + monitor.width - SIDE_MARGIN;
-        const topLimit = monitor.y;
-        const bottomLimit = monitor.y + monitor.height;
+        // Stay inside the native panel's real allocation. A large or
+        // late-loading indicator may report bounds extending into desktop;
+        // its glass must NEVER become a tall semi-fullscreen overlay.
+        const [, panelY] = this._layout?.panelBox
+            ?.get_transformed_position?.() ?? [NaN, NaN];
+        const [, panelHeight] = this._layout?.panelBox
+            ?.get_transformed_size?.() ?? [0, 0];
+        const nativePanelY = Number.isFinite(panelY)
+            ? panelY : monitor.y;
+        const topLimit = Math.max(monitor.y, nativePanelY);
+        const bottomLimit = Math.min(
+            monitor.y + monitor.height,
+            nativePanelY + (
+                Number.isFinite(panelHeight) && panelHeight > 1
+                    ? panelHeight : (this._panel.height ?? 36)
+            )
+        );
 
+        const proposals = [];
         for (const region of this._regions) {
             const actor = region.actor;
+            const children = actor?.get_children?.() ?? [];
+            // GNOME sometimes keeps an empty/hidden system-indicator group
+            // mapped at the previous allocation. It must not retain an
+            // orphaned glass island.
+            const visibleChildren = children.filter(child =>
+                child && child.visible !== false && child.mapped !== false
+            );
             if (!actor || actor.visible === false || actor.mapped === false ||
-                actor.get_children?.().length === 0) {
+                visibleChildren.length === 0) {
                 this._hideRegion(region);
                 continue;
             }
 
-            const [x, y] =
-                actor.get_transformed_position?.() ?? [NaN, NaN];
-            const [width, height] =
-                actor.get_transformed_size?.() ?? [NaN, NaN];
+            // GNOME panel group allocations can stretch beyond their buttons.
+            // Prefer the bounds of actual visible children; this keeps the
+            // glass tight around Activities, Date Menu and Quick Settings
+            // rather than turning an expanded native box into a wide sheet.
+            const bounds = [];
+            for (const child of visibleChildren) {
+                const [cx, cy] =
+                    child.get_transformed_position?.() ?? [NaN, NaN];
+                const [cw, ch] =
+                    child.get_transformed_size?.() ?? [NaN, NaN];
+                if ([cx, cy, cw, ch].every(Number.isFinite) &&
+                    cw > 0 && ch > 0)
+                    bounds.push([cx, cy, cx + cw, cy + ch]);
+            }
+            let x, y, width, height;
+            if (bounds.length) {
+                x = Math.min(...bounds.map(b => b[0]));
+                y = Math.min(...bounds.map(b => b[1]));
+                width = Math.max(...bounds.map(b => b[2])) - x;
+                height = Math.max(...bounds.map(b => b[3])) - y;
+            } else {
+                [x, y] =
+                    actor.get_transformed_position?.() ?? [NaN, NaN];
+                [width, height] =
+                    actor.get_transformed_size?.() ?? [NaN, NaN];
+            }
             if (![x, y, width, height].every(Number.isFinite) ||
                 width < MIN_WIDTH || height < MIN_HEIGHT ||
                 x >= rightLimit || x + width <= leftLimit) {
@@ -190,34 +239,54 @@ export class TopBarIslands {
                 continue;
             }
 
-            // Leave a visible wallpaper gap between the three panels.
-            // Keep the glass strictly within the monitor and the panel's
-            // own height; the native buttons keep their original hit targets.
-            const bx = clamp(x - ISLAND_PAD_X, leftLimit, rightLimit);
-            const right = clamp(x + width + ISLAND_PAD_X,
-                bx, rightLimit);
-            const by = clamp(y + INSET_Y, topLimit, bottomLimit);
-            const bottom = clamp(y + height - INSET_Y,
-                by, bottomLimit);
-            const w = right - bx;
-            const h = bottom - by;
-            if (w < MIN_WIDTH || h < MIN_HEIGHT) {
+            const left = clamp(x - ISLAND_PAD_X, leftLimit, rightLimit);
+            const right = clamp(x + width + ISLAND_PAD_X, left, rightLimit);
+            const top = clamp(y + INSET_Y, topLimit, bottomLimit);
+            const bottom = clamp(y + height - INSET_Y, top, bottomLimit);
+            if (right - left < MIN_WIDTH || bottom - top < MIN_HEIGHT) {
                 this._hideRegion(region);
                 continue;
             }
+            proposals.push({
+                region, left, right, top, bottom,
+                opacity: actor.get_paint_opacity?.() ?? actor.opacity ?? 255,
+            });
+        }
 
+        // On narrow monitors or with extra indicator extensions, GNOME's
+        // left/center/right allocations can come close enough that 9px glass
+        // padding makes surfaces visually merge. Leave an 8px true wallpaper
+        // gap WITHOUT reparenting, clipping or moving native input actors.
+        proposals.sort((a, b) => a.left - b.left);
+        for (let i = 1; i < proposals.length; i++) {
+            const previous = proposals[i - 1];
+            const current = proposals[i];
+            if (previous.right + ISLAND_GAP <= current.left)
+                continue;
+            const boundary = (previous.right + current.left) / 2;
+            previous.right = Math.min(previous.right,
+                boundary - ISLAND_GAP / 2);
+            current.left = Math.max(current.left,
+                boundary + ISLAND_GAP / 2);
+        }
+        for (const proposal of proposals) {
+            const {region, left, right, top, bottom, opacity} = proposal;
+            const width = right - left;
+            const height = bottom - top;
+            if (width < MIN_WIDTH || height < MIN_HEIGHT) {
+                this._hideRegion(region);
+                continue;
+            }
             region.surface.setBounds(
-                bx - hostX, by - hostY, w, h,
-                actor.get_paint_opacity?.() ?? actor.opacity ?? 255
+                left - hostX, top - hostY, width, height, opacity
             );
-
             const ready = region.surface.ready;
             if (ready !== region.ready) {
                 region.ready = ready;
                 if (ready)
-                    actor.add_style_class_name('vliq-panel-island-ready');
+                    region.actor.add_style_class_name('vliq-panel-island-ready');
                 else
-                    actor.remove_style_class_name('vliq-panel-island-ready');
+                    region.actor.remove_style_class_name('vliq-panel-island-ready');
             }
         }
 
