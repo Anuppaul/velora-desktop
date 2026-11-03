@@ -12,7 +12,7 @@ import {
 
 const CARD_CLASS = 'vliq-liquid-shell-card';
 const PREVIEW_CARD_CLASS = 'vliq-app-preview-card';
-const CLOCK_CARD_CLASS = 'vliq-desktop-clock';
+const CLOCK_CARD_CLASS = 'vliq-clock-card';
 const OPTICAL_MARGIN = 104;
 const TARGET_CLASSES = new Set([
     'modal-dialog',
