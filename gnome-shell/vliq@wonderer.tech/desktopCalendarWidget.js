@@ -2,6 +2,7 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Pango from 'gi://Pango';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const CARD_WIDTH = 326;
@@ -113,6 +114,8 @@ export class DesktopCalendarWidget {
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
+            // Center the visible weekday glyph within the fixed badge.
+            heading.clutter_text.set_line_alignment(Pango.Alignment.CENTER);
             const cell = new St.Bin({
                 style_class: 'vliq-calendar-cell',
                 width: GRID_CELL_WIDTH,
@@ -150,6 +153,9 @@ export class DesktopCalendarWidget {
                     x_align: Clutter.ActorAlign.CENTER,
                     y_align: Clutter.ActorAlign.CENTER,
                 });
+                // Single and double digit dates share the exact same
+                // centered text placement inside the 30px highlight badge.
+                label.clutter_text.set_line_alignment(Pango.Alignment.CENTER);
                 const cell = new St.Bin({
                     style_class: 'vliq-calendar-cell',
                     width: GRID_CELL_WIDTH,
