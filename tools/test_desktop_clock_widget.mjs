@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 // Test the shipped GJS widget without GNOME Shell by substituting only its
-// native Clutter/St/GSettings dependencies. This protects gesture semantics,
-// persistent geometry, local glass material selection and teardown.
+// native Clutter/St/GSettings dependencies. This protects drag semantics,
+// fixed card geometry, local glass material selection and teardown.
 const source = (await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/desktopClockWidget.js', import.meta.url
 ), 'utf8'))
@@ -48,7 +48,6 @@ class Settings {
             'clock-widget-enabled': true,
             'clock-widget-24h': false,
             'clock-widget-style': 'liquid',
-            'clock-widget-scale': 100,
             'clock-widget-x': 0.30,
             'clock-widget-y': 0.30,
             'frost-density': 88,
@@ -125,7 +124,10 @@ assert.equal(clock._actor.children[0], clock._content,
 assert.ok(clock._actor.layout_manager,
     'glass background must use BinLayout and never enter the text layout');
 assert.equal(updates[0], 'attach:liquid');
-assert.equal(settings.handlers.size, 7, 'listens to controls and frost density');
+assert.equal(settings.handlers.size, 6, 'listens to controls and frost density');
+assert.equal(clock._resizeGrip, undefined, 'no resize handle');
+assert.equal(clock._actor.width, 296, 'clock card stays at fixed width');
+assert.equal(clock._actor.height, 148, 'clock card stays at fixed height');
 
 const startX = clock._actor.x;
 const move = clock._face.action;
@@ -137,14 +139,6 @@ assert.equal(clock._actor.x - startX, 90,
 move.emit('end');
 assert.ok(settings.get_double('clock-widget-x') > 0.30,
     'freehand position must persist');
-
-const resize = clock._resizeGrip.action;
-resize.emit('recognize');
-for (let i = 0; i < 3; i++)
-    resize.emit('pan-update');
-resize.emit('end');
-assert.ok(settings.get_int('clock-widget-scale') >= 128,
-    'resize grip must persist the new scale');
 
 settings.set_string('clock-widget-style', 'frosted');
 assert.ok(updates.includes('update:frosted'),
@@ -168,14 +162,17 @@ assert.equal(clock._actor.visible, false,
 clock.disable();
 assert.equal(sourceRemoved, 1);
 assert.equal(clock._actor, null);
-assert.ok(grabDismissed >= 2);
+assert.ok(grabDismissed >= 1);
 assert.equal(settings.handlers.size, 0, 'no stale settings listeners');
 
 const stylesheet = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
 ), 'utf8');
 assert.match(stylesheet, /\.vliq-clock-card\.vliq-liquid-shell-card/);
-assert.match(stylesheet, /\.vliq-clock-resize-grip/);
+assert.doesNotMatch(stylesheet, /\.vliq-clock-resize-grip/,
+    'resize CSS must be absent');
+assert.match(stylesheet, /\.vliq-clock-glass-ready/,
+    'CSS must expose the shader once it is really ready');
 assert.match(stylesheet, /background-color:\s*rgba\(228, 240, 255, 0\.13\)/,
     'clock must not become fully transparent while shader compiles');
 
@@ -191,4 +188,4 @@ assert.equal(broken._actor.visible, true,
 assert.equal(broken._materialAttached, false,
     'failed glass attachment should retain native fallback');
 broken.disable();
-console.log('VLIQ desktop clock: drag, resize, persistence, glass fallback, occlusion and cleanup PASS.');
+console.log('VLIQ desktop clock: fixed size, drag, persistence, glass readiness fallback, occlusion and cleanup PASS.');
