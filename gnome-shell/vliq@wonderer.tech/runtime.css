@@ -1646,40 +1646,40 @@
 /* Clock fallback paints only while its actual VLIQ LiquidEffect starts.
  * Once attached, ShellCardSurface draws the optical glass underneath content;
  * the native actor must not paint a second border or veil. */
-.vliq-desktop-clock {
+.vliq-clock-card {
     padding: 18px 22px 10px 22px;
     border-radius: 24px;
     background-color: rgba(231, 242, 255, 0.18);
     border: 1px solid rgba(255, 255, 255, 0.32);
     box-shadow: 0 10px 24px rgba(12, 22, 36, 0.16);
 }
-.vliq-desktop-clock.vliq-clock-frosted {
+.vliq-clock-card.vliq-clock-frosted {
     background-color: rgba(228, 239, 250, 0.48);
     border-color: rgba(255, 255, 255, 0.46);
 }
 /* Retain a subtle material backing while LiquidEffect finishes its
  * asynchronous shader compile. The old fully-transparent override caused
  * the desktop clock card to vanish during or after hot updates. */
-.vliq-desktop-clock.vliq-liquid-shell-card {
+.vliq-clock-card.vliq-liquid-shell-card {
     background-color: rgba(228, 240, 255, 0.13) !important;
     background-image: none !important;
     border-color: rgba(255, 255, 255, 0.22) !important;
     box-shadow: none !important;
 }
-.vliq-desktop-clock.vliq-clock-frosted.vliq-liquid-shell-card {
+.vliq-clock-card.vliq-clock-frosted.vliq-liquid-shell-card {
     background-color: rgba(231, 241, 251, 0.26) !important;
     border-color: rgba(255, 255, 255, 0.36) !important;
 }
 .vliq-clock-drag-surface {
     padding: 4px 0 3px 0;
 }
-.vliq-desktop-clock-time {
+.vliq-clock-card-time {
     color: #ffffff;
     font-size: 42px;
     font-weight: 700;
     text-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
 }
-.vliq-desktop-clock-date {
+.vliq-clock-card-date {
     color: rgba(255, 255, 255, 0.98);
     font-size: 14px;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
