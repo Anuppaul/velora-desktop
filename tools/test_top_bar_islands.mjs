@@ -201,10 +201,14 @@ assert.ok(right.surface.bounds.x + right.surface.bounds.w <= 1674,
 panel._centerBox.children = [];
 stage.tick();
 assert.equal(center.surface.visible, false);
+assert.ok(center.actor.classes.has('vliq-panel-island-inactive'),
+    'empty indicator group must not keep a CSS glass fallback');
 assert.equal(left.surface.visible, true);
 panel._centerBox.children = [...controls[1]];
 stage.tick();
 assert.equal(center.surface.visible, true);
+assert.ok(!center.actor.classes.has('vliq-panel-island-inactive'),
+    'repopulated native controls restore only their own island');
 
 // Narrow displays and third-party indicators can make *glass padding*
 // overlap while the native GNOME controls remain independent. Keep a true
@@ -236,9 +240,12 @@ dateControl.visible = false;
 stage.tick();
 assert.equal(center.surface.visible, false,
     'hidden native controls must hide their glass immediately');
+assert.ok(center.actor.classes.has('vliq-panel-island-inactive'),
+    'hidden controls must clear their own painted fallback');
 delete dateControl.visible;
 stage.tick();
 assert.equal(center.surface.visible, true);
+assert.ok(!center.actor.classes.has('vliq-panel-island-inactive'));
 
 // GNOME can stretch a panel box when adding status indicators. Fit the
 // optical card to the real visible child allocation, not the empty box.
@@ -293,6 +300,8 @@ for (const [index, group] of [
     panel._leftBox, panel._centerBox, panel._rightBox,
 ].entries()) {
     assert.ok(!group.classes.has('vliq-panel-island'));
+    assert.ok(!group.classes.has('vliq-panel-island-inactive'),
+        'no stale inactive glass class after hot-reload');
     assert.equal(group.children.length,
         controls[index].length + (index === 2 ? 1 : 0));
     for (let j = 0; j < controls[index].length; j++) {
@@ -317,6 +326,8 @@ assert.match(css, /#panelLeft\.vliq-panel-island/);
 assert.match(css, /#panelCenter\.vliq-panel-island/);
 assert.match(css, /#panelRight\.vliq-panel-island/);
 assert.match(css, /#panelLeft\.vliq-panel-island-ready/);
+assert.match(css, /vliq-panel-island\.vliq-panel-island-inactive/,
+    'inactive native glass islands need a transparent fallback');
 
 const integration = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/liquidGlassDock.js',
