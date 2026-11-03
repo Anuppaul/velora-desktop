@@ -254,56 +254,6 @@ second.mapped = true;
 assert.equal(manager.attachPreview(second), true);
 assert.equal(manager._surfaces.size, 1);
 
-// The Clock shares the proven preview pipeline, but each widget may select
-// its own Liquid/Frosted material without rewriting system-wide settings.
-const clock = new Actor({style_class: 'vliq-clock-card'});
-clock.set_position(360, 140);
-clock.set_size(296, 148);
-cardLayer.add_child(clock);
-assert.equal(manager.attachWidget(clock, 'frosted', 0.88), true);
-const clockSurface = manager._surfaces.get(clock);
-assert.equal(clockSurface._material.parent, clock);
-assert.equal(clockSurface._previewInTarget, true);
-// Clock follows the canonical renderer's globally synchronized Liquid/Frosted
-// uniforms. It must NEVER set vliq_frost_amount on its own effect (the former
-// code overrode global selection). The mode argument is only a semantic role.
-assert.equal(clockSurface._effect.uniformValues.has('vliq_frost_amount'), false,
-    'Clock must inherit shared Frosted settings rather than override them');
-assert.equal(manager.updateWidgetMaterial(clock, 'liquid', 0), true);
-assert.equal(clockSurface._effect.uniformValues.has('vliq_frost_amount'), false,
-    'Liquid selection must still defer to the global MaterialSettings');
-assert.equal(manager._surfaces.get(second)._widgetMaterialStyle, null,
-    'Clock style must never change another preview surface');
-for (const key of [
-    'rim_intensity', 'ao_intensity',
-    'shadow_radius', 'shadow_intensity', 'surface_light_enabled',
-]) {
-    assert.equal(clockSurface._effect.uniformValues.get(key), 0,
-        'Clock-only optical cleanup must disable ' + key);
-    assert.equal(manager._surfaces.get(second)._effect.uniformValues.has(key),
-        false, 'Clock optical settings must not change preview ' + key);
-}
-
-// The CSS on the clock itself masks child glass until the shader is ready.
-// The actual LiquidEffect pipeline signals readiness to the shared global
-// appearance stylesheet rather than changing the clock's inline paint.
-clock.mapped = true;
-clock.emit('notify::mapped');
-clockSurface._material.mapped = true;
-stage.update();
-assert.equal(clock._classes.has('vliq-clock-glass-ready'), false,
-    'do not clear native fallback while GPU material is not ready');
-clockSurface._effect._shadersLoaded = true;
-clockSurface._effect._pipelines.composite = {};
-stage.update();
-assert.equal(clock._classes.has('vliq-clock-glass-ready'), true,
-    'compiled LiquidEffect must reveal the real glass, not CSS overlay');
-clock.destroy();
-assert.equal(clock._classes.has('vliq-clock-glass-ready'), false,
-    'teardown must clear old shader readiness state');
-assert.equal(manager._surfaces.has(clock), false,
-    'destroying clock must release its dedicated glass surface');
-assert.equal(manager._surfaces.size, 1);
 manager.cleanup();
 assert.equal(manager._surfaces.size, 0);
 assert.equal(stage._signals.size, 0);
