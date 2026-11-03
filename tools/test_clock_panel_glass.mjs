@@ -178,8 +178,8 @@ assert.deepEqual(surface._material.get_size(), [296, 148],
 assert.equal(surface._effect.cornerRadius, 24);
 assert.equal(surface._effect.shadowMaxRadius, 0);
 assert.equal(surface._effect.padding, 0);
-assert.equal(surface._effect.surfaceLight, false,
-    'disable all rim/sheen highlight causing horizontal streak');
+assert.equal(surface._effect.surfaceLight, true,
+    'Clock must retain the global Dock glass Fresnel, sheen and specular lighting');
 for (const uniform of ['ao_intensity', 'shadow_radius', 'shadow_intensity'])
     assert.equal(surface._effect._uniformValues.get(uniform), 0);
 
@@ -224,6 +224,18 @@ instance.detachClockWidgetGlass(card);
 assert.equal(stageSignals.size, 0, 'no leaked stage hook');
 assert.equal(surface._material, null);
 assert.equal(card.classes.has('vliq-clock-panel-glass-ready'), false);
+
+// The existing shared shader already clips rim highlights to opposite
+// corners. This is what keeps horizontal edge streaks gone while global
+// optical sheen and refraction remain enabled.
+const shader = await readFile(new URL(
+    '../gnome-shell/vliq@wonderer.tech/vendor/liquid-glass/shaders/glass.frag',
+    import.meta.url
+), 'utf8');
+assert.match(shader, /float finalRimLight = rimShape \* cornerGlint/,
+    'clock must reuse corner-clipped optical rim');
+assert.match(shader, /specularLight \*= specMask \* cornerGlint/,
+    'global specular highlights must remain corner-clipped');
 
 const css = await readFile(new URL(
     '../gnome-shell/vliq@wonderer.tech/runtime.css', import.meta.url
