@@ -1073,11 +1073,6 @@ export default class VLIQPreferences extends ExtensionPreferences {
         syncClockStyle();
         clockGroup.add(clockStyle);
 
-        addIntSpin(clockGroup, settings, 'clock-widget-scale',
-            'Clock size (%)',
-            '65–200%. Resize directly on the desktop using the bottom-right grip.',
-            65, 200, 5);
-
         const positionRow = new Adw.ActionRow({
             title: 'Desktop position',
             subtitle: 'Drag the clock anywhere on your primary monitor. The position is saved automatically.',
