@@ -213,31 +213,41 @@ export class TopBarIslands {
                 continue;
             }
 
-            // GNOME panel group allocations can stretch beyond their buttons.
-            // Prefer the bounds of actual visible children; this keeps the
-            // glass tight around Activities, Date Menu and Quick Settings
-            // rather than turning an expanded native box into a wide sheet.
-            const bounds = [];
+            // Use the native group's vertical allocation so all three
+            // islands remain the same consistent panel height. Only tighten
+            // the HORIZONTAL bounds to visible children when GNOME allocates
+            // an oversized group. Avoid per-frame temporary rect/map arrays.
+            const [groupX, groupY] =
+                actor.get_transformed_position?.() ?? [NaN, NaN];
+            const [groupW, groupH] =
+                actor.get_transformed_size?.() ?? [NaN, NaN];
+            let childLeft = Infinity;
+            let childRight = -Infinity;
             for (const child of visibleChildren) {
-                const [cx, cy] =
+                const [cx] =
                     child.get_transformed_position?.() ?? [NaN, NaN];
-                const [cw, ch] =
+                const [cw] =
                     child.get_transformed_size?.() ?? [NaN, NaN];
-                if ([cx, cy, cw, ch].every(Number.isFinite) &&
-                    cw > 0 && ch > 0)
-                    bounds.push([cx, cy, cx + cw, cy + ch]);
+                if (Number.isFinite(cx) && Number.isFinite(cw) && cw > 0) {
+                    childLeft = Math.min(childLeft, cx);
+                    childRight = Math.max(childRight, cx + cw);
+                }
             }
-            let x, y, width, height;
-            if (bounds.length) {
-                x = Math.min(...bounds.map(b => b[0]));
-                y = Math.min(...bounds.map(b => b[1]));
-                width = Math.max(...bounds.map(b => b[2])) - x;
-                height = Math.max(...bounds.map(b => b[3])) - y;
-            } else {
-                [x, y] =
-                    actor.get_transformed_position?.() ?? [NaN, NaN];
-                [width, height] =
-                    actor.get_transformed_size?.() ?? [NaN, NaN];
+            // Bounds are always clipped to the actual GNOME group so a
+            // rogue offscreen indicator cannot expand glass into desktop.
+            let x = groupX;
+            let y = groupY;
+            let width = groupW;
+            let height = groupH;
+            if (Number.isFinite(childLeft) && Number.isFinite(childRight) &&
+                Number.isFinite(groupX) && Number.isFinite(groupW) &&
+                groupW > 0) {
+                const left = clamp(childLeft, groupX, groupX + groupW);
+                const right = clamp(childRight, left, groupX + groupW);
+                if (right - left >= MIN_WIDTH) {
+                    x = left;
+                    width = right - left;
+                }
             }
             if (![x, y, width, height].every(Number.isFinite) ||
                 width < MIN_WIDTH || height < MIN_HEIGHT ||
