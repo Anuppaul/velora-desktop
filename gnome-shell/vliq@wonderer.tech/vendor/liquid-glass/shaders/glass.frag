@@ -41,6 +41,9 @@ uniform float shininess;
 // (both computed independently of this uniform, see main()) rather than a
 // dock-style glass glint hugging the window edge.
 uniform float surface_light_enabled;
+// Clock-only straight-edge sheen guard. Default 0 leaves EVERY existing
+// VLIQ glass surface pixel-for-pixel unchanged; the desktop clock sets 1.
+uniform float vliq_clock_straight_edge_guard;
 // [NEW] Inner edge ambient-occlusion darkening, independent of rim_width and
 // of the outer drop shadow (shadow_radius / shadow_intensity above). Lets
 // the user tune the "shadow under the glass" band on its own instead of it
@@ -1528,6 +1531,14 @@ void main() {
     surfaceSheen *= mix(1.0, 0.55, edgeBand);
     surfaceSheen *= 1.0 + opticalResponse * 0.22;
     vec3 sheenColor = vec3(1.0) * surfaceSheen * sheen_intensity;
+    // The Clock re-enables the full global Fresnel/specular/sheen material.
+    // Softly remove ONLY the thin straight-edge sheen band: that long
+    // horizontal streak is not part of the user's corner-lit design.
+    // The broad interior sheen and both localized corner glints survive.
+    // All other consumers retain the original shader exactly (guard = 0).
+    float clockStraightEdge = edgeBand * (1.0 - cornerGlint);
+    sheenColor *= 1.0 - clamp(vliq_clock_straight_edge_guard, 0.0, 1.0) *
+                  clamp(clockStraightEdge, 0.0, 1.0);
 
     float alpha = insideMask;
     
