@@ -168,6 +168,20 @@ export class DesktopClockWidget {
                     MAX_SCALE
                 );
                 this._setScale(next);
+                const monitor = Main.layoutManager.primaryMonitor;
+                if (monitor) {
+                    const size = this._renderedSize();
+                    this._actor.set_position(
+                        Math.round(clamp(
+                            this._actor.x, monitor.x,
+                            monitor.x + Math.max(0, monitor.width - size.width)
+                        )),
+                        Math.round(clamp(
+                            this._actor.y, monitor.y,
+                            monitor.y + Math.max(0, monitor.height - size.height)
+                        ))
+                    );
+                }
             }
 
             this._updateBounds();
