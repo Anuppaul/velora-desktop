@@ -461,6 +461,30 @@ class ShellCardSurface {
 
         this._ensureSceneManager();
         this._syncSceneLayers();
+        this._syncClockMaterialVisibility();
+    }
+
+    // Clock's native fallback is painted by the CARD itself, above its
+    // child LiquidEffect. Keep the fallback until shader + composite pipeline
+    // are actually ready, then clear the CARD paint to reveal true refraction.
+    // This is specific to Clock: all existing Shell Card/preview behaviour
+    // remains untouched. Never guess readiness from "attached" alone.
+    _syncClockMaterialVisibility() {
+        if (!classesOf(this._target).includes(CLOCK_CARD_CLASS))
+            return;
+        const ready = Boolean(
+            this._material?.mapped &&
+            this._effect?._shadersLoaded &&
+            this._effect?._pipelines?.composite
+        );
+        const name = 'vliq-clock-glass-ready';
+        if (ready === Boolean(this._clockGlassReady))
+            return;
+        this._clockGlassReady = ready;
+        if (ready)
+            this._target.add_style_class_name?.(name);
+        else
+            this._target.remove_style_class_name?.(name);
     }
 
     syncFrame() {
@@ -633,6 +657,12 @@ class ShellCardSurface {
         }
         this._signals = [];
 
+        // Clear the clock-only readiness flag on teardown so a new
+        // runtime never inherits a transparent card with no shader.
+        try {
+            this._target?.remove_style_class_name?.('vliq-clock-glass-ready');
+        } catch {}
+        this._clockGlassReady = false;
         if (removeClass) {
             try {
                 this._target?.remove_style_class_name?.(
