@@ -1050,6 +1050,49 @@ export default class VLIQPreferences extends ExtensionPreferences {
             '24-hour time',
             'Switch between 24-hour and 12-hour clock formats.');
 
+        const clockStyleValues = ['liquid', 'frosted'];
+        const clockStyle = new Adw.ComboRow({
+            title: 'Clock material',
+            subtitle: 'Choose VLIQ Liquid Glass or Frosted Crystal for this widget.',
+            model: Gtk.StringList.new(['Liquid Glass', 'Frosted Crystal']),
+        });
+        const syncClockStyle = () => {
+            const index = clockStyleValues.indexOf(
+                settings.get_string('clock-widget-style')
+            );
+            const desired = Math.max(0, index);
+            if (clockStyle.selected !== desired)
+                clockStyle.selected = desired;
+        };
+        clockStyle.connect('notify::selected', () => {
+            const value = clockStyleValues[clockStyle.selected];
+            if (value && settings.get_string('clock-widget-style') !== value)
+                settings.set_string('clock-widget-style', value);
+        });
+        settings.connect('changed::clock-widget-style', syncClockStyle);
+        syncClockStyle();
+        clockGroup.add(clockStyle);
+
+        addIntSpin(clockGroup, settings, 'clock-widget-scale',
+            'Clock size (%)',
+            '65–200%. Resize directly on the desktop using the bottom-right grip.',
+            65, 200, 5);
+
+        const positionRow = new Adw.ActionRow({
+            title: 'Desktop position',
+            subtitle: 'Drag the clock anywhere on your primary monitor. The position is saved automatically.',
+        });
+        const resetClockPosition = new Gtk.Button({
+            label: 'Reset position',
+            valign: Gtk.Align.CENTER,
+        });
+        resetClockPosition.connect('clicked', () => {
+            settings.reset('clock-widget-x');
+            settings.reset('clock-widget-y');
+        });
+        positionRow.add_suffix(resetClockPosition);
+        clockGroup.add(positionRow);
+
         // -----------------------------------------------------------------
         // Performance
         // -----------------------------------------------------------------
