@@ -15,7 +15,10 @@ const MARGIN_LIMIT = 0; // full-width native panel, square corners, no shadow
 export class PanelGlassSurface {
     constructor(vendor, settings, readAppearance, options = {}) {
         this._cornerRadius = Math.max(0, options.cornerRadius ?? 0);
-        this._clockCard = options.clockCard === true;
+        // Opt-in bounded desktop widgets reuse the very same panel
+        // material; ordinary panel callers keep their original size guard.
+        this._clockCard = options.clockCard === true ||
+            options.widgetCard === true;
         this._vendor = vendor;
         this._settings = settings;
         this._readAppearance = readAppearance;
@@ -163,7 +166,9 @@ export class PanelGlassSurface {
             width <= 1 || height <= 1 ||
             // Defense-in-depth. The caller verifies native panel thickness
             // against its monitor before reaching this layer.
-            Math.min(width, height) > 240) {
+            (this._clockCard
+                ? (width > 640 || height > 520)
+                : Math.min(width, height) > 240)) {
             if (actor.opacity !== 0) {
                 actor.opacity = 0;
                 this._boundsDirty = true;
