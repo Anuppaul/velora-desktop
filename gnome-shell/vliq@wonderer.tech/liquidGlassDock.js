@@ -3602,70 +3602,14 @@ export class LiquidGlassIntegration {
             } catch {}
         }
 
-        const slide =
-            this._readNativeDockSlide(entry);
-        if (
-            Number.isFinite(slide) &&
-            slide <
-                1 - NATIVE_DOCK_SLIDE_EPSILON
-        ) {
-            return;
-        }
-
-        // Fully shown dock: repair only impossible zero-opacity paint states.
-        // Do not touch partial opacity (drag/launch animation) or geometry.
-        const dash = dock.dash ?? null;
-        if (!dash)
-            return;
-
-        try {
-            if (
-                dash.visible !== false &&
-                Number(dash.opacity) === 0
-            ) {
-                dash.opacity = 255;
-            }
-        } catch {}
-
-        const items =
-            dash._box?.get_children?.() ?? [];
-
-        for (const item of items) {
-            const appIcon =
-                item?.child ?? null;
-
-            // Only real app items; separators/placeholders are intentionally
-            // allowed to have independent visibility/opacity.
-            if (!appIcon?.icon)
-                continue;
-
-            try {
-                if (
-                    item.visible !== false &&
-                    Number(item.opacity) === 0
-                ) {
-                    item.opacity = 255;
-                }
-            } catch {}
-
-            try {
-                if (
-                    appIcon.visible !== false &&
-                    Number(appIcon.opacity) === 0
-                ) {
-                    appIcon.opacity = 255;
-                }
-            } catch {}
-
-            try {
-                if (
-                    appIcon.icon?.visible !== false &&
-                    Number(appIcon.icon?.opacity) === 0
-                ) {
-                    appIcon.icon.opacity = 255;
-                }
-            } catch {}
-        }
+        // Never force native app-icon opacity from zero to 255. GNOME 50
+        // legitimately uses zero opacity during app activation, hover,
+        // relayout and Overview transitions. A VLIQ write here can race
+        // Mutter's animation on the next frame, producing a repeated icon
+        // flash while its separate Liquid Glass card remains visible.
+        //
+        // Our ownership ends at keeping bgActor BELOW Ubuntu Dock. Native
+        // Dash-to-Dock alone owns icon visibility and opacity.
     }
 
     _nativeDockGlassVisible(entry) {
