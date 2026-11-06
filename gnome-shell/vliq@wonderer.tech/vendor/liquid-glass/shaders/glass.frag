@@ -1481,7 +1481,20 @@ void main() {
     
     // Mix the fresnel effect with the edge mask to keep light strictly on the bevels.
     float rimShape = mix(pow(edgeBand, 0.85), rimFresnel, 0.55) * edgeBand;
-    float finalRimLight = rimShape * lightMask * rim_intensity * rim_light_color_intensity;
+    // VLIQ optical signature: highlights at top-left and bottom-right only.
+    // local_pos is centered and box_size is the half-extent of this surface.
+    // The two localized masks fade smoothly along BOTH adjacent edges;
+    // no additional border actor, blur pass, or shader uniform is needed.
+    vec2 cornerUV = clamp(local_pos / max(box_size * 2.0, vec2(1.0)) + 0.5,
+                          vec2(0.0), vec2(1.0));
+    float topLeftGlint = (1.0 - smoothstep(0.0, 0.36, cornerUV.x)) *
+                         (1.0 - smoothstep(0.0, 0.36, cornerUV.y));
+    float bottomRightGlint = smoothstep(0.64, 1.0, cornerUV.x) *
+                             smoothstep(0.64, 1.0, cornerUV.y);
+    float cornerGlint = clamp(topLeftGlint * 1.0 + bottomRightGlint * 0.68,
+                              0.0, 1.0);
+    float finalRimLight = rimShape * cornerGlint * rim_intensity *
+                          rim_light_color_intensity;
     finalRimLight *= response;
     
     // [FIX] Previously also multiplied by insideMask here to "mask out
@@ -1500,9 +1513,9 @@ void main() {
     float specularLight = pow(specularDot, max(shininess, 1.0));
     specularLight *= specular_intensity * response;
     float specMask = mix(0.25, 1.0, insideMask) * clamp(edgeBand + insideMask * 0.65, 0.0, 1.0);
-    specularLight *= specMask;
+    specularLight *= specMask * cornerGlint;
 
-    float idleRim = edgeBand * 0.008;
+    float idleRim = edgeBand * 0.008 * cornerGlint;
     // [FIX] Same redundant-insideMask issue as finalRimLight above — removed.
     // The final `litColor * alpha` composite already applies insideMask once.
 
@@ -1536,7 +1549,7 @@ void main() {
         1.0, 0.09 + 0.14 * crystalEdgeGlow, frostMatte
     );
     addedLight += vec3(0.79, 0.90, 1.0) *
-        pow(max(edgeBand, 0.0), 0.58) * lightMask *
+        pow(max(edgeBand, 0.0), 0.58) * cornerGlint *
         (0.05 + 0.21 * crystalEdgeGlow) *
         frostMatte * surface_light_enabled;
 
@@ -1580,6 +1593,9 @@ void main() {
             (0.76 - edgeBlue.r) / (0.76 - 0.54), 0.0, 1.0
         );
         edgeCoverage *= mix(1.0, 0.58, brightEdge);
+        // The adaptive optical outline is the old full-height white edge.
+        // Clip its visibility to the same diagonal corner highlights.
+        edgeCoverage *= cornerGlint;
         // Frosted uses a calmer contrast contour; its Crystal Edge Glow
         // slider still controls the separate broad luminous highlight.
         edgeCoverage *= mix(
