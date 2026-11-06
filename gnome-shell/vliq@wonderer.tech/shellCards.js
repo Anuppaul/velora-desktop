@@ -335,15 +335,22 @@ class ShellCardSurface {
             this._target.opacity ??
             255;
 
-        if (
-            !this._target.mapped ||
-            !this._target.visible ||
-            w <= 1 ||
-            h <= 1 ||
-            opacity <= 0
-        ) {
+        // Zero paint opacity during GNOME's native close/open animation is
+        // NOT equivalent to an unmapped or destroyed card. Releasing its
+        // wallpaper/window clone tree here caused a cold empty capture each
+        // time a hover preview changed alpha through zero.
+        const unmapped = !this._target.mapped ||
+            !this._target.visible || w <= 1 || h <= 1;
+        if (unmapped) {
             this._material.hide?.();
             this._releaseSceneManager();
+            return;
+        }
+        if (opacity <= 0) {
+            // Keep the mapped scene/effect warm for the next fade-in, but
+            // skip clone work while the material cannot be painted.
+            if (!this._previewInTarget && this._material.opacity !== 0)
+                this._material.opacity = 0;
             return;
         }
 
@@ -428,6 +435,8 @@ class ShellCardSurface {
             !this._target?.mapped ||
             !this._target?.visible
         ) {
+            // Only a true unmap can tear down the expensive clone scene.
+            this._material?.hide?.();
             this._releaseSceneManager();
             return;
         }
