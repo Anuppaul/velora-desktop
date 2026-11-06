@@ -17,6 +17,8 @@ const ShellCardSurface = new Function(
 
 function card(previewInTarget) {
     let alpha = 255;
+    let width = 150;
+    let height = 90;
     let destroys = 0;
     let creates = 0;
     let syncs = 0;
@@ -27,7 +29,7 @@ function card(previewInTarget) {
         get_parent: () => ({}),
         get_allocation_box: () => ({
             x1: 40, y1: 50,
-            get_width: () => 150, get_height: () => 90,
+            get_width: () => width, get_height: () => height,
         }),
         get_paint_opacity: () => alpha,
         scale_x: 1, scale_y: 1,
@@ -67,6 +69,8 @@ function card(previewInTarget) {
     return {
         surface, target, material,
         get alpha() {return alpha;}, set alpha(value) {alpha = value;},
+        get width() {return width;}, set width(value) {width = value;},
+        get height() {return height;}, set height(value) {height = value;},
         counts: () => ({creates, destroys, syncs, hides}),
     };
 }
@@ -88,6 +92,23 @@ for (const preview of [false, true]) {
     assert.equal(item.counts().destroys, 0, 'no cloned scene teardown on fade');
     assert.equal(item.counts().hides, 0, 'mapped card must stay mapped');
     assert.equal(item.material.opacity, 255, 'fade-in restores proper alpha');
+
+    // GNOME can publish a zero or invalid allocation for one frame during
+    // Overview / workspace transitions without actually unmapping a card.
+    for (const [width, height] of [[0, 90], [150, 0],
+        [NaN, 90], [150, NaN], [150, 90]]) {
+        item.width = width;
+        item.height = height;
+        item.surface.syncFrame();
+        assert.equal(item.counts().destroys, 0,
+            'transient allocation must not destroy mapped scene');
+        assert.equal(item.counts().hides, 0,
+            'transient allocation must not unmap material');
+    }
+    assert.equal(item.material.opacity, 255,
+        'valid bounds restore glass after allocation settles');
+    assert.equal(item.counts().creates, 1,
+        'allocation glitch must not recreate clone manager');
 
     item.target.mapped = false;
     item.surface.syncFrame();
