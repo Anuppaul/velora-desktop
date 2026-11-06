@@ -49,18 +49,31 @@ reversible migration:
    previous extension. A first-time GNOME extension UUID may require
    logging out and logging in once.
 
-To update an existing source checkout **after pulling the VLIQ changes**:
+### New VLIQ checkout
+
+For a clean clone, use the current project identity and folder name:
 
 ```bash
-cd ~/Documents/code/velora-desktop
-git remote set-url origin https://github.com/Anuppaul/vliq.git
-git pull origin main
+cd ~/Documents/code
+git clone https://github.com/Anuppaul/vliq.git
+cd vliq
 bash gnome-shell/install.sh
 gnome-extensions info vliq@wonderer.tech
 ```
 
-Your existing local checkout directory name is not an extension identity.
-It can be renamed later, once it is safe to do so.
+### Existing checkout created before the rename
+
+If the repository was previously cloned into the old local folder, **keep that existing directory** while migrating. Its legacy folder name does not change the extension identity:
+
+```bash
+cd ~/Documents/code/velora-desktop  # Existing old checkout only
+git remote set-url origin https://github.com/Anuppaul/vliq.git
+git pull --ff-only origin main
+bash gnome-shell/install.sh
+gnome-extensions info vliq@wonderer.tech
+```
+
+Once migration has been verified, you may rename the local checkout directory to `vliq`. The canonical **new** repository and GNOME identity are always VLIQ; the old folder example above is solely for users upgrading an earlier checkout.
 
 To verify or open preferences:
 
